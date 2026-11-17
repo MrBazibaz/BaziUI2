@@ -246,6 +246,10 @@ function addon.Options:Open()
 
     optionsFrame:Show()
     optionsFrame:Raise()
+    if optionsFrame.baziEmblemHost then
+        optionsFrame.baziEmblemHost:Show()
+        optionsFrame.baziEmblemHost:Raise()
+    end
 end
 
 function addon.Options:Create()
