@@ -125,6 +125,29 @@ function addon.Theme:SkinGameMenuButton(button)
     fill:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", -6, 6)
     fill:SetColorTexture(0.34, 0.17, 0.25, 0.96)
     button.baziGameMenuFill = fill
+    -- Match Bazi UI's warm gold/beige labels, including hover and disabled.
+    local label = button.GetFontString and button:GetFontString()
+    if label then
+        label:SetTextColor(0.96, 0.81, 0.59, 1)
+    end
+    if button.SetNormalFontObject then
+        local normalFont = CreateFont(nil)
+        normalFont:CopyFontObject(GameFontNormal)
+        normalFont:SetTextColor(0.96, 0.81, 0.59, 1)
+        button:SetNormalFontObject(normalFont)
+    end
+    if button.SetHighlightFontObject then
+        local highlightFont = CreateFont(nil)
+        highlightFont:CopyFontObject(GameFontNormal)
+        highlightFont:SetTextColor(1, 0.89, 0.68, 1)
+        button:SetHighlightFontObject(highlightFont)
+    end
+    if button.SetDisabledFontObject then
+        local disabledFont = CreateFont(nil)
+        disabledFont:CopyFontObject(GameFontNormal)
+        disabledFont:SetTextColor(0.58, 0.47, 0.36, 1)
+        button:SetDisabledFontObject(disabledFont)
+    end
 
     local function Trim(a, b, ax, ay, bx, by, horizontal)
         local edge = button:CreateTexture(nil, "OVERLAY")
