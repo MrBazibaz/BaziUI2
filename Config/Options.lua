@@ -67,11 +67,7 @@ local function ShowPage(pageName)
     end
 
     for name, button in pairs(navButtons) do
-        if name == pageName then
-            button:SetAlpha(1)
-        else
-            button:SetAlpha(0.72)
-        end
+        addon.Theme:SetButtonActive(button, name == pageName)
     end
 end
 
