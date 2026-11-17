@@ -242,7 +242,10 @@ local function HandleCommand(message)
     argument = string.lower(argument or "")
 
     if command == "" then
-        addon.Options:Open()
+        local ok, err = pcall(function() addon.Options:Open() end)
+        if not ok then
+            addon:Print("Options error: " .. tostring(err))
+        end
     elseif command == "version" then
         addon:Print("version " .. addon.version)
     elseif command == "reload" then
