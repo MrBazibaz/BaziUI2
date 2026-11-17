@@ -265,8 +265,8 @@ local function HandleCommand(message)
     end
 end
 
--- Replace the default red Game Menu hover with a soft, warm lilac highlight.
--- This affects only Game Menu buttons and leaves their normal textures alone.
+-- Game Menu buttons use Blizzard's red hover artwork on this client.
+-- Replace the actual highlight and suppress its original red region.
 local function StyleGameMenuHover()
     local menu = _G.GameMenuFrame
     if not menu then return end
@@ -274,10 +274,14 @@ local function StyleGameMenuHover()
         local name = button.GetName and button:GetName()
         if button.IsObjectType and button:IsObjectType("Button")
             and name and name:match("^GameMenuButton") and not button.baziHoverStyled then
+            local oldHighlight = button:GetHighlightTexture()
+            if oldHighlight then
+                oldHighlight:SetTexture(nil)
+                oldHighlight:SetAtlas(nil)
+            end
             local highlight = button:CreateTexture(nil, "HIGHLIGHT")
-            highlight:SetPoint("TOPLEFT", button, "TOPLEFT", 5, -5)
-            highlight:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", -5, 5)
-            highlight:SetColorTexture(0.75, 0.55, 0.85, 0.30)
+            highlight:SetAllPoints(button)
+            highlight:SetColorTexture(0.62, 0.43, 0.72, 0.46)
             highlight:SetBlendMode("ADD")
             button:SetHighlightTexture(highlight)
             button.baziHoverStyled = true
