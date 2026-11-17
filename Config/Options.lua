@@ -2,6 +2,7 @@ local addon = BaziUI
 addon.Options = addon.Options or {}
 local ASSET = "Interface\\AddOns\\BaziUI\\Assets\\"
 local frame, content, pages = nil, nil, {}
+local pageScrolls = {}
 local navigation, tabs = {}, {}
 local GOLD = {0.87, 0.68, 0.38}
 local function Paint(parent, layer, r,g,b,a, x1,y1,x2,y2)
@@ -42,10 +43,23 @@ local function Button(parent,text,x,y,w,h,action)
     return b
 end
 local function Page(name)
-    local p=CreateFrame("Frame",nil,content);p:SetAllPoints(content);p:Hide();pages[name]=p;return p
+    local viewport=CreateFrame("ScrollFrame",nil,content)
+    viewport:SetAllPoints(content)
+    viewport:EnableMouseWheel(true)
+    local p=CreateFrame("Frame",nil,viewport)
+    p:SetSize(730,600)
+    viewport:SetScrollChild(p)
+    viewport:SetScript("OnMouseWheel",function(self,delta)
+        local maxScroll=math.max(0,p:GetHeight()-self:GetHeight())
+        self:SetVerticalScroll(math.max(0,math.min(maxScroll,self:GetVerticalScroll()-delta*38)))
+    end)
+    viewport:Hide()
+    pages[name]=viewport
+    pageScrolls[name]=p
+    return p
 end
 local function Show(name)
-    for k,p in pairs(pages) do p:SetShown(k==name) end
+    for k,p in pairs(pages) do p:SetShown(k==name); if k==name then p:SetVerticalScroll(0) end end
     for k,b in pairs(navigation) do
         b.bg:SetColorTexture(k==name and 0.31 or 0.13,k==name and 0.17 or 0.095,k==name and 0.35 or 0.15,0.98)
         b.accent:SetAlpha(k==name and 1 or 0)
@@ -54,7 +68,7 @@ local function Show(name)
     for k,b in pairs(tabs) do b.active:SetAlpha(k==name and 1 or 0) end
 end
 local function Slider(parent,title,subtitle,y,minv,maxv,step,value,change)
-    local row=Panel(parent,22,y,574,65)
+    local row=Panel(parent,22,y,684,65)
     local name=Label(row,title,"GameFontNormal",0.94,0.81,0.58)
     name:SetPoint("TOPLEFT",row,"TOPLEFT",17,-12)
     local desc=Label(row,subtitle,"GameFontHighlightSmall",0.66,0.64,0.69)
@@ -85,7 +99,7 @@ local function Section(parent,name,y)
 end
 local function General()
     local p=Page("General")
-    local hero=Panel(p,12,-8,594,112)
+    local hero=Panel(p,12,-8,704,112)
     local glow=Paint(hero,"BORDER",0.21,0.115,0.31,0.75,1,-1,-1,1)
     local crest=hero:CreateTexture(nil,"ARTWORK");crest:SetTexture(ASSET.."Icons\\BaziUI_Emblem_256.png")
     crest:SetSize(80,80);crest:SetPoint("RIGHT",hero,"RIGHT",-18,0);crest:SetAlpha(0.50)
@@ -93,7 +107,7 @@ local function General()
     h:SetPoint("TOPLEFT",hero,"TOPLEFT",23,-23)
     local sub=Label(hero,"Make Azeroth yours. Fine-tune your interface.","GameFontHighlight",0.85,0.76,0.81)
     sub:SetPoint("TOPLEFT",hero,"TOPLEFT",24,-67)
-    local settings=Panel(p,12,-133,594,257)
+    local settings=Panel(p,12,-133,704,320)
     Section(settings,"Appearance",-19)
     local db=addon.db.profile
     Slider(settings,"Window Scale","Size of the Bazi UI settings window",-59,0.70,1.20,0.01,db.uiScale,function(v)
@@ -103,13 +117,13 @@ local function General()
 end
 local function Placeholder(name,description)
     local p=Page(name)
-    local panel=Panel(p,12,-8,594,168)
+    local panel=Panel(p,12,-8,704,168)
     Section(panel,name,-23)
     local txt=Label(panel,description or "Module settings will appear here as development continues.","GameFontHighlight",0.81,0.75,0.81)
     txt:SetPoint("TOPLEFT",panel,"TOPLEFT",25,-76)
 end
 local function Nav(parent,name,icon,y)
-    local b=CreateFrame("Button",nil,parent);b:SetSize(198,30)
+    local b=CreateFrame("Button",nil,parent);b:SetSize(206,30)
     b:SetPoint("TOPLEFT",parent,"TOPLEFT",9,y)
     b.bg=Paint(b,"BACKGROUND",0.13,0.095,0.15,0.98)
     b.accent=Paint(b,"ARTWORK",0.91,0.66,0.30,1)
@@ -131,7 +145,7 @@ local function Tab(parent,name,x,w)
 end
 function addon.Options:Create()
     frame=CreateFrame("Frame","BaziUIOptionsFrame",UIParent)
-    frame:SetSize(900,555);frame:SetPoint("CENTER");frame:SetFrameStrata("DIALOG")
+    frame:SetSize(1020,680);frame:SetPoint("CENTER");frame:SetFrameStrata("DIALOG")
     frame:SetClampedToScreen(true);frame:SetMovable(true);frame:EnableMouse(true)
     frame:RegisterForDrag("LeftButton");frame:SetScript("OnDragStart",frame.StartMoving)
     frame:SetScript("OnDragStop",frame.StopMovingOrSizing)
@@ -168,21 +182,14 @@ function addon.Options:Create()
     title:SetPoint("TOPLEFT",frame,"TOPLEFT",85,-16)
     local version=Label(frame,"REFORGED  /  V7 PREVIEW","GameFontNormalSmall",0.64,0.58,0.66)
     version:SetPoint("TOPLEFT",frame,"TOPLEFT",87,-45)
-    local close=Button(frame,"X",857,-12,28,27,function()frame:Hide()end)
+    local close=Button(frame,"X",977,-12,28,27,function()frame:Hide()end)
     close:SetFrameLevel(frame:GetFrameLevel()+5)
     Line(frame,-93,11,-11)
-    local sidebar=Panel(frame,10,-103,218,414)
-    local scroll=CreateFrame("ScrollFrame",nil,sidebar)
-    scroll:SetPoint("TOPLEFT",sidebar,"TOPLEFT",4,-7)
-    scroll:SetPoint("BOTTOMRIGHT",sidebar,"BOTTOMRIGHT",-4,7)
-    local navBody=CreateFrame("Frame",nil,scroll)
-    navBody:SetSize(210,680)
-    scroll:SetScrollChild(navBody)
-    scroll:EnableMouseWheel(true)
-    scroll:SetScript("OnMouseWheel",function(self,delta)
-        local maxScroll=math.max(0,navBody:GetHeight()-self:GetHeight())
-        self:SetVerticalScroll(math.max(0,math.min(maxScroll,self:GetVerticalScroll()-delta*38)))
-    end)
+    -- Fixed navigation: every category remains visible without scrolling.
+    local sidebar=Panel(frame,10,-103,230,542)
+    local navBody=CreateFrame("Frame",nil,sidebar)
+    navBody:SetPoint("TOPLEFT",sidebar,"TOPLEFT",4,-7)
+    navBody:SetSize(222,530)
     local function Category(name,y)
         local h=Label(navBody,name,"GameFontNormalSmall",0.83,0.62,0.34)
         h:SetPoint("TOPLEFT",navBody,"TOPLEFT",15,y)
@@ -191,8 +198,8 @@ function addon.Options:Create()
     Category("GAMEPLAY",-177)
     Category("INTERFACE",-345)
     Category("QUALITY OF LIFE",-513)
-    content=CreateFrame("Frame",nil,frame);content:SetPoint("TOPLEFT",frame,"TOPLEFT",245,-104)
-    content:SetSize(620,414)
+    content=CreateFrame("Frame",nil,frame);content:SetPoint("TOPLEFT",frame,"TOPLEFT",255,-104)
+    content:SetSize(748,542)
     General()
     local others={"Profiles","Import / Export","What's New","Appearance","UnitFrames","Nameplates","ActionBars","Chat","Quest","Gathering","Minimap","Tooltip","Combat","BugTab","QoL Settings"}
     for _,name in ipairs(others) do Placeholder(name) end
@@ -211,6 +218,7 @@ function addon.Options:Create()
     Nav(navBody,"Combat","!",-435)
     Nav(navBody,"BugTab","*",-469)
     Nav(navBody,"QoL Settings","+",-535)
+    Line(frame,-650,16,-16)
     local footer=Label(frame,"BAZI UI  |  Changes are saved automatically","GameFontNormalSmall",0.71,0.63,0.61)
     footer:SetPoint("BOTTOMLEFT",frame,"BOTTOMLEFT",23,15)
     local stage=Label(frame,"V7 DEVELOPMENT BUILD","GameFontNormalSmall",0.76,0.58,0.37)
