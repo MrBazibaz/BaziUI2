@@ -169,9 +169,20 @@ end
 
 function addon.Options:Create()
     optionsFrame = CreateFrame("Frame", "BaziUIOptionsFrame", UIParent)
-    optionsFrame:SetBackdrop({ bgFile = "Interface\\\\DialogFrame\\\\UI-DialogBox-Background", edgeFile = "Interface\\\\Tooltips\\\\UI-Tooltip-Border", tile = true, tileSize = 32, edgeSize = 16, insets = { left = 4, right = 4, top = 4, bottom = 4 } })
-    optionsFrame:SetBackdropColor(0.055, 0.035, 0.075, 0.98)
-    optionsFrame:SetBackdropBorderColor(0.72, 0.53, 0.29, 1)
+    -- Use textures rather than SetBackdrop: some Forever frame builds do not expose it.
+    local rimColor = { 0.72, 0.53, 0.29, 0.95 }
+    local function AddRim(anchor1, anchor2, width, height)
+        local line = optionsFrame:CreateTexture(nil, "BORDER")
+        line:SetPoint(anchor1, optionsFrame, anchor1, 0, 0)
+        if anchor2 then line:SetPoint(anchor2, optionsFrame, anchor2, 0, 0) end
+        if width then line:SetWidth(width) end
+        if height then line:SetHeight(height) end
+        line:SetColorTexture(unpack(rimColor))
+    end
+    AddRim("TOPLEFT", "TOPRIGHT", nil, 2)
+    AddRim("BOTTOMLEFT", "BOTTOMRIGHT", nil, 2)
+    AddRim("TOPLEFT", "BOTTOMLEFT", 2, nil)
+    AddRim("TOPRIGHT", "BOTTOMRIGHT", 2, nil)
     optionsFrame:SetSize(690, 505)
     optionsFrame:SetPoint("CENTER")
     optionsFrame:SetFrameStrata("DIALOG")
