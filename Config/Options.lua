@@ -110,14 +110,15 @@ local function CreateGeneralPage()
     local page = CreateFrame("Frame", nil, contentFrame)
     page:SetAllPoints(contentFrame)
     pages.General = page
-    CreatePanel(page, -10, 66)
-    CreateSection(page, "REALM CONFIGURATION", -24)
+    local introPanel = CreatePanel(page, -10, 66)
+    CreateSection(introPanel, "REALM CONFIGURATION", -14)
     local intro = CreateLabel(page, "Make Azeroth yours. Fine-tune your interface.", "GameFontHighlightSmall")
-    intro:SetPoint("TOPLEFT", page, "TOPLEFT", 24, -49)
+    intro:SetParent(introPanel)
+    intro:SetPoint("TOPLEFT", introPanel, "TOPLEFT", 22, -39)
     intro:SetTextColor(0.96, 0.82, 0.63, 1)
 
-    CreatePanel(page, -88, 242)
-    CreateSection(page, "APPEARANCE", -102)
+    local appearancePanel = CreatePanel(page, -88, 242)
+    CreateSection(appearancePanel, "APPEARANCE", -14)
     local db = addon.db.profile
     CreateSlider(page, "WINDOW SCALE", "Size of the Bazi UI settings window", 0.70, 1.20, 0.01, db.uiScale, -142, function(value)
         db.uiScale = value
@@ -137,12 +138,13 @@ local function CreatePlaceholderPage(name, description)
     page:SetAllPoints(contentFrame)
     pages[name] = page
 
-    CreatePanel(page, -12, 130)
-    CreateSection(page, name, -26)
-    CreateDivider(page, -60)
+    local placeholderPanel = CreatePanel(page, -12, 130)
+    CreateSection(placeholderPanel, name, -14)
+    CreateDivider(placeholderPanel, -48)
 
     local message = CreateLabel(page, description or "Settings for this module will appear here.", "GameFontHighlight")
-    message:SetPoint("TOPLEFT", page, "TOPLEFT", 24, -88)
+    message:SetParent(placeholderPanel)
+    message:SetPoint("TOPLEFT", placeholderPanel, "TOPLEFT", 22, -76)
     message:SetTextColor(0.96, 0.82, 0.63, 1)
 
     return page
@@ -226,24 +228,22 @@ function addon.Options:Create()
     optionsFrame:RegisterForDrag("LeftButton")
     optionsFrame:SetScript("OnDragStart", optionsFrame.StartMoving)
     optionsFrame:SetScript("OnDragStop", optionsFrame.StopMovingOrSizing)
-    -- Fade the settings window while the player is moving.
-    -- Polling GetUnitSpeed also detects autorun and mounted movement.
-    local movementElapsed = 0
+    -- Ease into 75% opacity during movement; restore instantly on stopping.
     local displayedAlpha = 1
+    local fadeSeconds = 0.65
     optionsFrame:SetScript("OnShow", function(self)
-        movementElapsed = 0
         displayedAlpha = 1
         self:SetAlpha(1)
     end)
     optionsFrame:SetScript("OnUpdate", function(self, elapsed)
-        movementElapsed = movementElapsed + elapsed
-        if movementElapsed < 0.10 then return end
-        movementElapsed = 0
-        local moving = GetUnitSpeed and GetUnitSpeed("player") and GetUnitSpeed("player") > 0
-        local targetAlpha = moving and 0.75 or 1
-        if displayedAlpha ~= targetAlpha then
-            displayedAlpha = targetAlpha
-            self:SetAlpha(targetAlpha)
+        local speed = GetUnitSpeed and GetUnitSpeed("player") or 0
+        if speed > 0 then
+            displayedAlpha = math.max(0.75, displayedAlpha - elapsed * (0.25 / fadeSeconds))
+        else
+            displayedAlpha = 1
+        end
+        if self:GetAlpha() ~= displayedAlpha then
+            self:SetAlpha(displayedAlpha)
         end
     end)
     local backdrop = optionsFrame:CreateTexture(nil, "BACKGROUND", nil, 1)
