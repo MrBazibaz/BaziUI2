@@ -26,29 +26,20 @@ function addon.Theme:ApplyWindow(frame)
     warmth:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -5, 5)
     warmth:SetColorTexture(0.36, 0.21, 0.09, 0.23)
     frame.baziWarmth = warmth
-    -- Replace the native dialog backdrop's edgeFile, rather than
-    -- tinting dark pixels or painting another rectangle over the frame.
-    -- Prefer the Game Menu's own border asset when it exposes a backdrop.
-    if frame.GetBackdrop and frame.SetBackdrop then
-        local old = frame:GetBackdrop()
-        local menu = _G.GameMenuFrame
-        local menuBackdrop = menu and menu.GetBackdrop and menu:GetBackdrop()
-        local edge = menuBackdrop and menuBackdrop.edgeFile
-        if not edge or edge == "" then
-            edge = "Interface\\\\DialogFrame\\\\UI-DialogBox-Gold-Border"
-        end
-        if old then
-            local replacement = {
-                bgFile = old.bgFile,
-                edgeFile = edge,
-                tile = old.tile,
-                tileSize = old.tileSize,
-                edgeSize = (menuBackdrop and menuBackdrop.edgeSize) or old.edgeSize or 16,
-                insets = old.insets,
-            }
-            frame:SetBackdrop(replacement)
-            if frame.SetBackdropBorderColor then
-                frame:SetBackdropBorderColor(1, 1, 1, 1)
+    -- Forever's UIPanelDialogTemplate creates eight named border textures
+    -- directly on the options frame, all in the OVERLAY layer (file ID 251963).
+    -- Target those exact regions rather than backdrop or unrelated UI art.
+    local pieces = {
+        "TopLeft", "TopRight", "Top", "BottomLeft",
+        "BottomRight", "Bottom", "Left", "Right",
+    }
+    local frameName = frame:GetName()
+    if frameName then
+        for _, suffix in ipairs(pieces) do
+            local region = _G[frameName .. suffix]
+            if region and region.IsObjectType and region:IsObjectType("Texture") then
+                if region.SetDesaturated then region:SetDesaturated(true) end
+                region:SetVertexColor(0.95, 0.72, 0.35, 1)
             end
         end
     end
