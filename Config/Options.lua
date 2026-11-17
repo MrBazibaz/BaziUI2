@@ -219,6 +219,10 @@ function addon.Options:Create()
     if borderHost.NineSlice then
         borderHost.NineSlice:Show()
     end
+    -- Some Blizzard templates keep the portrait ornament in named regions.
+    for _, part in ipairs({"Portrait", "PortraitFrame", "PortraitContainer", "PortraitOverlay", "PortraitMask"}) do
+        if borderHost[part] then borderHost[part]:Hide() end
+    end
     optionsFrame:SetSize(900, 555)
     optionsFrame:SetPoint("CENTER")
     optionsFrame:SetFrameStrata("DIALOG")
@@ -247,12 +251,12 @@ function addon.Options:Create()
         end
     end)
     local backdrop = optionsFrame:CreateTexture(nil, "BACKGROUND", nil, 1)
-    backdrop:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", 7, -7)
-    backdrop:SetPoint("BOTTOMRIGHT", optionsFrame, "BOTTOMRIGHT", -7, 7)
-    backdrop:SetColorTexture(0.12, 0.075, 0.044, 0.98)
+    backdrop:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", 2, -2)
+    backdrop:SetPoint("BOTTOMRIGHT", optionsFrame, "BOTTOMRIGHT", -2, 2)
+    backdrop:SetColorTexture(0.12, 0.075, 0.044, 1)
     local header = optionsFrame:CreateTexture(nil, "BORDER")
-    header:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", 8, -8)
-    header:SetPoint("TOPRIGHT", optionsFrame, "TOPRIGHT", -8, -8)
+    header:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", 3, -3)
+    header:SetPoint("TOPRIGHT", optionsFrame, "TOPRIGHT", -3, -3)
     header:SetHeight(48)
     header:SetColorTexture(0.22, 0.12, 0.065, 0.98)
     local headerLine = optionsFrame:CreateTexture(nil, "ARTWORK")
@@ -263,12 +267,9 @@ function addon.Options:Create()
     optionsFrame:Hide()
 
     local title = CreateLabel(optionsFrame, "BAZI UI", "GameFontNormal")
-    title:SetPoint("TOP", optionsFrame, "TOP", 0, -18)
+    title:SetPoint("TOP", optionsFrame, "TOP", 0, -27)
     title:SetFontObject("GameFontNormalLarge")
     title:SetJustifyH("CENTER")
-
-    local subtitle = CreateLabel(optionsFrame, "INTERFACE SETTINGS", "GameFontDisableSmall")
-    subtitle:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", 23, -26)
 
     local close = CreateFrame("Button", nil, optionsFrame, "UIPanelCloseButton")
     close:SetPoint("TOPRIGHT", optionsFrame, "TOPRIGHT", -4, -4)
