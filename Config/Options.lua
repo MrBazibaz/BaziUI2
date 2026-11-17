@@ -170,7 +170,18 @@ function addon.Options:Create()
     -- V7 concept proportions: larger ornamental corners; edge art runs behind them.
     local CORNER_SIZE=88
     local EDGE_SIZE=12
-    local EDGE_OVERLAP=16
+    -- Fill the upper corner texture footprints with the window's plum color.
+    -- The ornamental TGAs have transparent pixels; without a backing layer
+    -- the world is visible through their cutouts near the window edges.
+    local function CornerBacking(anchor)
+        local backing=frame:CreateTexture(nil,"BORDER",nil,-1)
+        backing:SetColorTexture(0.055,0.043,0.074,1)
+        backing:SetSize(CORNER_SIZE,CORNER_SIZE)
+        backing:SetPoint(anchor,frame,anchor,0,0)
+    end
+    CornerBacking("TOPLEFT")
+    CornerBacking("TOPRIGHT")
+    local EDGE_OVERLAP=28
     local EDGE_INSET=CORNER_SIZE-EDGE_OVERLAP
     BorderPiece("Edge_Top_Tile.tga",nil,EDGE_SIZE,"TOPLEFT",EDGE_INSET,0,"TOPRIGHT",-EDGE_INSET,0)
     -- Footer and lower frame edge share one bottom-anchored container.
