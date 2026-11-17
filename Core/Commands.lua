@@ -316,6 +316,38 @@ local function InspectOptionsLayout()
     addon:Print("Options geometry saved (" .. #lines .. " lines). /reload then share SavedVariables/BaziUI.lua.")
 end
 
+local function InspectUIControls()
+    local frame = _G.BaziUIOptionsFrame
+    if not frame then addon.Options:Open(); frame = _G.BaziUIOptionsFrame end
+    if not frame then addon:Print("Bazi UI frame not found."); return end
+    BaziUIDB = BaziUIDB or {}
+    local lines = {}
+    local function Info(label, obj)
+        if not obj then lines[#lines+1] = label .. ": missing"; return end
+        local function V(n) return n and string.format("%.1f", n) or "nil" end
+        lines[#lines+1] = label .. " shown=" .. tostring(obj:IsShown()) ..
+            " visible=" .. tostring(obj:IsVisible()) ..
+            " alpha=" .. V(obj:GetEffectiveAlpha()) ..
+            " level=" .. tostring(obj.GetFrameLevel and obj:GetFrameLevel()) ..
+            " strata=" .. tostring(obj.GetFrameStrata and obj:GetFrameStrata()) ..
+            " left=" .. V(obj:GetLeft()) .. " top=" .. V(obj:GetTop()) ..
+            " width=" .. V(obj:GetWidth()) .. " height=" .. V(obj:GetHeight())
+        if obj.GetTexture then
+            lines[#lines+1] = label .. " texture=" .. tostring(obj:GetTexture()) ..
+                " atlas=" .. tostring(obj.GetAtlas and obj:GetAtlas())
+        end
+    end
+    Info("frame", frame)
+    Info("emblemHost", frame.baziEmblemHost)
+    Info("emblemTexture", frame.baziEmblem)
+    Info("close", frame.baziClose)
+    if frame.baziClose then
+        Info("closeNormal", frame.baziClose:GetNormalTexture())
+    end
+    BaziUIDB.uiControlInspect = lines
+    addon:Print("UI control inspection saved. /reload, then upload BaziUI.lua.")
+end
+
 local function HandleCommand(message)
     local command, argument = string.match(message or "", "^(%S*)%s*(.-)$")
     command = string.lower(command or "")
@@ -330,6 +362,8 @@ local function HandleCommand(message)
         addon:Print("version " .. addon.version)
     elseif command == "reload" then
         ReloadUI()
+    elseif command == "inspectuicontrols" then
+        InspectUIControls()
     elseif command == "inspectoptions" then
         InspectOptionsLayout()
     elseif command == "inspectgamemenu" then
