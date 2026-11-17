@@ -178,6 +178,64 @@ local function InspectMapBorder()
     addon:Print("Use /rl and share mapBorderInspect in SavedVariables/BaziUI.lua.")
 end
 
+-- Probe actual templates on this client without changing the options window.
+local function InspectFrameTemplates()
+    BaziUIDB = BaziUIDB or {}
+    local report = {}
+    local function Log(line) report[#report + 1] = line end
+    Log("NineSlice global: " .. type(_G.NineSlice))
+    Log("NineSliceUtil global: " .. type(_G.NineSliceUtil))
+    Log("BackdropTemplateMixin global: " .. type(_G.BackdropTemplateMixin))
+    Log("NineSlicePanelMixin global: " .. type(_G.NineSlicePanelMixin))
+    local templates = {
+        "ButtonFrameTemplate",
+        "PortraitFrameTemplate",
+        "BasicFrameTemplate",
+        "NineSlicePanelTemplate",
+        "BackdropTemplate",
+    }
+    for _, template in ipairs(templates) do
+        local ok, frameOrError = pcall(CreateFrame, "Frame", nil, UIParent, template)
+        if not ok or not frameOrError then
+            Log(template .. ": FAILED " .. tostring(frameOrError))
+        else
+            local f = frameOrError
+            f:Hide()
+            Log(template .. ": CREATED")
+            Log("  NineSlice=" .. tostring(f.NineSlice ~= nil)
+                .. " SetBackdrop=" .. tostring(type(f.SetBackdrop))
+                .. " SetPortraitToTexture=" .. tostring(type(f.SetPortraitToTexture)))
+            local function Walk(node, prefix, depth)
+                if depth > 2 then return end
+                if node.GetRegions then
+                    for _, region in ipairs({node:GetRegions()}) do
+                        if region.IsObjectType and region:IsObjectType("Texture") then
+                            local texture = region.GetTexture and region:GetTexture()
+                            if texture then
+                                Log("  " .. prefix .. " texture=" .. tostring(texture)
+                                    .. " name=" .. tostring(region.GetName and region:GetName()))
+                            end
+                        end
+                    end
+                end
+                if node.GetChildren then
+                    for i, child in ipairs({node:GetChildren()}) do
+                        Walk(child, prefix .. "/" .. tostring(child.GetName and child:GetName() or i), depth + 1)
+                    end
+                end
+            end
+            Walk(f, template, 0)
+        end
+    end
+    for _, name in ipairs({"CharacterFrame", "SpellBookFrame", "WorldMapFrame"}) do
+        local f = _G[name]
+        Log(name .. ": " .. (f and ("present, NineSlice=" .. tostring(f.NineSlice ~= nil)) or "not loaded"))
+    end
+    BaziUIDB.templateInspect = report
+    addon:Print("Template probe complete: " .. #report .. " lines in templateInspect.")
+    addon:Print("Use /rl, then share BaziUI.lua SavedVariables.")
+end
+
 local function HandleCommand(message)
     local command, argument = string.match(message or "", "^(%S*)%s*(.-)$")
     command = string.lower(command or "")
@@ -189,6 +247,8 @@ local function HandleCommand(message)
         addon:Print("version " .. addon.version)
     elseif command == "reload" then
         ReloadUI()
+    elseif command == "inspecttemplates" then
+        InspectFrameTemplates()
     elseif command == "inspectmap" then
         InspectMapBorder()
     elseif command == "inspect" then
@@ -198,7 +258,7 @@ local function HandleCommand(message)
     elseif command == "reset" then
         StaticPopup_Show("BAZIUI_RESET_CONFIRM")
     else
-        addon:Print("Commands: /bazi, /bazi version, /bazi reload, /bazi reset, /bazi debugborder, /bazi inspect, /bazi inspectmap")
+        addon:Print("Commands: /bazi, /bazi version, /bazi reload, /bazi reset, /bazi debugborder, /bazi inspect, /bazi inspectmap, /bazi inspecttemplates")
     end
 end
 
