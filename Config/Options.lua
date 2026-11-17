@@ -167,9 +167,12 @@ function addon.Options:Create()
         return tex
     end
     -- Keep all eight border pieces on the same frame edges and matching corner joins.
-    local CORNER_SIZE=56
+    -- V7 concept proportions: larger ornamental corners; edge art runs behind them.
+    local CORNER_SIZE=88
     local EDGE_SIZE=12
-    BorderPiece("Edge_Top_Tile.tga",nil,EDGE_SIZE,"TOPLEFT",CORNER_SIZE,0,"TOPRIGHT",-CORNER_SIZE,0)
+    local EDGE_OVERLAP=16
+    local EDGE_INSET=CORNER_SIZE-EDGE_OVERLAP
+    BorderPiece("Edge_Top_Tile.tga",nil,EDGE_SIZE,"TOPLEFT",EDGE_INSET,0,"TOPRIGHT",-EDGE_INSET,0)
     -- Footer and lower frame edge share one bottom-anchored container.
     -- No hardcoded top offset: resizing keeps the artwork on the actual edge.
     local footerChrome=CreateFrame("Frame",nil,frame)
@@ -198,14 +201,14 @@ function addon.Options:Create()
     debugText:SetText("|cff00ff00GREEN: frame bottom|r  |cffff3333RED: footer top|r")
 
     -- Use the matching bottom artwork, not a flat substitute.
-    BorderPiece("Edge_Bottom_Tile.tga",nil,EDGE_SIZE,"BOTTOMLEFT",CORNER_SIZE,0,"BOTTOMRIGHT",-CORNER_SIZE,0)
+    BorderPiece("Edge_Bottom_Tile.tga",nil,EDGE_SIZE,"BOTTOMLEFT",EDGE_INSET,0,"BOTTOMRIGHT",-EDGE_INSET,0)
     local footerDivider=footerChrome:CreateTexture(nil,"ARTWORK")
     footerDivider:SetPoint("TOPLEFT",footerChrome,"TOPLEFT",16,0)
     footerDivider:SetPoint("TOPRIGHT",footerChrome,"TOPRIGHT",-16,0)
     footerDivider:SetHeight(1)
     footerDivider:SetColorTexture(0.67,0.48,0.25,0.48)
-    BorderPiece("Edge_Left.tga",EDGE_SIZE,nil,"TOPLEFT",0,-CORNER_SIZE,"BOTTOMLEFT",0,CORNER_SIZE)
-    BorderPiece("Edge_Right.tga",EDGE_SIZE,nil,"TOPRIGHT",0,-CORNER_SIZE,"BOTTOMRIGHT",0,CORNER_SIZE)
+    BorderPiece("Edge_Left.tga",EDGE_SIZE,nil,"TOPLEFT",0,-EDGE_INSET,"BOTTOMLEFT",0,EDGE_INSET)
+    BorderPiece("Edge_Right.tga",EDGE_SIZE,nil,"TOPRIGHT",0,-EDGE_INSET,"BOTTOMRIGHT",0,EDGE_INSET)
     BorderPiece("Corner_TL.tga",CORNER_SIZE,CORNER_SIZE,"TOPLEFT",0,0)
     BorderPiece("Corner_TR.tga",CORNER_SIZE,CORNER_SIZE,"TOPRIGHT",0,0)
     BorderPiece("Corner_BL.tga",CORNER_SIZE,CORNER_SIZE,"BOTTOMLEFT",0,0)
