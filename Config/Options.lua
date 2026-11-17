@@ -178,10 +178,32 @@ local function CreateNavigationButton(parent, name, label, y)
     button:SetPoint("TOPLEFT", parent, "TOPLEFT", 4, y)
     local fill = button:CreateTexture(nil, "BACKGROUND")
     fill:SetAllPoints(button)
-    local tabArt = button:CreateTexture(nil, "BORDER")
-    tabArt:SetAllPoints(button)
-    tabArt:SetTexture(ASSET .. "Tabs\\Tab_Normal.png")
-    tabArt:SetAlpha(0.35)
+    -- Straight bronze edges to match the rectangular fill.
+    local edges = {}
+    for _, edge in ipairs({"TOP", "BOTTOM", "LEFT", "RIGHT"}) do
+        local line = button:CreateTexture(nil, "ARTWORK")
+        if edge == "TOP" then
+            line:SetPoint("TOPLEFT", button, "TOPLEFT", 0, 0)
+            line:SetPoint("TOPRIGHT", button, "TOPRIGHT", 0, 0)
+            line:SetHeight(1)
+        elseif edge == "BOTTOM" then
+            line:SetPoint("BOTTOMLEFT", button, "BOTTOMLEFT", 0, 0)
+            line:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", 0, 0)
+            line:SetHeight(1)
+        elseif edge == "LEFT" then
+            line:SetPoint("TOPLEFT", button, "TOPLEFT", 0, 0)
+            line:SetPoint("BOTTOMLEFT", button, "BOTTOMLEFT", 0, 0)
+            line:SetWidth(1)
+        else
+            line:SetPoint("TOPRIGHT", button, "TOPRIGHT", 0, 0)
+            line:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", 0, 0)
+            line:SetWidth(1)
+        end
+        edges[#edges + 1] = line
+    end
+    local function TintEdges(r, g, b, a)
+        for _, line in ipairs(edges) do line:SetColorTexture(r, g, b, a) end
+    end
     local stripe = button:CreateTexture(nil, "ARTWORK")
     stripe:SetPoint("TOPLEFT", button, "TOPLEFT", 0, 0)
     stripe:SetPoint("BOTTOMLEFT", button, "BOTTOMLEFT", 0, 0)
@@ -194,20 +216,17 @@ local function CreateNavigationButton(parent, name, label, y)
     button.baziHover = false
     button.baziRefresh = function()
         if button.baziActive then
-            tabArt:SetTexture(ASSET .. "Tabs\\Tab_Selected.png")
-            tabArt:SetAlpha(0.50)
+            TintEdges(0.83, 0.63, 0.30, 0.88)
             fill:SetColorTexture(0.34, 0.17, 0.25, 0.98)
             stripe:SetColorTexture(0.83, 0.63, 0.30, 1)
             text:SetTextColor(1, 0.85, 0.55)
         elseif button.baziHover then
-            tabArt:SetTexture(ASSET .. "Tabs\\Tab_Hover.png")
-            tabArt:SetAlpha(0.45)
+            TintEdges(0.72, 0.53, 0.31, 0.72)
             fill:SetColorTexture(0.28, 0.15, 0.085, 0.96)
             stripe:SetColorTexture(0.57, 0.42, 0.26, 0.8)
             text:SetTextColor(0.95, 0.87, 0.73)
         else
-            tabArt:SetTexture(ASSET .. "Tabs\\Tab_Normal.png")
-            tabArt:SetAlpha(0.35)
+            TintEdges(0.50, 0.34, 0.19, 0.55)
             fill:SetColorTexture(0.18, 0.095, 0.05, 0.94)
             stripe:SetColorTexture(0.54, 0.35, 0.19, 0.75)
             text:SetTextColor(0.87, 0.74, 0.56)
@@ -267,11 +286,14 @@ function addon.Options:Create()
 
     -- The native portrait ring is part of the frame design. Keep it and
     -- insert the Bazi emblem in its centre (asset supplied in this repo).
-    local emblem = optionsFrame:CreateTexture(nil, "OVERLAY", nil, 2)
-    emblem:SetSize(68, 68)
-    emblem:SetPoint("CENTER", optionsFrame, "TOPLEFT", 26, -27)
-    emblem:SetTexture("Interface\\AddOns\\BaziUI\\Assets\\Icons\\BaziUI_Emblem_64.png")
-    emblem:SetTexCoord(0, 1, 0, 1)
+    -- Put the emblem on a frame above the template artwork, not underneath it.
+    local emblemHost = CreateFrame("Frame", nil, optionsFrame)
+    emblemHost:SetSize(56, 56)
+    emblemHost:SetPoint("CENTER", optionsFrame, "TOPLEFT", 29, -29)
+    emblemHost:SetFrameLevel(borderHost:GetFrameLevel() + 5)
+    local emblem = emblemHost:CreateTexture(nil, "ARTWORK")
+    emblem:SetAllPoints(emblemHost)
+    emblem:SetTexture(ASSET .. "Icons\\BaziUI_Emblem_64.png")
 
     optionsFrame:SetSize(900, 555)
     optionsFrame:SetPoint("CENTER")
