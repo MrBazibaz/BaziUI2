@@ -36,13 +36,13 @@ local function CreatePanel(parent, top, height)
 
     local fill = panel:CreateTexture(nil, "BACKGROUND")
     fill:SetAllPoints(panel)
-    fill:SetColorTexture(0.095, 0.085, 0.085, 0.96)
+    fill:SetColorTexture(0.19, 0.105, 0.052, 0.97)
 
     local accent = panel:CreateTexture(nil, "ARTWORK")
     accent:SetPoint("TOPLEFT", panel, "TOPLEFT", 0, 0)
     accent:SetPoint("BOTTOMLEFT", panel, "BOTTOMLEFT", 0, 0)
     accent:SetWidth(3)
-    accent:SetColorTexture(0.67, 0.50, 0.27, 0.90)
+    accent:SetColorTexture(0.76, 0.57, 0.29, 0.90)
 
     local topLine = panel:CreateTexture(nil, "BORDER")
     topLine:SetPoint("TOPLEFT", panel, "TOPLEFT", 0, 0)
@@ -52,39 +52,45 @@ local function CreatePanel(parent, top, height)
     return panel
 end
 
-local function CreateSlider(parent, labelText, minValue, maxValue, step, value, y, onValueChanged)
-    local label = CreateLabel(parent, labelText, "GameFontNormal")
-    label:SetPoint("TOPLEFT", parent, "TOPLEFT", 24, y)
-
-    local valueText = CreateLabel(parent, tostring(value), "GameFontHighlight")
-    valueText:SetPoint("TOPRIGHT", parent, "TOPRIGHT", -30, y)
-
-    local slider = CreateFrame("Slider", nil, parent, "OptionsSliderTemplate")
-    slider:SetPoint("TOPLEFT", parent, "TOPLEFT", 28, y - 30)
-    slider:SetWidth(300)
+local function CreateSlider(parent, labelText, description, minValue, maxValue, step, value, y, onValueChanged)
+    local row = CreateFrame("Frame", nil, parent)
+    row:SetPoint("TOPLEFT", parent, "TOPLEFT", 24, y)
+    row:SetPoint("TOPRIGHT", parent, "TOPRIGHT", -24, y)
+    row:SetHeight(54)
+    local fill = row:CreateTexture(nil, "BACKGROUND")
+    fill:SetAllPoints(row)
+    fill:SetColorTexture(0.25, 0.125, 0.055, 0.96)
+    local heading = CreateLabel(row, labelText, "GameFontNormal")
+    heading:SetPoint("TOPLEFT", row, "TOPLEFT", 15, -10)
+    heading:SetTextColor(1, 0.78, 0.39)
+    local hint = CreateLabel(row, description, "GameFontHighlightSmall")
+    hint:SetPoint("TOPLEFT", row, "TOPLEFT", 15, -30)
+    hint:SetTextColor(0.74, 0.61, 0.46)
+    local valueText = CreateLabel(row, "", "GameFontNormal")
+    valueText:SetPoint("RIGHT", row, "RIGHT", -15, 0)
+    valueText:SetTextColor(1, 0.81, 0.45)
+    local slider = CreateFrame("Slider", nil, row)
+    slider:SetOrientation("HORIZONTAL")
+    slider:SetSize(115, 18)
+    slider:SetPoint("RIGHT", row, "RIGHT", -53, 0)
     slider:SetMinMaxValues(minValue, maxValue)
     slider:SetValueStep(step)
-    slider:SetValue(value)
-    slider:SetObeyStepOnDrag(true)
-
-    local name = slider:GetName()
-    if name then
-        local low = _G[name .. "Low"]
-        local high = _G[name .. "High"]
-        local text = _G[name .. "Text"]
-        if low then low:SetText(tostring(minValue)) end
-        if high then high:SetText(tostring(maxValue)) end
-        if text then text:SetText("") end
-    end
-
-    slider:SetScript("OnValueChanged", function(self, newValue)
-        newValue = math.floor((newValue / step) + 0.5) * step
-        valueText:SetText(string.format("%g", newValue))
-        if onValueChanged then
-            onValueChanged(newValue)
-        end
+    local track = slider:CreateTexture(nil, "BACKGROUND")
+    track:SetPoint("LEFT", slider, "LEFT", 0, 0)
+    track:SetPoint("RIGHT", slider, "RIGHT", 0, 0)
+    track:SetHeight(7)
+    track:SetColorTexture(0.09, 0.055, 0.045, 1)
+    local thumb = slider:CreateTexture(nil, "OVERLAY")
+    thumb:SetSize(13, 19)
+    thumb:SetColorTexture(0.49, 0.24, 0.64, 1)
+    slider:SetThumbTexture(thumb)
+    slider:SetScript("OnValueChanged", function(self, raw)
+        local rounded = math.floor(raw / step + 0.5) * step
+        valueText:SetText(string.format("%g", rounded))
+        if onValueChanged then onValueChanged(rounded) end
     end)
-
+    slider:SetValue(value)
+    valueText:SetText(string.format("%g", value))
     return slider
 end
 
@@ -103,33 +109,25 @@ local function CreateGeneralPage()
     local page = CreateFrame("Frame", nil, contentFrame)
     page:SetAllPoints(contentFrame)
     pages.General = page
+    CreatePanel(page, -10, 66)
+    CreateSection(page, "REALM CONFIGURATION", -24)
+    local intro = CreateLabel(page, "Make Azeroth yours. Fine-tune your interface.", "GameFontHighlightSmall")
+    intro:SetPoint("TOPLEFT", page, "TOPLEFT", 24, -49)
+    intro:SetTextColor(0.82, 0.68, 0.50)
 
-    CreatePanel(page, -12, 75)
-    CreateSection(page, "Bazi UI", -24)
-
-    local intro = CreateLabel(page, "Your interface. Your rules.", "GameFontHighlight")
-    intro:SetPoint("TOPLEFT", page, "TOPLEFT", 24, -58)
-
-    CreateDivider(page, -88)
-
-    CreatePanel(page, -100, 230)
-    CreateSection(page, "Appearance", -112)
-
+    CreatePanel(page, -88, 242)
+    CreateSection(page, "APPEARANCE", -102)
     local db = addon.db.profile
-    CreateSlider(page, "Options Window Scale", 0.70, 1.20, 0.01, db.uiScale, -152, function(value)
+    CreateSlider(page, "WINDOW SCALE", "Size of the Bazi UI settings window", 0.70, 1.20, 0.01, db.uiScale, -142, function(value)
         db.uiScale = value
-        if optionsFrame then
-            optionsFrame:SetScale(value)
-        end
+        if optionsFrame then optionsFrame:SetScale(value) end
     end)
-
-    CreateSlider(page, "Default Font Size", 10, 20, 1, db.fontSize, -246, function(value)
+    CreateSlider(page, "FONT SIZE", "Default text size for supported modules", 10, 20, 1, db.fontSize, -204, function(value)
         db.fontSize = value
     end)
-
-    local note = CreateLabel(page, "Changes are saved automatically.", "GameFontDisableSmall")
-    note:SetPoint("TOPLEFT", page, "TOPLEFT", 24, -350)
-
+    local note = CreateLabel(page, "Changes are saved automatically.", "GameFontHighlightSmall")
+    note:SetPoint("TOPLEFT", page, "TOPLEFT", 24, -352)
+    note:SetTextColor(0.76, 0.62, 0.44)
     return page
 end
 
@@ -167,17 +165,17 @@ local function CreateNavigationButton(parent, name, label, y)
     button.baziHover = false
     button.baziRefresh = function()
         if button.baziActive then
-            fill:SetColorTexture(0.28, 0.14, 0.37, 0.92)
+            fill:SetColorTexture(0.34, 0.17, 0.25, 0.98)
             stripe:SetColorTexture(0.83, 0.63, 0.30, 1)
             text:SetTextColor(1, 0.85, 0.55)
         elseif button.baziHover then
-            fill:SetColorTexture(0.18, 0.16, 0.18, 0.90)
+            fill:SetColorTexture(0.28, 0.15, 0.085, 0.96)
             stripe:SetColorTexture(0.57, 0.42, 0.26, 0.8)
             text:SetTextColor(0.95, 0.87, 0.73)
         else
-            fill:SetColorTexture(0.09, 0.085, 0.095, 0.75)
-            stripe:SetColorTexture(0.30, 0.26, 0.24, 0.6)
-            text:SetTextColor(0.78, 0.75, 0.71)
+            fill:SetColorTexture(0.18, 0.095, 0.05, 0.94)
+            stripe:SetColorTexture(0.54, 0.35, 0.19, 0.75)
+            text:SetTextColor(0.87, 0.74, 0.56)
         end
     end
     button:SetScript("OnEnter", function(self) self.baziHover = true; self.baziRefresh() end)
@@ -199,7 +197,7 @@ end
 function addon.Options:Create()
     optionsFrame = CreateFrame("Frame", "BaziUIOptionsFrame", UIParent)
     -- Use textures rather than SetBackdrop: some Forever frame builds do not expose it.
-    local rimColor = { 0.72, 0.53, 0.29, 0.95 }
+    local rimColor = { 0.76, 0.55, 0.27, 0.95 }
     local function AddRim(anchor1, anchor2, width, height)
         local line = optionsFrame:CreateTexture(nil, "BORDER")
         line:SetPoint(anchor1, optionsFrame, anchor1, 0, 0)
@@ -224,12 +222,12 @@ function addon.Options:Create()
     local backdrop = optionsFrame:CreateTexture(nil, "BACKGROUND", nil, 1)
     backdrop:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", 7, -7)
     backdrop:SetPoint("BOTTOMRIGHT", optionsFrame, "BOTTOMRIGHT", -7, 7)
-    backdrop:SetColorTexture(0.065, 0.060, 0.065, 0.98)
+    backdrop:SetColorTexture(0.12, 0.075, 0.044, 0.98)
     local header = optionsFrame:CreateTexture(nil, "BORDER")
     header:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", 8, -8)
     header:SetPoint("TOPRIGHT", optionsFrame, "TOPRIGHT", -8, -8)
     header:SetHeight(48)
-    header:SetColorTexture(0.115, 0.105, 0.12, 0.98)
+    header:SetColorTexture(0.22, 0.12, 0.065, 0.98)
     local headerLine = optionsFrame:CreateTexture(nil, "ARTWORK")
     headerLine:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", 8, -56)
     headerLine:SetPoint("TOPRIGHT", optionsFrame, "TOPRIGHT", -8, -56)
@@ -237,13 +235,13 @@ function addon.Options:Create()
     headerLine:SetColorTexture(0.76, 0.55, 0.28, 0.75)
     optionsFrame:Hide()
 
-    local title = CreateLabel(optionsFrame, "Bazi UI", "GameFontNormal")
-    title:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", 25, -19)
+    local title = CreateLabel(optionsFrame, "BAZI UI", "GameFontNormal")
+    title:SetPoint("TOP", optionsFrame, "TOP", 0, -18)
     title:SetFontObject("GameFontNormalLarge")
     title:SetJustifyH("CENTER")
 
     local subtitle = CreateLabel(optionsFrame, "INTERFACE SETTINGS", "GameFontDisableSmall")
-    subtitle:SetPoint("TOPRIGHT", optionsFrame, "TOPRIGHT", -55, -24)
+    subtitle:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", 23, -26)
 
     local close = CreateFrame("Button", nil, optionsFrame, "UIPanelCloseButton")
     close:SetPoint("TOPRIGHT", optionsFrame, "TOPRIGHT", -4, -4)
@@ -253,7 +251,7 @@ function addon.Options:Create()
     local navBackground = nav:CreateTexture(nil, "BACKGROUND")
     navBackground:SetPoint("TOPLEFT", nav, "TOPLEFT", 0, 10)
     navBackground:SetPoint("BOTTOMRIGHT", nav, "BOTTOMRIGHT", 0, -4)
-    navBackground:SetColorTexture(0.045, 0.045, 0.05, 0.94)
+    navBackground:SetColorTexture(0.105, 0.063, 0.038, 0.96)
     nav:SetSize(180, 430)
 
     contentFrame = CreateFrame("Frame", nil, optionsFrame)
@@ -261,7 +259,7 @@ function addon.Options:Create()
     contentFrame:SetPoint("BOTTOMRIGHT", optionsFrame, "BOTTOMRIGHT", -16, 18)
 
     local separator = contentFrame:CreateTexture(nil, "BORDER")
-    separator:SetColorTexture(0.52, 0.41, 0.27, 0.42)
+    separator:SetColorTexture(0.72, 0.49, 0.25, 0.65)
     separator:SetWidth(1)
     separator:SetPoint("TOPLEFT", contentFrame, "TOPLEFT", -10, 0)
     separator:SetPoint("BOTTOMLEFT", contentFrame, "BOTTOMLEFT", -10, 0)
