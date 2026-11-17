@@ -200,44 +200,46 @@ end
 
 function addon.Options:Create()
     optionsFrame = CreateFrame("Frame", "BaziUIOptionsFrame", UIParent)
-    -- Native Blizzard map-frame trim. Keep the original bronze colors.
-    -- Texture IDs are from /bazi inspectmap (WorldMapFrame border regions).
-    -- Separate corners avoid stretching the corner art across long edges.
-    local function BorderTexture(id, layer)
+    -- Eight-piece Blizzard map border, copied from WorldMapFrame's frame regions.
+    -- The client uses three native texture IDs: corners, horizontal and vertical.
+    local function Trim(textureID, layer, width, height, point, x, y, coords)
         local t = optionsFrame:CreateTexture(nil, layer or "OVERLAY")
-        t:SetTexture(id)
-        return t
-    end
-    local function BorderEdge(id, a, b, x1, y1, x2, y2, width, height, coords)
-        local t = BorderTexture(id)
-        t:SetPoint(a, optionsFrame, a, x1, y1)
-        t:SetPoint(b, optionsFrame, b, x2, y2)
-        if width then t:SetWidth(width) end
-        if height then t:SetHeight(height) end
+        t:SetTexture(textureID)
+        t:SetSize(width, height)
+        t:SetPoint(point, optionsFrame, point, x, y)
         if coords then t:SetTexCoord(unpack(coords)) end
         return t
     end
-    -- Map frame's 3px edge textures; horizontal strip repeats its native
-    -- segment rather than being scaled into a blurry single pixel.
-    BorderEdge(1723833, "TOPLEFT", "TOPRIGHT", 6, -2, -6, -2, nil, 3,
-        {0, 0, 0, 1, 3.47, 0, 3.47, 1})
-    BorderEdge(1723833, "BOTTOMLEFT", "BOTTOMRIGHT", 6, 2, -6, 2, nil, 3,
-        {0, 0, 0, 1, 3.47, 0, 3.47, 1})
-    BorderEdge(1723832, "TOPLEFT", "BOTTOMLEFT", 2, -6, 2, 6, 3, nil,
-        {0, 0, 0, 1, 1, 0, 1, 1})
-    BorderEdge(1723832, "TOPRIGHT", "BOTTOMRIGHT", -2, -6, -2, 6, 3, nil,
-        {0, 0, 0, 1, 1, 0, 1, 1})
-    local function BorderCorner(point, flipX, flipY)
-        local t = BorderTexture(1723831)
-        t:SetSize(6, 6)
-        t:SetPoint(point, optionsFrame, point)
-        t:SetTexCoord(flipX and 1 or 0, flipX and 0 or 1,
-                      flipY and 1 or 0, flipY and 0 or 1)
+    -- Corners: WorldMapFrame/child5/child1 regions 1-4.
+    Trim(8069116, "OVERLAY", 95, 95, "TOPLEFT", -13, 16)
+    Trim(8069116, "OVERLAY", 95, 95, "TOPRIGHT", 2, 16)
+    Trim(8069116, "OVERLAY", 95, 100, "BOTTOMLEFT", -13, -8)
+    Trim(8069116, "OVERLAY", 95, 100, "BOTTOMRIGHT", 2, -8)
+    -- Horizontal edges: regions 5-6. Repeat the original strip across the
+    -- distance between corner caps, rather than scaling the whole artwork.
+    local function HorizontalTrim(point, offsetY, height)
+        local t = optionsFrame:CreateTexture(nil, "OVERLAY")
+        t:SetTexture(8069118)
+        t:SetPoint(point .. "LEFT", optionsFrame, point .. "LEFT", 82, offsetY)
+        t:SetPoint(point .. "RIGHT", optionsFrame, point .. "RIGHT", -93, offsetY)
+        t:SetHeight(height)
+        local repeatCount = (900 - 175) / 128
+        t:SetTexCoord(0, 0, 0, 1, repeatCount, 0, repeatCount, 1)
     end
-    BorderCorner("TOPLEFT", false, true)
-    BorderCorner("TOPRIGHT", true, true)
-    BorderCorner("BOTTOMLEFT", false, false)
-    BorderCorner("BOTTOMRIGHT", true, false)
+    HorizontalTrim("TOP", 16, 95)
+    HorizontalTrim("BOTTOM", -8, 100)
+    -- Vertical edges: regions 7-8. Keep native 95px strip width.
+    local function VerticalTrim(point, x)
+        local t = optionsFrame:CreateTexture(nil, "OVERLAY")
+        t:SetTexture(8069114)
+        t:SetPoint("TOP" .. point, optionsFrame, "TOP" .. point, x, -79)
+        t:SetPoint("BOTTOM" .. point, optionsFrame, "BOTTOM" .. point, x, 92)
+        t:SetWidth(95)
+        local repeatCount = (555 - 171) / 128
+        t:SetTexCoord(0, 0, 0, repeatCount, 1, 0, 1, repeatCount)
+    end
+    VerticalTrim("LEFT", -13)
+    VerticalTrim("RIGHT", 2)
     optionsFrame:SetSize(900, 555)
     optionsFrame:SetPoint("CENTER")
     optionsFrame:SetFrameStrata("DIALOG")
