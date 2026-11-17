@@ -246,11 +246,7 @@ function addon.Options:Open()
 
     optionsFrame:Show()
     optionsFrame:Raise()
-    if optionsFrame.baziEmblemHost then
-        optionsFrame.baziEmblemHost:Show()
-        optionsFrame.baziEmblemHost:Raise()
-    end
-end
+ end
 
 function addon.Options:Create()
     optionsFrame = CreateFrame("Frame", "BaziUIOptionsFrame", UIParent)
@@ -291,17 +287,14 @@ function addon.Options:Create()
     -- The native portrait ring is part of the frame design. Keep it and
     -- insert the Bazi emblem in its centre (asset supplied in this repo).
     -- Put the emblem on a frame above the template artwork, not underneath it.
-    -- Separate UIParent overlay avoids the ButtonFrameTemplate's nested
-    -- NineSlice portrait artwork drawing over the emblem.
-    local emblemHost = CreateFrame("Frame", nil, UIParent)
+    -- Keep the emblem attached to the options window: a separate UIParent
+    -- overlay did not render reliably on the Forever client.
+    local emblemHost = CreateFrame("Frame", nil, optionsFrame)
     emblemHost:SetSize(60, 60)
     emblemHost:SetPoint("CENTER", optionsFrame, "TOPLEFT", 23.5, -20.5)
-    emblemHost:SetFrameStrata("TOOLTIP")
-    emblemHost:SetFrameLevel(100)
+    emblemHost:SetFrameStrata("FULLSCREEN_DIALOG")
+    emblemHost:SetFrameLevel(borderHost:GetFrameLevel() + 30)
     emblemHost:EnableMouse(false)
-    emblemHost:Hide()
-    optionsFrame:HookScript("OnShow", function() emblemHost:Show() end)
-    optionsFrame:HookScript("OnHide", function() emblemHost:Hide() end)
     optionsFrame.baziEmblemHost = emblemHost
     local emblem = emblemHost:CreateTexture(nil, "OVERLAY")
     emblem:SetAllPoints(emblemHost)
