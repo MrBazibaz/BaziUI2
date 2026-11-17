@@ -218,7 +218,7 @@ function addon.Options:Create()
     end
     if borderHost.NineSlice then
         borderHost.NineSlice:Show()
-    end
+        -- The portrait ring belongs to the template border itself.\n        -- Hide only its top-left ornament, not the whole border.\n        for _, key in ipairs({"Portrait", "PortraitFrame", "PortraitContainer", "PortraitOverlay"}) do\n            if borderHost.NineSlice[key] then borderHost.NineSlice[key]:Hide() end\n        end\n    end
     -- Some Blizzard templates keep the portrait ornament in named regions.
     for _, part in ipairs({"Portrait", "PortraitFrame", "PortraitContainer", "PortraitOverlay", "PortraitMask"}) do
         if borderHost[part] then borderHost[part]:Hide() end
@@ -272,7 +272,7 @@ function addon.Options:Create()
     title:SetJustifyH("CENTER")
 
     local close = CreateFrame("Button", nil, optionsFrame, "UIPanelCloseButton")
-    close:SetPoint("TOPRIGHT", optionsFrame, "TOPRIGHT", -4, -4)
+    close:SetPoint("TOPRIGHT", optionsFrame, "TOPRIGHT", -7, -7)
 
     local nav = CreateFrame("Frame", nil, optionsFrame)
     nav:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", 12, -78)
