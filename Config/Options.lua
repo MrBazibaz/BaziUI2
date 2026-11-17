@@ -154,12 +154,12 @@ function addon.Options:Create()
     -- Opaque plum backing extends under the outward ornamental border.
     local chromeBacking=frame:CreateTexture(nil,"BACKGROUND",nil,-8)
     chromeBacking:SetColorTexture(0.055,0.043,0.074,1)
-    chromeBacking:SetPoint("TOPLEFT",frame,"TOPLEFT",-8,8)
-    chromeBacking:SetPoint("BOTTOMRIGHT",frame,"BOTTOMRIGHT",8,-8)
+    chromeBacking:SetPoint("TOPLEFT",frame,"TOPLEFT",-16,16)
+    chromeBacking:SetPoint("BOTTOMRIGHT",frame,"BOTTOMRIGHT",16,-16)
     -- V7 modular ornamental frame: independent corners and stretchable edge tiles.
     -- Artwork is drawn above the panels but below interactive controls.
     local BORDER_ASSET = ASSET.."Borders"..string.char(92)
-    local BORDER_OUTSET=8
+    local BORDER_OUTSET=4
     local function BorderAnchorOffset(point)
         local dx=point:find("LEFT") and -BORDER_OUTSET or (point:find("RIGHT") and BORDER_OUTSET or 0)
         local dy=point:find("TOP") and BORDER_OUTSET or (point:find("BOTTOM") and -BORDER_OUTSET or 0)
@@ -184,16 +184,16 @@ function addon.Options:Create()
     local CORNER_SIZE=88
     -- Source TGAs: side edges occupy only 16 of 32 pixels.
     -- At 24 UI units the visible gold becomes roughly 12 units wide.
-    local EDGE_SIZE=24
+    local EDGE_SIZE=14
     -- Fill all four corner texture footprints with the window's plum color.
     -- The ornamental TGAs have transparent pixels; without a backing layer
     -- the world is visible through their cutouts near the window edges.
     local function CornerBacking(anchor)
         local backing=frame:CreateTexture(nil,"BORDER",nil,-1)
         backing:SetColorTexture(0.055,0.043,0.074,1)
-        backing:SetSize(CORNER_SIZE,CORNER_SIZE)
+        backing:SetSize(CORNER_SIZE+16,CORNER_SIZE+16)
         local dx,dy=BorderAnchorOffset(anchor)
-        backing:SetPoint(anchor,frame,anchor,dx,dy)
+        backing:SetPoint(anchor,frame,anchor,dx+(anchor:find("LEFT") and -4 or 4),dy+(anchor:find("TOP") and 4 or -4))
     end
     CornerBacking("TOPLEFT")
     CornerBacking("TOPRIGHT")
@@ -201,7 +201,7 @@ function addon.Options:Create()
     CornerBacking("BOTTOMRIGHT")
     -- Corner ornament pixels occupy ~160/256 horizontally; at 88 UI units
     -- their visible reach is ~55 units. Begin edges at 44 for a real overlap.
-    local EDGE_OVERLAP=44
+    local EDGE_OVERLAP=30
     local EDGE_INSET=CORNER_SIZE-EDGE_OVERLAP
     BorderPiece("Edge_Top_Tile.tga",nil,EDGE_SIZE,"TOPLEFT",EDGE_INSET,0,"TOPRIGHT",-EDGE_INSET,0)
     -- Footer and lower frame edge share one bottom-anchored container.
