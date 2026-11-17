@@ -26,43 +26,30 @@ function addon.Theme:ApplyWindow(frame)
     warmth:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -5, 5)
     warmth:SetColorTexture(0.36, 0.21, 0.09, 0.23)
     frame.baziWarmth = warmth
-    -- The dialog rim can be made from child frame textures (NineSlice),
-    -- not just regions on the top-level frame.
-    local function TintBorderTexture(region)
-        if not region or not region.IsObjectType or not region:IsObjectType("Texture") then return end
-        if region.SetDesaturated then region:SetDesaturated(true) end
-        region:SetVertexColor(0.95, 0.76, 0.43, 1)
-    end
-
-    if frame.SetBackdropBorderColor then
-        frame:SetBackdropBorderColor(0.95, 0.76, 0.43, 1)
-    end
-
-    for _, region in ipairs({ frame:GetRegions() }) do
-        if region.IsObjectType and region:IsObjectType("Texture")
-            and region:GetDrawLayer() == "BORDER" then
-            TintBorderTexture(region)
+    -- Replace the native dialog backdrop's edgeFile, rather than
+    -- tinting dark pixels or painting another rectangle over the frame.
+    -- Prefer the Game Menu's own border asset when it exposes a backdrop.
+    if frame.GetBackdrop and frame.SetBackdrop then
+        local old = frame:GetBackdrop()
+        local menu = _G.GameMenuFrame
+        local menuBackdrop = menu and menu.GetBackdrop and menu:GetBackdrop()
+        local edge = menuBackdrop and menuBackdrop.edgeFile
+        if not edge or edge == "" then
+            edge = "Interface\\\\DialogFrame\\\\UI-DialogBox-Gold-Border"
         end
-    end
-
-    -- Restrict child traversal to explicitly identified border containers.
-    -- This avoids recoloring text, close buttons, or the warm background.
-    local borderContainer = frame.NineSlice or frame.Border or frame.BorderFrame
-    if borderContainer and borderContainer.GetRegions then
-        for _, region in ipairs({ borderContainer:GetRegions() }) do
-            TintBorderTexture(region)
-        end
-    end
-
-    -- Blizzard templates also expose some nine-slice pieces as named fields.
-    local pieceNames = {
-        "TopEdge", "BottomEdge", "LeftEdge", "RightEdge",
-        "TopLeftCorner", "TopRightCorner",
-        "BottomLeftCorner", "BottomRightCorner"
-    }
-    if borderContainer then
-        for _, name in ipairs(pieceNames) do
-            TintBorderTexture(borderContainer[name])
+        if old then
+            local replacement = {
+                bgFile = old.bgFile,
+                edgeFile = edge,
+                tile = old.tile,
+                tileSize = old.tileSize,
+                edgeSize = (menuBackdrop and menuBackdrop.edgeSize) or old.edgeSize or 16,
+                insets = old.insets,
+            }
+            frame:SetBackdrop(replacement)
+            if frame.SetBackdropBorderColor then
+                frame:SetBackdropBorderColor(1, 1, 1, 1)
+            end
         end
     end
 end
