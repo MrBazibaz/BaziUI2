@@ -128,12 +128,19 @@ function addon.Theme:SkinGameMenuButton(button)
     fill:SetColorTexture(0.34, 0.17, 0.25, 1)
     button.baziGameMenuFill = fill
 
+    -- The fill is OVERLAY, so the label must be on a higher sublevel.
+    -- Keep Blizzard's original font objects; replacing them can hide text.
     local function ApplyTextColor(self)
         local label = self.GetFontString and self:GetFontString()
-        if label then label:SetTextColor(0.96, 0.81, 0.59, 1) end
+        if label then
+            label:SetDrawLayer("OVERLAY", 7)
+            label:SetTextColor(0.96, 0.81, 0.59, 1)
+            label:SetAlpha(1)
+        end
     end
     ApplyTextColor(button)
     button:HookScript("OnShow", ApplyTextColor)
+
     local function Trim(a, b, ax, ay, bx, by, horizontal)
         local edge = button:CreateTexture(nil, "OVERLAY")
         edge:SetColorTexture(0.78, 0.56, 0.25, 0.95)
@@ -150,8 +157,8 @@ function addon.Theme:SkinGameMenuButton(button)
         local c = self:IsMouseOver() and addon.Theme.colors.purpleHover or addon.Theme.colors.purple
         fill:SetColorTexture(c[1], c[2], c[3], 0.96)
     end
-    button:HookScript("OnEnter", Update)
-    button:HookScript("OnLeave", Update)
+    button:HookScript("OnEnter", function(self) Update(self); ApplyTextColor(self) end)
+    button:HookScript("OnLeave", function(self) Update(self); ApplyTextColor(self) end)
     button:HookScript("OnMouseDown", Update)
     button:HookScript("OnMouseUp", Update)
 end
