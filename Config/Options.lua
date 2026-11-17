@@ -229,9 +229,9 @@ function addon.Options:Create()
         t:SetPoint(point .. "LEFT", optionsFrame, point .. "LEFT", cornerW - 13 * trimScale, top and 16 * trimScale or -8 * trimScale)
         t:SetPoint(point .. "RIGHT", optionsFrame, point .. "RIGHT", -cornerW + 2 * trimScale, top and 16 * trimScale or -8 * trimScale)
         t:SetHeight(height)
-        -- Native map trim repeats every 128 pixels, not every 95 pixels.
+        -- The atlas repeats every 128 on-screen pixels. Scaling the height\n        -- does not change the horizontal tile width.
         local span = 900 - 2 * cornerW + 15 * trimScale
-        local repeatX = span / (128 * trimScale)
+        local repeatX = span / 128
         t:SetTexCoord(0, 0, 0, 1, repeatX, 0, repeatX, 1)
     end
     Horizontal("TOP", cornerTopH, true)
@@ -245,7 +245,7 @@ function addon.Options:Create()
         t:SetPoint("BOTTOM" .. side, optionsFrame, "BOTTOM" .. side, x, -8 * trimScale + cornerBottomH)
         t:SetWidth(cornerW)
         local span = 555 - cornerTopH - cornerBottomH + 24 * trimScale
-        local repeatY = span / (128 * trimScale)
+        local repeatY = span / 128
         t:SetTexCoord(0, 0, 0, repeatY, 1, 0, 1, repeatY)
     end
     Vertical("LEFT")
