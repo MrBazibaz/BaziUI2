@@ -196,33 +196,25 @@ end
 
 function addon.Options:Create()
     optionsFrame = CreateFrame("Frame", "BaziUIOptionsFrame", UIParent)
-    -- Thick Blizzard fantasy border, manually sliced for Forever compatibility.
-    local borderPath = "Interface\\DialogFrame\\UI-DialogBox-Border"
-    local function BorderPiece(p1, p2, x, y, w, h, coords)
-        local t = optionsFrame:CreateTexture(nil, "OVERLAY")
-        t:SetTexture(borderPath)
-        t:SetTexCoord(unpack(coords))
-        t:SetPoint(p1, optionsFrame, p2, x, y)
-        t:SetSize(w, h)
-        t:SetVertexColor(0.88, 0.72, 0.49, 1)
+    -- Reliable layered fantasy border: no atlas slicing or stretched ornaments.
+    local function FrameLine(point1, point2, x1, y1, x2, y2, thickness, vertical, red, green, blue, alpha)
+        local line = optionsFrame:CreateTexture(nil, "OVERLAY")
+        line:SetPoint(point1, optionsFrame, point1, x1, y1)
+        line:SetPoint(point2, optionsFrame, point2, x2, y2)
+        if vertical then line:SetWidth(thickness) else line:SetHeight(thickness) end
+        line:SetColorTexture(red, green, blue, alpha)
     end
-    BorderPiece("TOPLEFT", "TOPLEFT", -7, 7, 32, 32, {0, 0.25, 0, 0.25})
-    BorderPiece("TOPRIGHT", "TOPRIGHT", 7, 7, 32, 32, {0.75, 1, 0, 0.25})
-    BorderPiece("BOTTOMLEFT", "BOTTOMLEFT", -7, -7, 32, 32, {0, 0.25, 0.75, 1})
-    BorderPiece("BOTTOMRIGHT", "BOTTOMRIGHT", 7, -7, 32, 32, {0.75, 1, 0.75, 1})
-    local function BorderEdge(p1, p2, x1, y1, x2, y2, thickness, vertical, coords)
-        local t = optionsFrame:CreateTexture(nil, "OVERLAY")
-        t:SetTexture(borderPath)
-        t:SetTexCoord(unpack(coords))
-        t:SetPoint(p1, optionsFrame, p1, x1, y1)
-        t:SetPoint(p2, optionsFrame, p2, x2, y2)
-        if vertical then t:SetWidth(thickness) else t:SetHeight(thickness) end
-        t:SetVertexColor(0.88, 0.72, 0.49, 1)
+    -- Outer dark outline, broad antique-gold rim, inner shadow and gold hairline.
+    local function FrameRing(inset, thickness, red, green, blue, alpha)
+        FrameLine("TOPLEFT", "TOPRIGHT", inset, -inset, -inset, -inset, thickness, false, red, green, blue, alpha)
+        FrameLine("BOTTOMLEFT", "BOTTOMRIGHT", inset, inset, -inset, inset, thickness, false, red, green, blue, alpha)
+        FrameLine("TOPLEFT", "BOTTOMLEFT", inset, -inset, inset, inset, thickness, true, red, green, blue, alpha)
+        FrameLine("TOPRIGHT", "BOTTOMRIGHT", -inset, -inset, -inset, inset, thickness, true, red, green, blue, alpha)
     end
-    BorderEdge("TOPLEFT", "TOPRIGHT", 25, 7, -25, 7, 32, false, {0.25, 0.75, 0, 0.25})
-    BorderEdge("BOTTOMLEFT", "BOTTOMRIGHT", 25, -7, -25, -7, 32, false, {0.25, 0.75, 0.75, 1})
-    BorderEdge("TOPLEFT", "BOTTOMLEFT", -7, -25, -7, 25, 32, true, {0, 0.25, 0.25, 0.75})
-    BorderEdge("TOPRIGHT", "BOTTOMRIGHT", 7, -25, 7, 25, 32, true, {0.75, 1, 0.25, 0.75})
+    FrameRing(0, 6, 0.055, 0.032, 0.018, 1)
+    FrameRing(3, 3, 0.63, 0.43, 0.20, 1)
+    FrameRing(7, 2, 0.10, 0.057, 0.027, 1)
+    FrameRing(10, 1, 0.80, 0.60, 0.31, 0.78)
     optionsFrame:SetSize(770, 555)
     optionsFrame:SetPoint("CENTER")
     optionsFrame:SetFrameStrata("DIALOG")
