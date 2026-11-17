@@ -26,19 +26,43 @@ function addon.Theme:ApplyWindow(frame)
     warmth:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -5, 5)
     warmth:SetColorTexture(0.36, 0.21, 0.09, 0.23)
     frame.baziWarmth = warmth
-    -- UIPanelDialogTemplate may draw its rim using the frame backdrop,
-    -- rather than texture regions. Recolor that native border directly.
-    if frame.SetBackdropBorderColor then
-        frame:SetBackdropBorderColor(0.83, 0.63, 0.30, 1)
+    -- The dialog rim can be made from child frame textures (NineSlice),
+    -- not just regions on the top-level frame.
+    local function TintBorderTexture(region)
+        if not region or not region.IsObjectType or not region:IsObjectType("Texture") then return end
+        if region.SetDesaturated then region:SetDesaturated(true) end
+        region:SetVertexColor(0.95, 0.76, 0.43, 1)
     end
 
-    -- Some client versions implement the rim as separate texture regions.
-    -- Only target border-layer textures, never the background artwork.
+    if frame.SetBackdropBorderColor then
+        frame:SetBackdropBorderColor(0.95, 0.76, 0.43, 1)
+    end
+
     for _, region in ipairs({ frame:GetRegions() }) do
         if region.IsObjectType and region:IsObjectType("Texture")
             and region:GetDrawLayer() == "BORDER" then
-            if region.SetDesaturated then region:SetDesaturated(true) end
-            region:SetVertexColor(0.95, 0.76, 0.43, 1)
+            TintBorderTexture(region)
+        end
+    end
+
+    -- Restrict child traversal to explicitly identified border containers.
+    -- This avoids recoloring text, close buttons, or the warm background.
+    local borderContainer = frame.NineSlice or frame.Border or frame.BorderFrame
+    if borderContainer and borderContainer.GetRegions then
+        for _, region in ipairs({ borderContainer:GetRegions() }) do
+            TintBorderTexture(region)
+        end
+    end
+
+    -- Blizzard templates also expose some nine-slice pieces as named fields.
+    local pieceNames = {
+        "TopEdge", "BottomEdge", "LeftEdge", "RightEdge",
+        "TopLeftCorner", "TopRightCorner",
+        "BottomLeftCorner", "BottomRightCorner"
+    }
+    if borderContainer then
+        for _, name in ipairs(pieceNames) do
+            TintBorderTexture(borderContainer[name])
         end
     end
 end
