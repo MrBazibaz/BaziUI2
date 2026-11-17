@@ -23,12 +23,31 @@ function addon.Theme:ApplyWindow(frame)
     warmth:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -5, 5)
     warmth:SetColorTexture(0.36, 0.21, 0.09, 0.23)
     frame.baziWarmth = warmth
+    -- Keep the original rim texture; add subtle bronze accents.
+    local top = frame:CreateTexture(nil, "OVERLAY")
+    top:SetColorTexture(0.68, 0.47, 0.20, 0.85)
+    top:SetPoint("TOPLEFT", frame, "TOPLEFT", 5, -4)
+    top:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -5, -4)
+    top:SetHeight(1)
+    local bottom = frame:CreateTexture(nil, "OVERLAY")
+    bottom:SetColorTexture(0.68, 0.47, 0.20, 0.85)
+    bottom:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 5, 4)
+    bottom:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -5, 4)
+    bottom:SetHeight(1)
+    frame.baziGoldEdges = { top, bottom }
 end
 
 function addon.Theme:CreateButton(parent, label, width, height)
     local button = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
     button:SetSize(width or 142, height or 28)
     button:SetText(label)
+    -- Forever's red artwork is baked into the native button texture.
+    -- Mask its central fill, leaving the original beveled rim visible.
+    local fill = button:CreateTexture(nil, "ARTWORK")
+    fill:SetPoint("TOPLEFT", button, "TOPLEFT", 6, -6)
+    fill:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", -6, 6)
+    fill:SetColorTexture(0.29, 0.12, 0.48, 0.96)
+    button.baziPurpleFill = fill
 
     -- Use Blizzard's shaped button artwork, not solid color textures.
     local normal = button:GetNormalTexture()
@@ -50,9 +69,12 @@ function addon.Theme:CreateButton(parent, label, width, height)
     if disabled then Tint(disabled, self.colors.purpleDisabled) end
 
     button:SetScript("OnEnter", function(self)
+        self.baziPurpleFill:SetColorTexture(0.39, 0.19, 0.61, 0.96)
         if not self.isActive then Tint(self:GetNormalTexture(), addon.Theme.colors.purpleHover) end
     end)
     button:SetScript("OnLeave", function(self)
+        local c = self.isActive and addon.Theme.colors.purpleHover or addon.Theme.colors.purple
+        self.baziPurpleFill:SetColorTexture(c[1], c[2], c[3], 0.96)
         Tint(self:GetNormalTexture(), self.isActive and addon.Theme.colors.purpleHover or addon.Theme.colors.purple)
     end)
 
@@ -62,6 +84,8 @@ end
 function addon.Theme:SetButtonActive(button, active)
     if not button then return end
     button.isActive = active
+    local c = active and self.colors.purpleHover or self.colors.purple
+    if button.baziPurpleFill then button.baziPurpleFill:SetColorTexture(c[1], c[2], c[3], 0.96) end
     Tint(button:GetNormalTexture(), active and self.colors.purpleHover or self.colors.purple)
 end
 
