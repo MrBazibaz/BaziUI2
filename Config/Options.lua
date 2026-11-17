@@ -156,7 +156,7 @@ function addon.Options:Create()
     -- V7 unified ornamental frame artwork (replaces all modular border pieces).
     -- Kept in a separate overlay so controls and scrolling remain independent.
     local unifiedFrame=frame:CreateTexture(nil,"OVERLAY",nil,1)
-    unifiedFrame:SetTexture(ASSET.."Frames\\\\BaziUI_V7_frame_transparent.png")
+    unifiedFrame:SetTexture(ASSET.."Frames\\BaziUI_V7_frame_transparent.png")
     unifiedFrame:SetAllPoints(frame)
     frame.baziUnifiedFrame=unifiedFrame
 
