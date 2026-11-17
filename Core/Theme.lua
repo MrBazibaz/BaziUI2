@@ -17,8 +17,7 @@ local function Tint(texture, color)
 end
 
 function addon.Theme:ApplyWindow(frame)
-    -- Window art is supplied by UIPanelDialogTemplate on the parent frame.
-    -- Do not cover it with a flat black rectangle or 1px custom borders.
+    -- Warm the existing Blizzard dialog art without replacing its border.\n    local warmth = frame:CreateTexture(nil, "BACKGROUND", nil, 2)\n    warmth:SetPoint("TOPLEFT", frame, "TOPLEFT", 5, -5)\n    warmth:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -5, 5)\n    warmth:SetColorTexture(0.36, 0.21, 0.09, 0.32)\n    frame.baziWarmth = warmth
 end
 
 function addon.Theme:CreateButton(parent, label, width, height)
@@ -32,7 +31,7 @@ function addon.Theme:CreateButton(parent, label, width, height)
     local highlight = button:GetHighlightTexture()
     local disabled = button:GetDisabledTexture()
 
-    if normal then Tint(normal, self.colors.purple) end
+    -- Blizzard supplies red artwork on this client. Desaturate first,\n    -- otherwise red channels survive a purple vertex tint.\n    for _, texture in ipairs({ normal, pushed, highlight, disabled }) do\n        if texture and texture.SetDesaturated then texture:SetDesaturated(true) end\n    end\n    if normal then Tint(normal, self.colors.purple) end
     if pushed then Tint(pushed, self.colors.purplePressed) end
     if highlight then
         highlight:SetBlendMode("ADD")
