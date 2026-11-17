@@ -68,7 +68,7 @@ local function Show(name)
     for k,b in pairs(tabs) do b.active:SetAlpha(k==name and 1 or 0) end
 end
 local function Slider(parent,title,subtitle,y,minv,maxv,step,value,change)
-    local row=Panel(parent,22,y,755,65)
+    local row=Panel(parent,22,y,804,65)
     local name=Label(row,title,"GameFontNormal",0.94,0.81,0.58)
     name:SetPoint("TOPLEFT",row,"TOPLEFT",17,-12)
     local desc=Label(row,subtitle,"GameFontHighlightSmall",0.66,0.64,0.69)
@@ -99,7 +99,7 @@ local function Section(parent,name,y)
 end
 local function General()
     local p=Page("General")
-    local hero=Panel(p,12,-8,795,112)
+    local hero=Panel(p,12,-8,824,112)
     local glow=Paint(hero,"BORDER",0.21,0.115,0.31,0.75,1,-1,-1,1)
     local crest=hero:CreateTexture(nil,"ARTWORK");crest:SetTexture(ASSET.."Icons\\BaziUI_Emblem_256.png")
     crest:SetSize(80,80);crest:SetPoint("RIGHT",hero,"RIGHT",-18,0);crest:SetAlpha(0.50)
@@ -107,7 +107,7 @@ local function General()
     h:SetPoint("TOPLEFT",hero,"TOPLEFT",23,-23)
     local sub=Label(hero,"Make Azeroth yours. Fine-tune your interface.","GameFontHighlight",0.85,0.76,0.81)
     sub:SetPoint("TOPLEFT",hero,"TOPLEFT",24,-67)
-    local settings=Panel(p,12,-133,795,320)
+    local settings=Panel(p,12,-133,824,320)
     Section(settings,"Appearance",-19)
     local db=addon.db.profile
     Slider(settings,"Window Scale","Size of the Bazi UI settings window",-59,0.70,1.20,0.01,db.uiScale,function(v)
@@ -117,7 +117,7 @@ local function General()
 end
 local function Placeholder(name,description)
     local p=Page(name)
-    local panel=Panel(p,12,-8,795,168)
+    local panel=Panel(p,12,-8,824,168)
     Section(panel,name,-23)
     local txt=Label(panel,description or "Module settings will appear here as development continues.","GameFontHighlight",0.81,0.75,0.81)
     txt:SetPoint("TOPLEFT",panel,"TOPLEFT",25,-76)
@@ -137,7 +137,7 @@ local function Nav(parent,name,icon,y)
 end
 local function Tab(parent,name,x,w)
     local b=CreateFrame("Button",nil,parent);b:SetSize(w,35)
-    b:SetPoint("TOPLEFT",parent,"TOPLEFT",x,-92)
+    b:SetPoint("TOPLEFT",parent,"TOPLEFT",x,-51)
     local label=Label(b,name,"GameFontNormalSmall",0.87,0.78,0.67);label:SetPoint("CENTER")
     b.active=Paint(b,"ARTWORK",0.90,0.66,0.33,1)
     b.active:ClearAllPoints();b.active:SetPoint("BOTTOMLEFT");b.active:SetPoint("BOTTOMRIGHT");b.active:SetHeight(2)
@@ -153,37 +153,115 @@ function addon.Options:Create()
     -- A fully opaque fill is essential: transparent ornamental corner TGAs
     -- must not reveal the game world through large square holes.
     Paint(frame,"BACKGROUND",0.055,0.043,0.074,1)
-    -- V7 unified ornamental frame artwork (replaces all modular border pieces).
-    -- Kept in a separate overlay so controls and scrolling remain independent.
-    local unifiedFrame=frame:CreateTexture(nil,"OVERLAY",nil,1)
-    unifiedFrame:SetTexture(ASSET.."Frames\\BaziUI_V7_frame_transparent.png")
-    unifiedFrame:SetAllPoints(frame)
-    -- Crop transparent padding from the artwork so the outer border follows the window.
-    unifiedFrame:SetTexCoord(0.055,0.945,0.035,0.965)
-    frame.baziUnifiedFrame=unifiedFrame
-
-    -- Header tint stays behind the artwork and controls.
-    local header=Paint(frame,"BORDER",0.09,0.063,0.11,0.99,3,-3,-3,3)
-    -- Footer anchor retained for status text.
+    -- The opaque window fill stops at the frame boundary. Extending it outward
+    -- created the conspicuous plum rectangle visible behind the border.
+    -- V7 modular ornamental frame: independent corners and stretchable edge tiles.
+    -- Artwork is drawn above the panels but below interactive controls.
+    local BORDER_ASSET = ASSET.."Borders"..string.char(92)
+    local BORDER_OUTSET=0
+    local function BorderAnchorOffset(point)
+        local dx=point:find("LEFT") and -BORDER_OUTSET or (point:find("RIGHT") and BORDER_OUTSET or 0)
+        local dy=point:find("TOP") and BORDER_OUTSET or (point:find("BOTTOM") and -BORDER_OUTSET or 0)
+        return dx,dy
+    end
+    local function BorderPiece(file, width, height, point, x, y, secondPoint, x2, y2)
+        local tex=frame:CreateTexture(nil,"OVERLAY",nil,1)
+        tex:SetTexture(BORDER_ASSET..file)
+        local dx,dy=BorderAnchorOffset(point)
+        tex:SetPoint(point,frame,point,(x or 0)+dx,(y or 0)+dy)
+        if secondPoint then
+            local dx2,dy2=BorderAnchorOffset(secondPoint)
+            tex:SetPoint(secondPoint,frame,secondPoint,(x2 or 0)+dx2,(y2 or 0)+dy2)
+            if height then tex:SetHeight(height) else tex:SetWidth(width) end
+        else
+            tex:SetSize(width,height)
+        end
+        return tex
+    end
+    -- Keep all eight border pieces on the same frame edges and matching corner joins.
+    -- V7 concept proportions: larger ornamental corners; edge art runs behind them.
+    local CORNER_SIZE=88
+    -- The original edge TGAs taper to spikes and cannot join the corners.
+    -- Use restrained continuous metallic rules until matched art is available.
+    local EDGE_INSET=48
+    local function MetallicEdge(vertical, pointA, pointB, x, y)
+        local outer=frame:CreateTexture(nil,"OVERLAY",nil,1)
+        outer:SetColorTexture(0.28,0.14,0.06,1)
+        local shine=frame:CreateTexture(nil,"OVERLAY",nil,2)
+        shine:SetColorTexture(0.84,0.56,0.23,1)
+        if vertical then
+            outer:SetPoint(pointA,frame,pointA,x,-EDGE_INSET)
+            outer:SetPoint(pointB,frame,pointB,x,EDGE_INSET)
+            outer:SetWidth(3)
+            shine:SetPoint(pointA,frame,pointA,x,-EDGE_INSET)
+            shine:SetPoint(pointB,frame,pointB,x,EDGE_INSET)
+            shine:SetWidth(1)
+        else
+            outer:SetPoint(pointA,frame,pointA,EDGE_INSET,y)
+            outer:SetPoint(pointB,frame,pointB,-EDGE_INSET,y)
+            outer:SetHeight(3)
+            shine:SetPoint(pointA,frame,pointA,EDGE_INSET,y)
+            shine:SetPoint(pointB,frame,pointB,-EDGE_INSET,y)
+            shine:SetHeight(1)
+        end
+    end
+    MetallicEdge(false,"TOPLEFT","TOPRIGHT",0,0)
+    -- Footer and lower frame edge share one bottom-anchored container.
+    -- No hardcoded top offset: resizing keeps the artwork on the actual edge.
     local footerChrome=CreateFrame("Frame",nil,frame)
     footerChrome:SetPoint("BOTTOMLEFT",frame,"BOTTOMLEFT",0,0)
     footerChrome:SetPoint("BOTTOMRIGHT",frame,"BOTTOMRIGHT",0,0)
     footerChrome:SetHeight(34)
     frame.baziFooterChrome=footerChrome
+    -- Temporary visual diagnostics. Toggle with /bazidebug.
+    local debugOverlay=CreateFrame("Frame",nil,frame)
+    debugOverlay:SetAllPoints(frame)
+    debugOverlay:SetFrameLevel(frame:GetFrameLevel()+20)
+    debugOverlay:Hide()
+    frame.baziDebugOverlay=debugOverlay
+    local function DebugRule(parent,r,g,b,y,thickness)
+        local t=parent:CreateTexture(nil,"OVERLAY")
+        t:SetColorTexture(r,g,b,0.95)
+        t:SetPoint("BOTTOMLEFT",parent,"BOTTOMLEFT",0,y)
+        t:SetPoint("BOTTOMRIGHT",parent,"BOTTOMRIGHT",0,y)
+        t:SetHeight(thickness)
+        return t
+    end
+    DebugRule(debugOverlay,0,1,0,0,3) -- GREEN: true frame bottom
+    DebugRule(debugOverlay,1,0.15,0.15,34,3) -- RED: footer top
+    local debugText=debugOverlay:CreateFontString(nil,"OVERLAY","GameFontNormalLarge")
+    debugText:SetPoint("BOTTOMLEFT",debugOverlay,"BOTTOMLEFT",12,48)
+    debugText:SetText("|cff00ff00GREEN: frame bottom|r  |cffff3333RED: footer top|r")
+
+    -- Use the matching bottom artwork, not a flat substitute.
+    MetallicEdge(false,"BOTTOMLEFT","BOTTOMRIGHT",0,0)
+    local footerDivider=footerChrome:CreateTexture(nil,"ARTWORK")
+    footerDivider:SetPoint("TOPLEFT",footerChrome,"TOPLEFT",16,0)
+    footerDivider:SetPoint("TOPRIGHT",footerChrome,"TOPRIGHT",-16,0)
+    footerDivider:SetHeight(1)
+    footerDivider:SetColorTexture(0.67,0.48,0.25,0.48)
+    MetallicEdge(true,"TOPLEFT","BOTTOMLEFT",0,0)
+    MetallicEdge(true,"TOPRIGHT","BOTTOMRIGHT",0,0)
+    BorderPiece("Corner_TL.tga",CORNER_SIZE,CORNER_SIZE,"TOPLEFT",0,0)
+    BorderPiece("Corner_TR.tga",CORNER_SIZE,CORNER_SIZE,"TOPRIGHT",0,0)
+    BorderPiece("Corner_BL.tga",CORNER_SIZE,CORNER_SIZE,"BOTTOMLEFT",0,0)
+    BorderPiece("Corner_BR.tga",CORNER_SIZE,CORNER_SIZE,"BOTTOMRIGHT",0,0)
+    -- Keep the header continuous as well; corner artwork overlays it.
+    local header=Paint(frame,"BORDER",0.09,0.063,0.11,0.99,3,-3,-3,3)
     local emblem=frame:CreateTexture(nil,"OVERLAY");emblem:SetTexture(ASSET.."Icons\\BaziUI_Emblem_256.png")
-    emblem:SetSize(62,62);emblem:SetPoint("TOPLEFT",frame,"TOPLEFT",22,-16)
+    emblem:SetSize(70,70);emblem:SetPoint("TOPLEFT",frame,"TOPLEFT",13,12)
     local title=Label(frame,"Bazi UI","GameFontNormalHuge",1,0.83,0.53)
-    title:SetPoint("TOPLEFT",frame,"TOPLEFT",92,-29)
+    title:SetPoint("TOPLEFT",frame,"TOPLEFT",85,-16)
     local version=Label(frame,"REFORGED  /  V7 PREVIEW","GameFontNormalSmall",0.64,0.58,0.66)
-    version:SetPoint("TOPLEFT",frame,"TOPLEFT",94,-57)
-    local close=Button(frame,"X",1084,-23,28,27,function()frame:Hide()end)
+    version:SetPoint("TOPLEFT",frame,"TOPLEFT",87,-45)
+    local close=Button(frame,"X",1097,-12,28,27,function()frame:Hide()end)
     close:SetFrameLevel(frame:GetFrameLevel()+5)
-    -- Header separator is already painted into the unified frame.
+    Line(frame,-93,11,-11)
     -- Fixed navigation: every category remains visible without scrolling.
-    local sidebar=Panel(frame,18,-164,249,528)
+    local sidebar=Panel(frame,10,-103,240,602)
     local navBody=CreateFrame("Frame",nil,sidebar)
     navBody:SetPoint("TOPLEFT",sidebar,"TOPLEFT",4,-7)
-    navBody:SetSize(240,515)
+    navBody:SetSize(232,590)
     local function Category(name,y)
         local h=Label(navBody,name,"GameFontNormalSmall",0.83,0.62,0.34)
         h:SetPoint("TOPLEFT",navBody,"TOPLEFT",15,y)
@@ -191,13 +269,13 @@ function addon.Options:Create()
     Category("GENERAL",-9)
     Category("GAMEPLAY",-174)
     Category("INTERFACE",-337)
-    content=CreateFrame("Frame",nil,frame);content:SetPoint("TOPLEFT",frame,"TOPLEFT",285,-164)
-    content:SetSize(835,528)
+    content=CreateFrame("Frame",nil,frame);content:SetPoint("TOPLEFT",frame,"TOPLEFT",265,-104)
+    content:SetSize(860,602)
     General()
     local others={"Profiles","Import / Export","What's New","Appearance","UnitFrames","Nameplates","ActionBars","Chat","Quest","Gathering","Minimap","Tooltip","Combat","BugTab","QoL Settings"}
     for _,name in ipairs(others) do Placeholder(name) end
-    Tab(frame,"General",310,87);Tab(frame,"Profiles",401,86)
-    Tab(frame,"Import / Export",491,121);Tab(frame,"What's New",616,102)
+    Tab(frame,"General",249,87);Tab(frame,"Profiles",340,86)
+    Tab(frame,"Import / Export",430,121);Tab(frame,"What's New",555,102)
     Nav(navBody,"General","*", -32)
     Nav(navBody,"Appearance","o",-66)
     Nav(navBody,"QoL Settings","+",-100)
@@ -224,7 +302,6 @@ end
 SLASH_BAZIDEBUG1 = "/bazidebug"
 SlashCmdList["BAZIDEBUG"] = function()
     if not frame then print("Bazi UI V7: open /bazi first.");return end
-    if not frame.baziDebugOverlay then print("Bazi UI V7: debug overlay is not installed."); return end
     if frame.baziDebugOverlay:IsShown() then
         frame.baziDebugOverlay:Hide()
         print("Bazi UI V7: debug overlay OFF")
