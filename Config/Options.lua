@@ -283,22 +283,18 @@ function addon.Options:Create()
     headerLine:SetPoint("TOPRIGHT", optionsFrame, "TOPRIGHT", -8, -56)
     headerLine:SetHeight(1)
     headerLine:SetColorTexture(0.76, 0.55, 0.28, 0.75)
-    -- Custom titlebar artwork, kept inside the Blizzard bronze border.
-    local titleArt = optionsFrame:CreateTexture(nil, "ARTWORK", nil, -2)
-    titleArt:SetPoint("TOP", optionsFrame, "TOP", 0, -9)
-    titleArt:SetSize(380, 32)
-    titleArt:SetTexture("Interface\\AddOns\\BaziUI\\Assets\\Frames\\Titlebar.png")
-    titleArt:SetAlpha(0.50)
-        -- Subtle bronze title ornaments, keeping the native frame intact.
+    -- Keep the native bronze title frame. A subtle custom divider on each
+    -- side of the title adds detail without cutting through the lettering.
     for _, side in ipairs({"LEFT", "RIGHT"}) do
-        local ornament = optionsFrame:CreateTexture(nil, "ARTWORK")
-        ornament:SetSize(95, 2)
+        local divider = optionsFrame:CreateTexture(nil, "ARTWORK")
+        divider:SetSize(100, 3)
+        divider:SetTexture("Interface\\AddOns\\BaziUI\\Assets\\Dividers\\Divider_Thin.png")
+        divider:SetAlpha(0.65)
         if side == "LEFT" then
-            ornament:SetPoint("RIGHT", optionsFrame, "TOP", -76, -39)
+            divider:SetPoint("RIGHT", optionsFrame, "TOP", -80, -29)
         else
-            ornament:SetPoint("LEFT", optionsFrame, "TOP", 76, -39)
+            divider:SetPoint("LEFT", optionsFrame, "TOP", 80, -29)
         end
-        ornament:SetColorTexture(0.70, 0.48, 0.23, 0.58)
     end
 
     optionsFrame:Hide()
@@ -309,7 +305,7 @@ function addon.Options:Create()
     title:SetJustifyH("CENTER")
 
     local close = CreateFrame("Button", nil, optionsFrame, "UIPanelCloseButton")
-    close:SetPoint("TOPRIGHT", optionsFrame, "TOPRIGHT", -3, -3)
+    close:SetPoint("TOPRIGHT", optionsFrame, "TOPRIGHT", -15, -23)
 
     local nav = CreateFrame("Frame", nil, optionsFrame)
     nav:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", 12, -78)
