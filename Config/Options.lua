@@ -87,7 +87,7 @@ local function CreateGeneralPage()
     CreateSection(page, "Appearance", -92)
 
     local db = addon.db.profile
-    CreateSlider(page, "UI Scale", 0.70, 1.20, 0.01, db.uiScale, -126, function(value)
+    CreateSlider(page, "Options Window Scale", 0.70, 1.20, 0.01, db.uiScale, -126, function(value)
         db.uiScale = value
         if optionsFrame then
             optionsFrame:SetScale(value)
@@ -98,7 +98,7 @@ local function CreateGeneralPage()
         db.fontSize = value
     end)
 
-    local note = CreateLabel(page, "Changes are saved automatically. More global options will be added here.", 11, addon.Theme.colors.muted)
+    local note = CreateLabel(page, "Settings are saved automatically. Window scaling is active; global module scaling will be connected as those modules are built.", 11, addon.Theme.colors.muted)
     note:SetPoint("TOPLEFT", page, "TOPLEFT", 24, -320)
 
     return page
