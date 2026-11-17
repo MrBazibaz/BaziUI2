@@ -265,7 +265,31 @@ local function HandleCommand(message)
     end
 end
 
+-- Replace the default red Game Menu hover with a soft, warm lilac highlight.
+-- This affects only Game Menu buttons and leaves their normal textures alone.
+local function StyleGameMenuHover()
+    local menu = _G.GameMenuFrame
+    if not menu then return end
+    for _, button in ipairs({menu:GetChildren()}) do
+        local name = button.GetName and button:GetName()
+        if button.IsObjectType and button:IsObjectType("Button")
+            and name and name:match("^GameMenuButton") and not button.baziHoverStyled then
+            local highlight = button:CreateTexture(nil, "HIGHLIGHT")
+            highlight:SetPoint("TOPLEFT", button, "TOPLEFT", 5, -5)
+            highlight:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", -5, 5)
+            highlight:SetColorTexture(0.75, 0.55, 0.85, 0.30)
+            highlight:SetBlendMode("ADD")
+            button:SetHighlightTexture(highlight)
+            button.baziHoverStyled = true
+        end
+    end
+end
+
 function addon.Commands:Initialize()
+    if _G.GameMenuFrame then
+        StyleGameMenuHover()
+        _G.GameMenuFrame:HookScript("OnShow", StyleGameMenuHover)
+    end
     SLASH_BAZI1 = "/bazi"
     SLASH_BAZI2 = "/bui"
     SlashCmdList.BAZI = HandleCommand
