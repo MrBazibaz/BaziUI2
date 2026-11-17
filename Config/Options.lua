@@ -215,6 +215,25 @@ function addon.Options:Create()
     if borderHost.NineSlice then
         borderHost.NineSlice:Show()
     end
+    -- Remove portrait-only art without touching the bronze NineSlice border.
+    -- Forever's character frame inspection identifies 130924 as portrait trim.
+    local function HidePortraitArt(frame, depth)
+        if depth > 4 then return end
+        for _, region in ipairs({frame:GetRegions()}) do
+            if region.IsObjectType and region:IsObjectType("Texture") then
+                local texture = region:GetTexture()
+                if texture == 130924 or texture == 626000 then
+                    region:Hide()
+                    region:SetAlpha(0)
+                end
+            end
+        end
+        for _, child in ipairs({frame:GetChildren()}) do
+            HidePortraitArt(child, depth + 1)
+        end
+    end
+    HidePortraitArt(borderHost, 0)
+
     optionsFrame:SetSize(900, 555)
     optionsFrame:SetPoint("CENTER")
     optionsFrame:SetFrameStrata("DIALOG")
@@ -256,6 +275,18 @@ function addon.Options:Create()
     headerLine:SetPoint("TOPRIGHT", optionsFrame, "TOPRIGHT", -8, -56)
     headerLine:SetHeight(1)
     headerLine:SetColorTexture(0.76, 0.55, 0.28, 0.75)
+    -- Subtle bronze title ornaments, keeping the native frame intact.
+    for _, side in ipairs({"LEFT", "RIGHT"}) do
+        local ornament = optionsFrame:CreateTexture(nil, "ARTWORK")
+        ornament:SetSize(95, 2)
+        if side == "LEFT" then
+            ornament:SetPoint("RIGHT", optionsFrame, "TOP", -76, -39)
+        else
+            ornament:SetPoint("LEFT", optionsFrame, "TOP", 76, -39)
+        end
+        ornament:SetColorTexture(0.70, 0.48, 0.23, 0.58)
+    end
+
     optionsFrame:Hide()
 
     local title = CreateLabel(optionsFrame, "Bazi UI", "GameFontNormal")
@@ -264,7 +295,7 @@ function addon.Options:Create()
     title:SetJustifyH("CENTER")
 
     local close = CreateFrame("Button", nil, optionsFrame, "UIPanelCloseButton")
-    close:SetPoint("TOPRIGHT", optionsFrame, "TOPRIGHT", -13, -13)
+    close:SetPoint("TOPRIGHT", optionsFrame, "TOPRIGHT", -19, -24)
 
     local nav = CreateFrame("Frame", nil, optionsFrame)
     nav:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", 12, -78)
