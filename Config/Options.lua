@@ -137,15 +137,30 @@ function addon.Options:Create()
     frame:SetScript("OnDragStop",frame.StopMovingOrSizing)
     frame:SetScale(addon.db.profile.uiScale or 1)
     Paint(frame,"BACKGROUND",0.055,0.043,0.074,0.99)
-    local border=frame:CreateTexture(nil,"BORDER");border:SetAllPoints(frame)
-    border:SetTexture(ASSET.."Borders\\Frame_Thin_9Slice.png");border:SetAlpha(0.25)
-    for _,side in ipairs({"TOP","BOTTOM","LEFT","RIGHT"}) do
-        local edge=frame:CreateTexture(nil,"ARTWORK");edge:SetColorTexture(0.68,0.49,0.27,0.72)
-        if side=="TOP" then edge:SetPoint("TOPLEFT");edge:SetPoint("TOPRIGHT");edge:SetHeight(2)
-        elseif side=="BOTTOM" then edge:SetPoint("BOTTOMLEFT");edge:SetPoint("BOTTOMRIGHT");edge:SetHeight(2)
-        elseif side=="LEFT" then edge:SetPoint("TOPLEFT");edge:SetPoint("BOTTOMLEFT");edge:SetWidth(2)
-        else edge:SetPoint("TOPRIGHT");edge:SetPoint("BOTTOMRIGHT");edge:SetWidth(2) end
+    -- V7 modular ornamental frame: independent corners and stretchable edge tiles.
+    -- Artwork is drawn above the panels but below interactive controls.
+    local BORDER_ASSET = ASSET.."Borders\\\\"
+    local function BorderPiece(file, width, height, point, x, y, secondPoint, x2, y2)
+        local tex=frame:CreateTexture(nil,"OVERLAY",nil,1)
+        tex:SetTexture(BORDER_ASSET..file)
+        tex:SetPoint(point,frame,point,x or 0,y or 0)
+        if secondPoint then
+            tex:SetPoint(secondPoint,frame,secondPoint,x2 or 0,y2 or 0)
+            if height then tex:SetHeight(height) else tex:SetWidth(width) end
+        else
+            tex:SetSize(width,height)
+        end
+        return tex
     end
+    -- Straight edge pieces are stretched between the corner ornaments.
+    BorderPiece("Edge_Top_Tile.png",nil,32,"TOPLEFT",64,0,"TOPRIGHT",-64,0)
+    BorderPiece("Edge_Bottom_Tile.png",nil,32,"BOTTOMLEFT",64,0,"BOTTOMRIGHT",-64,0)
+    BorderPiece("Edge_Left.png",32,nil,"TOPLEFT",0,-64,"BOTTOMLEFT",0,64)
+    BorderPiece("Edge_Right.png",32,nil,"TOPRIGHT",0,-64,"BOTTOMRIGHT",0,64)
+    BorderPiece("Corner_TL.png",64,64,"TOPLEFT",0,0)
+    BorderPiece("Corner_TR.png",64,64,"TOPRIGHT",0,0)
+    BorderPiece("Corner_BL.png",64,64,"BOTTOMLEFT",0,0)
+    BorderPiece("Corner_BR.png",64,64,"BOTTOMRIGHT",0,0)
     local header=Paint(frame,"BORDER",0.09,0.063,0.11,0.99,3,-3,-3,-93)
     local emblem=frame:CreateTexture(nil,"OVERLAY");emblem:SetTexture(ASSET.."Icons\\BaziUI_Emblem_256.png")
     emblem:SetSize(70,70);emblem:SetPoint("TOPLEFT",frame,"TOPLEFT",13,12)
