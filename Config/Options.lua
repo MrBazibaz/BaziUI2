@@ -210,7 +210,7 @@ function addon.Options:Create()
     BorderPiece("Corner_TL.tga",44,44,"TOPLEFT",0,0)
     BorderPiece("Corner_TR.tga",44,44,"TOPRIGHT",0,0)
     -- Bottom corner images also contain large alpha padding; defer them until the assets are trimmed.
-    local header=Paint(frame,"BORDER",0.09,0.063,0.11,0.99,3,-3,-3,-93)
+    local header=Paint(frame,"BORDER",0.09,0.063,0.11,0.99,3,-3,-3,3)
     local emblem=frame:CreateTexture(nil,"OVERLAY");emblem:SetTexture(ASSET.."Icons\\BaziUI_Emblem_256.png")
     emblem:SetSize(70,70);emblem:SetPoint("TOPLEFT",frame,"TOPLEFT",13,12)
     local title=Label(frame,"Bazi UI","GameFontNormalHuge",1,0.83,0.53)
