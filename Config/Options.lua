@@ -288,13 +288,13 @@ function addon.Options:Create()
     -- insert the Bazi emblem in its centre (asset supplied in this repo).
     -- Put the emblem on a frame above the template artwork, not underneath it.
     local emblemHost = CreateFrame("Frame", nil, optionsFrame)
-    emblemHost:SetSize(48, 48)
-    -- Position is relative to the upper-left corner of the frame.
-    emblemHost:SetPoint("CENTER", optionsFrame, "TOPLEFT", 34.5, -31.5)
+    emblemHost:SetSize(60, 60)
+    -- Align the emblem to the visual centre of the native portrait ring.
+    emblemHost:SetPoint("CENTER", optionsFrame, "TOPLEFT", 26.5, -23.5)
     emblemHost:SetFrameStrata("FULLSCREEN_DIALOG")
-    emblemHost:SetFrameLevel(borderHost:GetFrameLevel() + 5)
+    emblemHost:SetFrameLevel(borderHost:GetFrameLevel() + 30)
     optionsFrame.baziEmblemHost = emblemHost
-    local emblem = emblemHost:CreateTexture(nil, "ARTWORK")
+    local emblem = emblemHost:CreateTexture(nil, "OVERLAY")
     emblem:SetAllPoints(emblemHost)
     emblem:SetTexture(ASSET .. "Icons\\BaziUI_Emblem_256.png")
     optionsFrame.baziEmblem = emblem
