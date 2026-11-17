@@ -290,8 +290,8 @@ function addon.Options:Create()
     -- Keep the emblem attached to the options window: a separate UIParent
     -- overlay did not render reliably on the Forever client.
     local emblemHost = CreateFrame("Frame", nil, borderHost.NineSlice or optionsFrame)
-    emblemHost:SetSize(60, 60)
-    emblemHost:SetPoint("CENTER", optionsFrame, "TOPLEFT", 25, -22)
+    emblemHost:SetSize(66, 66)
+    emblemHost:SetPoint("CENTER", optionsFrame, "TOPLEFT", 26, -23)
     emblemHost:SetFrameStrata("FULLSCREEN_DIALOG")
     emblemHost:SetFrameLevel(math.max(borderHost:GetFrameLevel(), borderHost.NineSlice and borderHost.NineSlice:GetFrameLevel() or 0) + 30)
     emblemHost:EnableMouse(false)
