@@ -2,45 +2,100 @@ local addon = BaziUI
 
 addon.Theme = addon.Theme or {}
 
--- Blizzard's Character Pane is the visual reference for panels and window
--- artwork. Do not replace its native frame textures with a separate palette.
--- Purple is reserved for interactive controls.
+-- Royal Purple is reserved for interactive controls.
+-- Window artwork uses Blizzard's Character Pane background and native frame border.
 addon.Theme.colors = {
-    gold = { 0.90, 0.73, 0.39, 1 },
-    bronze = { 0.48, 0.35, 0.19, 1 },
-    text = { 0.91, 0.86, 0.74, 1 },
-    muted = { 0.67, 0.61, 0.52, 1 },
-
-    -- Royal Purple button states.
-    purple = { 0.36, 0.22, 0.55, 1 },
-    purpleHover = { 0.49, 0.32, 0.70, 1 },
-    purplePressed = { 0.25, 0.14, 0.39, 1 },
+    purple = { 0.47, 0.32, 0.66, 1 },
+    purpleHover = { 0.57, 0.40, 0.77, 1 },
+    purplePressed = { 0.34, 0.21, 0.50, 1 },
     purpleDisabled = { 0.25, 0.20, 0.31, 0.75 },
-
-    error = { 0.80, 0.22, 0.20, 1 },
 }
 
-local function Tint(texture, color)
-    if texture and color then
-        texture:SetVertexColor(unpack(color))
-    end
-end
-
-function addon.Theme:ApplyButton(button)
-    if not button then
+function addon.Theme:ApplyWindow(frame)
+    if not frame or not frame.SetBackdrop then
         return
     end
 
-    -- Keep the Blizzard button textures and shape; only recolor their states.
-    Tint(button:GetNormalTexture(), self.colors.purple)
-    Tint(button:GetPushedTexture(), self.colors.purplePressed)
-    Tint(button:GetHighlightTexture(), self.colors.purpleHover)
-    Tint(button:GetDisabledTexture(), self.colors.purpleDisabled)
+    frame:SetBackdrop({
+        bgFile = "Interface\\CharacterFrame\\UI-CharacterFrame-Background",
+        edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
+        tile = true,
+        tileSize = 32,
+        edgeSize = 32,
+        insets = { left = 11, right = 12, top = 12, bottom = 11 },
+    })
+end
 
-    local text = button:GetFontString()
-    if text then
-        text:SetTextColor(unpack(self.colors.text))
+local function SetTextureColor(texture, color)
+    if texture and color then
+        texture:SetColorTexture(unpack(color))
     end
+end
+
+function addon.Theme:CreateButton(parent, label, width, height)
+    local button = CreateFrame("Button", nil, parent)
+    button:SetSize(width or 142, height or 28)
+
+    local background = button:CreateTexture(nil, "BACKGROUND")
+    background:SetAllPoints()
+    SetTextureColor(background, self.colors.purple)
+    button.background = background
+
+    local borderColor = { 0.72, 0.62, 0.84, 0.9 }
+    local border = {}
+    border.top = button:CreateTexture(nil, "BORDER")
+    border.bottom = button:CreateTexture(nil, "BORDER")
+    border.left = button:CreateTexture(nil, "BORDER")
+    border.right = button:CreateTexture(nil, "BORDER")
+
+    border.top:SetPoint("TOPLEFT")
+    border.top:SetPoint("TOPRIGHT")
+    border.top:SetHeight(1)
+    border.bottom:SetPoint("BOTTOMLEFT")
+    border.bottom:SetPoint("BOTTOMRIGHT")
+    border.bottom:SetHeight(1)
+    border.left:SetPoint("TOPLEFT")
+    border.left:SetPoint("BOTTOMLEFT")
+    border.left:SetWidth(1)
+    border.right:SetPoint("TOPRIGHT")
+    border.right:SetPoint("BOTTOMRIGHT")
+    border.right:SetWidth(1)
+
+    for _, edge in pairs(border) do
+        SetTextureColor(edge, borderColor)
+    end
+
+    local text = button:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    text:SetPoint("CENTER", button, "CENTER", 0, 0)
+    text:SetText(label)
+    button.label = text
+
+    button:SetScript("OnEnter", function(self)
+        SetTextureColor(self.background, addon.Theme.colors.purpleHover)
+    end)
+    button:SetScript("OnLeave", function(self)
+        SetTextureColor(self.background, addon.Theme.colors.purple)
+    end)
+    button:SetScript("OnMouseDown", function(self)
+        SetTextureColor(self.background, addon.Theme.colors.purplePressed)
+    end)
+    button:SetScript("OnMouseUp", function(self)
+        if self:IsMouseOver() then
+            SetTextureColor(self.background, addon.Theme.colors.purpleHover)
+        else
+            SetTextureColor(self.background, addon.Theme.colors.purple)
+        end
+    end)
+    button:SetScript("OnDisable", function(self)
+        SetTextureColor(self.background, addon.Theme.colors.purpleDisabled)
+        self.label:SetAlpha(0.55)
+    end)
+    button:SetScript("OnEnable", function(self)
+        SetTextureColor(self.background, addon.Theme.colors.purple)
+        self.label:SetAlpha(1)
+    end)
+
+    return button
 end
 
 function addon.Theme:SetButtonActive(button, active)
@@ -48,16 +103,16 @@ function addon.Theme:SetButtonActive(button, active)
         return
     end
 
+    button.isActive = active
     if active then
-        button:SetAlpha(1)
-        Tint(button:GetNormalTexture(), self.colors.purpleHover)
+        SetTextureColor(button.background, self.colors.purpleHover)
+        button.label:SetAlpha(1)
     else
-        button:SetAlpha(0.78)
-        Tint(button:GetNormalTexture(), self.colors.purple)
+        SetTextureColor(button.background, self.colors.purple)
+        button.label:SetAlpha(0.88)
     end
 end
 
 function addon.Theme:Initialize()
-    -- Blizzard's native Character Pane artwork defines panel appearance.
-    -- Royal Purple is applied only to interactive buttons.
+    -- Theme assets are applied by the modules that create their own frames.
 end
