@@ -110,6 +110,74 @@ local function InspectBlizzardFrames()
     addon:Print("Share frameInspect from WTF/Account/<account>/SavedVariables/BaziUI.lua.")
 end
 
+local function InspectMapBorder()
+    BaziUIDB = BaziUIDB or {}
+    local lines = {}
+    local function Add(line)
+        if #lines < 350 then lines[#lines + 1] = line end
+    end
+    local function Scan(frame, path, depth)
+        if not frame or depth > 7 or #lines >= 350 then return end
+        if frame.GetBackdrop then
+            local ok, bd = pcall(frame.GetBackdrop, frame)
+            if ok and bd and bd.edgeFile then
+                Add(path .. " BACKDROP edge=" .. tostring(bd.edgeFile)
+                    .. " size=" .. tostring(bd.edgeSize))
+            end
+        end
+        if frame.GetRegions then
+            for i, region in ipairs({frame:GetRegions()}) do
+                if region.IsObjectType and region:IsObjectType("Texture") then
+                    local texture = region.GetTexture and region:GetTexture()
+                    if texture then
+                        local name = region.GetName and region:GetName()
+                        local layer, sub = region:GetDrawLayer()
+                        local w, h = region:GetSize()
+                        local coord = region.GetTexCoord and {region:GetTexCoord()} or {}
+                        local points = {}
+                        if region.GetNumPoints then
+                            for j = 1, math.min(region:GetNumPoints(), 2) do
+                                local p, relative, rp, x, y = region:GetPoint(j)
+                                points[#points + 1] = tostring(p) .. ":" ..
+                                    tostring(relative and relative.GetName and relative:GetName() or "?") ..
+                                    ":" .. tostring(rp) .. ":" .. tostring(x) .. "," .. tostring(y)
+                            end
+                        end
+                        Add(path .. "/region" .. i .. " name=" .. tostring(name)
+                            .. " texture=" .. tostring(texture)
+                            .. " layer=" .. tostring(layer) .. "/" .. tostring(sub)
+                            .. " size=" .. tostring(w) .. "x" .. tostring(h)
+                            .. " texcoord=" .. table.concat(coord, ",")
+                            .. " points=" .. table.concat(points, ";"))
+                    end
+                end
+            end
+        end
+        if frame.GetChildren then
+            for i, child in ipairs({frame:GetChildren()}) do
+                local name = child.GetName and child:GetName() or ("child" .. i)
+                Scan(child, path .. "/" .. tostring(name), depth + 1)
+            end
+        end
+    end
+    local candidates = {"WorldMapFrame", "WorldMapFrame.BorderFrame", "CharacterFrame", "SpellBookFrame"}
+    for _, name in ipairs(candidates) do
+        local frame = _G[name]
+        if name == "WorldMapFrame.BorderFrame" then
+            frame = _G.WorldMapFrame and _G.WorldMapFrame.BorderFrame
+        end
+        if frame then
+            Add("=== " .. name .. " ===")
+            Scan(frame, name, 0)
+        else
+            Add(name .. " not loaded")
+        end
+    end
+    BaziUIDB.mapBorderInspect = lines
+    addon:Print("Map border inspection: " .. #lines .. " lines saved.")
+    addon:Print("Use /rl and share mapBorderInspect in SavedVariables/BaziUI.lua.")
+end
+
 local function HandleCommand(message)
     local command, argument = string.match(message or "", "^(%S*)%s*(.-)$")
     command = string.lower(command or "")
@@ -121,6 +189,8 @@ local function HandleCommand(message)
         addon:Print("version " .. addon.version)
     elseif command == "reload" then
         ReloadUI()
+    elseif command == "inspectmap" then
+        InspectMapBorder()
     elseif command == "inspect" then
         InspectBlizzardFrames()
     elseif command == "debugborder" then
@@ -128,7 +198,7 @@ local function HandleCommand(message)
     elseif command == "reset" then
         StaticPopup_Show("BAZIUI_RESET_CONFIRM")
     else
-        addon:Print("Commands: /bazi, /bazi version, /bazi reload, /bazi reset, /bazi debugborder, /bazi inspect")
+        addon:Print("Commands: /bazi, /bazi version, /bazi reload, /bazi reset, /bazi debugborder, /bazi inspect, /bazi inspectmap")
     end
 end
 
