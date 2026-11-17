@@ -153,101 +153,21 @@ function addon.Options:Create()
     -- A fully opaque fill is essential: transparent ornamental corner TGAs
     -- must not reveal the game world through large square holes.
     Paint(frame,"BACKGROUND",0.055,0.043,0.074,1)
-    -- The opaque window fill stops at the frame boundary. Extending it outward
-    -- created the conspicuous plum rectangle visible behind the border.
-    -- V7 modular ornamental frame: independent corners and stretchable edge tiles.
-    -- Artwork is drawn above the panels but below interactive controls.
-    local BORDER_ASSET = ASSET.."Borders"..string.char(92)
-    local BORDER_OUTSET=0
-    local function BorderAnchorOffset(point)
-        local dx=point:find("LEFT") and -BORDER_OUTSET or (point:find("RIGHT") and BORDER_OUTSET or 0)
-        local dy=point:find("TOP") and BORDER_OUTSET or (point:find("BOTTOM") and -BORDER_OUTSET or 0)
-        return dx,dy
-    end
-    local function BorderPiece(file, width, height, point, x, y, secondPoint, x2, y2)
-        local tex=frame:CreateTexture(nil,"OVERLAY",nil,1)
-        tex:SetTexture(BORDER_ASSET..file)
-        local dx,dy=BorderAnchorOffset(point)
-        tex:SetPoint(point,frame,point,(x or 0)+dx,(y or 0)+dy)
-        if secondPoint then
-            local dx2,dy2=BorderAnchorOffset(secondPoint)
-            tex:SetPoint(secondPoint,frame,secondPoint,(x2 or 0)+dx2,(y2 or 0)+dy2)
-            if height then tex:SetHeight(height) else tex:SetWidth(width) end
-        else
-            tex:SetSize(width,height)
-        end
-        return tex
-    end
-    -- Keep all eight border pieces on the same frame edges and matching corner joins.
-    -- V7 concept proportions: larger ornamental corners; edge art runs behind them.
-    local CORNER_SIZE=88
-    -- The original edge TGAs taper to spikes and cannot join the corners.
-    -- Use restrained continuous metallic rules until matched art is available.
-    local EDGE_INSET=48
-    local function MetallicEdge(vertical, pointA, pointB, x, y)
-        local outer=frame:CreateTexture(nil,"OVERLAY",nil,1)
-        outer:SetColorTexture(0.28,0.14,0.06,1)
-        local shine=frame:CreateTexture(nil,"OVERLAY",nil,2)
-        shine:SetColorTexture(0.84,0.56,0.23,1)
-        if vertical then
-            outer:SetPoint(pointA,frame,pointA,x,-EDGE_INSET)
-            outer:SetPoint(pointB,frame,pointB,x,EDGE_INSET)
-            outer:SetWidth(3)
-            shine:SetPoint(pointA,frame,pointA,x,-EDGE_INSET)
-            shine:SetPoint(pointB,frame,pointB,x,EDGE_INSET)
-            shine:SetWidth(1)
-        else
-            outer:SetPoint(pointA,frame,pointA,EDGE_INSET,y)
-            outer:SetPoint(pointB,frame,pointB,-EDGE_INSET,y)
-            outer:SetHeight(3)
-            shine:SetPoint(pointA,frame,pointA,EDGE_INSET,y)
-            shine:SetPoint(pointB,frame,pointB,-EDGE_INSET,y)
-            shine:SetHeight(1)
-        end
-    end
-    MetallicEdge(false,"TOPLEFT","TOPRIGHT",0,0)
-    -- Footer and lower frame edge share one bottom-anchored container.
-    -- No hardcoded top offset: resizing keeps the artwork on the actual edge.
+    -- V7 unified ornamental frame artwork (replaces all modular border pieces).
+    -- Kept in a separate overlay so controls and scrolling remain independent.
+    local unifiedFrame=frame:CreateTexture(nil,"OVERLAY",nil,1)
+    unifiedFrame:SetTexture(ASSET.."Frames\\\\BaziUI_V7_frame_transparent.png")
+    unifiedFrame:SetAllPoints(frame)
+    frame.baziUnifiedFrame=unifiedFrame
+
+    -- Header tint stays behind the artwork and controls.
+    local header=Paint(frame,"BORDER",0.09,0.063,0.11,0.99,3,-3,-3,3)
+    -- Footer anchor retained for status text.
     local footerChrome=CreateFrame("Frame",nil,frame)
     footerChrome:SetPoint("BOTTOMLEFT",frame,"BOTTOMLEFT",0,0)
     footerChrome:SetPoint("BOTTOMRIGHT",frame,"BOTTOMRIGHT",0,0)
     footerChrome:SetHeight(34)
     frame.baziFooterChrome=footerChrome
-    -- Temporary visual diagnostics. Toggle with /bazidebug.
-    local debugOverlay=CreateFrame("Frame",nil,frame)
-    debugOverlay:SetAllPoints(frame)
-    debugOverlay:SetFrameLevel(frame:GetFrameLevel()+20)
-    debugOverlay:Hide()
-    frame.baziDebugOverlay=debugOverlay
-    local function DebugRule(parent,r,g,b,y,thickness)
-        local t=parent:CreateTexture(nil,"OVERLAY")
-        t:SetColorTexture(r,g,b,0.95)
-        t:SetPoint("BOTTOMLEFT",parent,"BOTTOMLEFT",0,y)
-        t:SetPoint("BOTTOMRIGHT",parent,"BOTTOMRIGHT",0,y)
-        t:SetHeight(thickness)
-        return t
-    end
-    DebugRule(debugOverlay,0,1,0,0,3) -- GREEN: true frame bottom
-    DebugRule(debugOverlay,1,0.15,0.15,34,3) -- RED: footer top
-    local debugText=debugOverlay:CreateFontString(nil,"OVERLAY","GameFontNormalLarge")
-    debugText:SetPoint("BOTTOMLEFT",debugOverlay,"BOTTOMLEFT",12,48)
-    debugText:SetText("|cff00ff00GREEN: frame bottom|r  |cffff3333RED: footer top|r")
-
-    -- Use the matching bottom artwork, not a flat substitute.
-    MetallicEdge(false,"BOTTOMLEFT","BOTTOMRIGHT",0,0)
-    local footerDivider=footerChrome:CreateTexture(nil,"ARTWORK")
-    footerDivider:SetPoint("TOPLEFT",footerChrome,"TOPLEFT",16,0)
-    footerDivider:SetPoint("TOPRIGHT",footerChrome,"TOPRIGHT",-16,0)
-    footerDivider:SetHeight(1)
-    footerDivider:SetColorTexture(0.67,0.48,0.25,0.48)
-    MetallicEdge(true,"TOPLEFT","BOTTOMLEFT",0,0)
-    MetallicEdge(true,"TOPRIGHT","BOTTOMRIGHT",0,0)
-    BorderPiece("Corner_TL.tga",CORNER_SIZE,CORNER_SIZE,"TOPLEFT",0,0)
-    BorderPiece("Corner_TR.tga",CORNER_SIZE,CORNER_SIZE,"TOPRIGHT",0,0)
-    BorderPiece("Corner_BL.tga",CORNER_SIZE,CORNER_SIZE,"BOTTOMLEFT",0,0)
-    BorderPiece("Corner_BR.tga",CORNER_SIZE,CORNER_SIZE,"BOTTOMRIGHT",0,0)
-    -- Keep the header continuous as well; corner artwork overlays it.
-    local header=Paint(frame,"BORDER",0.09,0.063,0.11,0.99,3,-3,-3,3)
     local emblem=frame:CreateTexture(nil,"OVERLAY");emblem:SetTexture(ASSET.."Icons\\BaziUI_Emblem_256.png")
     emblem:SetSize(70,70);emblem:SetPoint("TOPLEFT",frame,"TOPLEFT",13,12)
     local title=Label(frame,"Bazi UI","GameFontNormalHuge",1,0.83,0.53)
