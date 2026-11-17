@@ -363,7 +363,7 @@ function addon.Options:Create()
 
     local close = CreateFrame("Button", nil, optionsFrame, "UIPanelCloseButton")
     -- Keep the close button inside the header border.
-    close:SetPoint("TOPRIGHT", optionsFrame, "TOPRIGHT", 0, 0)
+    close:SetPoint("TOPRIGHT", optionsFrame, "TOPRIGHT", -2, 2)
     close:SetFrameStrata("FULLSCREEN_DIALOG")
     close:SetFrameLevel(borderHost:GetFrameLevel() + 20)
     optionsFrame.baziClose = close
