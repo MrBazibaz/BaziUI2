@@ -218,7 +218,7 @@ function addon.Options:Create()
     end
     if borderHost.NineSlice then
         borderHost.NineSlice:Show()
-        -- The portrait ring belongs to the template border itself.\n        -- Hide only its top-left ornament, not the whole border.\n        for _, key in ipairs({"Portrait", "PortraitFrame", "PortraitContainer", "PortraitOverlay"}) do\n            if borderHost.NineSlice[key] then borderHost.NineSlice[key]:Hide() end\n        end\n    end
+    end
     -- Some Blizzard templates keep the portrait ornament in named regions.
     for _, part in ipairs({"Portrait", "PortraitFrame", "PortraitContainer", "PortraitOverlay", "PortraitMask"}) do
         if borderHost[part] then borderHost[part]:Hide() end
