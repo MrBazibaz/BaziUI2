@@ -150,21 +150,9 @@ function addon.Options:Create()
     frame:RegisterForDrag("LeftButton");frame:SetScript("OnDragStart",frame.StartMoving)
     frame:SetScript("OnDragStop",frame.StopMovingOrSizing)
     frame:SetScale(addon.db.profile.uiScale or 1)
-    -- Cross-shaped opaque fill: the ornamental corner textures have transparent
-    -- cutouts, so a full rectangular fill shows through outside their gold curves.
-    -- Keep the middle and straight edges opaque while leaving the four outer
-    -- 48x48 corner squares transparent underneath the corner artwork.
-    local function WindowFill(layer,r,g,b,a)
-        local middle=frame:CreateTexture(nil,layer)
-        middle:SetColorTexture(r,g,b,a)
-        middle:SetPoint("TOPLEFT",frame,"TOPLEFT",0,-48)
-        middle:SetPoint("BOTTOMRIGHT",frame,"BOTTOMRIGHT",0,48)
-        local upright=frame:CreateTexture(nil,layer)
-        upright:SetColorTexture(r,g,b,a)
-        upright:SetPoint("TOPLEFT",frame,"TOPLEFT",48,0)
-        upright:SetPoint("BOTTOMRIGHT",frame,"BOTTOMRIGHT",-48,0)
-    end
-    WindowFill("BACKGROUND",0.055,0.043,0.074,0.99)
+    -- A fully opaque fill is essential: transparent ornamental corner TGAs
+    -- must not reveal the game world through large square holes.
+    Paint(frame,"BACKGROUND",0.055,0.043,0.074,1)
     -- The opaque window fill stops at the frame boundary. Extending it outward
     -- created the conspicuous plum rectangle visible behind the border.
     -- V7 modular ornamental frame: independent corners and stretchable edge tiles.
@@ -258,16 +246,8 @@ function addon.Options:Create()
     BorderPiece("Corner_TR.tga",CORNER_SIZE,CORNER_SIZE,"TOPRIGHT",0,0)
     BorderPiece("Corner_BL.tga",CORNER_SIZE,CORNER_SIZE,"BOTTOMLEFT",0,0)
     BorderPiece("Corner_BR.tga",CORNER_SIZE,CORNER_SIZE,"BOTTOMRIGHT",0,0)
-    -- Header tint must respect the same corner cutouts as the window fill.
-    -- A rectangular BORDER-layer overlay would reintroduce the purple squares.
-    local headerCenter=frame:CreateTexture(nil,"BORDER")
-    headerCenter:SetColorTexture(0.09,0.063,0.11,0.99)
-    headerCenter:SetPoint("TOPLEFT",frame,"TOPLEFT",48,-3)
-    headerCenter:SetPoint("BOTTOMRIGHT",frame,"BOTTOMRIGHT",-48,3)
-    local headerMiddle=frame:CreateTexture(nil,"BORDER")
-    headerMiddle:SetColorTexture(0.09,0.063,0.11,0.99)
-    headerMiddle:SetPoint("TOPLEFT",frame,"TOPLEFT",3,-48)
-    headerMiddle:SetPoint("BOTTOMRIGHT",frame,"BOTTOMRIGHT",-3,48)
+    -- Keep the header continuous as well; corner artwork overlays it.
+    local header=Paint(frame,"BORDER",0.09,0.063,0.11,0.99,3,-3,-3,3)
     local emblem=frame:CreateTexture(nil,"OVERLAY");emblem:SetTexture(ASSET.."Icons\\BaziUI_Emblem_256.png")
     emblem:SetSize(70,70);emblem:SetPoint("TOPLEFT",frame,"TOPLEFT",13,12)
     local title=Label(frame,"Bazi UI","GameFontNormalHuge",1,0.83,0.53)
