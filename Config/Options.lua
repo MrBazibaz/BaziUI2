@@ -15,7 +15,7 @@ end
 
 local function CreateDivider(parent, y)
     local line = parent:CreateTexture(nil, "ARTWORK")
-    line:SetColorTexture(0.55, 0.48, 0.62, 0.55)
+    line:SetColorTexture(0.57, 0.42, 0.23, 0.55)
     line:SetHeight(1)
     line:SetPoint("TOPLEFT", parent, "TOPLEFT", 18, y)
     line:SetPoint("TOPRIGHT", parent, "TOPRIGHT", -18, y)
@@ -79,7 +79,7 @@ local function CreateGeneralPage()
     page:SetAllPoints(contentFrame)
     pages.General = page
 
-    CreateSection(page, "BAZI UI", -26)
+    CreateSection(page, "Bazi UI", -26)
 
     local intro = CreateLabel(page, "Your interface. Your rules.", "GameFontHighlight")
     intro:SetPoint("TOPLEFT", page, "TOPLEFT", 24, -58)
@@ -152,10 +152,10 @@ function addon.Options:Create()
     addon.Theme:ApplyWindow(optionsFrame)
     optionsFrame:Hide()
 
-    local title = CreateLabel(optionsFrame, "BAZI UI", "GameFontNormalLarge")
+    local title = CreateLabel(optionsFrame, "Bazi UI", "GameFontNormal")
     title:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", 24, -18)
 
-    local subtitle = CreateLabel(optionsFrame, "INTERFACE CONTROL", "GameFontDisableSmall")
+    local subtitle = CreateLabel(optionsFrame, "Interface settings", "GameFontDisableSmall")
     subtitle:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", 25, -42)
 
     local close = CreateFrame("Button", nil, optionsFrame, "UIPanelCloseButton")
