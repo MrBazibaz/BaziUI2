@@ -7,6 +7,8 @@ local contentFrame
 local navButtons = {}
 local pages = {}
 
+local ASSET = "Interface\\AddOns\\BaziUI\\Assets\\"
+
 local function CreateLabel(parent, text, font)
     local label = parent:CreateFontString(nil, "OVERLAY", font or "GameFontNormal")
     label:SetText(text)
@@ -15,8 +17,9 @@ end
 
 local function CreateDivider(parent, y)
     local line = parent:CreateTexture(nil, "ARTWORK")
-    line:SetColorTexture(0.57, 0.42, 0.23, 0.55)
-    line:SetHeight(1)
+    line:SetTexture(ASSET .. "Dividers\\Divider_Gem.png")
+    line:SetVertexColor(0.90, 0.72, 0.49, 0.8)
+    line:SetHeight(8)
     line:SetPoint("TOPLEFT", parent, "TOPLEFT", 18, y)
     line:SetPoint("TOPRIGHT", parent, "TOPRIGHT", -18, y)
     return line
@@ -38,6 +41,10 @@ local function CreatePanel(parent, top, height)
     local fill = panel:CreateTexture(nil, "BACKGROUND")
     fill:SetAllPoints(panel)
     fill:SetColorTexture(0.19, 0.105, 0.052, 0.97)
+    local panelArt = panel:CreateTexture(nil, "BACKGROUND", nil, 1)
+    panelArt:SetAllPoints(panel)
+    panelArt:SetTexture(ASSET .. "Frames\\Panel_Dark_Tile.png")
+    panelArt:SetAlpha(0.30)
 
     local accent = panel:CreateTexture(nil, "ARTWORK")
     accent:SetPoint("TOPLEFT", panel, "TOPLEFT", 0, 0)
@@ -61,6 +68,10 @@ local function CreateSlider(parent, labelText, description, minValue, maxValue, 
     local fill = row:CreateTexture(nil, "BACKGROUND")
     fill:SetAllPoints(row)
     fill:SetColorTexture(0.25, 0.125, 0.055, 0.96)
+    local rowArt = row:CreateTexture(nil, "BACKGROUND", nil, 1)
+    rowArt:SetAllPoints(row)
+    rowArt:SetTexture(ASSET .. "Frames\\Panel_Dark_Tile.png")
+    rowArt:SetAlpha(0.20)
     local heading = CreateLabel(row, labelText, "GameFontNormal")
     heading:SetPoint("TOPLEFT", row, "TOPLEFT", 15, -10)
     heading:SetTextColor(1, 0.78, 0.39)
@@ -80,17 +91,27 @@ local function CreateSlider(parent, labelText, description, minValue, maxValue, 
     track:SetPoint("LEFT", slider, "LEFT", 0, 0)
     track:SetPoint("RIGHT", slider, "RIGHT", 0, 0)
     track:SetHeight(7)
-    track:SetColorTexture(0.09, 0.055, 0.045, 1)
+    track:SetTexture(ASSET .. "Sliders\\Slider_Track.png")
     local thumb = slider:CreateTexture(nil, "OVERLAY")
-    thumb:SetSize(13, 19)
-    thumb:SetColorTexture(0.34, 0.17, 0.25, 1)
+    thumb:SetSize(24, 28)
+    thumb:SetTexture(ASSET .. "Sliders\\Gem_Handle.png")
     slider:SetThumbTexture(thumb)
+    local progress = slider:CreateTexture(nil, "BORDER")
+    progress:SetPoint("LEFT", track, "LEFT", 0, 0)
+    progress:SetHeight(7)
+    progress:SetTexture(ASSET .. "Sliders\\Slider_Fill.png")
+    local function RefreshProgress(raw)
+        local fraction = (raw - minValue) / (maxValue - minValue)
+        progress:SetWidth(math.max(1, 115 * math.max(0, math.min(1, fraction))))
+    end
     slider:SetScript("OnValueChanged", function(self, raw)
         local rounded = math.floor(raw / step + 0.5) * step
         valueText:SetText(string.format("%g", rounded))
+        RefreshProgress(rounded)
         if onValueChanged then onValueChanged(rounded) end
     end)
     slider:SetValue(value)
+    RefreshProgress(value)
     valueText:SetText(string.format("%g", value))
     return slider
 end
@@ -157,6 +178,10 @@ local function CreateNavigationButton(parent, name, label, y)
     button:SetPoint("TOPLEFT", parent, "TOPLEFT", 4, y)
     local fill = button:CreateTexture(nil, "BACKGROUND")
     fill:SetAllPoints(button)
+    local tabArt = button:CreateTexture(nil, "BORDER")
+    tabArt:SetAllPoints(button)
+    tabArt:SetTexture(ASSET .. "Tabs\\Tab_Normal.png")
+    tabArt:SetAlpha(0.35)
     local stripe = button:CreateTexture(nil, "ARTWORK")
     stripe:SetPoint("TOPLEFT", button, "TOPLEFT", 0, 0)
     stripe:SetPoint("BOTTOMLEFT", button, "BOTTOMLEFT", 0, 0)
@@ -169,14 +194,20 @@ local function CreateNavigationButton(parent, name, label, y)
     button.baziHover = false
     button.baziRefresh = function()
         if button.baziActive then
+            tabArt:SetTexture(ASSET .. "Tabs\\Tab_Selected.png")
+            tabArt:SetAlpha(0.50)
             fill:SetColorTexture(0.34, 0.17, 0.25, 0.98)
             stripe:SetColorTexture(0.83, 0.63, 0.30, 1)
             text:SetTextColor(1, 0.85, 0.55)
         elseif button.baziHover then
+            tabArt:SetTexture(ASSET .. "Tabs\\Tab_Hover.png")
+            tabArt:SetAlpha(0.45)
             fill:SetColorTexture(0.28, 0.15, 0.085, 0.96)
             stripe:SetColorTexture(0.57, 0.42, 0.26, 0.8)
             text:SetTextColor(0.95, 0.87, 0.73)
         else
+            tabArt:SetTexture(ASSET .. "Tabs\\Tab_Normal.png")
+            tabArt:SetAlpha(0.35)
             fill:SetColorTexture(0.18, 0.095, 0.05, 0.94)
             stripe:SetColorTexture(0.54, 0.35, 0.19, 0.75)
             text:SetTextColor(0.87, 0.74, 0.56)
@@ -237,8 +268,8 @@ function addon.Options:Create()
     -- The native portrait ring is part of the frame design. Keep it and
     -- insert the Bazi emblem in its centre (asset supplied in this repo).
     local emblem = optionsFrame:CreateTexture(nil, "OVERLAY", nil, 2)
-    emblem:SetSize(46, 46)
-    emblem:SetPoint("CENTER", optionsFrame, "TOPLEFT", 25, -25)
+    emblem:SetSize(68, 68)
+    emblem:SetPoint("CENTER", optionsFrame, "TOPLEFT", 26, -27)
     emblem:SetTexture("Interface\\AddOns\\BaziUI\\Assets\\Icons\\BaziUI_Emblem_64.png")
     emblem:SetTexCoord(0, 1, 0, 1)
 
@@ -305,7 +336,7 @@ function addon.Options:Create()
     title:SetJustifyH("CENTER")
 
     local close = CreateFrame("Button", nil, optionsFrame, "UIPanelCloseButton")
-    close:SetPoint("TOPRIGHT", optionsFrame, "TOPRIGHT", -15, -23)
+    close:SetPoint("TOPRIGHT", optionsFrame, "TOPRIGHT", -9, -7)
 
     local nav = CreateFrame("Frame", nil, optionsFrame)
     nav:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", 12, -78)
