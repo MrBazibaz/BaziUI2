@@ -200,25 +200,37 @@ end
 
 function addon.Options:Create()
     optionsFrame = CreateFrame("Frame", "BaziUIOptionsFrame", UIParent)
-    -- Reliable layered fantasy border: no atlas slicing or stretched ornaments.
-    local function FrameLine(point1, point2, x1, y1, x2, y2, thickness, vertical, red, green, blue, alpha)
-        local line = optionsFrame:CreateTexture(nil, "OVERLAY")
-        line:SetPoint(point1, optionsFrame, point1, x1, y1)
-        line:SetPoint(point2, optionsFrame, point2, x2, y2)
-        if vertical then line:SetWidth(thickness) else line:SetHeight(thickness) end
-        line:SetColorTexture(red, green, blue, alpha)
+    -- Warm, softly chamfered fantasy frame, made from solid-color textures.
+    -- No unsupported backdrop APIs and no sliced Blizzard atlas.
+    local function BorderStroke(x1, y1, x2, y2, r, g, b, alpha)
+        local t = optionsFrame:CreateTexture(nil, "OVERLAY")
+        t:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", x1, -y1)
+        t:SetPoint("BOTTOMRIGHT", optionsFrame, "TOPLEFT", x2, -y2)
+        t:SetColorTexture(r, g, b, alpha or 1)
     end
-    -- Outer dark outline, broad antique-gold rim, inner shadow and gold hairline.
-    local function FrameRing(inset, thickness, red, green, blue, alpha)
-        FrameLine("TOPLEFT", "TOPRIGHT", inset, -inset, -inset, -inset, thickness, false, red, green, blue, alpha)
-        FrameLine("BOTTOMLEFT", "BOTTOMRIGHT", inset, inset, -inset, inset, thickness, false, red, green, blue, alpha)
-        FrameLine("TOPLEFT", "BOTTOMLEFT", inset, -inset, inset, inset, thickness, true, red, green, blue, alpha)
-        FrameLine("TOPRIGHT", "BOTTOMRIGHT", -inset, -inset, -inset, inset, thickness, true, red, green, blue, alpha)
+    local function RoundedRing(inset, thickness, r, g, b, alpha)
+        local corner = 11
+        -- Shorten each straight edge at the corners; small diagonal steps join them.
+        local x = inset
+        local t = thickness
+        BorderStroke(x + corner, x, 900 - x - corner, x + t, r, g, b, alpha)
+        BorderStroke(x + corner, 555 - x - t, 900 - x - corner, 555 - x, r, g, b, alpha)
+        BorderStroke(x, x + corner, x + t, 555 - x - corner, r, g, b, alpha)
+        BorderStroke(900 - x - t, x + corner, 900 - x, 555 - x - corner, r, g, b, alpha)
+        -- Stepped corners approximate a rounded bevel without stretching textures.
+        local steps = { {3, 8}, {5, 5}, {8, 3} }
+        for _, step in ipairs(steps) do
+            local d, size = step[1], step[2]
+            BorderStroke(x + d, x + d, x + d + size, x + d + t, r, g, b, alpha)
+            BorderStroke(900 - x - d - size, x + d, 900 - x - d, x + d + t, r, g, b, alpha)
+            BorderStroke(x + d, 555 - x - d - t, x + d + size, 555 - x - d, r, g, b, alpha)
+            BorderStroke(900 - x - d - size, 555 - x - d - t, 900 - x - d, 555 - x - d, r, g, b, alpha)
+        end
     end
-    FrameRing(0, 6, 0.055, 0.032, 0.018, 1)
-    FrameRing(3, 3, 0.63, 0.43, 0.20, 1)
-    FrameRing(7, 2, 0.10, 0.057, 0.027, 1)
-    FrameRing(10, 1, 0.80, 0.60, 0.31, 0.78)
+    -- Antique gold outside; no black border surrounding the frame.
+    RoundedRing(0, 4, 0.65, 0.46, 0.24, 1)
+    RoundedRing(5, 2, 0.18, 0.10, 0.055, 1)
+    RoundedRing(8, 1, 0.83, 0.63, 0.34, 0.90)
     optionsFrame:SetSize(900, 555)
     optionsFrame:SetPoint("CENTER")
     optionsFrame:SetFrameStrata("DIALOG")
