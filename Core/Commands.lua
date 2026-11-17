@@ -325,9 +325,11 @@ local function InspectUIControls()
     local function Info(label, obj)
         if not obj then lines[#lines+1] = label .. ": missing"; return end
         local function V(n) return n and string.format("%.1f", n) or "nil" end
+        local alpha = obj.GetEffectiveAlpha and obj:GetEffectiveAlpha()
+            or (obj.GetAlpha and obj:GetAlpha())
         lines[#lines+1] = label .. " shown=" .. tostring(obj:IsShown()) ..
             " visible=" .. tostring(obj:IsVisible()) ..
-            " alpha=" .. V(obj:GetEffectiveAlpha()) ..
+            " alpha=" .. V(alpha) ..
             " level=" .. tostring(obj.GetFrameLevel and obj:GetFrameLevel()) ..
             " strata=" .. tostring(obj.GetFrameStrata and obj:GetFrameStrata()) ..
             " left=" .. V(obj:GetLeft()) .. " top=" .. V(obj:GetTop()) ..
