@@ -200,17 +200,21 @@ end
 
 function addon.Options:Create()
     optionsFrame = CreateFrame("Frame", "BaziUIOptionsFrame", UIParent)
-    -- BasicFrameTemplate is available on Forever and, unlike
-    -- ButtonFrameTemplate, has no built-in portrait ornament.
-    local borderHost = CreateFrame("Frame", nil, optionsFrame, "BasicFrameTemplate")
+    -- Native bronze Blizzard frame, verified visually on Forever.
+    local borderHost = CreateFrame("Frame", nil, optionsFrame, "ButtonFrameTemplate")
     borderHost:SetAllPoints(optionsFrame)
     borderHost:EnableMouse(false)
-    -- Keep only the frame decoration; use Bazi UI's own header and close button.
     for _, child in ipairs({borderHost:GetChildren()}) do
-        child:Hide()
+        if child ~= borderHost.NineSlice then
+            child:Hide()
+        end
     end
-    -- BasicFrameTemplate draws its frame through its own regions.
-    -- Avoid hiding those regions: they ARE the native border.
+    for _, region in ipairs({borderHost:GetRegions()}) do
+        region:Hide()
+    end
+    if borderHost.NineSlice then
+        borderHost.NineSlice:Show()
+    end
     optionsFrame:SetSize(900, 555)
     optionsFrame:SetPoint("CENTER")
     optionsFrame:SetFrameStrata("DIALOG")
@@ -255,7 +259,7 @@ function addon.Options:Create()
     optionsFrame:Hide()
 
     local title = CreateLabel(optionsFrame, "BAZI UI", "GameFontNormal")
-    title:SetPoint("TOP", optionsFrame, "TOP", 0, -24)
+    title:SetPoint("TOP", optionsFrame, "TOP", 0, -27)
     title:SetFontObject("GameFontNormalLarge")
     title:SetJustifyH("CENTER")
 
