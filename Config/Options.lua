@@ -174,6 +174,7 @@ function addon.Options:Create()
     footerChrome:SetPoint("BOTTOMLEFT",frame,"BOTTOMLEFT",0,0)
     footerChrome:SetPoint("BOTTOMRIGHT",frame,"BOTTOMRIGHT",0,0)
     footerChrome:SetHeight(34)
+    frame.baziFooterChrome=footerChrome
     local bottomLine=footerChrome:CreateTexture(nil,"OVERLAY")
     bottomLine:SetPoint("BOTTOMLEFT",footerChrome,"BOTTOMLEFT",18,0)
     bottomLine:SetPoint("BOTTOMRIGHT",footerChrome,"BOTTOMRIGHT",-18,0)
@@ -237,6 +238,28 @@ function addon.Options:Create()
     stage:SetPoint("BOTTOMRIGHT",footerChrome,"BOTTOMRIGHT",-20,13)
     Show("General")
     frame:Hide()
+end
+-- Temporary V7 geometry diagnostics. Run /baziframe with the options window open.
+-- Values use UI coordinates; comparing frame and footer positions isolates
+-- artwork padding from layout/scale problems.
+SLASH_BAZIFRAME1 = "/baziframe"
+SlashCmdList["BAZIFRAME"] = function()
+    if not frame then
+        print("|cffffcc66Bazi UI V7:|r Open /bazi first.")
+        return
+    end
+    local scale=frame:GetEffectiveScale() or 1
+    local left,right,top,bottom=frame:GetLeft(),frame:GetRight(),frame:GetTop(),frame:GetBottom()
+    print(string.format("|cffffcc66Bazi UI V7 geometry:|r frame %.0f x %.0f, scale %.3f",frame:GetWidth(),frame:GetHeight(),scale))
+    if left and right and top and bottom then
+        print(string.format("Frame edges: L %.1f R %.1f T %.1f B %.1f (UI units)",left,right,top,bottom))
+    end
+    if frame.baziFooterChrome then
+        local foot=frame.baziFooterChrome
+        local fb=foot:GetBottom()
+        print(string.format("Footer bottom: %s | offset from frame: %s",fb and string.format("%.1f",fb) or "unknown",(fb and bottom) and string.format("%.1f",fb-bottom) or "unknown"))
+    end
+    print("If the visible purple background extends below Frame B, report that with a screenshot.")
 end
 function addon.Options:Open()
     if not frame then self:Create() end
