@@ -155,7 +155,8 @@ function addon.Options:Create()
     optionsFrame:Hide()
 
     local title = CreateLabel(optionsFrame, "Bazi UI", "GameFontNormal")
-    title:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", 24, -18)
+    title:SetPoint("CENTER", optionsFrame, "TOP", 0, -19)
+    title:SetJustifyH("CENTER")
 
     local subtitle = CreateLabel(optionsFrame, "Interface settings", "GameFontDisableSmall")
     subtitle:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", 25, -42)
