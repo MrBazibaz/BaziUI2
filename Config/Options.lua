@@ -36,13 +36,13 @@ local function CreatePanel(parent, top, height)
 
     local fill = panel:CreateTexture(nil, "BACKGROUND")
     fill:SetAllPoints(panel)
-    fill:SetColorTexture(0.12, 0.075, 0.15, 0.82)
+    fill:SetColorTexture(0.095, 0.085, 0.085, 0.96)
 
     local accent = panel:CreateTexture(nil, "ARTWORK")
     accent:SetPoint("TOPLEFT", panel, "TOPLEFT", 0, 0)
     accent:SetPoint("BOTTOMLEFT", panel, "BOTTOMLEFT", 0, 0)
     accent:SetWidth(3)
-    accent:SetColorTexture(0.52, 0.24, 0.72, 1)
+    accent:SetColorTexture(0.67, 0.50, 0.27, 0.90)
 
     local topLine = panel:CreateTexture(nil, "BORDER")
     topLine:SetPoint("TOPLEFT", panel, "TOPLEFT", 0, 0)
@@ -94,7 +94,8 @@ local function ShowPage(pageName)
     end
 
     for name, button in pairs(navButtons) do
-        addon.Theme:SetButtonActive(button, name == pageName)
+        button.baziActive = (name == pageName)
+        button.baziRefresh()
     end
 end
 
@@ -148,13 +149,41 @@ local function CreatePlaceholderPage(name, description)
 end
 
 local function CreateNavigationButton(parent, name, label, y)
-    local button = addon.Theme:CreateButton(parent, label, 150, 32)
-    button:SetPoint("TOPLEFT", parent, "TOPLEFT", 6, y)
-    local font = button:GetFontString()
-    if font then font:SetFontObject("GameFontNormalLarge") end
-    button:SetScript("OnClick", function()
-        ShowPage(name)
-    end)
+    -- Custom flat navigation: the active page gets purple, not every button.
+    local button = CreateFrame("Button", nil, parent)
+    button:SetSize(170, 34)
+    button:SetPoint("TOPLEFT", parent, "TOPLEFT", 4, y)
+    local fill = button:CreateTexture(nil, "BACKGROUND")
+    fill:SetAllPoints(button)
+    local stripe = button:CreateTexture(nil, "ARTWORK")
+    stripe:SetPoint("TOPLEFT", button, "TOPLEFT", 0, 0)
+    stripe:SetPoint("BOTTOMLEFT", button, "BOTTOMLEFT", 0, 0)
+    stripe:SetWidth(3)
+    local text = button:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+    text:SetPoint("LEFT", button, "LEFT", 17, 0)
+    text:SetText(label)
+    text:SetJustifyH("LEFT")
+    button.baziActive = false
+    button.baziHover = false
+    button.baziRefresh = function()
+        if button.baziActive then
+            fill:SetColorTexture(0.28, 0.14, 0.37, 0.92)
+            stripe:SetColorTexture(0.83, 0.63, 0.30, 1)
+            text:SetTextColor(1, 0.85, 0.55)
+        elseif button.baziHover then
+            fill:SetColorTexture(0.18, 0.16, 0.18, 0.90)
+            stripe:SetColorTexture(0.57, 0.42, 0.26, 0.8)
+            text:SetTextColor(0.95, 0.87, 0.73)
+        else
+            fill:SetColorTexture(0.09, 0.085, 0.095, 0.75)
+            stripe:SetColorTexture(0.30, 0.26, 0.24, 0.6)
+            text:SetTextColor(0.78, 0.75, 0.71)
+        end
+    end
+    button:SetScript("OnEnter", function(self) self.baziHover = true; self.baziRefresh() end)
+    button:SetScript("OnLeave", function(self) self.baziHover = false; self.baziRefresh() end)
+    button:SetScript("OnClick", function() ShowPage(name) end)
+    button.baziRefresh()
     navButtons[name] = button
 end
 
@@ -183,7 +212,7 @@ function addon.Options:Create()
     AddRim("BOTTOMLEFT", "BOTTOMRIGHT", nil, 2)
     AddRim("TOPLEFT", "BOTTOMLEFT", 2, nil)
     AddRim("TOPRIGHT", "BOTTOMRIGHT", 2, nil)
-    optionsFrame:SetSize(690, 505)
+    optionsFrame:SetSize(770, 555)
     optionsFrame:SetPoint("CENTER")
     optionsFrame:SetFrameStrata("DIALOG")
     optionsFrame:SetClampedToScreen(true)
@@ -195,12 +224,12 @@ function addon.Options:Create()
     local backdrop = optionsFrame:CreateTexture(nil, "BACKGROUND", nil, 1)
     backdrop:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", 7, -7)
     backdrop:SetPoint("BOTTOMRIGHT", optionsFrame, "BOTTOMRIGHT", -7, 7)
-    backdrop:SetColorTexture(0.07, 0.045, 0.10, 0.93)
+    backdrop:SetColorTexture(0.065, 0.060, 0.065, 0.98)
     local header = optionsFrame:CreateTexture(nil, "BORDER")
     header:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", 8, -8)
     header:SetPoint("TOPRIGHT", optionsFrame, "TOPRIGHT", -8, -8)
     header:SetHeight(48)
-    header:SetColorTexture(0.15, 0.075, 0.22, 0.90)
+    header:SetColorTexture(0.115, 0.105, 0.12, 0.98)
     local headerLine = optionsFrame:CreateTexture(nil, "ARTWORK")
     headerLine:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", 8, -56)
     headerLine:SetPoint("TOPRIGHT", optionsFrame, "TOPRIGHT", -8, -56)
@@ -224,15 +253,15 @@ function addon.Options:Create()
     local navBackground = nav:CreateTexture(nil, "BACKGROUND")
     navBackground:SetPoint("TOPLEFT", nav, "TOPLEFT", 0, 10)
     navBackground:SetPoint("BOTTOMRIGHT", nav, "BOTTOMRIGHT", 0, -4)
-    navBackground:SetColorTexture(0.045, 0.03, 0.065, 0.86)
-    nav:SetSize(164, 420)
+    navBackground:SetColorTexture(0.045, 0.045, 0.05, 0.94)
+    nav:SetSize(180, 430)
 
     contentFrame = CreateFrame("Frame", nil, optionsFrame)
-    contentFrame:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", 184, -78)
+    contentFrame:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", 204, -78)
     contentFrame:SetPoint("BOTTOMRIGHT", optionsFrame, "BOTTOMRIGHT", -16, 18)
 
     local separator = contentFrame:CreateTexture(nil, "BORDER")
-    separator:SetColorTexture(0.72, 0.54, 0.30, 0.50)
+    separator:SetColorTexture(0.52, 0.41, 0.27, 0.42)
     separator:SetWidth(1)
     separator:SetPoint("TOPLEFT", contentFrame, "TOPLEFT", -10, 0)
     separator:SetPoint("BOTTOMLEFT", contentFrame, "BOTTOMLEFT", -10, 0)
