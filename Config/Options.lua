@@ -121,8 +121,8 @@ local function CreatePlaceholderPage(name, description)
 end
 
 local function CreateNavigationButton(parent, name, label, y)
-    local button = addon.Theme:CreateButton(parent, label, 142, 28)
-    button:SetPoint("TOPLEFT", parent, "TOPLEFT", 10, y)
+    local button = addon.Theme:CreateButton(parent, label, 150, 32)
+    button:SetPoint("TOPLEFT", parent, "TOPLEFT", 6, y)\n    local font = button:GetFontString()\n    if font then font:SetFontObject("GameFontNormalLarge") end
     button:SetScript("OnClick", function()
         ShowPage(name)
     end)
@@ -140,7 +140,7 @@ end
 
 function addon.Options:Create()
     optionsFrame = CreateFrame("Frame", "BaziUIOptionsFrame", UIParent, "UIPanelDialogTemplate")
-    optionsFrame:SetSize(690, 470)
+    optionsFrame:SetSize(690, 505)
     optionsFrame:SetPoint("CENTER")
     optionsFrame:SetFrameStrata("DIALOG")
     optionsFrame:SetClampedToScreen(true)
@@ -163,7 +163,7 @@ function addon.Options:Create()
 
     local nav = CreateFrame("Frame", nil, optionsFrame)
     nav:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", 12, -72)
-    nav:SetSize(164, 370)
+    nav:SetSize(164, 420)
 
     contentFrame = CreateFrame("Frame", nil, optionsFrame)
     contentFrame:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", 184, -72)
