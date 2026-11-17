@@ -289,11 +289,11 @@ function addon.Options:Create()
     -- Put the emblem on a frame above the template artwork, not underneath it.
     -- Keep the emblem attached to the options window: a separate UIParent
     -- overlay did not render reliably on the Forever client.
-    local emblemHost = CreateFrame("Frame", nil, optionsFrame)
+    local emblemHost = CreateFrame("Frame", nil, borderHost.NineSlice or optionsFrame)
     emblemHost:SetSize(60, 60)
-    emblemHost:SetPoint("CENTER", optionsFrame, "TOPLEFT", 23.5, -20.5)
+    emblemHost:SetPoint("CENTER", optionsFrame, "TOPLEFT", 25, -22)
     emblemHost:SetFrameStrata("FULLSCREEN_DIALOG")
-    emblemHost:SetFrameLevel(borderHost:GetFrameLevel() + 30)
+    emblemHost:SetFrameLevel(math.max(borderHost:GetFrameLevel(), borderHost.NineSlice and borderHost.NineSlice:GetFrameLevel() or 0) + 30)
     emblemHost:EnableMouse(false)
     optionsFrame.baziEmblemHost = emblemHost
     local emblem = emblemHost:CreateTexture(nil, "OVERLAY")
