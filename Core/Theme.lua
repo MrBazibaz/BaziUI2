@@ -8,6 +8,9 @@ addon.Theme.colors = {
     purpleHover = { 0.39, 0.19, 0.61, 1 },
     purplePressed = { 0.20, 0.08, 0.34, 1 },
     purpleDisabled = { 0.18, 0.13, 0.23, 0.82 },
+    gold = { 0.83, 0.63, 0.30, 1 },
+    goldHover = { 1.00, 0.79, 0.42, 1 },
+    goldPressed = { 0.60, 0.42, 0.18, 1 },
 }
 
 local function Tint(texture, color)
@@ -23,18 +26,21 @@ function addon.Theme:ApplyWindow(frame)
     warmth:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -5, 5)
     warmth:SetColorTexture(0.36, 0.21, 0.09, 0.23)
     frame.baziWarmth = warmth
-    -- Keep the original rim texture; add subtle bronze accents.
-    local top = frame:CreateTexture(nil, "OVERLAY")
-    top:SetColorTexture(0.68, 0.47, 0.20, 0.85)
-    top:SetPoint("TOPLEFT", frame, "TOPLEFT", 5, -4)
-    top:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -5, -4)
-    top:SetHeight(1)
-    local bottom = frame:CreateTexture(nil, "OVERLAY")
-    bottom:SetColorTexture(0.68, 0.47, 0.20, 0.85)
-    bottom:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 5, 4)
-    bottom:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -5, 4)
-    bottom:SetHeight(1)
-    frame.baziGoldEdges = { top, bottom }
+    -- Gold trim on all four sides, retaining the native beveled frame.
+    local edges = {}
+    local function AddEdge(a, b, ax, ay, bx, by, horizontal)
+        local e = frame:CreateTexture(nil, "OVERLAY")
+        e:SetColorTexture(0.70, 0.48, 0.20, 0.86)
+        e:SetPoint(a, frame, a, ax, ay)
+        e:SetPoint(b, frame, b, bx, by)
+        if horizontal then e:SetHeight(2) else e:SetWidth(2) end
+        edges[#edges + 1] = e
+    end
+    AddEdge("TOPLEFT", "TOPRIGHT", 5, -4, -5, -4, true)
+    AddEdge("BOTTOMLEFT", "BOTTOMRIGHT", 5, 4, -5, 4, true)
+    AddEdge("TOPLEFT", "BOTTOMLEFT", 4, -5, 4, 5, false)
+    AddEdge("TOPRIGHT", "BOTTOMRIGHT", -4, -5, -4, 5, false)
+    frame.baziGoldEdges = edges
 end
 
 function addon.Theme:CreateButton(parent, label, width, height)
@@ -60,22 +66,22 @@ function addon.Theme:CreateButton(parent, label, width, height)
     for _, texture in pairs({ normal, pushed, highlight, disabled }) do
         if texture and texture.SetDesaturated then texture:SetDesaturated(true) end
     end
-    if normal then Tint(normal, self.colors.purple) end
-    if pushed then Tint(pushed, self.colors.purplePressed) end
+    if normal then Tint(normal, self.colors.gold) end
+    if pushed then Tint(pushed, self.colors.goldPressed) end
     if highlight then
         highlight:SetBlendMode("ADD")
-        Tint(highlight, self.colors.purpleHover)
+        Tint(highlight, self.colors.goldHover)
     end
-    if disabled then Tint(disabled, self.colors.purpleDisabled) end
+    if disabled then Tint(disabled, self.colors.goldPressed) end
 
     button:SetScript("OnEnter", function(self)
         self.baziPurpleFill:SetColorTexture(0.39, 0.19, 0.61, 0.96)
-        if not self.isActive then Tint(self:GetNormalTexture(), addon.Theme.colors.purpleHover) end
+        if not self.isActive then Tint(self:GetNormalTexture(), addon.Theme.colors.goldHover) end
     end)
     button:SetScript("OnLeave", function(self)
         local c = self.isActive and addon.Theme.colors.purpleHover or addon.Theme.colors.purple
         self.baziPurpleFill:SetColorTexture(c[1], c[2], c[3], 0.96)
-        Tint(self:GetNormalTexture(), self.isActive and addon.Theme.colors.purpleHover or addon.Theme.colors.purple)
+        Tint(self:GetNormalTexture(), self.isActive and addon.Theme.colors.goldHover or addon.Theme.colors.gold)
     end)
 
     return button
@@ -86,7 +92,7 @@ function addon.Theme:SetButtonActive(button, active)
     button.isActive = active
     local c = active and self.colors.purpleHover or self.colors.purple
     if button.baziPurpleFill then button.baziPurpleFill:SetColorTexture(c[1], c[2], c[3], 0.96) end
-    Tint(button:GetNormalTexture(), active and self.colors.purpleHover or self.colors.purple)
+    Tint(button:GetNormalTexture(), active and self.colors.goldHover or self.colors.gold)
 end
 
 function addon.Theme:Initialize()
