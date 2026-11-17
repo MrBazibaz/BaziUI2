@@ -2,34 +2,60 @@ local addon = BaziUI
 
 addon.Theme = addon.Theme or {}
 
+-- Character Pane is the visual reference for window materials.
 -- Royal Purple is reserved for interactive controls.
--- Window artwork uses Blizzard's Character Pane background and native frame border.
 addon.Theme.colors = {
-    purple = { 0.47, 0.32, 0.66, 1 },
-    purpleHover = { 0.57, 0.40, 0.77, 1 },
-    purplePressed = { 0.34, 0.21, 0.50, 1 },
-    purpleDisabled = { 0.25, 0.20, 0.31, 0.75 },
+    purple = { 0.29, 0.12, 0.48, 1 },
+    purpleHover = { 0.39, 0.19, 0.61, 1 },
+    purplePressed = { 0.20, 0.08, 0.34, 1 },
+    purpleDisabled = { 0.18, 0.13, 0.23, 0.82 },
+    frameEdge = { 0.20, 0.16, 0.23, 1 },
 }
 
-function addon.Theme:ApplyWindow(frame)
-    if not frame or not frame.SetBackdrop then
-        return
-    end
-
-    frame:SetBackdrop({
-        bgFile = "Interface\\CharacterFrame\\UI-CharacterFrame-Background",
-        edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
-        tile = true,
-        tileSize = 32,
-        edgeSize = 32,
-        insets = { left = 11, right = 12, top = 12, bottom = 11 },
-    })
-end
-
-local function SetTextureColor(texture, color)
+local function SetColor(texture, color)
     if texture and color then
         texture:SetColorTexture(unpack(color))
     end
+end
+
+function addon.Theme:ApplyWindow(frame)
+    if not frame then
+        return
+    end
+
+    -- Do not rely on BackdropTemplate: the Forever client may not provide
+    -- the same backdrop mixin as newer retail clients.
+    local background = frame:CreateTexture(nil, "BACKGROUND")
+    background:SetAllPoints(frame)
+    background:SetTexture("Interface\\CharacterFrame\\UI-CharacterFrame-Background")
+    background:SetTexCoord(0, 1, 0, 1)
+    frame.backgroundTexture = background
+
+    -- A restrained custom edge replaces the gray Blizzard dialog border.
+    local edge = self.colors.frameEdge
+    local borders = {}
+    borders.top = frame:CreateTexture(nil, "BORDER")
+    borders.bottom = frame:CreateTexture(nil, "BORDER")
+    borders.left = frame:CreateTexture(nil, "BORDER")
+    borders.right = frame:CreateTexture(nil, "BORDER")
+
+    borders.top:SetPoint("TOPLEFT", frame, "TOPLEFT", 1, -1)
+    borders.top:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -1, -1)
+    borders.top:SetHeight(1)
+    borders.bottom:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 1, 1)
+    borders.bottom:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -1, 1)
+    borders.bottom:SetHeight(1)
+    borders.left:SetPoint("TOPLEFT", frame, "TOPLEFT", 1, -1)
+    borders.left:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 1, 1)
+    borders.left:SetWidth(1)
+    borders.right:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -1, -1)
+    borders.right:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -1, 1)
+    borders.right:SetWidth(1)
+
+    for _, texture in pairs(borders) do
+        SetColor(texture, edge)
+    end
+    frame.customBorders = borders
 end
 
 function addon.Theme:CreateButton(parent, label, width, height)
@@ -37,32 +63,33 @@ function addon.Theme:CreateButton(parent, label, width, height)
     button:SetSize(width or 142, height or 28)
 
     local background = button:CreateTexture(nil, "BACKGROUND")
-    background:SetAllPoints()
-    SetTextureColor(background, self.colors.purple)
+    background:SetAllPoints(button)
+    SetColor(background, self.colors.purple)
     button.background = background
 
-    local borderColor = { 0.72, 0.62, 0.84, 0.9 }
-    local border = {}
-    border.top = button:CreateTexture(nil, "BORDER")
-    border.bottom = button:CreateTexture(nil, "BORDER")
-    border.left = button:CreateTexture(nil, "BORDER")
-    border.right = button:CreateTexture(nil, "BORDER")
+    -- Slight inset and a quiet edge keep the controls from looking like flat
+    -- square color swatches.
+    local edgeColor = { 0.48, 0.34, 0.62, 0.95 }
+    local edge = {}
+    edge.top = button:CreateTexture(nil, "BORDER")
+    edge.bottom = button:CreateTexture(nil, "BORDER")
+    edge.left = button:CreateTexture(nil, "BORDER")
+    edge.right = button:CreateTexture(nil, "BORDER")
 
-    border.top:SetPoint("TOPLEFT")
-    border.top:SetPoint("TOPRIGHT")
-    border.top:SetHeight(1)
-    border.bottom:SetPoint("BOTTOMLEFT")
-    border.bottom:SetPoint("BOTTOMRIGHT")
-    border.bottom:SetHeight(1)
-    border.left:SetPoint("TOPLEFT")
-    border.left:SetPoint("BOTTOMLEFT")
-    border.left:SetWidth(1)
-    border.right:SetPoint("TOPRIGHT")
-    border.right:SetPoint("BOTTOMRIGHT")
-    border.right:SetWidth(1)
-
-    for _, edge in pairs(border) do
-        SetTextureColor(edge, borderColor)
+    edge.top:SetPoint("TOPLEFT")
+    edge.top:SetPoint("TOPRIGHT")
+    edge.top:SetHeight(1)
+    edge.bottom:SetPoint("BOTTOMLEFT")
+    edge.bottom:SetPoint("BOTTOMRIGHT")
+    edge.bottom:SetHeight(1)
+    edge.left:SetPoint("TOPLEFT")
+    edge.left:SetPoint("BOTTOMLEFT")
+    edge.left:SetWidth(1)
+    edge.right:SetPoint("TOPRIGHT")
+    edge.right:SetPoint("BOTTOMRIGHT")
+    edge.right:SetWidth(1)
+    for _, texture in pairs(edge) do
+        SetColor(texture, edgeColor)
     end
 
     local text = button:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
@@ -71,27 +98,27 @@ function addon.Theme:CreateButton(parent, label, width, height)
     button.label = text
 
     button:SetScript("OnEnter", function(self)
-        SetTextureColor(self.background, addon.Theme.colors.purpleHover)
+        SetColor(self.background, addon.Theme.colors.purpleHover)
     end)
     button:SetScript("OnLeave", function(self)
-        SetTextureColor(self.background, addon.Theme.colors.purple)
+        SetColor(self.background, addon.Theme.colors.purple)
     end)
     button:SetScript("OnMouseDown", function(self)
-        SetTextureColor(self.background, addon.Theme.colors.purplePressed)
+        SetColor(self.background, addon.Theme.colors.purplePressed)
     end)
     button:SetScript("OnMouseUp", function(self)
         if self:IsMouseOver() then
-            SetTextureColor(self.background, addon.Theme.colors.purpleHover)
+            SetColor(self.background, addon.Theme.colors.purpleHover)
         else
-            SetTextureColor(self.background, addon.Theme.colors.purple)
+            SetColor(self.background, addon.Theme.colors.purple)
         end
     end)
     button:SetScript("OnDisable", function(self)
-        SetTextureColor(self.background, addon.Theme.colors.purpleDisabled)
+        SetColor(self.background, addon.Theme.colors.purpleDisabled)
         self.label:SetAlpha(0.55)
     end)
     button:SetScript("OnEnable", function(self)
-        SetTextureColor(self.background, addon.Theme.colors.purple)
+        SetColor(self.background, addon.Theme.colors.purple)
         self.label:SetAlpha(1)
     end)
 
@@ -105,14 +132,13 @@ function addon.Theme:SetButtonActive(button, active)
 
     button.isActive = active
     if active then
-        SetTextureColor(button.background, self.colors.purpleHover)
+        SetColor(button.background, self.colors.purpleHover)
         button.label:SetAlpha(1)
     else
-        SetTextureColor(button.background, self.colors.purple)
+        SetColor(button.background, self.colors.purple)
         button.label:SetAlpha(0.88)
     end
 end
 
 function addon.Theme:Initialize()
-    -- Theme assets are applied by the modules that create their own frames.
 end
