@@ -26,16 +26,19 @@ function addon.Theme:ApplyWindow(frame)
     warmth:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -5, 5)
     warmth:SetColorTexture(0.36, 0.21, 0.09, 0.23)
     frame.baziWarmth = warmth
-    -- Tint the existing Blizzard border regions rather than drawing
-    -- a second rectangular outline on top of them.
-    local regions = { frame:GetRegions() }
-    for _, region in ipairs(regions) do
-        if region.IsObjectType and region:IsObjectType("Texture") then
-            local layer = region:GetDrawLayer()
-            if layer == "BORDER" then
-                if region.SetDesaturated then region:SetDesaturated(true) end
-                region:SetVertexColor(0.83, 0.63, 0.30, 1)
-            end
+    -- UIPanelDialogTemplate may draw its rim using the frame backdrop,
+    -- rather than texture regions. Recolor that native border directly.
+    if frame.SetBackdropBorderColor then
+        frame:SetBackdropBorderColor(0.83, 0.63, 0.30, 1)
+    end
+
+    -- Some client versions implement the rim as separate texture regions.
+    -- Only target border-layer textures, never the background artwork.
+    for _, region in ipairs({ frame:GetRegions() }) do
+        if region.IsObjectType and region:IsObjectType("Texture")
+            and region:GetDrawLayer() == "BORDER" then
+            if region.SetDesaturated then region:SetDesaturated(true) end
+            region:SetVertexColor(0.95, 0.76, 0.43, 1)
         end
     end
 end
