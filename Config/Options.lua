@@ -151,15 +151,12 @@ function addon.Options:Create()
     frame:SetScript("OnDragStop",frame.StopMovingOrSizing)
     frame:SetScale(addon.db.profile.uiScale or 1)
     Paint(frame,"BACKGROUND",0.055,0.043,0.074,0.99)
-    -- Opaque plum backing extends under the outward ornamental border.
-    local chromeBacking=frame:CreateTexture(nil,"BACKGROUND",nil,-8)
-    chromeBacking:SetColorTexture(0.055,0.043,0.074,1)
-    chromeBacking:SetPoint("TOPLEFT",frame,"TOPLEFT",-16,16)
-    chromeBacking:SetPoint("BOTTOMRIGHT",frame,"BOTTOMRIGHT",16,-16)
+    -- The opaque window fill stops at the frame boundary. Extending it outward
+    -- created the conspicuous plum rectangle visible behind the border.
     -- V7 modular ornamental frame: independent corners and stretchable edge tiles.
     -- Artwork is drawn above the panels but below interactive controls.
     local BORDER_ASSET = ASSET.."Borders"..string.char(92)
-    local BORDER_OUTSET=4
+    local BORDER_OUTSET=0
     local function BorderAnchorOffset(point)
         local dx=point:find("LEFT") and -BORDER_OUTSET or (point:find("RIGHT") and BORDER_OUTSET or 0)
         local dy=point:find("TOP") and BORDER_OUTSET or (point:find("BOTTOM") and -BORDER_OUTSET or 0)
@@ -182,28 +179,31 @@ function addon.Options:Create()
     -- Keep all eight border pieces on the same frame edges and matching corner joins.
     -- V7 concept proportions: larger ornamental corners; edge art runs behind them.
     local CORNER_SIZE=88
-    -- Source TGAs: side edges occupy only 16 of 32 pixels.
-    -- At 24 UI units the visible gold becomes roughly 12 units wide.
-    local EDGE_SIZE=14
-    -- Fill all four corner texture footprints with the window's plum color.
-    -- The ornamental TGAs have transparent pixels; without a backing layer
-    -- the world is visible through their cutouts near the window edges.
-    local function CornerBacking(anchor)
-        local backing=frame:CreateTexture(nil,"BORDER",nil,-1)
-        backing:SetColorTexture(0.055,0.043,0.074,1)
-        backing:SetSize(CORNER_SIZE+16,CORNER_SIZE+16)
-        local dx,dy=BorderAnchorOffset(anchor)
-        backing:SetPoint(anchor,frame,anchor,dx+(anchor:find("LEFT") and -4 or 4),dy+(anchor:find("TOP") and 4 or -4))
+    -- The original edge TGAs taper to spikes and cannot join the corners.
+    -- Use restrained continuous metallic rules until matched art is available.
+    local EDGE_INSET=48
+    local function MetallicEdge(vertical, pointA, pointB, x, y)
+        local outer=frame:CreateTexture(nil,"OVERLAY",nil,1)
+        outer:SetColorTexture(0.28,0.14,0.06,1)
+        local shine=frame:CreateTexture(nil,"OVERLAY",nil,2)
+        shine:SetColorTexture(0.84,0.56,0.23,1)
+        if vertical then
+            outer:SetPoint(pointA,frame,pointA,x,-EDGE_INSET)
+            outer:SetPoint(pointB,frame,pointB,x,EDGE_INSET)
+            outer:SetWidth(3)
+            shine:SetPoint(pointA,frame,pointA,x,-EDGE_INSET)
+            shine:SetPoint(pointB,frame,pointB,x,EDGE_INSET)
+            shine:SetWidth(1)
+        else
+            outer:SetPoint(pointA,frame,pointA,EDGE_INSET,y)
+            outer:SetPoint(pointB,frame,pointB,-EDGE_INSET,y)
+            outer:SetHeight(3)
+            shine:SetPoint(pointA,frame,pointA,EDGE_INSET,y)
+            shine:SetPoint(pointB,frame,pointB,-EDGE_INSET,y)
+            shine:SetHeight(1)
+        end
     end
-    CornerBacking("TOPLEFT")
-    CornerBacking("TOPRIGHT")
-    CornerBacking("BOTTOMLEFT")
-    CornerBacking("BOTTOMRIGHT")
-    -- Corner ornament pixels occupy ~160/256 horizontally; at 88 UI units
-    -- their visible reach is ~55 units. Begin edges at 44 for a real overlap.
-    local EDGE_OVERLAP=30
-    local EDGE_INSET=CORNER_SIZE-EDGE_OVERLAP
-    BorderPiece("Edge_Top_Tile.tga",nil,EDGE_SIZE,"TOPLEFT",EDGE_INSET,0,"TOPRIGHT",-EDGE_INSET,0)
+    MetallicEdge(false,"TOPLEFT","TOPRIGHT",0,0)
     -- Footer and lower frame edge share one bottom-anchored container.
     -- No hardcoded top offset: resizing keeps the artwork on the actual edge.
     local footerChrome=CreateFrame("Frame",nil,frame)
@@ -232,14 +232,165 @@ function addon.Options:Create()
     debugText:SetText("|cff00ff00GREEN: frame bottom|r  |cffff3333RED: footer top|r")
 
     -- Use the matching bottom artwork, not a flat substitute.
-    BorderPiece("Edge_Bottom_Tile.tga",nil,EDGE_SIZE,"BOTTOMLEFT",EDGE_INSET,0,"BOTTOMRIGHT",-EDGE_INSET,0)
+    MetallicEdge(false,"BOTTOMLEFT","BOTTOMRIGHT",0,0)
     local footerDivider=footerChrome:CreateTexture(nil,"ARTWORK")
     footerDivider:SetPoint("TOPLEFT",footerChrome,"TOPLEFT",16,0)
     footerDivider:SetPoint("TOPRIGHT",footerChrome,"TOPRIGHT",-16,0)
     footerDivider:SetHeight(1)
     footerDivider:SetColorTexture(0.67,0.48,0.25,0.48)
-    BorderPiece("Edge_Left.tga",EDGE_SIZE,nil,"TOPLEFT",0,-EDGE_INSET,"BOTTOMLEFT",0,EDGE_INSET)
-    BorderPiece("Edge_Right.tga",EDGE_SIZE,nil,"TOPRIGHT",0,-EDGE_INSET,"BOTTOMRIGHT",0,EDGE_INSET)
+    MetallicEdge(true,"TOPLEFT","BOTTOMLEFT",0,0)
+    MetallicEdge(true,"TOPRIGHT","BOTTOMRIGHT",0,0)
+    BorderPiece("Corner_TL.tga",CORNER_SIZE,CORNER_SIZE,"TOPLEFT",0,0)
+    BorderPiece("Corner_TR.tga",CORNER_SIZE,CORNER_SIZE,"TOPRIGHT",0,0)
+    BorderPiece("Corner_BL.tga",CORNER_SIZE,CORNER_SIZE,"BOTTOMLEFT",0,0)
+    BorderPiece("Corner_BR.tga",CORNER_SIZE,CORNER_SIZE,"BOTTOMRIGHT",0,0)
+    local header=Paint(frame,"BORDER",0.09,0.063,0.11,0.99,3,-3,-3,3)
+    local emblem=frame:CreateTexture(nil,"OVERLAY");emblem:SetTexture(ASSET.."Icons\\BaziUI_Emblem_256.png")
+    emblem:SetSize(70,70);emblem:SetPoint("TOPLEFT",frame,"TOPLEFT",13,12)
+    local title=Label(frame,"Bazi UI","GameFontNormalHuge",1,0.83,0.53)
+    title:SetPoint("TOPLEFT",frame,"TOPLEFT",85,-16)
+    local version=Label(frame,"REFORGED  /  V7 PREVIEW","GameFontNormalSmall",0.64,0.58,0.66)
+    version:SetPoint("TOPLEFT",frame,"TOPLEFT",87,-45)
+    local close=Button(frame,"X",1097,-12,28,27,function()frame:Hide()end)
+    close:SetFrameLevel(frame:GetFrameLevel()+5)
+    Line(frame,-93,11,-11)
+    -- Fixed navigation: every category remains visible without scrolling.
+    local sidebar=Panel(frame,10,-103,240,602)
+    local navBody=CreateFrame("Frame",nil,sidebar)
+    navBody:SetPoint("TOPLEFT",sidebar,"TOPLEFT",4,-7)
+    navBody:SetSize(232,590)
+    local function Category(name,y)
+        local h=Label(navBody,name,"GameFontNormalSmall",0.83,0.62,0.34)
+        h:SetPoint("TOPLEFT",navBody,"TOPLEFT",15,y)
+    end
+    Category("GENERAL",-9)
+    Category("GAMEPLAY",-174)
+    Category("INTERFACE",-337)
+    content=CreateFrame("Frame",nil,frame);content:SetPoint("TOPLEFT",frame,"TOPLEFT",265,-104)
+    content:SetSize(860,602)
+    General()
+    local others={"Profiles","Import / Export","What's New","Appearance","UnitFrames","Nameplates","ActionBars","Chat","Quest","Gathering","Minimap","Tooltip","Combat","BugTab","QoL Settings"}
+    for _,name in ipairs(others) do Placeholder(name) end
+    Tab(frame,"General",249,87);Tab(frame,"Profiles",340,86)
+    Tab(frame,"Import / Export",430,121);Tab(frame,"What's New",555,102)
+    Nav(navBody,"General","*", -32)
+    Nav(navBody,"Appearance","o",-66)
+    Nav(navBody,"QoL Settings","+",-100)
+    Nav(navBody,"BugTab","*",-134)
+    Nav(navBody,"ActionBars","#",-198)
+    Nav(navBody,"Quest","?",-232)
+    Nav(navBody,"Gathering","^",-266)
+    Nav(navBody,"Combat","!",-300)
+    Nav(navBody,"Chat",">",-361)
+    Nav(navBody,"Minimap","@",-395)
+    Nav(navBody,"Tooltip","i",-429)
+    Nav(navBody,"UnitFrames","+",-463)
+    Nav(navBody,"Nameplates","o",-497)
+    local footer=Label(frame,"BAZI UI  |  Changes are saved automatically","GameFontNormalSmall",0.71,0.63,0.61)
+    footer:SetPoint("BOTTOMLEFT",footerChrome,"BOTTOMLEFT",23,13)
+    local stage=Label(frame,"V7 DEVELOPMENT BUILD","GameFontNormalSmall",0.76,0.58,0.37)
+    stage:SetPoint("BOTTOMRIGHT",footerChrome,"BOTTOMRIGHT",-20,13)
+    Show("General")
+    frame:Hide()
+end
+-- Temporary V7 geometry diagnostics. Run /baziframe with the options window open.
+-- Values use UI coordinates; comparing frame and footer positions isolates
+-- artwork padding from layout/scale problems.
+SLASH_BAZIDEBUG1 = "/bazidebug"
+SlashCmdList["BAZIDEBUG"] = function()
+    if not frame then print("Bazi UI V7: open /bazi first.");return end
+    if frame.baziDebugOverlay:IsShown() then
+        frame.baziDebugOverlay:Hide()
+        print("Bazi UI V7: debug overlay OFF")
+    else
+        frame.baziDebugOverlay:Show()
+        print("Bazi UI V7: debug overlay ON. GREEN = frame bottom; RED = footer top.")
+    end
+end
+SLASH_BAZIFRAME1 = "/baziframe"
+SlashCmdList["BAZIFRAME"] = function()
+    if not frame then
+        print("|cffffcc66Bazi UI V7:|r Open /bazi first.")
+        return
+    end
+    local scale=frame:GetEffectiveScale() or 1
+    local left,right,top,bottom=frame:GetLeft(),frame:GetRight(),frame:GetTop(),frame:GetBottom()
+    print(string.format("|cffffcc66Bazi UI V7 geometry:|r frame %.0f x %.0f, scale %.3f",frame:GetWidth(),frame:GetHeight(),scale))
+    if left and right and top and bottom then
+        print(string.format("Frame edges: L %.1f R %.1f T %.1f B %.1f (UI units)",left,right,top,bottom))
+    end
+    if frame.baziFooterChrome then
+        local foot=frame.baziFooterChrome
+        local fb=foot:GetBottom()
+        print(string.format("Footer bottom: %s | offset from frame: %s",fb and string.format("%.1f",fb) or "unknown",(fb and bottom) and string.format("%.1f",fb-bottom) or "unknown"))
+    end
+    print("If the visible purple background extends below Frame B, report that with a screenshot.")
+end
+function addon.Options:Open()
+    if not frame then self:Create() end
+    frame:Show();frame:Raise()
+end
+function addon.Options:Initialize() end    -- The original edge TGAs taper to spikes and cannot join the corners.
+    -- Use restrained continuous metallic rules until matched art is available.
+    local EDGE_INSET=48
+    local function MetallicEdge(vertical, pointA, pointB, x, y)
+        local outer=frame:CreateTexture(nil,"OVERLAY",nil,1)
+        outer:SetColorTexture(0.28,0.14,0.06,1)
+        local shine=frame:CreateTexture(nil,"OVERLAY",nil,2)
+        shine:SetColorTexture(0.84,0.56,0.23,1)
+        if vertical then
+            outer:SetPoint(pointA,frame,pointA,x,-EDGE_INSET)
+            outer:SetPoint(pointB,frame,pointB,x,EDGE_INSET)
+            outer:SetWidth(3)
+            shine:SetPoint(pointA,frame,pointA,x,-EDGE_INSET)
+            shine:SetPoint(pointB,frame,pointB,x,EDGE_INSET)
+            shine:SetWidth(1)
+        else
+            outer:SetPoint(pointA,frame,pointA,EDGE_INSET,y)
+            outer:SetPoint(pointB,frame,pointB,-EDGE_INSET,y)
+            outer:SetHeight(3)
+            shine:SetPoint(pointA,frame,pointA,EDGE_INSET,y)
+            shine:SetPoint(pointB,frame,pointB,-EDGE_INSET,y)
+            shine:SetHeight(1)
+        end
+    end
+    MetallicEdge(false,"TOPLEFT","TOPRIGHT",0,0)
+    -- Footer and lower frame edge share one bottom-anchored container.
+    -- No hardcoded top offset: resizing keeps the artwork on the actual edge.
+    local footerChrome=CreateFrame("Frame",nil,frame)
+    footerChrome:SetPoint("BOTTOMLEFT",frame,"BOTTOMLEFT",0,0)
+    footerChrome:SetPoint("BOTTOMRIGHT",frame,"BOTTOMRIGHT",0,0)
+    footerChrome:SetHeight(34)
+    frame.baziFooterChrome=footerChrome
+    -- Temporary visual diagnostics. Toggle with /bazidebug.
+    local debugOverlay=CreateFrame("Frame",nil,frame)
+    debugOverlay:SetAllPoints(frame)
+    debugOverlay:SetFrameLevel(frame:GetFrameLevel()+20)
+    debugOverlay:Hide()
+    frame.baziDebugOverlay=debugOverlay
+    local function DebugRule(parent,r,g,b,y,thickness)
+        local t=parent:CreateTexture(nil,"OVERLAY")
+        t:SetColorTexture(r,g,b,0.95)
+        t:SetPoint("BOTTOMLEFT",parent,"BOTTOMLEFT",0,y)
+        t:SetPoint("BOTTOMRIGHT",parent,"BOTTOMRIGHT",0,y)
+        t:SetHeight(thickness)
+        return t
+    end
+    DebugRule(debugOverlay,0,1,0,0,3) -- GREEN: true frame bottom
+    DebugRule(debugOverlay,1,0.15,0.15,34,3) -- RED: footer top
+    local debugText=debugOverlay:CreateFontString(nil,"OVERLAY","GameFontNormalLarge")
+    debugText:SetPoint("BOTTOMLEFT",debugOverlay,"BOTTOMLEFT",12,48)
+    debugText:SetText("|cff00ff00GREEN: frame bottom|r  |cffff3333RED: footer top|r")
+
+    -- Use the matching bottom artwork, not a flat substitute.
+    MetallicEdge(false,"BOTTOMLEFT","BOTTOMRIGHT",0,0)
+    local footerDivider=footerChrome:CreateTexture(nil,"ARTWORK")
+    footerDivider:SetPoint("TOPLEFT",footerChrome,"TOPLEFT",16,0)
+    footerDivider:SetPoint("TOPRIGHT",footerChrome,"TOPRIGHT",-16,0)
+    footerDivider:SetHeight(1)
+    footerDivider:SetColorTexture(0.67,0.48,0.25,0.48)
+    MetallicEdge(true,"TOPLEFT","BOTTOMLEFT",0,0)
+    MetallicEdge(true,"TOPRIGHT","BOTTOMRIGHT",0,0)
     BorderPiece("Corner_TL.tga",CORNER_SIZE,CORNER_SIZE,"TOPLEFT",0,0)
     BorderPiece("Corner_TR.tga",CORNER_SIZE,CORNER_SIZE,"TOPRIGHT",0,0)
     BorderPiece("Corner_BL.tga",CORNER_SIZE,CORNER_SIZE,"BOTTOMLEFT",0,0)
