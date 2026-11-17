@@ -120,26 +120,30 @@ function addon.Theme:SkinGameMenuButton(button)
     if not button or button.baziGameMenuSkinned then return end
     button.baziGameMenuSkinned = true
 
-    -- Overlay the red native button center without changing Blizzard button states.
-    -- The text is on OVERLAY too; a negative sublevel keeps it above our fill.
+    -- Keep Blizzard's gold button trim, but paint purple under a separate
+    -- high-frame-level label. The native label is hidden to avoid layering bugs.
     local fill = button:CreateTexture(nil, "OVERLAY", nil, -7)
     fill:SetPoint("TOPLEFT", button, "TOPLEFT", 6, -6)
     fill:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", -6, 6)
     fill:SetColorTexture(0.34, 0.17, 0.25, 1)
     button.baziGameMenuFill = fill
 
-    -- The fill is OVERLAY, so the label must be on a higher sublevel.
-    -- Keep Blizzard's original font objects; replacing them can hide text.
-    local function ApplyTextColor(self)
-        local label = self.GetFontString and self:GetFontString()
-        if label then
-            label:SetDrawLayer("OVERLAY", 7)
-            label:SetTextColor(0.96, 0.81, 0.59, 1)
-            label:SetAlpha(1)
-        end
+    local textLayer = CreateFrame("Frame", nil, button)
+    textLayer:SetAllPoints(button)
+    textLayer:SetFrameLevel(button:GetFrameLevel() + 5)
+    local caption = textLayer:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    caption:SetPoint("CENTER", button, "CENTER", 0, 0)
+    caption:SetTextColor(0.96, 0.81, 0.59, 1)
+    local original = button.GetFontString and button:GetFontString()
+    if original then original:SetAlpha(0) end
+    local function RefreshCaption(self)
+        caption:SetText(self:GetText() or "")
+        if original then original:SetAlpha(0) end
     end
-    ApplyTextColor(button)
-    button:HookScript("OnShow", ApplyTextColor)
+    RefreshCaption(button)
+    button:HookScript("OnShow", RefreshCaption)
+    button:HookScript("OnEnable", RefreshCaption)
+    button:HookScript("OnDisable", RefreshCaption)
 
     local function Trim(a, b, ax, ay, bx, by, horizontal)
         local edge = button:CreateTexture(nil, "OVERLAY")
@@ -157,7 +161,7 @@ function addon.Theme:SkinGameMenuButton(button)
         local c = self:IsMouseOver() and addon.Theme.colors.purpleHover or addon.Theme.colors.purple
         fill:SetColorTexture(c[1], c[2], c[3], 0.96)
     end
-    button:HookScript("OnEnter", function(self) Update(self); ApplyTextColor(self) end)
+    button:HookScript("OnEnter", function(self) Update(self); RefreshCaption(self) end)
     button:HookScript("OnLeave", function(self) Update(self); ApplyTextColor(self) end)
     button:HookScript("OnMouseDown", Update)
     button:HookScript("OnMouseUp", Update)
