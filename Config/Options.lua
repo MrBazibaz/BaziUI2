@@ -258,7 +258,7 @@ function addon.Options:Create()
     headerLine:SetColorTexture(0.76, 0.55, 0.28, 0.75)
     optionsFrame:Hide()
 
-    local title = CreateLabel(optionsFrame, "BAZI UI", "GameFontNormal")
+    local title = CreateLabel(optionsFrame, "Bazi UI", "GameFontNormal")
     title:SetPoint("TOP", optionsFrame, "TOP", 0, -27)
     title:SetFontObject("GameFontNormalLarge")
     title:SetJustifyH("CENTER")
