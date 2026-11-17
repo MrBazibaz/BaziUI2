@@ -28,6 +28,30 @@ local function CreateSection(parent, text, y)
     return heading
 end
 
+local function CreatePanel(parent, top, height)
+    local panel = CreateFrame("Frame", nil, parent)
+    panel:SetPoint("TOPLEFT", parent, "TOPLEFT", 12, top)
+    panel:SetPoint("TOPRIGHT", parent, "TOPRIGHT", -12, top)
+    panel:SetHeight(height)
+
+    local fill = panel:CreateTexture(nil, "BACKGROUND")
+    fill:SetAllPoints(panel)
+    fill:SetColorTexture(0.08, 0.055, 0.085, 0.58)
+
+    local accent = panel:CreateTexture(nil, "ARTWORK")
+    accent:SetPoint("TOPLEFT", panel, "TOPLEFT", 0, 0)
+    accent:SetPoint("BOTTOMLEFT", panel, "BOTTOMLEFT", 0, 0)
+    accent:SetWidth(3)
+    accent:SetColorTexture(0.48, 0.23, 0.67, 0.9)
+
+    local topLine = panel:CreateTexture(nil, "BORDER")
+    topLine:SetPoint("TOPLEFT", panel, "TOPLEFT", 0, 0)
+    topLine:SetPoint("TOPRIGHT", panel, "TOPRIGHT", 0, 0)
+    topLine:SetHeight(1)
+    topLine:SetColorTexture(0.78, 0.59, 0.31, 0.45)
+    return panel
+end
+
 local function CreateSlider(parent, labelText, minValue, maxValue, step, value, y, onValueChanged)
     local label = CreateLabel(parent, labelText, "GameFontNormal")
     label:SetPoint("TOPLEFT", parent, "TOPLEFT", 24, y)
@@ -79,13 +103,15 @@ local function CreateGeneralPage()
     page:SetAllPoints(contentFrame)
     pages.General = page
 
-    CreateSection(page, "Bazi UI", -26)
+    CreatePanel(page, -12, 75)
+    CreateSection(page, "Bazi UI", -24)
 
     local intro = CreateLabel(page, "Your interface. Your rules.", "GameFontHighlight")
     intro:SetPoint("TOPLEFT", page, "TOPLEFT", 24, -58)
 
     CreateDivider(page, -88)
 
+    CreatePanel(page, -100, 230)
     CreateSection(page, "Appearance", -112)
 
     local db = addon.db.profile
@@ -111,6 +137,7 @@ local function CreatePlaceholderPage(name, description)
     page:SetAllPoints(contentFrame)
     pages[name] = page
 
+    CreatePanel(page, -12, 130)
     CreateSection(page, name, -26)
     CreateDivider(page, -60)
 
@@ -155,10 +182,10 @@ function addon.Options:Create()
     optionsFrame:Hide()
 
     local title = CreateLabel(optionsFrame, "Bazi UI", "GameFontNormal")
-    title:SetPoint("CENTER", optionsFrame, "TOP", 0, -19)
+    title:SetPoint("CENTER", optionsFrame, "TOP", 0, -12)
     title:SetJustifyH("CENTER")
 
-    local subtitle = CreateLabel(optionsFrame, "Interface settings", "GameFontDisableSmall")
+    local subtitle = CreateLabel(optionsFrame, "INTERFACE SETTINGS", "GameFontDisableSmall")
     subtitle:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", 25, -42)
 
     local close = CreateFrame("Button", nil, optionsFrame, "UIPanelCloseButton")
@@ -173,7 +200,7 @@ function addon.Options:Create()
     contentFrame:SetPoint("BOTTOMRIGHT", optionsFrame, "BOTTOMRIGHT", -16, 18)
 
     local separator = contentFrame:CreateTexture(nil, "BORDER")
-    separator:SetColorTexture(0.55, 0.48, 0.62, 0.55)
+    separator:SetColorTexture(0.72, 0.54, 0.30, 0.50)
     separator:SetWidth(1)
     separator:SetPoint("TOPLEFT", contentFrame, "TOPLEFT", -10, 0)
     separator:SetPoint("BOTTOMLEFT", contentFrame, "BOTTOMLEFT", -10, 0)
