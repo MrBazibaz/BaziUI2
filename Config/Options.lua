@@ -200,49 +200,25 @@ end
 
 function addon.Options:Create()
     optionsFrame = CreateFrame("Frame", "BaziUIOptionsFrame", UIParent)
-    -- Native WorldMapFrame trim regions from /bazi inspectmap.
-    -- Preserve original sizes and native 128px atlas repeat units.
-    local function Trim(id)
-        local t = optionsFrame:CreateTexture(nil, "OVERLAY")
-        t:SetTexture(id)
-        return t
+    -- Blizzard's own NineSlice from a verified working template.
+    -- Keep it as a separate, mouse-transparent border host so the
+    -- custom options layout remains untouched.
+    local borderHost = CreateFrame("Frame", nil, optionsFrame, "ButtonFrameTemplate")
+    borderHost:SetAllPoints(optionsFrame)
+    borderHost:EnableMouse(false)
+    -- ButtonFrameTemplate includes window furniture we don't want.
+    -- Preserve only the native NineSlice border.
+    for _, child in ipairs({borderHost:GetChildren()}) do
+        if child ~= borderHost.NineSlice then
+            child:Hide()
+        end
     end
-    local function Corner(point, w, h, x, y)
-        local t = Trim(8069116)
-        t:SetSize(w, h)
-        t:SetPoint(point, optionsFrame, point, x, y)
+    for _, region in ipairs({borderHost:GetRegions()}) do
+        region:Hide()
     end
-    Corner("TOPLEFT", 95, 95, -13, 16)
-    Corner("TOPRIGHT", 95, 95, 2, 16)
-    Corner("BOTTOMLEFT", 95, 100, -13, -8)
-    Corner("BOTTOMRIGHT", 95, 100, 2, -8)
-
-    local function Horizontal(top)
-        local t = Trim(8069118)
-        local y = top and 16 or -8
-        local h = top and 95 or 100
-        t:SetPoint(top and "TOPLEFT" or "BOTTOMLEFT",
-                   optionsFrame, top and "TOPLEFT" or "BOTTOMLEFT", 82, y)
-        t:SetPoint(top and "TOPRIGHT" or "BOTTOMRIGHT",
-                   optionsFrame, top and "TOPRIGHT" or "BOTTOMRIGHT", -93, y)
-        t:SetHeight(h)
-        local repeatX = (900 - 175) / 128
-        t:SetTexCoord(0, 0, 0, 1, repeatX, 0, repeatX, 1)
+    if borderHost.NineSlice then
+        borderHost.NineSlice:Show()
     end
-    Horizontal(true)
-    Horizontal(false)
-
-    local function Vertical(side)
-        local t = Trim(8069114)
-        local x = side == "LEFT" and -13 or 2
-        t:SetPoint("TOP" .. side, optionsFrame, "TOP" .. side, x, -79)
-        t:SetPoint("BOTTOM" .. side, optionsFrame, "BOTTOM" .. side, x, 92)
-        t:SetWidth(95)
-        local repeatY = (555 - 171) / 128
-        t:SetTexCoord(0, 0, 0, repeatY, 1, 0, 1, repeatY)
-    end
-    Vertical("LEFT")
-    Vertical("RIGHT")
     optionsFrame:SetSize(900, 555)
     optionsFrame:SetPoint("CENTER")
     optionsFrame:SetFrameStrata("DIALOG")
