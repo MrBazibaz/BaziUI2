@@ -175,6 +175,26 @@ function addon.Options:Create()
     footerChrome:SetPoint("BOTTOMRIGHT",frame,"BOTTOMRIGHT",0,0)
     footerChrome:SetHeight(34)
     frame.baziFooterChrome=footerChrome
+    -- Temporary visual diagnostics. Toggle with /bazidebug.
+    local debugOverlay=CreateFrame("Frame",nil,frame)
+    debugOverlay:SetAllPoints(frame)
+    debugOverlay:SetFrameLevel(frame:GetFrameLevel()+20)
+    debugOverlay:Hide()
+    frame.baziDebugOverlay=debugOverlay
+    local function DebugRule(parent,r,g,b,y,thickness)
+        local t=parent:CreateTexture(nil,"OVERLAY")
+        t:SetColorTexture(r,g,b,0.95)
+        t:SetPoint("BOTTOMLEFT",parent,"BOTTOMLEFT",0,y)
+        t:SetPoint("BOTTOMRIGHT",parent,"BOTTOMRIGHT",0,y)
+        t:SetHeight(thickness)
+        return t
+    end
+    DebugRule(debugOverlay,0,1,0,0,3) -- GREEN: true frame bottom
+    DebugRule(debugOverlay,1,0.15,0.15,34,3) -- RED: footer top
+    local debugText=debugOverlay:CreateFontString(nil,"OVERLAY","GameFontNormalLarge")
+    debugText:SetPoint("BOTTOMLEFT",debugOverlay,"BOTTOMLEFT",12,48)
+    debugText:SetText("|cff00ff00GREEN: frame bottom|r  |cffff3333RED: footer top|r")
+
     local bottomLine=footerChrome:CreateTexture(nil,"OVERLAY")
     bottomLine:SetPoint("BOTTOMLEFT",footerChrome,"BOTTOMLEFT",18,0)
     bottomLine:SetPoint("BOTTOMRIGHT",footerChrome,"BOTTOMRIGHT",-18,0)
@@ -242,6 +262,17 @@ end
 -- Temporary V7 geometry diagnostics. Run /baziframe with the options window open.
 -- Values use UI coordinates; comparing frame and footer positions isolates
 -- artwork padding from layout/scale problems.
+SLASH_BAZIDEBUG1 = "/bazidebug"
+SlashCmdList["BAZIDEBUG"] = function()
+    if not frame then print("Bazi UI V7: open /bazi first.");return end
+    if frame.baziDebugOverlay:IsShown() then
+        frame.baziDebugOverlay:Hide()
+        print("Bazi UI V7: debug overlay OFF")
+    else
+        frame.baziDebugOverlay:Show()
+        print("Bazi UI V7: debug overlay ON. GREEN = frame bottom; RED = footer top.")
+    end
+end
 SLASH_BAZIFRAME1 = "/baziframe"
 SlashCmdList["BAZIFRAME"] = function()
     if not frame then
