@@ -200,52 +200,45 @@ end
 
 function addon.Options:Create()
     optionsFrame = CreateFrame("Frame", "BaziUIOptionsFrame", UIParent)
-    -- World Map's native 8-piece trim, scaled to fit a settings dialog.
-    -- Source: WorldMapFrame/child5/child1 regions 1-8 in inspectmap.
-    -- Preserve the exact native texture coordinates (including tiled edges).
-    local trimScale = 0.38
-    local cornerW = 95 * trimScale
-    local cornerTopH = 95 * trimScale
-    local cornerBottomH = 100 * trimScale
-    local function Piece(id, w, h, point, x, y, coords)
+    -- Native WorldMapFrame trim regions from /bazi inspectmap.
+    -- Preserve original sizes and native 128px atlas repeat units.
+    local function Trim(id)
         local t = optionsFrame:CreateTexture(nil, "OVERLAY")
         t:SetTexture(id)
-        t:SetSize(w, h)
-        t:SetPoint(point, optionsFrame, point, x, y)
-        t:SetTexCoord(unpack(coords))
         return t
     end
-    local full = {0, 0, 0, 1, 1, 0, 1, 1}
-    -- Blizzard anchors are slightly outside the map frame. Scale offsets
-    -- as well as the artwork so the trim meets our frame rather than floating.
-    Piece(8069116, cornerW, cornerTopH, "TOPLEFT", -13 * trimScale, 16 * trimScale, full)
-    Piece(8069116, cornerW, cornerTopH, "TOPRIGHT", 2 * trimScale, 16 * trimScale, full)
-    Piece(8069116, cornerW, cornerBottomH, "BOTTOMLEFT", -13 * trimScale, -8 * trimScale, full)
-    Piece(8069116, cornerW, cornerBottomH, "BOTTOMRIGHT", 2 * trimScale, -8 * trimScale, full)
+    local function Corner(point, w, h, x, y)
+        local t = Trim(8069116)
+        t:SetSize(w, h)
+        t:SetPoint(point, optionsFrame, point, x, y)
+    end
+    Corner("TOPLEFT", 95, 95, -13, 16)
+    Corner("TOPRIGHT", 95, 95, 2, 16)
+    Corner("BOTTOMLEFT", 95, 100, -13, -8)
+    Corner("BOTTOMRIGHT", 95, 100, 2, -8)
 
-    local function Horizontal(point, height, top)
-        local t = optionsFrame:CreateTexture(nil, "OVERLAY")
-        t:SetTexture(8069118)
-        t:SetPoint(point .. "LEFT", optionsFrame, point .. "LEFT", cornerW - 13 * trimScale, top and 16 * trimScale or -8 * trimScale)
-        t:SetPoint(point .. "RIGHT", optionsFrame, point .. "RIGHT", -cornerW + 2 * trimScale, top and 16 * trimScale or -8 * trimScale)
-        t:SetHeight(height)
-        -- The atlas repeats every 128 on-screen pixels. Scaling the height\n        -- does not change the horizontal tile width.
-        local span = 900 - 2 * cornerW + 15 * trimScale
-        local repeatX = span / 128
+    local function Horizontal(top)
+        local t = Trim(8069118)
+        local y = top and 16 or -8
+        local h = top and 95 or 100
+        t:SetPoint(top and "TOPLEFT" or "BOTTOMLEFT",
+                   optionsFrame, top and "TOPLEFT" or "BOTTOMLEFT", 82, y)
+        t:SetPoint(top and "TOPRIGHT" or "BOTTOMRIGHT",
+                   optionsFrame, top and "TOPRIGHT" or "BOTTOMRIGHT", -93, y)
+        t:SetHeight(h)
+        local repeatX = (900 - 175) / 128
         t:SetTexCoord(0, 0, 0, 1, repeatX, 0, repeatX, 1)
     end
-    Horizontal("TOP", cornerTopH, true)
-    Horizontal("BOTTOM", cornerBottomH, false)
+    Horizontal(true)
+    Horizontal(false)
 
     local function Vertical(side)
-        local t = optionsFrame:CreateTexture(nil, "OVERLAY")
-        t:SetTexture(8069114)
-        local x = side == "LEFT" and -13 * trimScale or 2 * trimScale
-        t:SetPoint("TOP" .. side, optionsFrame, "TOP" .. side, x, 16 * trimScale - cornerTopH)
-        t:SetPoint("BOTTOM" .. side, optionsFrame, "BOTTOM" .. side, x, -8 * trimScale + cornerBottomH)
-        t:SetWidth(cornerW)
-        local span = 555 - cornerTopH - cornerBottomH + 24 * trimScale
-        local repeatY = span / 128
+        local t = Trim(8069114)
+        local x = side == "LEFT" and -13 or 2
+        t:SetPoint("TOP" .. side, optionsFrame, "TOP" .. side, x, -79)
+        t:SetPoint("BOTTOM" .. side, optionsFrame, "BOTTOM" .. side, x, 92)
+        t:SetWidth(95)
+        local repeatY = (555 - 171) / 128
         t:SetTexCoord(0, 0, 0, repeatY, 1, 0, 1, repeatY)
     end
     Vertical("LEFT")
