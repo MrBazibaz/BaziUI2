@@ -200,42 +200,44 @@ end
 
 function addon.Options:Create()
     optionsFrame = CreateFrame("Frame", "BaziUIOptionsFrame", UIParent)
-    -- Blizzard-style decorative corner caps. Keep all border edges as
-    -- simple solid strips; never stretch a corner atlas across an edge.
-    local function Edge(pointA, pointB, ax, ay, bx, by, thickness, vertical, color)
-        local t = optionsFrame:CreateTexture(nil, "OVERLAY")
-        t:SetPoint(pointA, optionsFrame, pointA, ax, ay)
-        t:SetPoint(pointB, optionsFrame, pointB, bx, by)
-        if vertical then t:SetWidth(thickness) else t:SetHeight(thickness) end
-        t:SetColorTexture(unpack(color))
+    -- Native Blizzard map-frame trim. Keep the original bronze colors.
+    -- Texture IDs are from /bazi inspectmap (WorldMapFrame border regions).
+    -- Separate corners avoid stretching the corner art across long edges.
+    local function BorderTexture(id, layer)
+        local t = optionsFrame:CreateTexture(nil, layer or "OVERLAY")
+        t:SetTexture(id)
+        return t
     end
-    local gold = {0.69, 0.48, 0.26, 1}
-    local highlight = {0.88, 0.69, 0.40, 1}
-    local shadow = {0.19, 0.10, 0.055, 1}
-    local cap = 22
-    -- Edges stop short of the corners so they cannot make square corners.
-    Edge("TOPLEFT", "TOPRIGHT", cap, -2, -cap, -2, 4, false, gold)
-    Edge("BOTTOMLEFT", "BOTTOMRIGHT", cap, 2, -cap, 2, 4, false, gold)
-    Edge("TOPLEFT", "BOTTOMLEFT", 2, -cap, 2, cap, 4, true, gold)
-    Edge("TOPRIGHT", "BOTTOMRIGHT", -2, -cap, -2, cap, 4, true, gold)
-    Edge("TOPLEFT", "TOPRIGHT", cap, -6, -cap, -6, 1, false, highlight)
-    Edge("BOTTOMLEFT", "BOTTOMRIGHT", cap, 6, -cap, 6, 1, false, highlight)
-    Edge("TOPLEFT", "BOTTOMLEFT", 6, -cap, 6, cap, 1, true, highlight)
-    Edge("TOPRIGHT", "BOTTOMRIGHT", -6, -cap, -6, cap, 1, true, highlight)
-
-    local function Corner(point, flipX, flipY)
-        local t = optionsFrame:CreateTexture(nil, "OVERLAY", nil, 2)
-        t:SetTexture("Interface\\\\DialogFrame\\\\UI-DialogBox-Corner")
-        t:SetSize(32, 32)
-        t:SetPoint(point, optionsFrame, point, flipX and 0 or 0, flipY and 0 or 0)
+    local function BorderEdge(id, a, b, x1, y1, x2, y2, width, height, coords)
+        local t = BorderTexture(id)
+        t:SetPoint(a, optionsFrame, a, x1, y1)
+        t:SetPoint(b, optionsFrame, b, x2, y2)
+        if width then t:SetWidth(width) end
+        if height then t:SetHeight(height) end
+        if coords then t:SetTexCoord(unpack(coords)) end
+        return t
+    end
+    -- Map frame's 3px edge textures; horizontal strip repeats its native
+    -- segment rather than being scaled into a blurry single pixel.
+    BorderEdge(1723833, "TOPLEFT", "TOPRIGHT", 6, -2, -6, -2, nil, 3,
+        {0, 0, 0, 1, 3.47, 0, 3.47, 1})
+    BorderEdge(1723833, "BOTTOMLEFT", "BOTTOMRIGHT", 6, 2, -6, 2, nil, 3,
+        {0, 0, 0, 1, 3.47, 0, 3.47, 1})
+    BorderEdge(1723832, "TOPLEFT", "BOTTOMLEFT", 2, -6, 2, 6, 3, nil,
+        {0, 0, 0, 1, 1, 0, 1, 1})
+    BorderEdge(1723832, "TOPRIGHT", "BOTTOMRIGHT", -2, -6, -2, 6, 3, nil,
+        {0, 0, 0, 1, 1, 0, 1, 1})
+    local function BorderCorner(point, flipX, flipY)
+        local t = BorderTexture(1723831)
+        t:SetSize(6, 6)
+        t:SetPoint(point, optionsFrame, point)
         t:SetTexCoord(flipX and 1 or 0, flipX and 0 or 1,
                       flipY and 1 or 0, flipY and 0 or 1)
-        t:SetVertexColor(0.95, 0.78, 0.54, 1)
     end
-    Corner("TOPLEFT", false, false)
-    Corner("TOPRIGHT", true, false)
-    Corner("BOTTOMLEFT", false, true)
-    Corner("BOTTOMRIGHT", true, true)
+    BorderCorner("TOPLEFT", false, true)
+    BorderCorner("TOPRIGHT", true, true)
+    BorderCorner("BOTTOMLEFT", false, false)
+    BorderCorner("BOTTOMRIGHT", true, false)
     optionsFrame:SetSize(900, 555)
     optionsFrame:SetPoint("CENTER")
     optionsFrame:SetFrameStrata("DIALOG")
