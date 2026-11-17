@@ -287,12 +287,17 @@ function addon.Options:Create()
     -- The native portrait ring is part of the frame design. Keep it and
     -- insert the Bazi emblem in its centre (asset supplied in this repo).
     -- Put the emblem on a frame above the template artwork, not underneath it.
-    local emblemHost = CreateFrame("Frame", nil, optionsFrame)
+    -- Separate UIParent overlay avoids the ButtonFrameTemplate's nested
+    -- NineSlice portrait artwork drawing over the emblem.
+    local emblemHost = CreateFrame("Frame", nil, UIParent)
     emblemHost:SetSize(60, 60)
-    -- Align the emblem to the visual centre of the native portrait ring.
-    emblemHost:SetPoint("CENTER", optionsFrame, "TOPLEFT", 26.5, -23.5)
-    emblemHost:SetFrameStrata("FULLSCREEN_DIALOG")
-    emblemHost:SetFrameLevel(borderHost:GetFrameLevel() + 30)
+    emblemHost:SetPoint("CENTER", optionsFrame, "TOPLEFT", 23.5, -20.5)
+    emblemHost:SetFrameStrata("TOOLTIP")
+    emblemHost:SetFrameLevel(100)
+    emblemHost:EnableMouse(false)
+    emblemHost:Hide()
+    optionsFrame:HookScript("OnShow", function() emblemHost:Show() end)
+    optionsFrame:HookScript("OnHide", function() emblemHost:Hide() end)
     optionsFrame.baziEmblemHost = emblemHost
     local emblem = emblemHost:CreateTexture(nil, "OVERLAY")
     emblem:SetAllPoints(emblemHost)
