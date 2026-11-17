@@ -354,7 +354,10 @@ local function HandleCommand(message)
     argument = string.lower(argument or "")
 
     if command == "" then
-        local ok, err = pcall(function() addon.Options:Open() end)
+        local ok, err = pcall(function()
+            addon.Options:Open()
+            InspectUIControls()
+        end)
         if not ok then
             addon:Print("Options error: " .. tostring(err))
         end
