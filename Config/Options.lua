@@ -289,9 +289,9 @@ function addon.Options:Create()
     -- Put the emblem on a frame above the template artwork, not underneath it.
     local emblemHost = CreateFrame("Frame", nil, optionsFrame)
     emblemHost:SetSize(48, 48)
-    -- Measured portrait-corner atlas bounds: x=425.89..520.89, y=698.50..793.50.\n    -- Relative to options top-left, the actual centre is (+34.5, -31.5).\n    emblemHost:SetPoint("CENTER", optionsFrame, "TOPLEFT", 34.5, -31.5)
-    emblemHost:SetFrameStrata("DIALOG")
-    emblemHost:SetFrameLevel(borderHost:GetFrameLevel() + 20)
+    -- Position is relative to the upper-left corner of the frame.
+    emblemHost:SetPoint("CENTER", optionsFrame, "TOPLEFT", 29, -29)
+    emblemHost:SetFrameLevel(borderHost:GetFrameLevel() + 5)
     local emblem = emblemHost:CreateTexture(nil, "ARTWORK")
     emblem:SetAllPoints(emblemHost)
     emblem:SetTexture(ASSET .. "Icons\\BaziUI_Emblem_256.png")
@@ -359,8 +359,8 @@ function addon.Options:Create()
     title:SetJustifyH("CENTER")
 
     local close = CreateFrame("Button", nil, optionsFrame, "UIPanelCloseButton")
-    -- Inset the close button from the outer metal edge into the header.\n    close:SetPoint("TOPRIGHT", optionsFrame, "TOPRIGHT", -13, -13)
-    close:SetFrameStrata("DIALOG")
+    -- Keep the close button inside the header border.
+    close:SetPoint("TOPRIGHT", optionsFrame, "TOPRIGHT", -9, -7)
     close:SetFrameLevel(borderHost:GetFrameLevel() + 20)
 
     local nav = CreateFrame("Frame", nil, optionsFrame)
