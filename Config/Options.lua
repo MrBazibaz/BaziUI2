@@ -288,8 +288,8 @@ function addon.Options:Create()
     -- insert the Bazi emblem in its centre (asset supplied in this repo).
     -- Put the emblem on a frame above the template artwork, not underneath it.
     local emblemHost = CreateFrame("Frame", nil, optionsFrame)
-    emblemHost:SetSize(52, 52)
-    emblemHost:SetPoint("CENTER", optionsFrame, "TOPLEFT", 24, -26)
+    emblemHost:SetSize(48, 48)
+    -- Measured portrait-corner atlas bounds: x=425.89..520.89, y=698.50..793.50.\n    -- Relative to options top-left, the actual centre is (+34.5, -31.5).\n    emblemHost:SetPoint("CENTER", optionsFrame, "TOPLEFT", 34.5, -31.5)
     emblemHost:SetFrameLevel(borderHost:GetFrameLevel() + 5)
     local emblem = emblemHost:CreateTexture(nil, "ARTWORK")
     emblem:SetAllPoints(emblemHost)
@@ -358,7 +358,7 @@ function addon.Options:Create()
     title:SetJustifyH("CENTER")
 
     local close = CreateFrame("Button", nil, optionsFrame, "UIPanelCloseButton")
-    close:SetPoint("TOPRIGHT", optionsFrame, "TOPRIGHT", -9, -7)
+    -- Inset the close button from the outer metal edge into the header.\n    close:SetPoint("TOPRIGHT", optionsFrame, "TOPRIGHT", -13, -13)
 
     local nav = CreateFrame("Frame", nil, optionsFrame)
     nav:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", 12, -78)
