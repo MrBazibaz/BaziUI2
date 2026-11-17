@@ -25,6 +25,11 @@ function addon.Commands:Initialize()
     SLASH_BAZI2 = "/bui"
     SlashCmdList.BAZI = HandleCommand
 
+    SLASH_BAZIUIRELOAD1 = "/rl"
+    SlashCmdList.BAZIUIRELOAD = function()
+        ReloadUI()
+    end
+
     if not StaticPopupDialogs["BAZIUI_RESET_CONFIRM"] then
         StaticPopupDialogs["BAZIUI_RESET_CONFIRM"] = {
             text = "Reset all Bazi UI settings to their defaults?",
