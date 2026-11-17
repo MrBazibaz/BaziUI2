@@ -236,6 +236,39 @@ local function InspectFrameTemplates()
     addon:Print("Use /rl, then share BaziUI.lua SavedVariables.")
 end
 
+local function InspectGameMenu()
+    local menu = _G.GameMenuFrame
+    if not menu then addon:Print("GameMenuFrame is not loaded."); return end
+    BaziUIDB = BaziUIDB or {}
+    local report = {}
+    local function Add(line) report[#report + 1] = line end
+    local function DescribeRegion(region, prefix)
+        if not region or not region.IsObjectType or not region:IsObjectType("Texture") then return end
+        local ok, texture = pcall(region.GetTexture, region)
+        local atlas = region.GetAtlas and region:GetAtlas()
+        local layer = region:GetDrawLayer()
+        Add(prefix .. " name=" .. tostring(region:GetName()) ..
+            " texture=" .. tostring(ok and texture or "error") ..
+            " atlas=" .. tostring(atlas) .. " layer=" .. tostring(layer) ..
+            " shown=" .. tostring(region:IsShown()))
+    end
+    for _, button in ipairs({menu:GetChildren()}) do
+        if button.IsObjectType and button:IsObjectType("Button") then
+            Add("BUTTON " .. tostring(button:GetName()) ..
+                " styled=" .. tostring(button.baziHoverStyled) ..
+                " mouseover=" .. tostring(button:IsMouseOver()))
+            DescribeRegion(button:GetNormalTexture(), " normal")
+            DescribeRegion(button:GetHighlightTexture(), " highlight")
+            DescribeRegion(button:GetPushedTexture(), " pushed")
+            for i, region in ipairs({button:GetRegions()}) do
+                DescribeRegion(region, " region" .. i)
+            end
+        end
+    end
+    BaziUIDB.gameMenuInspect = report
+    addon:Print("Game Menu scan saved: " .. #report .. " lines. Type /reload, then share BaziUI.lua from SavedVariables.")
+end
+
 local function HandleCommand(message)
     local command, argument = string.match(message or "", "^(%S*)%s*(.-)$")
     command = string.lower(command or "")
@@ -250,6 +283,8 @@ local function HandleCommand(message)
         addon:Print("version " .. addon.version)
     elseif command == "reload" then
         ReloadUI()
+    elseif command == "inspectgamemenu" then
+        InspectGameMenu()
     elseif command == "inspecttemplates" then
         InspectFrameTemplates()
     elseif command == "inspectmap" then
