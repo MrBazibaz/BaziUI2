@@ -139,7 +139,7 @@ function addon.Options:Open()
 end
 
 function addon.Options:Create()
-    optionsFrame = CreateFrame("Frame", "BaziUIOptionsFrame", UIParent, "BackdropTemplate")
+    optionsFrame = CreateFrame("Frame", "BaziUIOptionsFrame", UIParent)
     optionsFrame:SetSize(690, 470)
     optionsFrame:SetPoint("CENTER")
     optionsFrame:SetFrameStrata("DIALOG")
