@@ -139,7 +139,7 @@ function addon.Options:Create()
     Paint(frame,"BACKGROUND",0.055,0.043,0.074,0.99)
     -- V7 modular ornamental frame: independent corners and stretchable edge tiles.
     -- Artwork is drawn above the panels but below interactive controls.
-    local BORDER_ASSET = ASSET.."Borders\\\\"
+    local BORDER_ASSET = ASSET.."Borders"..string.char(92)
     local function BorderPiece(file, width, height, point, x, y, secondPoint, x2, y2)
         local tex=frame:CreateTexture(nil,"OVERLAY",nil,1)
         tex:SetTexture(BORDER_ASSET..file)
