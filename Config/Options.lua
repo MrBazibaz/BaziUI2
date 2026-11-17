@@ -151,15 +151,28 @@ function addon.Options:Create()
     frame:SetScript("OnDragStop",frame.StopMovingOrSizing)
     frame:SetScale(addon.db.profile.uiScale or 1)
     Paint(frame,"BACKGROUND",0.055,0.043,0.074,0.99)
+    -- Opaque plum backing extends under the outward ornamental border.
+    local chromeBacking=frame:CreateTexture(nil,"BACKGROUND",nil,-8)
+    chromeBacking:SetColorTexture(0.055,0.043,0.074,1)
+    chromeBacking:SetPoint("TOPLEFT",frame,"TOPLEFT",-8,8)
+    chromeBacking:SetPoint("BOTTOMRIGHT",frame,"BOTTOMRIGHT",8,-8)
     -- V7 modular ornamental frame: independent corners and stretchable edge tiles.
     -- Artwork is drawn above the panels but below interactive controls.
     local BORDER_ASSET = ASSET.."Borders"..string.char(92)
+    local BORDER_OUTSET=8
+    local function BorderAnchorOffset(point)
+        local dx=point:find("LEFT") and -BORDER_OUTSET or (point:find("RIGHT") and BORDER_OUTSET or 0)
+        local dy=point:find("TOP") and BORDER_OUTSET or (point:find("BOTTOM") and -BORDER_OUTSET or 0)
+        return dx,dy
+    end
     local function BorderPiece(file, width, height, point, x, y, secondPoint, x2, y2)
         local tex=frame:CreateTexture(nil,"OVERLAY",nil,1)
         tex:SetTexture(BORDER_ASSET..file)
-        tex:SetPoint(point,frame,point,x or 0,y or 0)
+        local dx,dy=BorderAnchorOffset(point)
+        tex:SetPoint(point,frame,point,(x or 0)+dx,(y or 0)+dy)
         if secondPoint then
-            tex:SetPoint(secondPoint,frame,secondPoint,x2 or 0,y2 or 0)
+            local dx2,dy2=BorderAnchorOffset(secondPoint)
+            tex:SetPoint(secondPoint,frame,secondPoint,(x2 or 0)+dx2,(y2 or 0)+dy2)
             if height then tex:SetHeight(height) else tex:SetWidth(width) end
         else
             tex:SetSize(width,height)
@@ -170,17 +183,20 @@ function addon.Options:Create()
     -- V7 concept proportions: larger ornamental corners; edge art runs behind them.
     local CORNER_SIZE=88
     local EDGE_SIZE=12
-    -- Fill the upper corner texture footprints with the window's plum color.
+    -- Fill all four corner texture footprints with the window's plum color.
     -- The ornamental TGAs have transparent pixels; without a backing layer
     -- the world is visible through their cutouts near the window edges.
     local function CornerBacking(anchor)
         local backing=frame:CreateTexture(nil,"BORDER",nil,-1)
         backing:SetColorTexture(0.055,0.043,0.074,1)
         backing:SetSize(CORNER_SIZE,CORNER_SIZE)
-        backing:SetPoint(anchor,frame,anchor,0,0)
+        local dx,dy=BorderAnchorOffset(anchor)
+        backing:SetPoint(anchor,frame,anchor,dx,dy)
     end
     CornerBacking("TOPLEFT")
     CornerBacking("TOPRIGHT")
+    CornerBacking("BOTTOMLEFT")
+    CornerBacking("BOTTOMRIGHT")
     local EDGE_OVERLAP=28
     local EDGE_INSET=CORNER_SIZE-EDGE_OVERLAP
     BorderPiece("Edge_Top_Tile.tga",nil,EDGE_SIZE,"TOPLEFT",EDGE_INSET,0,"TOPRIGHT",-EDGE_INSET,0)
