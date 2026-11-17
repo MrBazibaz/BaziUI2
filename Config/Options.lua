@@ -7,29 +7,32 @@ local contentFrame
 local navButtons = {}
 local pages = {}
 
-local function CreateLabel(parent, text, size, color)
-    local label = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+local function CreateLabel(parent, text, font)
+    local label = parent:CreateFontString(nil, "OVERLAY", font or "GameFontNormal")
     label:SetText(text)
-    if size then
-        label:SetFont(STANDARD_TEXT_FONT, size)
-    end
-    if color then
-        label:SetTextColor(unpack(color))
-    end
     return label
 end
 
+local function CreateDivider(parent, y)
+    local line = parent:CreateTexture(nil, "ARTWORK")
+    line:SetColorTexture(0.55, 0.48, 0.62, 0.55)
+    line:SetHeight(1)
+    line:SetPoint("TOPLEFT", parent, "TOPLEFT", 18, y)
+    line:SetPoint("TOPRIGHT", parent, "TOPRIGHT", -18, y)
+    return line
+end
+
 local function CreateSection(parent, text, y)
-    local heading = CreateLabel(parent, text, 16, addon.Theme.colors.gold)
+    local heading = CreateLabel(parent, text, "GameFontNormalLarge")
     heading:SetPoint("TOPLEFT", parent, "TOPLEFT", 22, y)
     return heading
 end
 
 local function CreateSlider(parent, labelText, minValue, maxValue, step, value, y, onValueChanged)
-    local label = CreateLabel(parent, labelText, 12, addon.Theme.colors.text)
+    local label = CreateLabel(parent, labelText, "GameFontNormal")
     label:SetPoint("TOPLEFT", parent, "TOPLEFT", 24, y)
 
-    local valueText = CreateLabel(parent, tostring(value), 12, addon.Theme.colors.gold)
+    local valueText = CreateLabel(parent, tostring(value), "GameFontHighlight")
     valueText:SetPoint("TOPRIGHT", parent, "TOPRIGHT", -30, y)
 
     local slider = CreateFrame("Slider", nil, parent, "OptionsSliderTemplate")
@@ -76,26 +79,29 @@ local function CreateGeneralPage()
     page:SetAllPoints(contentFrame)
     pages.General = page
 
-    CreateSection(page, "General", -24)
-    local intro = CreateLabel(page, "Global appearance and interface defaults.", 12, addon.Theme.colors.muted)
-    intro:SetPoint("TOPLEFT", page, "TOPLEFT", 24, -52)
+    CreateSection(page, "BAZI UI", -26)
 
-    CreateSection(page, "Appearance", -92)
+    local intro = CreateLabel(page, "Your interface. Your rules.", "GameFontHighlight")
+    intro:SetPoint("TOPLEFT", page, "TOPLEFT", 24, -58)
+
+    CreateDivider(page, -88)
+
+    CreateSection(page, "Appearance", -112)
 
     local db = addon.db.profile
-    CreateSlider(page, "Options Window Scale", 0.70, 1.20, 0.01, db.uiScale, -126, function(value)
+    CreateSlider(page, "Options Window Scale", 0.70, 1.20, 0.01, db.uiScale, -152, function(value)
         db.uiScale = value
         if optionsFrame then
             optionsFrame:SetScale(value)
         end
     end)
 
-    CreateSlider(page, "Default Font Size", 10, 20, 1, db.fontSize, -220, function(value)
+    CreateSlider(page, "Default Font Size", 10, 20, 1, db.fontSize, -246, function(value)
         db.fontSize = value
     end)
 
-    local note = CreateLabel(page, "Settings are saved automatically. Window scaling is active; global module scaling will be connected as those modules are built.", 11, addon.Theme.colors.muted)
-    note:SetPoint("TOPLEFT", page, "TOPLEFT", 24, -320)
+    local note = CreateLabel(page, "Changes are saved automatically.", "GameFontDisableSmall")
+    note:SetPoint("TOPLEFT", page, "TOPLEFT", 24, -350)
 
     return page
 end
@@ -105,21 +111,18 @@ local function CreatePlaceholderPage(name, description)
     page:SetAllPoints(contentFrame)
     pages[name] = page
 
-    local heading = CreateLabel(page, name, 16, addon.Theme.colors.gold)
-    heading:SetPoint("TOPLEFT", page, "TOPLEFT", 22, -24)
+    CreateSection(page, name, -26)
+    CreateDivider(page, -60)
 
-    local message = CreateLabel(page, description or "Settings for this module will appear here.", 12, addon.Theme.colors.muted)
-    message:SetPoint("TOPLEFT", page, "TOPLEFT", 24, -54)
+    local message = CreateLabel(page, description or "Settings for this module will appear here.", "GameFontHighlight")
+    message:SetPoint("TOPLEFT", page, "TOPLEFT", 24, -88)
 
     return page
 end
 
 local function CreateNavigationButton(parent, name, label, y)
-    local button = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
-    button:SetSize(142, 26)
+    local button = addon.Theme:CreateButton(parent, label, 142, 28)
     button:SetPoint("TOPLEFT", parent, "TOPLEFT", 10, y)
-    button:SetText(label)
-    addon.Theme:ApplyButton(button)
     button:SetScript("OnClick", function()
         ShowPage(name)
     end)
@@ -136,7 +139,7 @@ function addon.Options:Open()
 end
 
 function addon.Options:Create()
-    optionsFrame = CreateFrame("Frame", "BaziUIOptionsFrame", UIParent, "UIPanelDialogTemplate")
+    optionsFrame = CreateFrame("Frame", "BaziUIOptionsFrame", UIParent, "BackdropTemplate")
     optionsFrame:SetSize(690, 470)
     optionsFrame:SetPoint("CENTER")
     optionsFrame:SetFrameStrata("DIALOG")
@@ -146,22 +149,31 @@ function addon.Options:Create()
     optionsFrame:RegisterForDrag("LeftButton")
     optionsFrame:SetScript("OnDragStart", optionsFrame.StartMoving)
     optionsFrame:SetScript("OnDragStop", optionsFrame.StopMovingOrSizing)
+    addon.Theme:ApplyWindow(optionsFrame)
     optionsFrame:Hide()
 
-    if optionsFrame.Title then
-        optionsFrame.Title:SetText("BAZI UI")
-    end
+    local title = CreateLabel(optionsFrame, "BAZI UI", "GameFontNormalLarge")
+    title:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", 24, -18)
 
-    local subtitle = CreateLabel(optionsFrame, "Configuration", 11, addon.Theme.colors.muted)
-    subtitle:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", 20, -34)
+    local subtitle = CreateLabel(optionsFrame, "INTERFACE CONTROL", "GameFontDisableSmall")
+    subtitle:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", 25, -42)
+
+    local close = CreateFrame("Button", nil, optionsFrame, "UIPanelCloseButton")
+    close:SetPoint("TOPRIGHT", optionsFrame, "TOPRIGHT", -4, -4)
 
     local nav = CreateFrame("Frame", nil, optionsFrame)
-    nav:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", 12, -62)
-    nav:SetSize(164, 380)
+    nav:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", 12, -72)
+    nav:SetSize(164, 370)
 
     contentFrame = CreateFrame("Frame", nil, optionsFrame)
-    contentFrame:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", 184, -62)
+    contentFrame:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", 184, -72)
     contentFrame:SetPoint("BOTTOMRIGHT", optionsFrame, "BOTTOMRIGHT", -16, 18)
+
+    local separator = contentFrame:CreateTexture(nil, "BORDER")
+    separator:SetColorTexture(0.55, 0.48, 0.62, 0.55)
+    separator:SetWidth(1)
+    separator:SetPoint("TOPLEFT", contentFrame, "TOPLEFT", -10, 0)
+    separator:SetPoint("BOTTOMLEFT", contentFrame, "BOTTOMLEFT", -10, 0)
 
     CreateNavigationButton(nav, "General", "General", -8)
     CreateNavigationButton(nav, "UnitFrames", "UnitFrames", -42)
@@ -191,5 +203,5 @@ function addon.Options:Create()
 end
 
 function addon.Options:Initialize()
-    -- The options window is created on first open to avoid unnecessary startup work.
+    -- Created on first open.
 end
