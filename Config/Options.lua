@@ -166,8 +166,10 @@ function addon.Options:Create()
         end
         return tex
     end
-    -- Straight edge pieces are stretched between the corner ornaments.
-    BorderPiece("Edge_Top_Tile.tga",nil,12,"TOPLEFT",44,0,"TOPRIGHT",-44,0)
+    -- Keep all eight border pieces on the same frame edges and matching corner joins.
+    local CORNER_SIZE=56
+    local EDGE_SIZE=12
+    BorderPiece("Edge_Top_Tile.tga",nil,EDGE_SIZE,"TOPLEFT",CORNER_SIZE,0,"TOPRIGHT",-CORNER_SIZE,0)
     -- Footer and lower frame edge share one bottom-anchored container.
     -- No hardcoded top offset: resizing keeps the artwork on the actual edge.
     local footerChrome=CreateFrame("Frame",nil,frame)
@@ -195,21 +197,19 @@ function addon.Options:Create()
     debugText:SetPoint("BOTTOMLEFT",debugOverlay,"BOTTOMLEFT",12,48)
     debugText:SetText("|cff00ff00GREEN: frame bottom|r  |cffff3333RED: footer top|r")
 
-    local bottomLine=footerChrome:CreateTexture(nil,"OVERLAY")
-    bottomLine:SetPoint("BOTTOMLEFT",footerChrome,"BOTTOMLEFT",18,0)
-    bottomLine:SetPoint("BOTTOMRIGHT",footerChrome,"BOTTOMRIGHT",-18,0)
-    bottomLine:SetHeight(3)
-    bottomLine:SetColorTexture(0.78,0.55,0.25,0.95)
+    -- Use the matching bottom artwork, not a flat substitute.
+    BorderPiece("Edge_Bottom_Tile.tga",nil,EDGE_SIZE,"BOTTOMLEFT",CORNER_SIZE,0,"BOTTOMRIGHT",-CORNER_SIZE,0)
     local footerDivider=footerChrome:CreateTexture(nil,"ARTWORK")
     footerDivider:SetPoint("TOPLEFT",footerChrome,"TOPLEFT",16,0)
     footerDivider:SetPoint("TOPRIGHT",footerChrome,"TOPRIGHT",-16,0)
     footerDivider:SetHeight(1)
     footerDivider:SetColorTexture(0.67,0.48,0.25,0.48)
-    BorderPiece("Edge_Left.tga",12,nil,"TOPLEFT",0,-44,"BOTTOMLEFT",0,44)
-    BorderPiece("Edge_Right.tga",12,nil,"TOPRIGHT",0,-44,"BOTTOMRIGHT",0,44)
-    BorderPiece("Corner_TL.tga",44,44,"TOPLEFT",0,0)
-    BorderPiece("Corner_TR.tga",44,44,"TOPRIGHT",0,0)
-    -- Bottom corner images also contain large alpha padding; defer them until the assets are trimmed.
+    BorderPiece("Edge_Left.tga",EDGE_SIZE,nil,"TOPLEFT",0,-CORNER_SIZE,"BOTTOMLEFT",0,CORNER_SIZE)
+    BorderPiece("Edge_Right.tga",EDGE_SIZE,nil,"TOPRIGHT",0,-CORNER_SIZE,"BOTTOMRIGHT",0,CORNER_SIZE)
+    BorderPiece("Corner_TL.tga",CORNER_SIZE,CORNER_SIZE,"TOPLEFT",0,0)
+    BorderPiece("Corner_TR.tga",CORNER_SIZE,CORNER_SIZE,"TOPRIGHT",0,0)
+    BorderPiece("Corner_BL.tga",CORNER_SIZE,CORNER_SIZE,"BOTTOMLEFT",0,0)
+    BorderPiece("Corner_BR.tga",CORNER_SIZE,CORNER_SIZE,"BOTTOMRIGHT",0,0)
     local header=Paint(frame,"BORDER",0.09,0.063,0.11,0.99,3,-3,-3,3)
     local emblem=frame:CreateTexture(nil,"OVERLAY");emblem:SetTexture(ASSET.."Icons\\BaziUI_Emblem_256.png")
     emblem:SetSize(70,70);emblem:SetPoint("TOPLEFT",frame,"TOPLEFT",13,12)
