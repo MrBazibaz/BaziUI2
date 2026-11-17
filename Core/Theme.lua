@@ -27,9 +27,16 @@ function addon.Theme:ApplyWindow(frame)
     -- the same backdrop mixin as newer retail clients.
     local background = frame:CreateTexture(nil, "BACKGROUND")
     background:SetAllPoints(frame)
-    background:SetTexture("Interface\\CharacterFrame\\UI-CharacterFrame-Background")
-    background:SetTexCoord(0, 1, 0, 1)
+    -- Guaranteed opaque base, even if the client cannot resolve the artwork.
+    background:SetColorTexture(0.055, 0.045, 0.065, 1)
     frame.backgroundTexture = background
+
+    local artwork = frame:CreateTexture(nil, "ARTWORK")
+    artwork:SetAllPoints(frame)
+    artwork:SetTexture("Interface\\CharacterFrame\\UI-CharacterFrame-Background")
+    artwork:SetTexCoord(0, 1, 0, 1)
+    artwork:SetAlpha(0.72)
+    frame.characterArtwork = artwork
 
     -- A restrained custom edge replaces the gray Blizzard dialog border.
     local edge = self.colors.frameEdge
