@@ -120,6 +120,19 @@ function addon.Theme:SkinGameMenuButton(button)
     if not button or button.baziGameMenuSkinned then return end
     button.baziGameMenuSkinned = true
 
+    -- Forever's Game Menu buttons are unnamed and use a red Blizzard atlas.
+    -- Replace the native red hover on every button we actually skin.
+    local oldHighlight = button.GetHighlightTexture and button:GetHighlightTexture()
+    if oldHighlight then
+        oldHighlight:SetAlpha(0)
+    end
+    local hover = button:CreateTexture(nil, "HIGHLIGHT")
+    hover:SetPoint("TOPLEFT", button, "TOPLEFT", 5, -4)
+    hover:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", -5, 4)
+    hover:SetColorTexture(0.54, 0.34, 0.64, 0.48)
+    hover:SetBlendMode("ADD")
+    button:SetHighlightTexture(hover)
+
     -- Keep Blizzard's gold button trim, but paint purple under a separate
     -- high-frame-level label. The native label is hidden to avoid layering bugs.
     local fill = button:CreateTexture(nil, "OVERLAY", nil, -7)
