@@ -234,6 +234,14 @@ function addon.Options:Create()
     end
     HidePortraitArt(borderHost, 0)
 
+    -- The native portrait ring is part of the frame design. Keep it and
+    -- insert the Bazi emblem in its centre (asset supplied in this repo).
+    local emblem = optionsFrame:CreateTexture(nil, "OVERLAY", nil, 2)
+    emblem:SetSize(46, 46)
+    emblem:SetPoint("CENTER", optionsFrame, "TOPLEFT", 25, -25)
+    emblem:SetTexture("Interface\\AddOns\\BaziUI\\Assets\\Icons\\BaziUI_Emblem_64.png")
+    emblem:SetTexCoord(0, 1, 0, 1)
+
     optionsFrame:SetSize(900, 555)
     optionsFrame:SetPoint("CENTER")
     optionsFrame:SetFrameStrata("DIALOG")
@@ -275,7 +283,13 @@ function addon.Options:Create()
     headerLine:SetPoint("TOPRIGHT", optionsFrame, "TOPRIGHT", -8, -56)
     headerLine:SetHeight(1)
     headerLine:SetColorTexture(0.76, 0.55, 0.28, 0.75)
-    -- Subtle bronze title ornaments, keeping the native frame intact.
+    -- Custom titlebar artwork, kept inside the Blizzard bronze border.
+    local titleArt = optionsFrame:CreateTexture(nil, "ARTWORK", nil, -2)
+    titleArt:SetPoint("TOP", optionsFrame, "TOP", 0, -9)
+    titleArt:SetSize(380, 32)
+    titleArt:SetTexture("Interface\\AddOns\\BaziUI\\Assets\\Frames\\Titlebar.png")
+    titleArt:SetAlpha(0.50)
+        -- Subtle bronze title ornaments, keeping the native frame intact.
     for _, side in ipairs({"LEFT", "RIGHT"}) do
         local ornament = optionsFrame:CreateTexture(nil, "ARTWORK")
         ornament:SetSize(95, 2)
@@ -295,7 +309,7 @@ function addon.Options:Create()
     title:SetJustifyH("CENTER")
 
     local close = CreateFrame("Button", nil, optionsFrame, "UIPanelCloseButton")
-    close:SetPoint("TOPRIGHT", optionsFrame, "TOPRIGHT", -19, -24)
+    close:SetPoint("TOPRIGHT", optionsFrame, "TOPRIGHT", -3, -3)
 
     local nav = CreateFrame("Frame", nil, optionsFrame)
     nav:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", 12, -78)
