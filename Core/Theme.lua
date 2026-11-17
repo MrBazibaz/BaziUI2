@@ -112,5 +112,58 @@ function addon.Theme:SetButtonActive(button, active)
     Tint(button:GetNormalTexture(), active and self.colors.goldHover or self.colors.gold)
 end
 
+-- Visual-only skin for Blizzard Game Menu buttons. No click handlers,
+-- action bindings, button dimensions or protected attributes are changed.
+function addon.Theme:SkinGameMenuButton(button)
+    if not button or button.baziGameMenuSkinned then return end
+    button.baziGameMenuSkinned = true
+
+    local fill = button:CreateTexture(nil, "ARTWORK")
+    fill:SetPoint("TOPLEFT", button, "TOPLEFT", 6, -6)
+    fill:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", -6, 6)
+    fill:SetColorTexture(0.29, 0.12, 0.48, 0.96)
+    button.baziGameMenuFill = fill
+
+    local function Trim(a, b, ax, ay, bx, by, horizontal)
+        local edge = button:CreateTexture(nil, "OVERLAY")
+        edge:SetColorTexture(0.78, 0.56, 0.25, 0.95)
+        edge:SetPoint(a, button, a, ax, ay)
+        edge:SetPoint(b, button, b, bx, by)
+        if horizontal then edge:SetHeight(1) else edge:SetWidth(1) end
+    end
+    Trim("TOPLEFT", "TOPRIGHT", 5, -4, -5, -4, true)
+    Trim("BOTTOMLEFT", "BOTTOMRIGHT", 5, 4, -5, 4, true)
+    Trim("TOPLEFT", "BOTTOMLEFT", 4, -5, 4, 5, false)
+    Trim("TOPRIGHT", "BOTTOMRIGHT", -4, -5, -4, 5, false)
+
+    local function Update(self)
+        local c = self:IsMouseOver() and addon.Theme.colors.purpleHover or addon.Theme.colors.purple
+        fill:SetColorTexture(c[1], c[2], c[3], 0.96)
+    end
+    button:HookScript("OnEnter", Update)
+    button:HookScript("OnLeave", Update)
+end
+
+function addon.Theme:SkinGameMenu()
+    local frame = _G.GameMenuFrame
+    if not frame then return end
+    -- Named Blizzard controls vary by client build; inspect direct children
+    -- rather than assuming every retail button name exists in Forever.
+    local children = { frame:GetChildren() }
+    for _, child in ipairs(children) do
+        if child.IsObjectType and child:IsObjectType("Button")
+            and child.GetText and child:GetText() and child:GetText() ~= "" then
+            self:SkinGameMenuButton(child)
+        end
+    end
+end
+
 function addon.Theme:Initialize()
+    local frame = _G.GameMenuFrame
+    if frame then
+        frame:HookScript("OnShow", function()
+            addon.Theme:SkinGameMenu()
+        end)
+        self:SkinGameMenu()
+    end
 end
