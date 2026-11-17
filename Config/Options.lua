@@ -82,7 +82,7 @@ local function CreateSlider(parent, labelText, description, minValue, maxValue, 
     track:SetColorTexture(0.09, 0.055, 0.045, 1)
     local thumb = slider:CreateTexture(nil, "OVERLAY")
     thumb:SetSize(13, 19)
-    thumb:SetColorTexture(0.49, 0.24, 0.64, 1)
+    thumb:SetColorTexture(0.34, 0.17, 0.25, 1)
     slider:SetThumbTexture(thumb)
     slider:SetScript("OnValueChanged", function(self, raw)
         local rounded = math.floor(raw / step + 0.5) * step
@@ -196,20 +196,33 @@ end
 
 function addon.Options:Create()
     optionsFrame = CreateFrame("Frame", "BaziUIOptionsFrame", UIParent)
-    -- Use textures rather than SetBackdrop: some Forever frame builds do not expose it.
-    local rimColor = { 0.76, 0.55, 0.27, 0.95 }
-    local function AddRim(anchor1, anchor2, width, height)
-        local line = optionsFrame:CreateTexture(nil, "BORDER")
-        line:SetPoint(anchor1, optionsFrame, anchor1, 0, 0)
-        if anchor2 then line:SetPoint(anchor2, optionsFrame, anchor2, 0, 0) end
-        if width then line:SetWidth(width) end
-        if height then line:SetHeight(height) end
-        line:SetColorTexture(unpack(rimColor))
+    -- Thick Blizzard fantasy border, manually sliced for Forever compatibility.
+    local borderPath = "Interface\\DialogFrame\\UI-DialogBox-Border"
+    local function BorderPiece(p1, p2, x, y, w, h, coords)
+        local t = optionsFrame:CreateTexture(nil, "OVERLAY")
+        t:SetTexture(borderPath)
+        t:SetTexCoord(unpack(coords))
+        t:SetPoint(p1, optionsFrame, p2, x, y)
+        t:SetSize(w, h)
+        t:SetVertexColor(0.88, 0.72, 0.49, 1)
     end
-    AddRim("TOPLEFT", "TOPRIGHT", nil, 2)
-    AddRim("BOTTOMLEFT", "BOTTOMRIGHT", nil, 2)
-    AddRim("TOPLEFT", "BOTTOMLEFT", 2, nil)
-    AddRim("TOPRIGHT", "BOTTOMRIGHT", 2, nil)
+    BorderPiece("TOPLEFT", "TOPLEFT", -7, 7, 32, 32, {0, 0.25, 0, 0.25})
+    BorderPiece("TOPRIGHT", "TOPRIGHT", 7, 7, 32, 32, {0.75, 1, 0, 0.25})
+    BorderPiece("BOTTOMLEFT", "BOTTOMLEFT", -7, -7, 32, 32, {0, 0.25, 0.75, 1})
+    BorderPiece("BOTTOMRIGHT", "BOTTOMRIGHT", 7, -7, 32, 32, {0.75, 1, 0.75, 1})
+    local function BorderEdge(p1, p2, x1, y1, x2, y2, thickness, vertical, coords)
+        local t = optionsFrame:CreateTexture(nil, "OVERLAY")
+        t:SetTexture(borderPath)
+        t:SetTexCoord(unpack(coords))
+        t:SetPoint(p1, optionsFrame, p1, x1, y1)
+        t:SetPoint(p2, optionsFrame, p2, x2, y2)
+        if vertical then t:SetWidth(thickness) else t:SetHeight(thickness) end
+        t:SetVertexColor(0.88, 0.72, 0.49, 1)
+    end
+    BorderEdge("TOPLEFT", "TOPRIGHT", 25, 7, -25, 7, 32, false, {0.25, 0.75, 0, 0.25})
+    BorderEdge("BOTTOMLEFT", "BOTTOMRIGHT", 25, -7, -25, -7, 32, false, {0.25, 0.75, 0.75, 1})
+    BorderEdge("TOPLEFT", "BOTTOMLEFT", -7, -25, -7, 25, 32, true, {0, 0.25, 0.25, 0.75})
+    BorderEdge("TOPRIGHT", "BOTTOMRIGHT", 7, -25, 7, 25, 32, true, {0.75, 1, 0.25, 0.75})
     optionsFrame:SetSize(770, 555)
     optionsFrame:SetPoint("CENTER")
     optionsFrame:SetFrameStrata("DIALOG")
