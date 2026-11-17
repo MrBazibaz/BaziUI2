@@ -269,6 +269,53 @@ local function InspectGameMenu()
     addon:Print("Game Menu scan saved: " .. #report .. " lines. Type /reload, then share BaziUI.lua from SavedVariables.")
 end
 
+-- Measure the real on-screen geometry rather than guessing offsets.
+local function InspectOptionsLayout()
+    local frame = _G.BaziUIOptionsFrame
+    if not frame then addon.Options:Open(); frame = _G.BaziUIOptionsFrame end
+    if not frame then addon:Print("Options frame unavailable."); return end
+    BaziUIDB = BaziUIDB or {}
+    local lines = {}
+    local function Add(t) if #lines < 160 then lines[#lines + 1] = t end end
+    local function Num(v) return v and string.format("%.2f", v) or "nil" end
+    local function Box(obj, label)
+        if not obj then return end
+        Add(label .. " name=" .. tostring(obj.GetName and obj:GetName()) ..
+            " level=" .. tostring(obj.GetFrameLevel and obj:GetFrameLevel()) ..
+            " scale=" .. Num(obj.GetEffectiveScale and obj:GetEffectiveScale()) ..
+            " left=" .. Num(obj:GetLeft()) .. " right=" .. Num(obj:GetRight()) ..
+            " top=" .. Num(obj:GetTop()) .. " bottom=" .. Num(obj:GetBottom()) ..
+            " w=" .. Num(obj:GetWidth()) .. " h=" .. Num(obj:GetHeight()))
+        if obj.GetTexture then
+            Add(label .. " texture=" .. tostring(obj:GetTexture()) ..
+                " atlas=" .. tostring(obj.GetAtlas and obj:GetAtlas()))
+        end
+    end
+    Box(frame, "options")
+    local function Walk(node, label, depth)
+        if depth > 3 or #lines >= 150 then return end
+        for i, region in ipairs({node:GetRegions()}) do
+            if region.IsObjectType and region:IsObjectType("Texture") then
+                local tex = region:GetTexture()
+                local atlas = region.GetAtlas and region:GetAtlas()
+                if tex or atlas then Box(region, label .. "/tex" .. i) end
+            end
+        end
+        for i, child in ipairs({node:GetChildren()}) do
+            local childLabel = label .. "/child" .. i
+            local name = child.GetName and child:GetName()
+            local isClose = child.IsObjectType and child:IsObjectType("Button")
+            local isEmblem = child.GetWidth and child:GetWidth() >= 45 and child:GetWidth() <= 70
+                and child:GetHeight() >= 45 and child:GetHeight() <= 70
+            if isClose or isEmblem or depth == 0 then Box(child, childLabel) end
+            Walk(child, childLabel, depth + 1)
+        end
+    end
+    Walk(frame, "options", 0)
+    BaziUIDB.optionsLayoutInspect = lines
+    addon:Print("Options geometry saved (" .. #lines .. " lines). /reload then share SavedVariables/BaziUI.lua.")
+end
+
 local function HandleCommand(message)
     local command, argument = string.match(message or "", "^(%S*)%s*(.-)$")
     command = string.lower(command or "")
@@ -283,6 +330,8 @@ local function HandleCommand(message)
         addon:Print("version " .. addon.version)
     elseif command == "reload" then
         ReloadUI()
+    elseif command == "inspectoptions" then
+        InspectOptionsLayout()
     elseif command == "inspectgamemenu" then
         InspectGameMenu()
     elseif command == "inspecttemplates" then
