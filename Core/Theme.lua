@@ -4,10 +4,10 @@ addon.Theme = addon.Theme or {}
 
 -- Keep Blizzard's relief and ornaments; purple belongs on controls only.
 addon.Theme.colors = {
-    purple = { 0.29, 0.12, 0.48, 1 },
-    purpleHover = { 0.39, 0.19, 0.61, 1 },
-    purplePressed = { 0.20, 0.08, 0.34, 1 },
-    purpleDisabled = { 0.18, 0.13, 0.23, 0.82 },
+    purple = { 0.34, 0.17, 0.25, 1 },
+    purpleHover = { 0.43, 0.23, 0.34, 1 },
+    purplePressed = { 0.26, 0.12, 0.19, 1 },
+    purpleDisabled = { 0.21, 0.14, 0.17, 0.82 },
     gold = { 0.83, 0.63, 0.30, 1 },
     goldHover = { 1.00, 0.79, 0.42, 1 },
     goldPressed = { 0.60, 0.42, 0.18, 1 },
@@ -54,7 +54,7 @@ function addon.Theme:CreateButton(parent, label, width, height)
     local fill = button:CreateTexture(nil, "ARTWORK")
     fill:SetPoint("TOPLEFT", button, "TOPLEFT", 6, -6)
     fill:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", -6, 6)
-    fill:SetColorTexture(0.29, 0.12, 0.48, 0.96)
+    fill:SetColorTexture(0.34, 0.17, 0.25, 0.96)
     button.baziPurpleFill = fill
 
     -- Use Blizzard's shaped button artwork, not solid color textures.
@@ -94,7 +94,7 @@ function addon.Theme:CreateButton(parent, label, width, height)
     button.baziGoldTrim = trim
 
     button:SetScript("OnEnter", function(self)
-        self.baziPurpleFill:SetColorTexture(0.39, 0.19, 0.61, 0.96)
+        self.baziPurpleFill:SetColorTexture(0.43, 0.23, 0.34, 0.96)
         if not self.isActive then Tint(self:GetNormalTexture(), addon.Theme.colors.goldHover) end
     end)
     button:SetScript("OnLeave", function(self)
@@ -123,7 +123,7 @@ function addon.Theme:SkinGameMenuButton(button)
     local fill = button:CreateTexture(nil, "ARTWORK")
     fill:SetPoint("TOPLEFT", button, "TOPLEFT", 6, -6)
     fill:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", -6, 6)
-    fill:SetColorTexture(0.29, 0.12, 0.48, 0.96)
+    fill:SetColorTexture(0.34, 0.17, 0.25, 0.96)
     button.baziGameMenuFill = fill
 
     local function Trim(a, b, ax, ay, bx, by, horizontal)
