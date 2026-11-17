@@ -26,21 +26,18 @@ function addon.Theme:ApplyWindow(frame)
     warmth:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -5, 5)
     warmth:SetColorTexture(0.36, 0.21, 0.09, 0.23)
     frame.baziWarmth = warmth
-    -- Gold trim on all four sides, retaining the native beveled frame.
-    local edges = {}
-    local function AddEdge(a, b, ax, ay, bx, by, horizontal)
-        local e = frame:CreateTexture(nil, "OVERLAY")
-        e:SetColorTexture(0.70, 0.48, 0.20, 0.86)
-        e:SetPoint(a, frame, a, ax, ay)
-        e:SetPoint(b, frame, b, bx, by)
-        if horizontal then e:SetHeight(2) else e:SetWidth(2) end
-        edges[#edges + 1] = e
+    -- Tint the existing Blizzard border regions rather than drawing
+    -- a second rectangular outline on top of them.
+    local regions = { frame:GetRegions() }
+    for _, region in ipairs(regions) do
+        if region.IsObjectType and region:IsObjectType("Texture") then
+            local layer = region:GetDrawLayer()
+            if layer == "BORDER" then
+                if region.SetDesaturated then region:SetDesaturated(true) end
+                region:SetVertexColor(0.83, 0.63, 0.30, 1)
+            end
+        end
     end
-    AddEdge("TOPLEFT", "TOPRIGHT", 5, -4, -5, -4, true)
-    AddEdge("BOTTOMLEFT", "BOTTOMRIGHT", 5, 4, -5, 4, true)
-    AddEdge("TOPLEFT", "BOTTOMLEFT", 4, -5, 4, 5, false)
-    AddEdge("TOPRIGHT", "BOTTOMRIGHT", -4, -5, -4, 5, false)
-    frame.baziGoldEdges = edges
 end
 
 function addon.Theme:CreateButton(parent, label, width, height)
@@ -73,6 +70,17 @@ function addon.Theme:CreateButton(parent, label, width, height)
         Tint(highlight, self.colors.goldHover)
     end
     if disabled then Tint(disabled, self.colors.goldPressed) end
+
+    -- Some Blizzard templates draw the bevel as additional texture regions.
+    -- Recolor those too, without touching the purple inset.
+    for _, region in ipairs({ button:GetRegions() }) do
+        if region.IsObjectType and region:IsObjectType("Texture")
+            and region ~= fill and region ~= normal and region ~= pushed
+            and region ~= highlight and region ~= disabled then
+            if region.SetDesaturated then region:SetDesaturated(true) end
+            region:SetVertexColor(0.83, 0.63, 0.30, 1)
+        end
+    end
 
     button:SetScript("OnEnter", function(self)
         self.baziPurpleFill:SetColorTexture(0.39, 0.19, 0.61, 0.96)
