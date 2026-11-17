@@ -25,6 +25,7 @@ end
 local function CreateSection(parent, text, y)
     local heading = CreateLabel(parent, text, "GameFontNormalLarge")
     heading:SetPoint("TOPLEFT", parent, "TOPLEFT", 22, y)
+    heading:SetTextColor(1, 0.79, 0.42, 1)
     return heading
 end
 
@@ -65,7 +66,7 @@ local function CreateSlider(parent, labelText, description, minValue, maxValue, 
     heading:SetTextColor(1, 0.78, 0.39)
     local hint = CreateLabel(row, description, "GameFontHighlightSmall")
     hint:SetPoint("TOPLEFT", row, "TOPLEFT", 15, -30)
-    hint:SetTextColor(0.74, 0.61, 0.46)
+    hint:SetTextColor(0.91, 0.78, 0.61, 1)
     local valueText = CreateLabel(row, "", "GameFontNormal")
     valueText:SetPoint("RIGHT", row, "RIGHT", -15, 0)
     valueText:SetTextColor(1, 0.81, 0.45)
@@ -113,7 +114,7 @@ local function CreateGeneralPage()
     CreateSection(page, "REALM CONFIGURATION", -24)
     local intro = CreateLabel(page, "Make Azeroth yours. Fine-tune your interface.", "GameFontHighlightSmall")
     intro:SetPoint("TOPLEFT", page, "TOPLEFT", 24, -49)
-    intro:SetTextColor(0.82, 0.68, 0.50)
+    intro:SetTextColor(0.96, 0.82, 0.63, 1)
 
     CreatePanel(page, -88, 242)
     CreateSection(page, "APPEARANCE", -102)
@@ -127,7 +128,7 @@ local function CreateGeneralPage()
     end)
     local note = CreateLabel(page, "Changes are saved automatically.", "GameFontHighlightSmall")
     note:SetPoint("TOPLEFT", page, "TOPLEFT", 24, -352)
-    note:SetTextColor(0.76, 0.62, 0.44)
+    note:SetTextColor(0.90, 0.76, 0.55, 1)
     return page
 end
 
@@ -142,6 +143,7 @@ local function CreatePlaceholderPage(name, description)
 
     local message = CreateLabel(page, description or "Settings for this module will appear here.", "GameFontHighlight")
     message:SetPoint("TOPLEFT", page, "TOPLEFT", 24, -88)
+    message:SetTextColor(0.96, 0.82, 0.63, 1)
 
     return page
 end
@@ -215,7 +217,7 @@ function addon.Options:Create()
     FrameRing(3, 3, 0.63, 0.43, 0.20, 1)
     FrameRing(7, 2, 0.10, 0.057, 0.027, 1)
     FrameRing(10, 1, 0.80, 0.60, 0.31, 0.78)
-    optionsFrame:SetSize(770, 555)
+    optionsFrame:SetSize(900, 555)
     optionsFrame:SetPoint("CENTER")
     optionsFrame:SetFrameStrata("DIALOG")
     optionsFrame:SetClampedToScreen(true)
@@ -224,6 +226,26 @@ function addon.Options:Create()
     optionsFrame:RegisterForDrag("LeftButton")
     optionsFrame:SetScript("OnDragStart", optionsFrame.StartMoving)
     optionsFrame:SetScript("OnDragStop", optionsFrame.StopMovingOrSizing)
+    -- Fade the settings window while the player is moving.
+    -- Polling GetUnitSpeed also detects autorun and mounted movement.
+    local movementElapsed = 0
+    local displayedAlpha = 1
+    optionsFrame:SetScript("OnShow", function(self)
+        movementElapsed = 0
+        displayedAlpha = 1
+        self:SetAlpha(1)
+    end)
+    optionsFrame:SetScript("OnUpdate", function(self, elapsed)
+        movementElapsed = movementElapsed + elapsed
+        if movementElapsed < 0.10 then return end
+        movementElapsed = 0
+        local moving = GetUnitSpeed and GetUnitSpeed("player") and GetUnitSpeed("player") > 0
+        local targetAlpha = moving and 0.75 or 1
+        if displayedAlpha ~= targetAlpha then
+            displayedAlpha = targetAlpha
+            self:SetAlpha(targetAlpha)
+        end
+    end)
     local backdrop = optionsFrame:CreateTexture(nil, "BACKGROUND", nil, 1)
     backdrop:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", 7, -7)
     backdrop:SetPoint("BOTTOMRIGHT", optionsFrame, "BOTTOMRIGHT", -7, 7)
