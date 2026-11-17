@@ -200,46 +200,56 @@ end
 
 function addon.Options:Create()
     optionsFrame = CreateFrame("Frame", "BaziUIOptionsFrame", UIParent)
-    -- Eight-piece Blizzard map border, copied from WorldMapFrame's frame regions.
-    -- The client uses three native texture IDs: corners, horizontal and vertical.
-    local function Trim(textureID, layer, width, height, point, x, y, coords)
-        local t = optionsFrame:CreateTexture(nil, layer or "OVERLAY")
-        t:SetTexture(textureID)
-        t:SetSize(width, height)
+    -- World Map's native 8-piece trim, scaled to fit a settings dialog.
+    -- Source: WorldMapFrame/child5/child1 regions 1-8 in inspectmap.
+    -- Preserve the exact native texture coordinates (including tiled edges).
+    local trimScale = 0.38
+    local cornerW = 95 * trimScale
+    local cornerTopH = 95 * trimScale
+    local cornerBottomH = 100 * trimScale
+    local function Piece(id, w, h, point, x, y, coords)
+        local t = optionsFrame:CreateTexture(nil, "OVERLAY")
+        t:SetTexture(id)
+        t:SetSize(w, h)
         t:SetPoint(point, optionsFrame, point, x, y)
-        if coords then t:SetTexCoord(unpack(coords)) end
+        t:SetTexCoord(unpack(coords))
         return t
     end
-    -- Corners: WorldMapFrame/child5/child1 regions 1-4.
-    Trim(8069116, "OVERLAY", 95, 95, "TOPLEFT", -13, 16)
-    Trim(8069116, "OVERLAY", 95, 95, "TOPRIGHT", 2, 16)
-    Trim(8069116, "OVERLAY", 95, 100, "BOTTOMLEFT", -13, -8)
-    Trim(8069116, "OVERLAY", 95, 100, "BOTTOMRIGHT", 2, -8)
-    -- Horizontal edges: regions 5-6. Repeat the original strip across the
-    -- distance between corner caps, rather than scaling the whole artwork.
-    local function HorizontalTrim(point, offsetY, height)
+    local full = {0, 0, 0, 1, 1, 0, 1, 1}
+    -- Blizzard anchors are slightly outside the map frame. Scale offsets
+    -- as well as the artwork so the trim meets our frame rather than floating.
+    Piece(8069116, cornerW, cornerTopH, "TOPLEFT", -13 * trimScale, 16 * trimScale, full)
+    Piece(8069116, cornerW, cornerTopH, "TOPRIGHT", 2 * trimScale, 16 * trimScale, full)
+    Piece(8069116, cornerW, cornerBottomH, "BOTTOMLEFT", -13 * trimScale, -8 * trimScale, full)
+    Piece(8069116, cornerW, cornerBottomH, "BOTTOMRIGHT", 2 * trimScale, -8 * trimScale, full)
+
+    local function Horizontal(point, height, top)
         local t = optionsFrame:CreateTexture(nil, "OVERLAY")
         t:SetTexture(8069118)
-        t:SetPoint(point .. "LEFT", optionsFrame, point .. "LEFT", 82, offsetY)
-        t:SetPoint(point .. "RIGHT", optionsFrame, point .. "RIGHT", -93, offsetY)
+        t:SetPoint(point .. "LEFT", optionsFrame, point .. "LEFT", cornerW - 13 * trimScale, top and 16 * trimScale or -8 * trimScale)
+        t:SetPoint(point .. "RIGHT", optionsFrame, point .. "RIGHT", -cornerW + 2 * trimScale, top and 16 * trimScale or -8 * trimScale)
         t:SetHeight(height)
-        local repeatCount = (900 - 175) / 128
-        t:SetTexCoord(0, 0, 0, 1, repeatCount, 0, repeatCount, 1)
+        -- Native map trim repeats every 128 pixels, not every 95 pixels.
+        local span = 900 - 2 * cornerW + 15 * trimScale
+        local repeatX = span / (128 * trimScale)
+        t:SetTexCoord(0, 0, 0, 1, repeatX, 0, repeatX, 1)
     end
-    HorizontalTrim("TOP", 16, 95)
-    HorizontalTrim("BOTTOM", -8, 100)
-    -- Vertical edges: regions 7-8. Keep native 95px strip width.
-    local function VerticalTrim(point, x)
+    Horizontal("TOP", cornerTopH, true)
+    Horizontal("BOTTOM", cornerBottomH, false)
+
+    local function Vertical(side)
         local t = optionsFrame:CreateTexture(nil, "OVERLAY")
         t:SetTexture(8069114)
-        t:SetPoint("TOP" .. point, optionsFrame, "TOP" .. point, x, -79)
-        t:SetPoint("BOTTOM" .. point, optionsFrame, "BOTTOM" .. point, x, 92)
-        t:SetWidth(95)
-        local repeatCount = (555 - 171) / 128
-        t:SetTexCoord(0, 0, 0, repeatCount, 1, 0, 1, repeatCount)
+        local x = side == "LEFT" and -13 * trimScale or 2 * trimScale
+        t:SetPoint("TOP" .. side, optionsFrame, "TOP" .. side, x, 16 * trimScale - cornerTopH)
+        t:SetPoint("BOTTOM" .. side, optionsFrame, "BOTTOM" .. side, x, -8 * trimScale + cornerBottomH)
+        t:SetWidth(cornerW)
+        local span = 555 - cornerTopH - cornerBottomH + 24 * trimScale
+        local repeatY = span / (128 * trimScale)
+        t:SetTexCoord(0, 0, 0, repeatY, 1, 0, 1, repeatY)
     end
-    VerticalTrim("LEFT", -13)
-    VerticalTrim("RIGHT", 2)
+    Vertical("LEFT")
+    Vertical("RIGHT")
     optionsFrame:SetSize(900, 555)
     optionsFrame:SetPoint("CENTER")
     optionsFrame:SetFrameStrata("DIALOG")
