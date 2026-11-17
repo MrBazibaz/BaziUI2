@@ -200,29 +200,17 @@ end
 
 function addon.Options:Create()
     optionsFrame = CreateFrame("Frame", "BaziUIOptionsFrame", UIParent)
-    -- Blizzard's own NineSlice from a verified working template.
-    -- Keep it as a separate, mouse-transparent border host so the
-    -- custom options layout remains untouched.
-    local borderHost = CreateFrame("Frame", nil, optionsFrame, "ButtonFrameTemplate")
+    -- BasicFrameTemplate is available on Forever and, unlike
+    -- ButtonFrameTemplate, has no built-in portrait ornament.
+    local borderHost = CreateFrame("Frame", nil, optionsFrame, "BasicFrameTemplate")
     borderHost:SetAllPoints(optionsFrame)
     borderHost:EnableMouse(false)
-    -- ButtonFrameTemplate includes window furniture we don't want.
-    -- Preserve only the native NineSlice border.
+    -- Keep only the frame decoration; use Bazi UI's own header and close button.
     for _, child in ipairs({borderHost:GetChildren()}) do
-        if child ~= borderHost.NineSlice then
-            child:Hide()
-        end
+        child:Hide()
     end
-    for _, region in ipairs({borderHost:GetRegions()}) do
-        region:Hide()
-    end
-    if borderHost.NineSlice then
-        borderHost.NineSlice:Show()
-    end
-    -- Some Blizzard templates keep the portrait ornament in named regions.
-    for _, part in ipairs({"Portrait", "PortraitFrame", "PortraitContainer", "PortraitOverlay", "PortraitMask"}) do
-        if borderHost[part] then borderHost[part]:Hide() end
-    end
+    -- BasicFrameTemplate draws its frame through its own regions.
+    -- Avoid hiding those regions: they ARE the native border.
     optionsFrame:SetSize(900, 555)
     optionsFrame:SetPoint("CENTER")
     optionsFrame:SetFrameStrata("DIALOG")
@@ -267,12 +255,12 @@ function addon.Options:Create()
     optionsFrame:Hide()
 
     local title = CreateLabel(optionsFrame, "BAZI UI", "GameFontNormal")
-    title:SetPoint("TOP", optionsFrame, "TOP", 0, -27)
+    title:SetPoint("TOP", optionsFrame, "TOP", 0, -24)
     title:SetFontObject("GameFontNormalLarge")
     title:SetJustifyH("CENTER")
 
     local close = CreateFrame("Button", nil, optionsFrame, "UIPanelCloseButton")
-    close:SetPoint("TOPRIGHT", optionsFrame, "TOPRIGHT", -7, -7)
+    close:SetPoint("TOPRIGHT", optionsFrame, "TOPRIGHT", -13, -13)
 
     local nav = CreateFrame("Frame", nil, optionsFrame)
     nav:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", 12, -78)
