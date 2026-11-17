@@ -292,9 +292,11 @@ function addon.Options:Create()
     -- Position is relative to the upper-left corner of the frame.
     emblemHost:SetPoint("CENTER", optionsFrame, "TOPLEFT", 29, -29)
     emblemHost:SetFrameLevel(borderHost:GetFrameLevel() + 5)
+    optionsFrame.baziEmblemHost = emblemHost
     local emblem = emblemHost:CreateTexture(nil, "ARTWORK")
     emblem:SetAllPoints(emblemHost)
     emblem:SetTexture(ASSET .. "Icons\\BaziUI_Emblem_256.png")
+    optionsFrame.baziEmblem = emblem
 
     optionsFrame:SetSize(900, 555)
     optionsFrame:SetPoint("CENTER")
@@ -362,6 +364,7 @@ function addon.Options:Create()
     -- Keep the close button inside the header border.
     close:SetPoint("TOPRIGHT", optionsFrame, "TOPRIGHT", -9, -7)
     close:SetFrameLevel(borderHost:GetFrameLevel() + 20)
+    optionsFrame.baziClose = close
 
     local nav = CreateFrame("Frame", nil, optionsFrame)
     nav:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", 12, -78)
