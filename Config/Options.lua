@@ -1,420 +1,193 @@
 local addon = BaziUI
-
 addon.Options = addon.Options or {}
-
-local optionsFrame
-local contentFrame
-local navButtons = {}
-local pages = {}
-
 local ASSET = "Interface\\AddOns\\BaziUI\\Assets\\"
-
-local function CreateLabel(parent, text, font)
-    local label = parent:CreateFontString(nil, "OVERLAY", font or "GameFontNormal")
-    label:SetText(text)
-    return label
+local frame, content, pages = nil, nil, {}
+local navigation, tabs = {}, {}
+local GOLD = {0.87, 0.68, 0.38}
+local function Paint(parent, layer, r,g,b,a, x1,y1,x2,y2)
+    local t=parent:CreateTexture(nil,layer or "BACKGROUND")
+    t:SetColorTexture(r,g,b,a or 1)
+    if x1 then t:SetPoint("TOPLEFT",parent,"TOPLEFT",x1,y1);t:SetPoint("BOTTOMRIGHT",parent,"BOTTOMRIGHT",x2,y2) else t:SetAllPoints(parent) end
+    return t
 end
-
-local function CreateDivider(parent, y)
-    local line = parent:CreateTexture(nil, "ARTWORK")
-    line:SetTexture(ASSET .. "Dividers\\Divider_Gold.png")
-    line:SetVertexColor(0.90, 0.72, 0.49, 0.8)
-    line:SetHeight(8)
-    line:SetPoint("TOPLEFT", parent, "TOPLEFT", 18, y)
-    line:SetPoint("TOPRIGHT", parent, "TOPRIGHT", -18, y)
-    return line
+local function Label(parent,text,size,r,g,b)
+    local f=parent:CreateFontString(nil,"OVERLAY",size or "GameFontNormal")
+    f:SetText(text);f:SetTextColor(r or GOLD[1],g or GOLD[2],b or GOLD[3]);f:SetJustifyH("LEFT")
+    return f
 end
-
-local function CreateSection(parent, text, y)
-    local heading = CreateLabel(parent, text, "GameFontNormalLarge")
-    heading:SetPoint("TOPLEFT", parent, "TOPLEFT", 22, y)
-    heading:SetTextColor(1, 0.79, 0.42, 1)
-    return heading
+local function Line(parent,top,xleft,xright)
+    local t=parent:CreateTexture(nil,"ARTWORK")
+    t:SetPoint("TOPLEFT",parent,"TOPLEFT",xleft or 0,top)
+    t:SetPoint("TOPRIGHT",parent,"TOPRIGHT",xright or 0,top)
+    t:SetHeight(1);t:SetColorTexture(0.67,0.48,0.25,0.48)
 end
-
-local function CreatePanel(parent, top, height)
-    local panel = CreateFrame("Frame", nil, parent)
-    panel:SetPoint("TOPLEFT", parent, "TOPLEFT", 12, top)
-    panel:SetPoint("TOPRIGHT", parent, "TOPRIGHT", -12, top)
-    panel:SetHeight(height)
-
-    local fill = panel:CreateTexture(nil, "BACKGROUND")
-    fill:SetAllPoints(panel)
-    fill:SetColorTexture(0.19, 0.105, 0.052, 0.97)
-    local panelArt = panel:CreateTexture(nil, "BACKGROUND", nil, 1)
-    panelArt:SetAllPoints(panel)
-    panelArt:SetTexture(ASSET .. "Panels\\Panel_Dark.png")
-    panelArt:SetAlpha(0.30)
-
-    local accent = panel:CreateTexture(nil, "ARTWORK")
-    accent:SetPoint("TOPLEFT", panel, "TOPLEFT", 0, 0)
-    accent:SetPoint("BOTTOMLEFT", panel, "BOTTOMLEFT", 0, 0)
-    accent:SetWidth(3)
-    accent:SetColorTexture(0.76, 0.57, 0.29, 0.90)
-
-    local topLine = panel:CreateTexture(nil, "BORDER")
-    topLine:SetPoint("TOPLEFT", panel, "TOPLEFT", 0, 0)
-    topLine:SetPoint("TOPRIGHT", panel, "TOPRIGHT", 0, 0)
-    topLine:SetHeight(1)
-    topLine:SetColorTexture(0.78, 0.59, 0.31, 0.45)
-    return panel
+local function Panel(parent,x,y,w,h)
+    local p=CreateFrame("Frame",nil,parent)
+    p:SetPoint("TOPLEFT",parent,"TOPLEFT",x,y);p:SetSize(w,h)
+    Paint(p,"BACKGROUND",0.105,0.075,0.115,0.96)
+    local art=p:CreateTexture(nil,"BORDER");art:SetAllPoints(p)
+    art:SetTexture(ASSET.."Panels\\Panel_Dark.png");art:SetAlpha(0.14)
+    Line(p,0,0,0)
+    return p
 end
-
-local function CreateSlider(parent, labelText, description, minValue, maxValue, step, value, y, onValueChanged)
-    local row = CreateFrame("Frame", nil, parent)
-    row:SetPoint("TOPLEFT", parent, "TOPLEFT", 24, y)
-    row:SetPoint("TOPRIGHT", parent, "TOPRIGHT", -24, y)
-    row:SetHeight(54)
-    local fill = row:CreateTexture(nil, "BACKGROUND")
-    fill:SetAllPoints(row)
-    fill:SetColorTexture(0.25, 0.125, 0.055, 0.96)
-    local rowArt = row:CreateTexture(nil, "BACKGROUND", nil, 1)
-    rowArt:SetAllPoints(row)
-    rowArt:SetTexture(ASSET .. "Panels\\Panel_Dark.png")
-    rowArt:SetAlpha(0.20)
-    local heading = CreateLabel(row, labelText, "GameFontNormal")
-    heading:SetPoint("TOPLEFT", row, "TOPLEFT", 15, -10)
-    heading:SetTextColor(1, 0.78, 0.39)
-    local hint = CreateLabel(row, description, "GameFontHighlightSmall")
-    hint:SetPoint("TOPLEFT", row, "TOPLEFT", 15, -30)
-    hint:SetTextColor(0.91, 0.78, 0.61, 1)
-    local valueText = CreateLabel(row, "", "GameFontNormal")
-    valueText:SetPoint("RIGHT", row, "RIGHT", -15, 0)
-    valueText:SetTextColor(1, 0.81, 0.45)
-    local slider = CreateFrame("Slider", nil, row)
-    slider:SetOrientation("HORIZONTAL")
-    slider:SetSize(115, 18)
-    slider:SetPoint("RIGHT", row, "RIGHT", -53, 0)
-    slider:SetMinMaxValues(minValue, maxValue)
-    slider:SetValueStep(step)
-    local track = slider:CreateTexture(nil, "BACKGROUND")
-    track:SetPoint("LEFT", slider, "LEFT", 0, 0)
-    track:SetPoint("RIGHT", slider, "RIGHT", 0, 0)
-    track:SetHeight(7)
-    track:SetTexture(ASSET .. "Sliders\\Slider_Track.png")
-    local thumb = slider:CreateTexture(nil, "OVERLAY")
-    thumb:SetSize(24, 28)
-    thumb:SetTexture(ASSET .. "Sliders\\Slider_Gem.png")
-    slider:SetThumbTexture(thumb)
-    local progress = slider:CreateTexture(nil, "BORDER")
-    progress:SetPoint("LEFT", track, "LEFT", 0, 0)
-    progress:SetHeight(7)
-    progress:SetTexture(ASSET .. "Sliders\\Slider_Fill_Gold.png")
-    local function RefreshProgress(raw)
-        local fraction = (raw - minValue) / (maxValue - minValue)
-        progress:SetWidth(math.max(1, 115 * math.max(0, math.min(1, fraction))))
+local function Button(parent,text,x,y,w,h,action)
+    local b=CreateFrame("Button",nil,parent)
+    b:SetPoint("TOPLEFT",parent,"TOPLEFT",x,y);b:SetSize(w,h)
+    local bg=Paint(b,"BACKGROUND",0.17,0.105,0.19,0.92)
+    local title=Label(b,text,"GameFontNormalSmall",0.87,0.78,0.64)
+    title:SetPoint("CENTER")
+    b:SetScript("OnEnter",function()bg:SetColorTexture(0.29,0.17,0.34,1);title:SetTextColor(1,0.85,0.53)end)
+    b:SetScript("OnLeave",function()bg:SetColorTexture(0.17,0.105,0.19,0.92);title:SetTextColor(0.87,0.78,0.64)end)
+    b:SetScript("OnClick",action)
+    return b
+end
+local function Page(name)
+    local p=CreateFrame("Frame",nil,content);p:SetAllPoints(content);p:Hide();pages[name]=p;return p
+end
+local function Show(name)
+    for k,p in pairs(pages) do p:SetShown(k==name) end
+    for k,b in pairs(navigation) do
+        b.bg:SetColorTexture(k==name and 0.31 or 0.13,k==name and 0.17 or 0.095,k==name and 0.35 or 0.15,0.98)
+        b.accent:SetAlpha(k==name and 1 or 0)
+        b.label:SetTextColor(k==name and 1 or 0.73,k==name and 0.83 or 0.69,k==name and 0.52 or 0.68)
     end
-    slider:SetScript("OnValueChanged", function(self, raw)
-        local rounded = math.floor(raw / step + 0.5) * step
-        valueText:SetText(string.format("%g", rounded))
-        RefreshProgress(rounded)
-        if onValueChanged then onValueChanged(rounded) end
+    for k,b in pairs(tabs) do b.active:SetAlpha(k==name and 1 or 0) end
+end
+local function Slider(parent,title,subtitle,y,minv,maxv,step,value,change)
+    local row=Panel(parent,22,y,574,65)
+    local name=Label(row,title,"GameFontNormal",0.94,0.81,0.58)
+    name:SetPoint("TOPLEFT",row,"TOPLEFT",17,-12)
+    local desc=Label(row,subtitle,"GameFontHighlightSmall",0.66,0.64,0.69)
+    desc:SetPoint("TOPLEFT",row,"TOPLEFT",17,-35)
+    local readout=Label(row,"","GameFontNormal",1,0.82,0.49)
+    readout:SetPoint("RIGHT",row,"RIGHT",-17,0)
+    local slider=CreateFrame("Slider",nil,row)
+    slider:SetSize(148,20);slider:SetPoint("RIGHT",row,"RIGHT",-65,0)
+    slider:SetOrientation("HORIZONTAL");slider:SetMinMaxValues(minv,maxv);slider:SetValueStep(step)
+    local track=slider:CreateTexture(nil,"BACKGROUND");track:SetTexture(ASSET.."Sliders\\Slider_Track.png")
+    track:SetPoint("LEFT");track:SetPoint("RIGHT");track:SetHeight(8)
+    local progress=slider:CreateTexture(nil,"BORDER");progress:SetTexture(ASSET.."Sliders\\Slider_Fill_Gold.png")
+    progress:SetPoint("LEFT",slider,"LEFT",0,0);progress:SetHeight(8)
+    local thumb=slider:CreateTexture(nil,"OVERLAY");thumb:SetTexture(ASSET.."Sliders\\Slider_Gem.png");thumb:SetSize(25,28)
+    slider:SetThumbTexture(thumb)
+    slider:SetScript("OnValueChanged",function(_,raw)
+        local v=math.floor(raw/step+0.5)*step
+        readout:SetText(string.format("%g",v))
+        progress:SetWidth(math.max(1,148*(v-minv)/(maxv-minv)))
+        if change then change(v) end
     end)
     slider:SetValue(value)
-    RefreshProgress(value)
-    valueText:SetText(string.format("%g", value))
-    return slider
 end
-
-local function ShowPage(pageName)
-    for name, page in pairs(pages) do
-        page:SetShown(name == pageName)
-    end
-
-    for name, button in pairs(navButtons) do
-        button.baziActive = (name == pageName)
-        button.baziRefresh()
-    end
+local function Section(parent,name,y)
+    local h=Label(parent,name,"GameFontNormalLarge",0.98,0.80,0.47)
+    h:SetPoint("TOPLEFT",parent,"TOPLEFT",24,y)
+    Line(parent,y-26,22,-22)
 end
-
-local function CreateGeneralPage()
-    local page = CreateFrame("Frame", nil, contentFrame)
-    page:SetAllPoints(contentFrame)
-    pages.General = page
-    local introPanel = CreatePanel(page, -10, 66)
-    CreateSection(introPanel, "REALM CONFIGURATION", -14)
-    local intro = CreateLabel(page, "Make Azeroth yours. Fine-tune your interface.", "GameFontHighlightSmall")
-    intro:SetParent(introPanel)
-    intro:SetPoint("TOPLEFT", introPanel, "TOPLEFT", 22, -39)
-    intro:SetTextColor(0.96, 0.82, 0.63, 1)
-
-    local appearancePanel = CreatePanel(page, -88, 242)
-    CreateSection(appearancePanel, "APPEARANCE", -14)
-    local db = addon.db.profile
-    CreateSlider(page, "WINDOW SCALE", "Size of the Bazi UI settings window", 0.70, 1.20, 0.01, db.uiScale, -142, function(value)
-        db.uiScale = value
-        if optionsFrame then optionsFrame:SetScale(value) end
+local function General()
+    local p=Page("General")
+    local hero=Panel(p,12,-8,594,112)
+    local glow=Paint(hero,"BORDER",0.21,0.115,0.31,0.75,1,-1,-1,1)
+    local crest=hero:CreateTexture(nil,"ARTWORK");crest:SetTexture(ASSET.."Icons\\BaziUI_Emblem_256.png")
+    crest:SetSize(80,80);crest:SetPoint("RIGHT",hero,"RIGHT",-18,0);crest:SetAlpha(0.50)
+    local h=Label(hero,"Realm Configuration","GameFontNormalHuge",1,0.83,0.52)
+    h:SetPoint("TOPLEFT",hero,"TOPLEFT",23,-23)
+    local sub=Label(hero,"Make Azeroth yours. Fine-tune your interface.","GameFontHighlight",0.85,0.76,0.81)
+    sub:SetPoint("TOPLEFT",hero,"TOPLEFT",24,-67)
+    local settings=Panel(p,12,-133,594,257)
+    Section(settings,"Appearance",-19)
+    local db=addon.db.profile
+    Slider(settings,"Window Scale","Size of the Bazi UI settings window",-59,0.70,1.20,0.01,db.uiScale,function(v)
+        db.uiScale=v;if frame then frame:SetScale(v) end
     end)
-    CreateSlider(page, "FONT SIZE", "Default text size for supported modules", 10, 20, 1, db.fontSize, -204, function(value)
-        db.fontSize = value
-    end)
-    local note = CreateLabel(page, "Changes are saved automatically.", "GameFontHighlightSmall")
-    note:SetPoint("TOPLEFT", page, "TOPLEFT", 24, -352)
-    note:SetTextColor(0.90, 0.76, 0.55, 1)
-    return page
+    Slider(settings,"Font Size","Default text size for supported modules",-136,10,20,1,db.fontSize,function(v)db.fontSize=v end)
 end
-
-local function CreatePlaceholderPage(name, description)
-    local page = CreateFrame("Frame", nil, contentFrame)
-    page:SetAllPoints(contentFrame)
-    pages[name] = page
-
-    local placeholderPanel = CreatePanel(page, -12, 130)
-    CreateSection(placeholderPanel, name, -14)
-    CreateDivider(placeholderPanel, -48)
-
-    local message = CreateLabel(page, description or "Settings for this module will appear here.", "GameFontHighlight")
-    message:SetParent(placeholderPanel)
-    message:SetPoint("TOPLEFT", placeholderPanel, "TOPLEFT", 22, -76)
-    message:SetTextColor(0.96, 0.82, 0.63, 1)
-
-    return page
+local function Placeholder(name,description)
+    local p=Page(name)
+    local panel=Panel(p,12,-8,594,168)
+    Section(panel,name,-23)
+    local txt=Label(panel,description or "Module settings will appear here as development continues.","GameFontHighlight",0.81,0.75,0.81)
+    txt:SetPoint("TOPLEFT",panel,"TOPLEFT",25,-76)
 end
-
-local function CreateNavigationButton(parent, name, label, y)
-    -- Custom flat navigation: the active page gets purple, not every button.
-    local button = CreateFrame("Button", nil, parent)
-    button:SetSize(170, 34)
-    button:SetPoint("TOPLEFT", parent, "TOPLEFT", 4, y)
-    local fill = button:CreateTexture(nil, "BACKGROUND")
-    fill:SetAllPoints(button)
-    -- Straight bronze edges to match the rectangular fill.
-    local edges = {}
-    for _, edge in ipairs({"TOP", "BOTTOM", "LEFT", "RIGHT"}) do
-        local line = button:CreateTexture(nil, "ARTWORK")
-        if edge == "TOP" then
-            line:SetPoint("TOPLEFT", button, "TOPLEFT", 0, 0)
-            line:SetPoint("TOPRIGHT", button, "TOPRIGHT", 0, 0)
-            line:SetHeight(1)
-        elseif edge == "BOTTOM" then
-            line:SetPoint("BOTTOMLEFT", button, "BOTTOMLEFT", 0, 0)
-            line:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", 0, 0)
-            line:SetHeight(1)
-        elseif edge == "LEFT" then
-            line:SetPoint("TOPLEFT", button, "TOPLEFT", 0, 0)
-            line:SetPoint("BOTTOMLEFT", button, "BOTTOMLEFT", 0, 0)
-            line:SetWidth(1)
-        else
-            line:SetPoint("TOPRIGHT", button, "TOPRIGHT", 0, 0)
-            line:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", 0, 0)
-            line:SetWidth(1)
-        end
-        edges[#edges + 1] = line
-    end
-    local function TintEdges(r, g, b, a)
-        for _, line in ipairs(edges) do line:SetColorTexture(r, g, b, a) end
-    end
-    local stripe = button:CreateTexture(nil, "ARTWORK")
-    stripe:SetPoint("TOPLEFT", button, "TOPLEFT", 0, 0)
-    stripe:SetPoint("BOTTOMLEFT", button, "BOTTOMLEFT", 0, 0)
-    stripe:SetWidth(3)
-    local text = button:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-    text:SetPoint("LEFT", button, "LEFT", 17, 0)
-    text:SetText(label)
-    text:SetJustifyH("LEFT")
-    button.baziActive = false
-    button.baziHover = false
-    button.baziRefresh = function()
-        if button.baziActive then
-            TintEdges(0.83, 0.63, 0.30, 0.88)
-            fill:SetColorTexture(0.34, 0.17, 0.25, 0.98)
-            stripe:SetColorTexture(0.83, 0.63, 0.30, 1)
-            text:SetTextColor(1, 0.85, 0.55)
-        elseif button.baziHover then
-            TintEdges(0.72, 0.53, 0.31, 0.72)
-            fill:SetColorTexture(0.28, 0.15, 0.085, 0.96)
-            stripe:SetColorTexture(0.57, 0.42, 0.26, 0.8)
-            text:SetTextColor(0.95, 0.87, 0.73)
-        else
-            TintEdges(0.50, 0.34, 0.19, 0.55)
-            fill:SetColorTexture(0.18, 0.095, 0.05, 0.94)
-            stripe:SetColorTexture(0.54, 0.35, 0.19, 0.75)
-            text:SetTextColor(0.87, 0.74, 0.56)
-        end
-    end
-    button:SetScript("OnEnter", function(self) self.baziHover = true; self.baziRefresh() end)
-    button:SetScript("OnLeave", function(self) self.baziHover = false; self.baziRefresh() end)
-    button:SetScript("OnClick", function() ShowPage(name) end)
-    button.baziRefresh()
-    navButtons[name] = button
+local function Nav(parent,name,icon,y)
+    local b=CreateFrame("Button",nil,parent);b:SetSize(198,30)
+    b:SetPoint("TOPLEFT",parent,"TOPLEFT",9,y)
+    b.bg=Paint(b,"BACKGROUND",0.13,0.095,0.15,0.98)
+    b.accent=Paint(b,"ARTWORK",0.91,0.66,0.30,1)
+    b.accent:ClearAllPoints();b.accent:SetPoint("TOPLEFT");b.accent:SetPoint("BOTTOMLEFT");b.accent:SetWidth(3)
+    b.label=Label(b,icon.."  "..name,"GameFontNormal",0.73,0.69,0.68)
+    b.label:SetPoint("LEFT",b,"LEFT",15,0)
+    b:SetScript("OnEnter",function()if not pages[name]:IsShown() then b.bg:SetColorTexture(0.24,0.14,0.27,1)end end)
+    b:SetScript("OnLeave",function()if not pages[name]:IsShown() then b.bg:SetColorTexture(0.13,0.095,0.15,0.98)end end)
+    b:SetScript("OnClick",function()Show(name)end)
+    navigation[name]=b
 end
-
-function addon.Options:Open()
-    if not optionsFrame then
-        self:Create()
-    end
-
-    optionsFrame:Show()
-    optionsFrame:Raise()
- end
-
+local function Tab(parent,name,x,w)
+    local b=CreateFrame("Button",nil,parent);b:SetSize(w,35)
+    b:SetPoint("TOPLEFT",parent,"TOPLEFT",x,-51)
+    local label=Label(b,name,"GameFontNormalSmall",0.87,0.78,0.67);label:SetPoint("CENTER")
+    b.active=Paint(b,"ARTWORK",0.90,0.66,0.33,1)
+    b.active:ClearAllPoints();b.active:SetPoint("BOTTOMLEFT");b.active:SetPoint("BOTTOMRIGHT");b.active:SetHeight(2)
+    b:SetScript("OnClick",function()Show(name)end);tabs[name]=b
+end
 function addon.Options:Create()
-    optionsFrame = CreateFrame("Frame", "BaziUIOptionsFrame", UIParent)
-    -- Native bronze Blizzard frame, verified visually on Forever.
-    local borderHost = CreateFrame("Frame", nil, optionsFrame, "ButtonFrameTemplate")
-    borderHost:SetAllPoints(optionsFrame)
-    borderHost:EnableMouse(false)
-    for _, child in ipairs({borderHost:GetChildren()}) do
-        if child ~= borderHost.NineSlice then
-            child:Hide()
-        end
+    frame=CreateFrame("Frame","BaziUIOptionsFrame",UIParent)
+    frame:SetSize(900,555);frame:SetPoint("CENTER");frame:SetFrameStrata("DIALOG")
+    frame:SetClampedToScreen(true);frame:SetMovable(true);frame:EnableMouse(true)
+    frame:RegisterForDrag("LeftButton");frame:SetScript("OnDragStart",frame.StartMoving)
+    frame:SetScript("OnDragStop",frame.StopMovingOrSizing)
+    frame:SetScale(addon.db.profile.uiScale or 1)
+    Paint(frame,"BACKGROUND",0.055,0.043,0.074,0.99)
+    local border=frame:CreateTexture(nil,"BORDER");border:SetAllPoints(frame)
+    border:SetTexture(ASSET.."Borders\\Frame_Thin_9Slice.png");border:SetAlpha(0.25)
+    for _,side in ipairs({"TOP","BOTTOM","LEFT","RIGHT"}) do
+        local edge=frame:CreateTexture(nil,"ARTWORK");edge:SetColorTexture(0.68,0.49,0.27,0.72)
+        if side=="TOP" then edge:SetPoint("TOPLEFT");edge:SetPoint("TOPRIGHT");edge:SetHeight(2)
+        elseif side=="BOTTOM" then edge:SetPoint("BOTTOMLEFT");edge:SetPoint("BOTTOMRIGHT");edge:SetHeight(2)
+        elseif side=="LEFT" then edge:SetPoint("TOPLEFT");edge:SetPoint("BOTTOMLEFT");edge:SetWidth(2)
+        else edge:SetPoint("TOPRIGHT");edge:SetPoint("BOTTOMRIGHT");edge:SetWidth(2) end
     end
-    for _, region in ipairs({borderHost:GetRegions()}) do
-        region:Hide()
-    end
-    if borderHost.NineSlice then
-        borderHost.NineSlice:Show()
-    end
-    -- Remove portrait-only art without touching the bronze NineSlice border.
-    -- Forever's character frame inspection identifies 130924 as portrait trim.
-    local function HidePortraitArt(frame, depth)
-        if depth > 4 then return end
-        for _, region in ipairs({frame:GetRegions()}) do
-            if region.IsObjectType and region:IsObjectType("Texture") then
-                local texture = region:GetTexture()
-                if texture == 130924 or texture == 626000 then
-                    region:Hide()
-                    region:SetAlpha(0)
-                end
-            end
-        end
-        for _, child in ipairs({frame:GetChildren()}) do
-            HidePortraitArt(child, depth + 1)
-        end
-    end
-    HidePortraitArt(borderHost, 0)
-
-    -- The native portrait ring is part of the frame design. Keep it and
-    -- insert the Bazi emblem in its centre (asset supplied in this repo).
-    -- Put the emblem on a frame above the template artwork, not underneath it.
-    -- Keep the emblem attached to the options window: a separate UIParent
-    -- overlay did not render reliably on the Forever client.
-    local emblemHost = CreateFrame("Frame", nil, borderHost.NineSlice or optionsFrame)
-    emblemHost:SetSize(66, 66)
-    emblemHost:SetPoint("CENTER", optionsFrame, "TOPLEFT", 26, -23)
-    emblemHost:SetFrameStrata("FULLSCREEN_DIALOG")
-    emblemHost:SetFrameLevel(math.max(borderHost:GetFrameLevel(), borderHost.NineSlice and borderHost.NineSlice:GetFrameLevel() or 0) + 30)
-    emblemHost:EnableMouse(false)
-    optionsFrame.baziEmblemHost = emblemHost
-    local emblem = emblemHost:CreateTexture(nil, "OVERLAY")
-    emblem:SetAllPoints(emblemHost)
-    emblem:SetTexture(ASSET .. "Icons\\BaziUI_Emblem_256.png")
-    optionsFrame.baziEmblem = emblem
-
-    optionsFrame:SetSize(900, 555)
-    optionsFrame:SetPoint("CENTER")
-    optionsFrame:SetFrameStrata("DIALOG")
-    optionsFrame:SetClampedToScreen(true)
-    optionsFrame:SetMovable(true)
-    optionsFrame:EnableMouse(true)
-    optionsFrame:RegisterForDrag("LeftButton")
-    optionsFrame:SetScript("OnDragStart", optionsFrame.StartMoving)
-    optionsFrame:SetScript("OnDragStop", optionsFrame.StopMovingOrSizing)
-    -- Ease into 75% opacity during movement; restore instantly on stopping.
-    local displayedAlpha = 1
-    local fadeSeconds = 0.65
-    optionsFrame:SetScript("OnShow", function(self)
-        displayedAlpha = 1
-        self:SetAlpha(1)
-    end)
-    optionsFrame:SetScript("OnUpdate", function(self, elapsed)
-        local speed = GetUnitSpeed and GetUnitSpeed("player") or 0
-        if speed > 0 then
-            displayedAlpha = math.max(0.75, displayedAlpha - elapsed * (0.25 / fadeSeconds))
-        else
-            displayedAlpha = 1
-        end
-        if self:GetAlpha() ~= displayedAlpha then
-            self:SetAlpha(displayedAlpha)
-        end
-    end)
-    local backdrop = optionsFrame:CreateTexture(nil, "BACKGROUND", nil, 1)
-    backdrop:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", 2, -2)
-    backdrop:SetPoint("BOTTOMRIGHT", optionsFrame, "BOTTOMRIGHT", -2, 2)
-    backdrop:SetColorTexture(0.12, 0.075, 0.044, 1)
-    local header = optionsFrame:CreateTexture(nil, "BORDER")
-    header:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", 3, -3)
-    header:SetPoint("TOPRIGHT", optionsFrame, "TOPRIGHT", -3, -3)
-    header:SetHeight(48)
-    header:SetColorTexture(0.22, 0.12, 0.065, 0.98)
-    local headerLine = optionsFrame:CreateTexture(nil, "ARTWORK")
-    headerLine:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", 8, -56)
-    headerLine:SetPoint("TOPRIGHT", optionsFrame, "TOPRIGHT", -8, -56)
-    headerLine:SetHeight(1)
-    headerLine:SetColorTexture(0.76, 0.55, 0.28, 0.75)
-    -- Keep the native bronze title frame. A subtle custom divider on each
-    -- side of the title adds detail without cutting through the lettering.
-    for _, side in ipairs({"LEFT", "RIGHT"}) do
-        local divider = optionsFrame:CreateTexture(nil, "ARTWORK")
-        divider:SetSize(100, 3)
-        divider:SetTexture("Interface\\AddOns\\BaziUI\\Assets\\Dividers\\Divider_Thin.png")
-        divider:SetAlpha(0.65)
-        if side == "LEFT" then
-            divider:SetPoint("RIGHT", optionsFrame, "TOP", -80, -29)
-        else
-            divider:SetPoint("LEFT", optionsFrame, "TOP", 80, -29)
-        end
-    end
-
-    optionsFrame:Hide()
-
-    local title = CreateLabel(optionsFrame, "Bazi UI", "GameFontNormal")
-    title:SetPoint("TOP", optionsFrame, "TOP", 0, -27)
-    title:SetFontObject("GameFontNormalLarge")
-    title:SetJustifyH("CENTER")
-
-    local close = CreateFrame("Button", nil, optionsFrame, "UIPanelCloseButton")
-    -- Keep the close button inside the header border.
-    close:SetPoint("TOPRIGHT", optionsFrame, "TOPRIGHT", -4, 2)
-    close:SetFrameStrata("FULLSCREEN_DIALOG")
-    close:SetFrameLevel(borderHost:GetFrameLevel() + 20)
-    optionsFrame.baziClose = close
-
-    local nav = CreateFrame("Frame", nil, optionsFrame)
-    nav:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", 12, -78)
-    local navBackground = nav:CreateTexture(nil, "BACKGROUND")
-    navBackground:SetPoint("TOPLEFT", nav, "TOPLEFT", 0, 10)
-    navBackground:SetPoint("BOTTOMRIGHT", nav, "BOTTOMRIGHT", 0, -4)
-    navBackground:SetColorTexture(0.105, 0.063, 0.038, 0.96)
-    nav:SetSize(180, 430)
-
-    contentFrame = CreateFrame("Frame", nil, optionsFrame)
-    contentFrame:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", 204, -78)
-    contentFrame:SetPoint("BOTTOMRIGHT", optionsFrame, "BOTTOMRIGHT", -16, 18)
-
-    local separator = contentFrame:CreateTexture(nil, "BORDER")
-    separator:SetColorTexture(0.72, 0.49, 0.25, 0.65)
-    separator:SetWidth(1)
-    separator:SetPoint("TOPLEFT", contentFrame, "TOPLEFT", -10, 0)
-    separator:SetPoint("BOTTOMLEFT", contentFrame, "BOTTOMLEFT", -10, 0)
-
-    CreateNavigationButton(nav, "General", "General", -8)
-    CreateNavigationButton(nav, "UnitFrames", "UnitFrames", -45)
-    CreateNavigationButton(nav, "Nameplates", "Nameplates", -82)
-    CreateNavigationButton(nav, "ActionBars", "ActionBars", -119)
-    CreateNavigationButton(nav, "Chat", "Chat", -156)
-    CreateNavigationButton(nav, "Quest", "Quest", -193)
-    CreateNavigationButton(nav, "Gathering", "Gathering", -230)
-    CreateNavigationButton(nav, "Minimap", "Minimap", -267)
-    CreateNavigationButton(nav, "Tooltip", "Tooltip", -304)
-    CreateNavigationButton(nav, "Combat", "Combat", -341)
-    CreateNavigationButton(nav, "BugTab", "BugTab", -378)
-
-    CreateGeneralPage()
-    CreatePlaceholderPage("UnitFrames")
-    CreatePlaceholderPage("Nameplates")
-    CreatePlaceholderPage("ActionBars")
-    CreatePlaceholderPage("Chat")
-    CreatePlaceholderPage("Quest")
-    CreatePlaceholderPage("Gathering")
-    CreatePlaceholderPage("Minimap")
-    CreatePlaceholderPage("Tooltip")
-    CreatePlaceholderPage("Combat")
-    CreatePlaceholderPage("BugTab")
-
-    ShowPage("General")
+    local header=Paint(frame,"BORDER",0.09,0.063,0.11,0.99,3,-3,-3,-93)
+    local emblem=frame:CreateTexture(nil,"OVERLAY");emblem:SetTexture(ASSET.."Icons\\BaziUI_Emblem_256.png")
+    emblem:SetSize(70,70);emblem:SetPoint("TOPLEFT",frame,"TOPLEFT",13,12)
+    local title=Label(frame,"Bazi UI","GameFontNormalHuge",1,0.83,0.53)
+    title:SetPoint("TOPLEFT",frame,"TOPLEFT",85,-16)
+    local version=Label(frame,"REFORGED  /  V7 PREVIEW","GameFontNormalSmall",0.64,0.58,0.66)
+    version:SetPoint("TOPLEFT",frame,"TOPLEFT",87,-45)
+    local close=Button(frame,"X",857,-12,28,27,function()frame:Hide()end)
+    close:SetFrameLevel(frame:GetFrameLevel()+5)
+    Line(frame,-93,11,-11)
+    local sidebar=Panel(frame,10,-103,218,414)
+    local small=Label(sidebar,"GENERAL","GameFontNormalSmall",0.62,0.48,0.32)
+    small:SetPoint("TOPLEFT",sidebar,"TOPLEFT",17,-14)
+    local gameplay=Label(sidebar,"GAMEPLAY","GameFontNormalSmall",0.62,0.48,0.32)
+    gameplay:SetPoint("TOPLEFT",sidebar,"TOPLEFT",17,-119)
+    local interface=Label(sidebar,"INTERFACE","GameFontNormalSmall",0.62,0.48,0.32)
+    interface:SetPoint("TOPLEFT",sidebar,"TOPLEFT",17,-277)
+    content=CreateFrame("Frame",nil,frame);content:SetPoint("TOPLEFT",frame,"TOPLEFT",245,-104)
+    content:SetSize(620,414)
+    General()
+    local others={"Profiles","Import / Export","What's New","UnitFrames","Nameplates","ActionBars","Chat","Quest","Gathering","Minimap","Tooltip","Combat","BugTab"}
+    for _,name in ipairs(others) do Placeholder(name) end
+    Tab(frame,"General",249,87);Tab(frame,"Profiles",340,86)
+    Tab(frame,"Import / Export",430,121);Tab(frame,"What's New",555,102)
+    Nav(sidebar,"General","*", -33)
+    Nav(sidebar,"UnitFrames","+",-138)
+    Nav(sidebar,"Nameplates","o",-171)
+    Nav(sidebar,"ActionBars","#",-204)
+    Nav(sidebar,"Chat",">",-237)
+    Nav(sidebar,"Quest","?",-296)
+    Nav(sidebar,"Gathering","^",-329)
+    Nav(sidebar,"Minimap","@",-362)
+    -- Remaining categories reachable through the searchable selector in next build.
+    local footer=Label(frame,"BAZI UI  |  Changes are saved automatically","GameFontNormalSmall",0.71,0.63,0.61)
+    footer:SetPoint("BOTTOMLEFT",frame,"BOTTOMLEFT",23,15)
+    local stage=Label(frame,"V7 DEVELOPMENT BUILD","GameFontNormalSmall",0.76,0.58,0.37)
+    stage:SetPoint("BOTTOMRIGHT",frame,"BOTTOMRIGHT",-20,15)
+    Show("General")
+    frame:Hide()
 end
-
-function addon.Options:Initialize()
-    -- Created on first open.
+function addon.Options:Open()
+    if not frame then self:Create() end
+    frame:Show();frame:Raise()
 end
+function addon.Options:Initialize() end
