@@ -200,24 +200,42 @@ end
 
 function addon.Options:Create()
     optionsFrame = CreateFrame("Frame", "BaziUIOptionsFrame", UIParent)
-    -- Stable antique-gold bevel. Avoid fake rounded corners and atlas stretching.
-    local function Rim(top, bottom, left, right, thickness, color)
-        local function Strip(pointA, pointB, ax, ay, bx, by, vertical)
-            local t = optionsFrame:CreateTexture(nil, "OVERLAY")
-            t:SetPoint(pointA, optionsFrame, pointA, ax, ay)
-            t:SetPoint(pointB, optionsFrame, pointB, bx, by)
-            if vertical then t:SetWidth(thickness) else t:SetHeight(thickness) end
-            t:SetColorTexture(unpack(color))
-        end
-        Strip("TOPLEFT", "TOPRIGHT", left, -top, -right, -top, false)
-        Strip("BOTTOMLEFT", "BOTTOMRIGHT", left, bottom, -right, bottom, false)
-        Strip("TOPLEFT", "BOTTOMLEFT", left, -top, left, bottom, true)
-        Strip("TOPRIGHT", "BOTTOMRIGHT", -right, -top, -right, bottom, true)
+    -- Blizzard-style decorative corner caps. Keep all border edges as
+    -- simple solid strips; never stretch a corner atlas across an edge.
+    local function Edge(pointA, pointB, ax, ay, bx, by, thickness, vertical, color)
+        local t = optionsFrame:CreateTexture(nil, "OVERLAY")
+        t:SetPoint(pointA, optionsFrame, pointA, ax, ay)
+        t:SetPoint(pointB, optionsFrame, pointB, bx, by)
+        if vertical then t:SetWidth(thickness) else t:SetHeight(thickness) end
+        t:SetColorTexture(unpack(color))
     end
-    Rim(0, 0, 0, 0, 6, {0.68, 0.47, 0.24, 1})
-    Rim(2, 2, 2, 2, 2, {0.88, 0.69, 0.39, 1})
-    Rim(6, 6, 6, 6, 3, {0.18, 0.10, 0.05, 1})
-    Rim(9, 9, 9, 9, 1, {0.74, 0.53, 0.28, 0.95})
+    local gold = {0.69, 0.48, 0.26, 1}
+    local highlight = {0.88, 0.69, 0.40, 1}
+    local shadow = {0.19, 0.10, 0.055, 1}
+    local cap = 22
+    -- Edges stop short of the corners so they cannot make square corners.
+    Edge("TOPLEFT", "TOPRIGHT", cap, -2, -cap, -2, 4, false, gold)
+    Edge("BOTTOMLEFT", "BOTTOMRIGHT", cap, 2, -cap, 2, 4, false, gold)
+    Edge("TOPLEFT", "BOTTOMLEFT", 2, -cap, 2, cap, 4, true, gold)
+    Edge("TOPRIGHT", "BOTTOMRIGHT", -2, -cap, -2, cap, 4, true, gold)
+    Edge("TOPLEFT", "TOPRIGHT", cap, -6, -cap, -6, 1, false, highlight)
+    Edge("BOTTOMLEFT", "BOTTOMRIGHT", cap, 6, -cap, 6, 1, false, highlight)
+    Edge("TOPLEFT", "BOTTOMLEFT", 6, -cap, 6, cap, 1, true, highlight)
+    Edge("TOPRIGHT", "BOTTOMRIGHT", -6, -cap, -6, cap, 1, true, highlight)
+
+    local function Corner(point, flipX, flipY)
+        local t = optionsFrame:CreateTexture(nil, "OVERLAY", nil, 2)
+        t:SetTexture("Interface\\\\DialogFrame\\\\UI-DialogBox-Corner")
+        t:SetSize(32, 32)
+        t:SetPoint(point, optionsFrame, point, flipX and 0 or 0, flipY and 0 or 0)
+        t:SetTexCoord(flipX and 1 or 0, flipX and 0 or 1,
+                      flipY and 1 or 0, flipY and 0 or 1)
+        t:SetVertexColor(0.95, 0.78, 0.54, 1)
+    end
+    Corner("TOPLEFT", false, false)
+    Corner("TOPRIGHT", true, false)
+    Corner("BOTTOMLEFT", false, true)
+    Corner("BOTTOMRIGHT", true, true)
     optionsFrame:SetSize(900, 555)
     optionsFrame:SetPoint("CENTER")
     optionsFrame:SetFrameStrata("DIALOG")
