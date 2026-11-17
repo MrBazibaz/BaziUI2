@@ -291,6 +291,7 @@ function addon.Options:Create()
     emblemHost:SetSize(48, 48)
     -- Position is relative to the upper-left corner of the frame.
     emblemHost:SetPoint("CENTER", optionsFrame, "TOPLEFT", 29, -29)
+    emblemHost:SetFrameStrata("FULLSCREEN_DIALOG")
     emblemHost:SetFrameLevel(borderHost:GetFrameLevel() + 5)
     optionsFrame.baziEmblemHost = emblemHost
     local emblem = emblemHost:CreateTexture(nil, "ARTWORK")
@@ -363,6 +364,7 @@ function addon.Options:Create()
     local close = CreateFrame("Button", nil, optionsFrame, "UIPanelCloseButton")
     -- Keep the close button inside the header border.
     close:SetPoint("TOPRIGHT", optionsFrame, "TOPRIGHT", -9, -7)
+    close:SetFrameStrata("FULLSCREEN_DIALOG")
     close:SetFrameLevel(borderHost:GetFrameLevel() + 20)
     optionsFrame.baziClose = close
 
