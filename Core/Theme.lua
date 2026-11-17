@@ -71,16 +71,22 @@ function addon.Theme:CreateButton(parent, label, width, height)
     end
     if disabled then Tint(disabled, self.colors.goldPressed) end
 
-    -- Some Blizzard templates draw the bevel as additional texture regions.
-    -- Recolor those too, without touching the purple inset.
-    for _, region in ipairs({ button:GetRegions() }) do
-        if region.IsObjectType and region:IsObjectType("Texture")
-            and region ~= fill and region ~= normal and region ~= pushed
-            and region ~= highlight and region ~= disabled then
-            if region.SetDesaturated then region:SetDesaturated(true) end
-            region:SetVertexColor(0.83, 0.63, 0.30, 1)
-        end
+    -- A restrained gold bevel inside the native button silhouette.
+    -- Unlike tinting all template regions, this does not darken its relief.
+    local trim = {}
+    local function AddTrim(a, b, ax, ay, bx, by, horizontal)
+        local edge = button:CreateTexture(nil, "OVERLAY")
+        edge:SetColorTexture(0.78, 0.56, 0.25, 0.95)
+        edge:SetPoint(a, button, a, ax, ay)
+        edge:SetPoint(b, button, b, bx, by)
+        if horizontal then edge:SetHeight(1) else edge:SetWidth(1) end
+        trim[#trim + 1] = edge
     end
+    AddTrim("TOPLEFT", "TOPRIGHT", 5, -4, -5, -4, true)
+    AddTrim("BOTTOMLEFT", "BOTTOMRIGHT", 5, 4, -5, 4, true)
+    AddTrim("TOPLEFT", "BOTTOMLEFT", 4, -5, 4, 5, false)
+    AddTrim("TOPRIGHT", "BOTTOMRIGHT", -4, -5, -4, 5, false)
+    button.baziGoldTrim = trim
 
     button:SetScript("OnEnter", function(self)
         self.baziPurpleFill:SetColorTexture(0.39, 0.19, 0.61, 0.96)
