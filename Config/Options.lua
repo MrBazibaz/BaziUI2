@@ -181,7 +181,7 @@ function addon.Options:Create()
     content=CreateFrame("Frame",nil,frame);content:SetPoint("TOPLEFT",frame,"TOPLEFT",245,-104)
     content:SetSize(620,414)
     General()
-    local others={"Profiles","Import / Export","What's New","UnitFrames","Nameplates","ActionBars","Chat","Quest","Gathering","Minimap","Tooltip","Combat","BugTab"}
+    local others={"Profiles","Import / Export","What's New","UnitFrames","Nameplates","ActionBars","Chat","Quest","Gathering","Minimap","Tooltip","Combat","BugTab","QoL Settings"}
     for _,name in ipairs(others) do Placeholder(name) end
     Tab(frame,"General",249,87);Tab(frame,"Profiles",340,86)
     Tab(frame,"Import / Export",430,121);Tab(frame,"What's New",555,102)
@@ -195,6 +195,10 @@ function addon.Options:Create()
     Nav(sidebar,"Minimap","@",-311)
     Nav(sidebar,"Tooltip","i",-342)
     Nav(sidebar,"Combat","!",-373)
+    -- QoL gets a dedicated navigation category; full sidebar layout/scrolling follows.
+    local qol=Label(sidebar,"QUALITY OF LIFE","GameFontNormalSmall",0.62,0.48,0.32)
+    qol:SetPoint("TOPLEFT",sidebar,"TOPLEFT",17,-402)
+    Nav(sidebar,"QoL Settings","+",-421)
     -- BugTab remains accessible through the slash command until sidebar scrolling lands.
     local footer=Label(frame,"BAZI UI  |  Changes are saved automatically","GameFontNormalSmall",0.71,0.63,0.61)
     footer:SetPoint("BOTTOMLEFT",frame,"BOTTOMLEFT",23,15)
