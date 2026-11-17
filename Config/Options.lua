@@ -182,7 +182,9 @@ function addon.Options:Create()
     -- Keep all eight border pieces on the same frame edges and matching corner joins.
     -- V7 concept proportions: larger ornamental corners; edge art runs behind them.
     local CORNER_SIZE=88
-    local EDGE_SIZE=12
+    -- Source TGAs: side edges occupy only 16 of 32 pixels.
+    -- At 24 UI units the visible gold becomes roughly 12 units wide.
+    local EDGE_SIZE=24
     -- Fill all four corner texture footprints with the window's plum color.
     -- The ornamental TGAs have transparent pixels; without a backing layer
     -- the world is visible through their cutouts near the window edges.
@@ -197,7 +199,9 @@ function addon.Options:Create()
     CornerBacking("TOPRIGHT")
     CornerBacking("BOTTOMLEFT")
     CornerBacking("BOTTOMRIGHT")
-    local EDGE_OVERLAP=28
+    -- Corner ornament pixels occupy ~160/256 horizontally; at 88 UI units
+    -- their visible reach is ~55 units. Begin edges at 44 for a real overlap.
+    local EDGE_OVERLAP=44
     local EDGE_INSET=CORNER_SIZE-EDGE_OVERLAP
     BorderPiece("Edge_Top_Tile.tga",nil,EDGE_SIZE,"TOPLEFT",EDGE_INSET,0,"TOPRIGHT",-EDGE_INSET,0)
     -- Footer and lower frame edge share one bottom-anchored container.
