@@ -120,35 +120,20 @@ function addon.Theme:SkinGameMenuButton(button)
     if not button or button.baziGameMenuSkinned then return end
     button.baziGameMenuSkinned = true
 
-    local fill = button:CreateTexture(nil, "ARTWORK")
+    -- Overlay the red native button center without changing Blizzard button states.
+    -- The text is on OVERLAY too; a negative sublevel keeps it above our fill.
+    local fill = button:CreateTexture(nil, "OVERLAY", nil, -7)
     fill:SetPoint("TOPLEFT", button, "TOPLEFT", 6, -6)
     fill:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", -6, 6)
-    fill:SetColorTexture(0.34, 0.17, 0.25, 0.96)
+    fill:SetColorTexture(0.34, 0.17, 0.25, 1)
     button.baziGameMenuFill = fill
-    -- Match Bazi UI's warm gold/beige labels, including hover and disabled.
-    local label = button.GetFontString and button:GetFontString()
-    if label then
-        label:SetTextColor(0.96, 0.81, 0.59, 1)
-    end
-    if button.SetNormalFontObject then
-        local normalFont = CreateFont(nil)
-        normalFont:CopyFontObject(GameFontNormal)
-        normalFont:SetTextColor(0.96, 0.81, 0.59, 1)
-        button:SetNormalFontObject(normalFont)
-    end
-    if button.SetHighlightFontObject then
-        local highlightFont = CreateFont(nil)
-        highlightFont:CopyFontObject(GameFontNormal)
-        highlightFont:SetTextColor(1, 0.89, 0.68, 1)
-        button:SetHighlightFontObject(highlightFont)
-    end
-    if button.SetDisabledFontObject then
-        local disabledFont = CreateFont(nil)
-        disabledFont:CopyFontObject(GameFontNormal)
-        disabledFont:SetTextColor(0.58, 0.47, 0.36, 1)
-        button:SetDisabledFontObject(disabledFont)
-    end
 
+    local function ApplyTextColor(self)
+        local label = self.GetFontString and self:GetFontString()
+        if label then label:SetTextColor(0.96, 0.81, 0.59, 1) end
+    end
+    ApplyTextColor(button)
+    button:HookScript("OnShow", ApplyTextColor)
     local function Trim(a, b, ax, ay, bx, by, horizontal)
         local edge = button:CreateTexture(nil, "OVERLAY")
         edge:SetColorTexture(0.78, 0.56, 0.25, 0.95)
@@ -167,20 +152,26 @@ function addon.Theme:SkinGameMenuButton(button)
     end
     button:HookScript("OnEnter", Update)
     button:HookScript("OnLeave", Update)
+    button:HookScript("OnMouseDown", Update)
+    button:HookScript("OnMouseUp", Update)
 end
 
 function addon.Theme:SkinGameMenu()
     local frame = _G.GameMenuFrame
     if not frame then return end
-    -- Named Blizzard controls vary by client build; inspect direct children
-    -- rather than assuming every retail button name exists in Forever.
-    local children = { frame:GetChildren() }
-    for _, child in ipairs(children) do
-        if child.IsObjectType and child:IsObjectType("Button")
-            and child.GetText and child:GetText() and child:GetText() ~= "" then
-            self:SkinGameMenuButton(child)
+    -- Forever may nest menu buttons inside child frames. Walk a bounded tree.
+    local function Scan(parent, depth)
+        if depth > 3 then return end
+        local children = { parent:GetChildren() }
+        for _, child in ipairs(children) do
+            if child.IsObjectType and child:IsObjectType("Button")
+                and child.GetText and child:GetText() and child:GetText() ~= "" then
+                self:SkinGameMenuButton(child)
+            end
+            if child.GetChildren then Scan(child, depth + 1) end
         end
     end
+    Scan(frame, 0)
 end
 
 function addon.Theme:Initialize()
