@@ -55,6 +55,61 @@ local function DebugBorder()
     addon:Print("Search for borderDebug and share that section via GitHub.")
 end
 
+local function InspectBlizzardFrames()
+    BaziUIDB = BaziUIDB or {}
+    local lines = {}
+    local function Add(value) lines[#lines + 1] = value end
+    local function Scan(frame, path, depth)
+        if not frame or depth > 4 or #lines > 650 then return end
+        if frame.GetBackdrop then
+            local ok, backdrop = pcall(frame.GetBackdrop, frame)
+            if ok and backdrop then
+                Add(path .. " BACKDROP edge=" .. tostring(backdrop.edgeFile)
+                    .. " bg=" .. tostring(backdrop.bgFile)
+                    .. " edgeSize=" .. tostring(backdrop.edgeSize))
+            end
+        end
+        if frame.GetRegions then
+            local regions = {frame:GetRegions()}
+            for i, region in ipairs(regions) do
+                if region.IsObjectType and region:IsObjectType("Texture") then
+                    local texture = region.GetTexture and region:GetTexture()
+                    if texture then
+                        local layer = region.GetDrawLayer and region:GetDrawLayer() or "?"
+                        Add(path .. "/region" .. i .. " name="
+                            .. tostring(region.GetName and region:GetName())
+                            .. " texture=" .. tostring(texture)
+                            .. " layer=" .. tostring(layer))
+                    end
+                end
+            end
+        end
+        if frame.GetChildren then
+            local children = {frame:GetChildren()}
+            for i, child in ipairs(children) do
+                Scan(child, path .. "/" .. tostring(child.GetName and child:GetName() or ("child" .. i)), depth + 1)
+            end
+        end
+    end
+    local candidates = {
+        "CharacterFrame", "PaperDollFrame", "SpellBookFrame",
+        "WorldMapFrame", "EncounterJournal", "PVEFrame",
+    }
+    for _, name in ipairs(candidates) do
+        local frame = _G[name]
+        if frame then
+            Add("=== " .. name .. " ===")
+            Scan(frame, name, 0)
+        else
+            Add(name .. " not loaded")
+        end
+    end
+    BaziUIDB.frameInspect = lines
+    addon:Print("Frame inspection: " .. #lines .. " lines saved to BaziUIDB.frameInspect.")
+    addon:Print("Open Character and Spellbook first, then /bazi inspect, /rl.")
+    addon:Print("Share frameInspect from WTF/Account/<account>/SavedVariables/BaziUI.lua.")
+end
+
 local function HandleCommand(message)
     local command, argument = string.match(message or "", "^(%S*)%s*(.-)$")
     command = string.lower(command or "")
@@ -66,12 +121,14 @@ local function HandleCommand(message)
         addon:Print("version " .. addon.version)
     elseif command == "reload" then
         ReloadUI()
+    elseif command == "inspect" then
+        InspectBlizzardFrames()
     elseif command == "debugborder" then
         DebugBorder()
     elseif command == "reset" then
         StaticPopup_Show("BAZIUI_RESET_CONFIRM")
     else
-        addon:Print("Commands: /bazi, /bazi version, /bazi reload, /bazi reset, /bazi debugborder")
+        addon:Print("Commands: /bazi, /bazi version, /bazi reload, /bazi reset, /bazi debugborder, /bazi inspect")
     end
 end
 
