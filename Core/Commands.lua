@@ -412,6 +412,9 @@ function addon.Commands:Initialize()
         StyleGameMenuHover()
         _G.GameMenuFrame:HookScript("OnShow", StyleGameMenuHover)
     end
+    SLASH_BAZICHECK1 = "/bic"
+    SlashCmdList.BAZICHECK = InspectUIControls
+
     SLASH_BAZI1 = "/bazi"
     SLASH_BAZI2 = "/bui"
     SlashCmdList.BAZI = HandleCommand
