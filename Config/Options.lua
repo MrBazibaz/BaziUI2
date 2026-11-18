@@ -202,30 +202,36 @@ function addon.Options:Create()
     end
     local function TiledVertical(file, x, topY, bottomY, width)
         local total=topY-bottomY
-        local count=math.ceil(total/BORDER_TEST_TILE)
+        -- Seamless side strips are 16px tall. Keep each tile short so the
+        -- artwork repeats without stretching a single strip over 112 units.
+        local tileLength=(file=="Edge_Left_Seamless.tga" or file=="Edge_Right_Seamless.tga") and 16 or BORDER_TEST_TILE
+        local count=math.ceil(total/tileLength)
         for i=0,count-1 do
-            local y=topY-i*BORDER_TEST_TILE
-            local height=math.min(BORDER_TEST_TILE,y-bottomY)
+            local y=topY-i*tileLength
+            local height=math.min(tileLength,y-bottomY)
             local t=frame:CreateTexture(nil,"OVERLAY",nil,0)
             t:SetTexture(BORDER_ASSET..file)
             t:SetPoint("TOPLEFT",frame,"TOPLEFT",x,y)
             t:SetSize(width,height)
-            -- The 32x256 side art has tapered endcaps at both ends.
-            -- Repeat only its straight central 50% and its opaque half.
-            -- This avoids repeating ornamental spikes every 112 units.
-            local u1,u2=0,0.5
-            if file=="Edge_Right.tga" then u1,u2=0.5,1 end
-            local v1=0.25
-            local v2=v1+0.5*(height/BORDER_TEST_TILE)
-            t:SetTexCoord(u1,u2,v1,v2)
+            if tileLength==16 then
+                -- Entire seamless texture; crop only the final partial tile.
+                t:SetTexCoord(0,1,0,height/tileLength)
+            else
+                -- Legacy side art: crop the straight central portion.
+                local u1,u2=0,0.5
+                if file=="Edge_Right.tga" then u1,u2=0.5,1 end
+                local v1=0.25
+                local v2=v1+0.5*(height/tileLength)
+                t:SetTexCoord(u1,u2,v1,v2)
+            end
         end
     end
     -- Edges overlap corners by ~20 units; corners are drawn on top.
     -- The TGA vertical edges have only half their 32px width opaque.
     TiledHorizontal("Edge_Top_Tile.tga",EDGE_TOP_OUTSET,50,1090,14)
     TiledHorizontal("Edge_Bottom_Tile.tga",-740+EDGE_BOTTOM_OUTSET,50,1090,14)
-    TiledVertical("Edge_Left.tga",-EDGE_SIDE_OUTSET, -45,-695,14)
-    TiledVertical("Edge_Right.tga",1140-6, -45,-695,14)
+    TiledVertical("Edge_Left_Seamless.tga",-EDGE_SIDE_OUTSET, -45,-695,14)
+    TiledVertical("Edge_Right_Seamless.tga",1140-6, -45,-695,14)
     -- Footer and lower frame edge share one bottom-anchored container.
     -- No hardcoded top offset: resizing keeps the artwork on the actual edge.
     local footerChrome=CreateFrame("Frame",nil,frame)
