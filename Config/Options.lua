@@ -162,21 +162,47 @@ function addon.Options:Create()
     shadowFrame:SetPoint("CENTER",frame,"CENTER",0,0)
     shadowFrame:EnableMouse(false)
     local cuts={0,23/128,105/128,1}
-    local widths={shadowSize,1180-shadowSize*2,shadowSize}
-    local heights={shadowSize,780-shadowSize*2,shadowSize}
-    local xOffsets={0,shadowSize,1180-shadowSize}
-    local yOffsets={0,shadowSize,780-shadowSize}
+    local shadowPieces={}
     for row=1,3 do
+        shadowPieces[row]={}
         for col=1,3 do
             if row~=2 or col~=2 then
                 local piece=shadowFrame:CreateTexture(nil,"ARTWORK")
                 piece:SetTexture(shadowFile)
                 piece:SetTexCoord(cuts[col],cuts[col+1],cuts[row],cuts[row+1])
-                piece:SetPoint("TOPLEFT",shadowFrame,"TOPLEFT",xOffsets[col],-yOffsets[row])
-                piece:SetSize(widths[col],heights[row])
+                shadowPieces[row][col]=piece
             end
         end
     end
+    -- Live calibration bounds relative to the Bazi UI frame center.
+    -- Changes are temporary until the chosen values are committed.
+    local shadowBounds={left=-590,right=590,top=390,bottom=-390}
+    local function UpdateShadowBounds()
+        local w=shadowBounds.right-shadowBounds.left
+        local h=shadowBounds.top-shadowBounds.bottom
+        if w<=shadowSize*2 or h<=shadowSize*2 then return false end
+        shadowFrame:ClearAllPoints()
+        shadowFrame:SetPoint("TOPLEFT",frame,"CENTER",shadowBounds.left,shadowBounds.top)
+        shadowFrame:SetSize(w,h)
+        local widths={shadowSize,w-2*shadowSize,shadowSize}
+        local heights={shadowSize,h-2*shadowSize,shadowSize}
+        local xs={0,shadowSize,w-shadowSize}
+        local ys={0,shadowSize,h-shadowSize}
+        for row=1,3 do
+            for col=1,3 do
+                local piece=shadowPieces[row][col]
+                if piece then
+                    piece:ClearAllPoints()
+                    piece:SetPoint("TOPLEFT",shadowFrame,"TOPLEFT",xs[col],-ys[row])
+                    piece:SetSize(widths[col],heights[row])
+                end
+            end
+        end
+        return true
+    end
+    frame.baziShadowBounds=shadowBounds
+    frame.baziUpdateShadowBounds=UpdateShadowBounds
+    UpdateShadowBounds()
     -- TEMP DIAGNOSTIC: cyan outline = actual shadow-frame bounds.
     -- Gold artwork remains unchanged. Remove after alignment is verified.
     local function ShadowGuide(pointA,pointB,width,height)
@@ -392,6 +418,44 @@ function addon.Options:Create()
     stage:SetPoint("BOTTOMRIGHT",footerChrome,"BOTTOMRIGHT",-20,13)
     Show("General")
     frame:Hide()
+end
+-- Live shadow edge calibration, without /reload or file changes.
+-- /bazishadow left -5 moves only the left edge 5 UI units left.
+-- /bazishadow reset restores the original 1180 x 780 test bounds.
+SLASH_BAZISHADOW1="/bazishadow"
+SlashCmdList["BAZISHADOW"]=function(msg)
+    if not frame or not frame.baziShadowBounds then
+        print("Bazi UI: open /bazi first.")
+        return
+    end
+    local bounds=frame.baziShadowBounds
+    local edge,value=(msg or ""):match("^%s*(%a+)%s+([%+%-]?[%d%.]+)%s*$")
+    local command=(msg or ""):match("^%s*(%a+)%s*$")
+    if command=="reset" then
+        bounds.left,bounds.right,bounds.top,bounds.bottom=-590,590,390,-390
+        frame.baziUpdateShadowBounds()
+    elseif edge and bounds[edge] and tonumber(value) then
+        local delta=tonumber(value)
+        if math.abs(delta)>100 then
+            print("Bazi UI: max 100 UI units per adjustment.")
+            return
+        end
+        local old=bounds[edge]
+        bounds[edge]=old+delta
+        if not frame.baziUpdateShadowBounds() then
+            bounds[edge]=old
+            frame.baziUpdateShadowBounds()
+            print("Bazi UI: shadow bounds too small.")
+            return
+        end
+    elseif command~="show" then
+        print("Usage: /bazishadow left|right|top|bottom DELTA ; /bazishadow show ; /bazishadow reset")
+        print("Positive = right/up; negative = left/down. Values are temporary.")
+        return
+    end
+    print(string.format("Bazi shadow: L %.1f R %.1f T %.1f B %.1f | size %.1f x %.1f",
+        bounds.left,bounds.right,bounds.top,bounds.bottom,
+        bounds.right-bounds.left,bounds.top-bounds.bottom))
 end
 -- Interactive border calibration. Changes are temporary and reset on /reload.
 -- Example: /baziedge bottom 0 -2
