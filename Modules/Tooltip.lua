@@ -52,9 +52,11 @@ function T:MarkReload()
     if addon.Options and addon.Options.RefreshReload then addon.Options:RefreshReload() end
 end
 function T:Pending() return pending end
+function T:SetEditAnchor(enabled)
+    if marker then marker:SetShown(not not enabled) end
+end
 function T:EditAnchor()
-    if not marker then return end
-    marker:SetShown(not marker:IsShown())
+    if marker then self:SetEditAnchor(not marker:IsShown()) end
 end
 local function AddLine(label, value)
     if value and value ~= "" then tip:AddDoubleLine(label, tostring(value), 1, 0.79, 0.43, 1, 1, 1) end
@@ -138,7 +140,14 @@ local function Anchor(_, parent)
     local db = DB()
     if not db or not db.enabled then return end
     if db.anchor == "mouse" then
-        tip:SetOwner(parent or UIParent, "ANCHOR_CURSOR_RIGHT")
+        local point = db.cursorPosition or "BOTTOMRIGHT"
+        local anchors = {
+            TOPLEFT = "ANCHOR_CURSOR_LEFT", TOP = "ANCHOR_CURSOR",
+            TOPRIGHT = "ANCHOR_CURSOR_RIGHT", LEFT = "ANCHOR_CURSOR_LEFT",
+            RIGHT = "ANCHOR_CURSOR_RIGHT", BOTTOMLEFT = "ANCHOR_CURSOR_LEFT",
+            BOTTOM = "ANCHOR_CURSOR", BOTTOMRIGHT = "ANCHOR_CURSOR_RIGHT"
+        }
+        tip:SetOwner(parent or UIParent, anchors[point] or "ANCHOR_CURSOR_RIGHT")
     else
         tip:SetOwner(parent or UIParent, "ANCHOR_NONE")
         tip:ClearAllPoints()
