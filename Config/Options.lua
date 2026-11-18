@@ -88,12 +88,22 @@ local function Slider(parent,title,subtitle,y,minv,maxv,step,value,change)
     progress:SetPoint("LEFT",slider,"LEFT",0,0);progress:SetHeight(8)
     local thumb=slider:CreateTexture(nil,"OVERLAY");thumb:SetTexture(ASSET.."Sliders\\Slider_Gem.png");thumb:SetSize(25,28)
     slider:SetThumbTexture(thumb)
+    local pendingValue=value
+    local isWindowScale=(title=="Window Scale")
     slider:SetScript("OnValueChanged",function(_,raw)
         local v=math.floor(raw/step+0.5)*step
         readout:SetText(string.format("%g",v))
         progress:SetWidth(math.max(1,148*(v-minv)/(maxv-minv)))
-        if change then change(v) end
+        pendingValue=v
+        if change and not isWindowScale then change(v) end
     end)
+    if isWindowScale then
+        -- Rescaling a window under the mouse while dragging its own slider
+        -- changes mouse coordinates and causes runaway feedback.
+        slider:SetScript("OnMouseUp",function()
+            if change then change(pendingValue) end
+        end)
+    end
     slider:SetValue(value)
 end
 local function Section(parent,name,y)
@@ -115,7 +125,7 @@ local function General()
     Section(settings,"Appearance",-19)
     local db=addon.db.profile
     Slider(settings,"Window Scale","Size of the Bazi UI settings window",-59,0.70,1.20,0.01,db.uiScale,function(v)
-        db.uiScale=v;if frame then frame:SetScale(v);if frame.baziShadowFrame then frame.baziShadowFrame:SetScale(v) end end
+        db.uiScale=v;if frame then frame:SetScale(v) end
     end)
     Slider(settings,"Font Size","Default text size for supported modules",-136,10,20,1,db.fontSize,function(v)db.fontSize=v end)
 end
@@ -165,10 +175,9 @@ function addon.Options:Create()
     -- of Bazi UI, aligned with its frame bounds for easy inspection.
     local shadowFile=ASSET.."Effects\\Window_Shadow.png"
     local shadowSize=36
-    local shadowFrame=CreateFrame("Frame","BaziUIWindowShadow",UIParent)
+    local shadowFrame=CreateFrame("Frame","BaziUIWindowShadow",frame)
     shadowFrame:SetFrameStrata("TOOLTIP")
     shadowFrame:SetFrameLevel(100)
-    shadowFrame:SetScale(frame:GetScale())
     shadowFrame:SetSize(1180,780)
     shadowFrame:SetPoint("CENTER",frame,"CENTER",0,0)
     shadowFrame:EnableMouse(false)
@@ -284,9 +293,12 @@ function addon.Options:Create()
             t=frame:CreateTexture(nil,"OVERLAY",nil,0)
             edgePool[side][index]=t
         end
-        t:SetTexture(BORDER_ASSET..file)
+        if not t.baziAsset then
+            t:SetTexture(BORDER_ASSET..file)
+            t.baziAsset=file
+        end
         t:ClearAllPoints()
-        t:Show()
+        if not t:IsShown() then t:Show() end
         return t
     end
     local function RegisterEdge(side,texture,x,y)
@@ -499,8 +511,15 @@ function addon.Options:Create()
         for _,panel in ipairs(resizablePanels) do panel:SetWidth(w-316) end
         for _,row in ipairs(sliderRows) do row:SetWidth(w-336) end
     end
+    local layoutPending=false
     frame:SetScript("OnSizeChanged",function()
-        if frame.baziUpdateShadowBounds then Relayout() end
+        layoutPending=true
+    end)
+    frame:HookScript("OnUpdate",function()
+        if layoutPending then
+            layoutPending=false
+            Relayout()
+        end
     end)
     Relayout()
     -- Reduce window opacity while the player moves, restore on stopping.
