@@ -511,12 +511,12 @@ local function CreateTooltipPage()
         if isMouse then
             if not cursorChoice then
                 cursorChoice = Choice(general, "CURSOR POSITION", -54,
-                    function() return db.cursorPosition or "BOTTOMRIGHT" end,
+                    function()
+                        local p = db.cursorPosition
+                        return (p == "TOPLEFT" or p == "LEFT" or p == "BOTTOMLEFT") and "LEFT" or "RIGHT"
+                    end,
                     function(v) db.cursorPosition = v end,
-                    {{"TOPLEFT", "Top Left"}, {"TOP", "Top"}, {"TOPRIGHT", "Top Right"},
-                     {"LEFT", "Left"}, {"RIGHT", "Right"},
-                     {"BOTTOMLEFT", "Bottom Left"}, {"BOTTOM", "Bottom"},
-                     {"BOTTOMRIGHT", "Bottom Right"}})
+                    {{"LEFT", "Left"}, {"RIGHT", "Right"}})
             end
             cursorChoice:Show()
         elseif cursorChoice then
