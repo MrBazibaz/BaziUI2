@@ -61,8 +61,8 @@ end
 local function AddLine(label, value)
     if value and value ~= "" then tip:AddDoubleLine(label, tostring(value), 1, 0.79, 0.43, 1, 1, 1) end
 end
--- Inside modes need room for the bar without reading secret unit health values.
--- Apply once per tooltip display; do not repeatedly increase its height.
+-- Keep the native bar (secret unit health values are not readable by addons).
+-- Reapply only on mode changes; never accumulate tooltip padding.
 local insideMode, insideTipHeight, insideFirstAnchor
 local function ResetInsideSpacing()
     if insideFirstAnchor then
@@ -80,23 +80,23 @@ local function ApplyInsideSpacing(mode, native)
     if insideMode == mode then return end
     ResetInsideSpacing()
     if mode ~= "insideTop" and mode ~= "insideBottom" then return end
+    insideMode = mode
+    if mode == "insideBottom" then
+        -- The bar sits in the existing bottom inset; avoid adding a full bar height.
+        return
+    end
+    local first = _G.GameTooltipTextLeft1
+    if not first then return end
+    local point, relative, relativePoint, x, y = first:GetPoint(1)
+    if not point then return end
     local barHeight = native:GetHeight()
     if not barHeight or barHeight <= 0 then barHeight = 7 end
-    local extra = barHeight + 8
+    local extra = barHeight + 2
     insideTipHeight = tip:GetHeight()
-    insideMode = mode
     tip:SetHeight(insideTipHeight + extra)
-    if mode == "insideTop" then
-        local first = _G.GameTooltipTextLeft1
-        if first then
-            local point, relative, relativePoint, x, y = first:GetPoint(1)
-            if point == "TOPLEFT" and relative == tip then
-                insideFirstAnchor = {point, relative, relativePoint, x, y}
-                first:ClearAllPoints()
-                first:SetPoint(point, relative, relativePoint, x, y - extra)
-            end
-        end
-    end
+    insideFirstAnchor = {point, relative, relativePoint, x, y}
+    first:ClearAllPoints()
+    first:SetPoint(point, relative, relativePoint, x, y - extra)
 end
 local function UpdateHealth()
     local db = DB()
@@ -118,18 +118,20 @@ local function UpdateHealth()
     health:Hide()
     ApplyInsideSpacing(mode, native)
     native:ClearAllPoints()
+    -- Match the visible title width rather than the entire tooltip frame.
+    local title = _G.GameTooltipTextLeft1
+    local titleWidth = title and title:GetStringWidth() or 0
+    if titleWidth and titleWidth > 0 then
+        native:SetWidth(titleWidth)
+    end
     if mode == "above" then
-        native:SetPoint("BOTTOMLEFT", tip, "TOPLEFT", 6, 2)
-        native:SetPoint("BOTTOMRIGHT", tip, "TOPRIGHT", -6, 2)
+        native:SetPoint("BOTTOMLEFT", title or tip, "TOPLEFT", 0, 2)
     elseif mode == "below" then
         native:SetPoint("TOPLEFT", tip, "BOTTOMLEFT", 6, -2)
-        native:SetPoint("TOPRIGHT", tip, "BOTTOMRIGHT", -6, -2)
     elseif mode == "insideTop" then
         native:SetPoint("TOPLEFT", tip, "TOPLEFT", 6, -5)
-        native:SetPoint("TOPRIGHT", tip, "TOPRIGHT", -6, -5)
     else
-        native:SetPoint("BOTTOMLEFT", tip, "BOTTOMLEFT", 6, 5)
-        native:SetPoint("BOTTOMRIGHT", tip, "BOTTOMRIGHT", -6, 5)
+        native:SetPoint("BOTTOMLEFT", tip, "BOTTOMLEFT", 6, 2)
     end
     native:Show()
     return
