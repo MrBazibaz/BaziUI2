@@ -104,7 +104,7 @@ local function ApplyInsideSpacing(mode, native)
         -- Reserve bottom space INSIDE the native tooltip frame, so the gold
         -- backdrop extends beneath the bar rather than the bar protruding.
         if tip.SetPadding then
-            local ok = pcall(tip.SetPadding, tip, 0, 14)
+            local ok = pcall(tip.SetPadding, tip, 0, 9)
             if ok then insideBottomPadded = true end
         end
         return
@@ -182,7 +182,7 @@ local function UpdateHealth()
             if mode == "insideTop" then
                 health:SetPoint("TOPLEFT", tip, "TOPLEFT", inset, -10)
             else
-                health:SetPoint("BOTTOMLEFT", tip, "BOTTOMLEFT", inset, 6)
+                health:SetPoint("BOTTOMLEFT", tip, "BOTTOMLEFT", inset, 5)
             end
         end
     end
@@ -263,22 +263,23 @@ local function ItemContent(_, data)
             tip:AddDoubleLine(" ", "Item ID " .. id, 1, 1, 1, 0.6, 0.6, 0.6)
         end
     end
-    if db.itemLevel and link and GetDetailedItemLevelInfo then
-        local ok, level = pcall(GetDetailedItemLevelInfo, link)
-        if ok and Readable(level) and type(level) == "number" and level > 1 then
-            local hasNative = false
-            local lineType = Enum and Enum.TooltipDataLineType and Enum.TooltipDataLineType.ItemLevel
-            if lineType and data and type(data.lines) == "table" then
-                for _, line in ipairs(data.lines) do
-                    if Readable(line) and type(line) == "table" and line.type == lineType then
-                        hasNative = true
-                        break
-                    end
-                end
-            end
-            if not hasNative and not FindLine(_G.ITEM_LEVEL or "Item Level") then
-                tip:AddLine(string.format("Item Level %d", level), 1, 0.82, 0.42)
-            end
+    if db.itemLevel then
+        local id = data and data.id
+        if not Readable(id) then id = link and tonumber(link:match("item:(%d+)")) end
+        local level
+        local getter = GetDetailedItemLevelInfo or (C_Item and C_Item.GetDetailedItemLevelInfo)
+        if getter then
+            local ok, result = pcall(getter, link or id)
+            if ok and Readable(result) and type(result) == "number" then level = result end
+        end
+        if not level and C_Item and C_Item.GetCurrentItemLevel and ItemLocation
+            and ItemLocation.CreateFromEquipmentSlot and data and data.id then
+            -- The normal item-link path above remains authoritative; don't guess
+            -- equipment slots from tooltip text.
+        end
+        if level and level > 1 and not FindLine("Item Level")
+            and not FindLine("iLvl") then
+            tip:AddLine(string.format("Item Level %d", level), 1, 0.82, 0.42)
         end
     end
     if tip:IsShown() then tip:Show() end
