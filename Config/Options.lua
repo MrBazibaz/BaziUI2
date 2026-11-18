@@ -277,6 +277,11 @@ function addon.Options:Open()
  end
 
 function addon.Options:Create()
+    local db = addon.db and addon.db.profile
+    if not db then
+        print("Bazi UI: Settings database is not initialized.")
+        return
+    end
     optionsFrame = CreateFrame("Frame", "BaziUIOptionsFrame", UIParent)
     -- Native bronze Blizzard frame, verified visually on Forever.
     local borderHost = CreateFrame("Frame", nil, optionsFrame, "ButtonFrameTemplate")
