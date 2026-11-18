@@ -177,6 +177,19 @@ function addon.Options:Create()
             end
         end
     end
+    -- TEMP DIAGNOSTIC: cyan outline = actual shadow-frame bounds.
+    -- Gold artwork remains unchanged. Remove after alignment is verified.
+    local function ShadowGuide(pointA,pointB,width,height)
+        local t=shadowFrame:CreateTexture(nil,"OVERLAY")
+        t:SetColorTexture(0,1,1,1)
+        t:SetPoint(pointA,shadowFrame,pointA,0,0)
+        t:SetPoint(pointB,shadowFrame,pointB,0,0)
+        if width then t:SetWidth(width) else t:SetHeight(height) end
+    end
+    ShadowGuide("TOPLEFT","TOPRIGHT",nil,2)
+    ShadowGuide("BOTTOMLEFT","BOTTOMRIGHT",nil,2)
+    ShadowGuide("TOPLEFT","BOTTOMLEFT",2,nil)
+    ShadowGuide("TOPRIGHT","BOTTOMRIGHT",2,nil)
     frame.baziShadowFrame=shadowFrame
     frame:HookScript("OnShow",function()shadowFrame:Show()end)
     frame:HookScript("OnHide",function()shadowFrame:Hide()end)
