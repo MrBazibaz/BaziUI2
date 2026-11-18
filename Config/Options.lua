@@ -445,11 +445,11 @@ local function CreateVersionHistoryPage()
     local panel = CreatePanel(page, -10, 200)
     CreateSection(panel, "VERSION HISTORY", -14)
 
-    local current = CreateLabel(panel, "v0.1.1", "GameFontNormalLarge")
+    local current = CreateLabel(panel, "v0.1.2", "GameFontNormalLarge")
     current:SetPoint("TOPLEFT", panel, "TOPLEFT", 22, -56)
     current:SetTextColor(1, 0.81, 0.45)
     local currentNotes = CreateLabel(panel,
-        "Quality of Life and Profiles, search, resize handles, and emblem alignment.",
+        "Tooltip settings: positioning, appearance, contents, and fonts.",
         "GameFontHighlightSmall")
     currentNotes:SetPoint("TOPLEFT", panel, "TOPLEFT", 22, -83)
     currentNotes:SetTextColor(0.92, 0.79, 0.65)
