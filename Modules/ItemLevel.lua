@@ -70,6 +70,9 @@ local function addLevel(guid, level, async)
     local unit = tooltipUnit()
     if not unit or guidOf(unit) ~= guid or hasLevelLine() then return end
     GameTooltip:AddLine(string.format("Item Level: %.1f", level), 1, 0.79, 0.43)
+    if async and addon.Tooltip and addon.Tooltip.EnsureHealthSpacer then
+        addon.Tooltip:EnsureHealthSpacer()
+    end
     -- A post-call runs during Blizzard's tooltip build. Calling Show() from
     -- there can recursively rebuild the tooltip and destabilize its layout.
     -- Only async inspect results need a guarded layout refresh.
