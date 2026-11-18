@@ -268,10 +268,11 @@ local function CreateTooltipPage()
     -- Reserve a separate strip outside the content panel for protruding tabs.
     main:ClearAllPoints()
     main:SetPoint("TOPLEFT", page, "TOPLEFT", 12, -100)
-    main:SetPoint("TOPRIGHT", page, "TOPRIGHT", -82, -100)
+    main:SetPoint("TOPRIGHT", page, "TOPRIGHT", -12, -100)
     -- Lueur-inspired vertical page selectors, outside the content panel.
     local tabBar = CreateFrame("Frame", nil, page)
-    tabBar:SetPoint("TOPLEFT", main, "TOPRIGHT", 9, -12)
+    tabBar:SetPoint("TOPLEFT", page, "TOPRIGHT", 5, -112)
+    tabBar:SetFrameStrata("DIALOG")
     tabBar:SetSize(54, 180)
 
     local function RefreshTabs()
@@ -292,7 +293,7 @@ local function CreateTooltipPage()
         local name, letter = entry[1], entry[2]
         local b = CreateFrame("Button", nil, tabBar)
         b:SetSize(44, 44)
-        b:SetPoint("TOPRIGHT", tabBar, "TOPRIGHT", -4, -((i-1)*52))
+        b:SetPoint("TOPLEFT", tabBar, "TOPLEFT", 0, -((i-1)*52))
         b.fill = b:CreateTexture(nil, "BACKGROUND")
         b.fill:SetAllPoints()
         b.border = b:CreateTexture(nil, "BORDER")
@@ -415,6 +416,15 @@ local function CreateTooltipPage()
         local track = slider:CreateTexture(nil, "BACKGROUND")
         track:SetPoint("LEFT"); track:SetPoint("RIGHT"); track:SetHeight(7)
         track:SetTexture(ASSET .. "Sliders\\Slider_Track.png")
+        local progress = slider:CreateTexture(nil, "ARTWORK")
+        progress:SetTexture("Interface\\Buttons\\WHITE8X8")
+        progress:SetVertexColor(0.94, 0.67, 0.25)
+        progress:SetHeight(3)
+        progress:SetPoint("LEFT", slider, "LEFT", 0, 0)
+        local function RefreshProgress(value)
+            local fraction = math.max(0, math.min(1, (value - min) / (max - min)))
+            progress:SetWidth(math.max(0.1, 115 * fraction))
+        end
         local thumb = slider:CreateTexture(nil, "OVERLAY")
         thumb:SetSize(24, 28)
         thumb:SetTexture(ASSET .. "Sliders\\Slider_Gem.png")
@@ -425,15 +435,17 @@ local function CreateTooltipPage()
             v = math.max(min, math.min(max, v))
             v = math.floor(v / step + 0.5) * step
             v = tonumber(string.format("%.3f", v))
-            setValue(v); slider:SetValue(v); edit:SetText(string.format("%g", v)); Update()
+            setValue(v); slider:SetValue(v); RefreshProgress(v); edit:SetText(string.format("%g", v)); Update()
         end
         slider:SetScript("OnValueChanged", function(_, value)
             local v = tonumber(string.format("%.3f", math.floor(value / step + 0.5) * step))
             setValue(v)
+            RefreshProgress(v)
             if not edit:HasFocus() then edit:SetText(string.format("%g", v)) end
             Update()
         end)
         slider:SetValue(getValue())
+        RefreshProgress(getValue())
         edit:SetText(string.format("%g", getValue()))
         edit:SetScript("OnEnterPressed", function(self)
             Commit((self:GetText() or ""):gsub(",", ".")); self:ClearFocus()
@@ -456,15 +468,41 @@ local function CreateTooltipPage()
             setValue(not not self:GetChecked()); Update()
         end)
     end
-    Choice(general, "ANCHOR POINT", -4, function() return db.anchor end,
-        function(v) db.anchor = v end, {{"corner", "Bottom Right"}, {"mouse", "Mouse Cursor"}})
     local anchorRow = Row(general, "EDIT ANCHOR POSITION", -54)
-    local editAnchor = CreateFrame("Button", nil, anchorRow)
-    editAnchor:SetSize(154, 23)
-    editAnchor:SetPoint("RIGHT", anchorRow, "RIGHT", -14, 0)
-    local anchorText = CreateLabel(editAnchor, "Edit Position", "GameFontNormal")
-    anchorText:SetPoint("CENTER")
-    editAnchor:SetScript("OnClick", function() addon.Tooltip:EditAnchor() end)
+    local editAnchor = CreateFrame("CheckButton", nil, anchorRow, "UICheckButtonTemplate")
+    editAnchor:SetSize(25, 25)
+    editAnchor:SetPoint("RIGHT", anchorRow, "RIGHT", -19, 0)
+    local anchorText = CreateLabel(anchorRow, "Edit Position", "GameFontHighlight")
+    anchorText:SetPoint("RIGHT", editAnchor, "LEFT", -8, 0)
+    local cursorChoice
+    local function RefreshAnchorMode()
+        local isMouse = db.anchor == "mouse"
+        editAnchor:SetShown(not isMouse)
+        anchorText:SetShown(not isMouse)
+        if isMouse then
+            if not cursorChoice then
+                cursorChoice = Choice(general, "CURSOR POSITION", -54,
+                    function() return db.cursorPosition or "BOTTOMRIGHT" end,
+                    function(v) db.cursorPosition = v end,
+                    {{"TOPLEFT", "Top Left"}, {"TOP", "Top"}, {"TOPRIGHT", "Top Right"},
+                     {"LEFT", "Left"}, {"RIGHT", "Right"},
+                     {"BOTTOMLEFT", "Bottom Left"}, {"BOTTOM", "Bottom"},
+                     {"BOTTOMRIGHT", "Bottom Right"}})
+            end
+            cursorChoice:Show()
+        elseif cursorChoice then
+            cursorChoice:Hide()
+        end
+        if isMouse and addon.Tooltip then addon.Tooltip:SetEditAnchor(false) end
+        if isMouse then editAnchor:SetChecked(false) end
+    end
+    Choice(general, "ANCHOR POINT", -4, function() return db.anchor end,
+        function(v) db.anchor = v; RefreshAnchorMode() end,
+        {{"corner", "Static"}, {"mouse", "Mouse Cursor"}})
+    editAnchor:SetScript("OnClick", function(self)
+        if addon.Tooltip then addon.Tooltip:SetEditAnchor(not not self:GetChecked()) end
+    end)
+    RefreshAnchorMode()
     Number(general, "SCALE", -104, function() return db.scale end,
         function(v) db.scale = v end, 0.5, 1.5, 0.01)
     Number(general, "FRAME OPACITY", -154, function() return db.opacity end,
