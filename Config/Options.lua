@@ -188,16 +188,19 @@ function addon.Options:Create()
     local EDGE_SIDE_OUTSET=8
     local BORDER_TEST_TILE=112
     local function TiledHorizontal(file, y, fromX, toX, height)
-        local count=math.ceil((toX-fromX)/BORDER_TEST_TILE)
+        -- The new seamless horizontal TGAs are 32px wide; the legacy
+        -- artwork was displayed as 112-unit tiles.
+        local tileLength=(file=="Edge_Top_Seamless.tga" or file=="Edge_Bottom_Seamless.tga") and 32 or BORDER_TEST_TILE
+        local count=math.ceil((toX-fromX)/tileLength)
         for i=0,count-1 do
-            local x=fromX+i*BORDER_TEST_TILE
-            local width=math.min(BORDER_TEST_TILE,toX-x)
+            local x=fromX+i*tileLength
+            local width=math.min(tileLength,toX-x)
             local t=frame:CreateTexture(nil,"OVERLAY",nil,0)
             t:SetTexture(BORDER_ASSET..file)
             t:SetPoint("TOPLEFT",frame,"TOPLEFT",x,y)
             t:SetSize(width,height)
-            -- Partial final tile: crop rather than squeeze.
-            t:SetTexCoord(0,width/BORDER_TEST_TILE,0,1)
+            -- Crop only the final partial tile, never stretch it.
+            t:SetTexCoord(0,width/tileLength,0,1)
         end
     end
     local function TiledVertical(file, x, topY, bottomY, width)
@@ -228,8 +231,8 @@ function addon.Options:Create()
     end
     -- Edges overlap corners by ~20 units; corners are drawn on top.
     -- The TGA vertical edges have only half their 32px width opaque.
-    TiledHorizontal("Edge_Top_Tile.tga",EDGE_TOP_OUTSET,50,1090,14)
-    TiledHorizontal("Edge_Bottom_Tile.tga",-740+EDGE_BOTTOM_OUTSET,50,1090,14)
+    TiledHorizontal("Edge_Top_Seamless.tga",EDGE_TOP_OUTSET,50,1090,10)
+    TiledHorizontal("Edge_Bottom_Seamless.tga",-740+EDGE_BOTTOM_OUTSET,50,1090,10)
     TiledVertical("Edge_Left_Seamless.tga",-EDGE_SIDE_OUTSET+2, -35,-705,6)
     TiledVertical("Edge_Right_Seamless.tga",1140-6, -35,-705,6)
     -- Footer and lower frame edge share one bottom-anchored container.
