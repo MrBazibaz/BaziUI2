@@ -69,7 +69,7 @@ end
 -- rebuild GameTooltip, unlike calling Show() after INSPECT_READY.
 local function ensureLevelRow(guid)
     if not tooltipEnabled() then return end
-    if levelGuid == guid and levelRow and levelRow:IsShown() then return levelRow end
+    if levelGuid == guid and levelRow then return levelRow end
     levelGuid = guid
     GameTooltip:AddLine(" ", 1, 0.79, 0.43)
     levelRow = _G["GameTooltipTextLeft" .. GameTooltip:NumLines()]
