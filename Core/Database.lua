@@ -7,6 +7,7 @@ local defaults = {
         uiScale = 1.0,
         fontSize = 14,
         font = "GameFontNormal",
+        qol = { characterItemLevel = false },
         tooltip = {
             enabled = true, anchor = "corner", x = -30, y = 130,
             scale = 1, opacity = 1, healthBar = "below",
