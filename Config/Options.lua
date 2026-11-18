@@ -220,9 +220,6 @@ local function CreateGeneralPage()
     CreateSlider(page, "FONT SIZE", "Default text size for supported modules", 10, 20, 1, db.fontSize, -204, function(value)
         db.fontSize = value
     end)
-    local note = CreateLabel(page, "Changes are saved automatically.", "GameFontHighlightSmall")
-    note:SetPoint("TOPLEFT", page, "TOPLEFT", 24, -352)
-    note:SetTextColor(0.90, 0.76, 0.55, 1)
     return page
 end
 
@@ -244,196 +241,246 @@ local function CreatePlaceholderPage(name, description)
 end
 
 
+
 local function CreateTooltipPage()
     local page = CreateFrame("Frame", nil, contentFrame)
     page:SetAllPoints(contentFrame)
     pages.Tooltip = page
     local db = addon.db.profile.tooltip
-    local scroll = CreateFrame("ScrollFrame", nil, page)
-    scroll:SetPoint("TOPLEFT", page, "TOPLEFT", 0, -2)
-    scroll:SetPoint("BOTTOMRIGHT", page, "BOTTOMRIGHT", -13, 2)
-    scroll:EnableMouseWheel(true)
-    local body = CreateFrame("Frame", nil, scroll)
-    body:SetSize(600, 1030)
-    scroll:SetScrollChild(body)
-    local bar = CreateFrame("Slider", nil, page)
-    bar:SetOrientation("VERTICAL")
-    bar:SetWidth(8)
-    bar:SetPoint("TOPRIGHT", page, "TOPRIGHT", -2, -12)
-    bar:SetPoint("BOTTOMRIGHT", page, "BOTTOMRIGHT", -2, 12)
-    bar:SetMinMaxValues(0, 600)
-    bar:SetValueStep(24)
-    local thumb = bar:CreateTexture(nil, "OVERLAY")
-    thumb:SetSize(8, 44)
-    thumb:SetColorTexture(0.84, 0.62, 0.32)
-    bar:SetThumbTexture(thumb)
-    local function RefreshScroll()
-        body:SetWidth(math.max(300, scroll:GetWidth()))
-        local max = math.max(0, body:GetHeight() - scroll:GetHeight())
-        bar:SetMinMaxValues(0, max)
-        bar:SetShown(max > 0)
-        if bar:GetValue() > max then bar:SetValue(max) end
-    end
-    bar:SetScript("OnValueChanged", function(_, v) scroll:SetVerticalScroll(v) end)
-    scroll:SetScript("OnMouseWheel", function(_, delta)
-        bar:SetValue(math.max(0, bar:GetValue() - delta * 45))
-    end)
-    scroll:SetScript("OnSizeChanged", RefreshScroll)
+    local activeTab = "General"
+    local tabButtons = {}
+    local tabPanels = {}
 
-    local y = -8
-    local function Heading(text)
-        local h = CreateLabel(body, text, "GameFontNormalLarge")
-        h:SetPoint("TOPLEFT", body, "TOPLEFT", 20, y)
-        h:SetTextColor(1, 0.79, 0.42)
-        y = y - 36
-    end
-    local function Changed(key, value)
-        db[key] = value
+    local headingPanel = CreatePanel(page, -8, 76)
+    CreateSection(headingPanel, "TOOLTIP", -12)
+    local enabled = CreateFrame("CheckButton", nil, headingPanel, "UICheckButtonTemplate")
+    enabled:SetSize(25, 25)
+    enabled:SetPoint("TOPLEFT", headingPanel, "TOPLEFT", 16, -41)
+    enabled:SetChecked(db.enabled)
+    local enabledLabel = CreateLabel(headingPanel, "Enable Tooltip", "GameFontHighlight")
+    enabledLabel:SetPoint("LEFT", enabled, "RIGHT", 5, 0)
+    enabled:SetScript("OnClick", function(self)
+        db.enabled = not not self:GetChecked()
         if addon.Tooltip then addon.Tooltip:Apply() end
+    end)
+
+    local main = CreatePanel(page, -100, 400)
+    local tabBar = CreateFrame("Frame", nil, main)
+    tabBar:SetPoint("TOPRIGHT", main, "TOPRIGHT", -12, -12)
+    tabBar:SetSize(278, 27)
+
+    local function RefreshTabs()
+        for name, button in pairs(tabButtons) do
+            button.fill:SetColorTexture(name == activeTab and 0.43 or 0.18,
+                name == activeTab and 0.22 or 0.105,
+                name == activeTab and 0.34 or 0.055, 1)
+            button.label:SetTextColor(name == activeTab and 1 or 0.85, name == activeTab and 0.81 or 0.68, 0.47)
+        end
+        for name, panel in pairs(tabPanels) do panel:SetShown(name == activeTab) end
     end
-    local function Check(text, key)
-        local b = CreateFrame("CheckButton", nil, body, "UICheckButtonTemplate")
-        b:SetSize(26, 26)
-        b:SetPoint("TOPLEFT", body, "TOPLEFT", 17, y + 4)
-        b:SetChecked(db[key])
-        local label = CreateLabel(body, text, "GameFontHighlight")
-        label:SetPoint("LEFT", b, "RIGHT", 6, 0)
-        b:SetScript("OnClick", function(self) Changed(key, self:GetChecked()) end)
-        y = y - 32
+    for i, name in ipairs({"General", "Contents", "Fonts"}) do
+        local b = CreateFrame("Button", nil, tabBar)
+        b:SetSize(88, 25)
+        b:SetPoint("TOPRIGHT", tabBar, "TOPRIGHT", -(3-i)*94, 0)
+        b.fill = b:CreateTexture(nil, "BACKGROUND")
+        b.fill:SetAllPoints()
+        b.label = CreateLabel(b, name, "GameFontNormal")
+        b.label:SetPoint("CENTER")
+        local border = b:CreateTexture(nil, "BORDER")
+        border:SetPoint("BOTTOMLEFT"); border:SetPoint("BOTTOMRIGHT"); border:SetHeight(1)
+        border:SetColorTexture(0.75, 0.55, 0.29, 0.9)
+        b:SetScript("OnClick", function() activeTab = name; RefreshTabs() end)
+        tabButtons[name] = b
     end
-    local function Choice(text, key, choices)
-        local label = CreateLabel(body, text, "GameFontHighlight")
-        label:SetPoint("TOPLEFT", body, "TOPLEFT", 22, y)
-        local b = CreateFrame("Button", nil, body, "UIPanelButtonTemplate")
-        b:SetSize(168, 24)
-        b:SetPoint("TOPRIGHT", body, "TOPRIGHT", -24, y + 5)
+    local function NewTab(name)
+        local panel = CreateFrame("Frame", nil, main)
+        panel:SetPoint("TOPLEFT", main, "TOPLEFT", 10, -48)
+        panel:SetPoint("BOTTOMRIGHT", main, "BOTTOMRIGHT", -10, 10)
+        tabPanels[name] = panel
+        return panel
+    end
+    local general = NewTab("General")
+    local contents = NewTab("Contents")
+    local fonts = NewTab("Fonts")
+
+    local function Row(parent, text, y, description)
+        local row = CreateFrame("Frame", nil, parent)
+        row:SetPoint("TOPLEFT", parent, "TOPLEFT", 0, y)
+        row:SetPoint("TOPRIGHT", parent, "TOPRIGHT", 0, y)
+        row:SetHeight(description and 55 or 42)
+        local fill = row:CreateTexture(nil, "BACKGROUND")
+        fill:SetAllPoints()
+        fill:SetColorTexture(0.25, 0.125, 0.055, 0.90)
+        local label = CreateLabel(row, text, "GameFontNormal")
+        label:SetPoint("TOPLEFT", row, "TOPLEFT", 14, description and -10 or -12)
+        label:SetTextColor(1, 0.78, 0.39)
+        if description then
+            local hint = CreateLabel(row, description, "GameFontHighlightSmall")
+            hint:SetPoint("TOPLEFT", row, "TOPLEFT", 14, -30)
+            hint:SetTextColor(0.91, 0.78, 0.61)
+        end
+        return row
+    end
+    local function Update() if addon.Tooltip then addon.Tooltip:Apply() end end
+    local function Choice(parent, text, y, getValue, setValue, choices)
+        local row = Row(parent, text, y)
+        local button = CreateFrame("Button", nil, row)
+        button:SetSize(154, 23)
+        button:SetPoint("RIGHT", row, "RIGHT", -14, 0)
+        local fill = button:CreateTexture(nil, "BACKGROUND")
+        fill:SetAllPoints()
+        fill:SetColorTexture(0.12, 0.07, 0.045, 1)
+        local border = button:CreateTexture(nil, "BORDER")
+        border:SetPoint("TOPLEFT"); border:SetPoint("TOPRIGHT"); border:SetHeight(1)
+        border:SetColorTexture(0.75, 0.55, 0.29)
+        local label = CreateLabel(button, "", "GameFontNormal")
+        label:SetPoint("CENTER", button, "CENTER", -5, 0)
+        local arrow = CreateLabel(button, "v", "GameFontHighlightSmall")
+        arrow:SetPoint("RIGHT", button, "RIGHT", -5, 0)
+        local menu = CreateFrame("Frame", nil, button)
+        menu:SetFrameStrata("FULLSCREEN_DIALOG")
+        menu:SetFrameLevel(button:GetFrameLevel() + 20)
+        menu:SetPoint("TOPRIGHT", button, "BOTTOMRIGHT", 0, -2)
+        menu:SetSize(154, #choices * 24 + 4)
+        local bg = menu:CreateTexture(nil, "BACKGROUND")
+        bg:SetAllPoints()
+        bg:SetColorTexture(0.12, 0.07, 0.045, 1)
         local function Display()
-            for _, entry in ipairs(choices) do
-                if entry[1] == db[key] then b:SetText(entry[2]); return end
+            for _, choice in ipairs(choices) do
+                if choice[1] == getValue() then label:SetText(choice[2]); return end
             end
-            b:SetText("?")
+            label:SetText("Select...")
         end
-        Display()
-        b:SetScript("OnClick", function()
-            local nextIndex = 1
-            for i, entry in ipairs(choices) do
-                if entry[1] == db[key] then nextIndex = i % #choices + 1; break end
-            end
-            Changed(key, choices[nextIndex][1])
-            Display()
-        end)
-        y = y - 37
-    end
-    local function Range(text, key, low, high, step)
-        local label = CreateLabel(body, text, "GameFontHighlight")
-        label:SetPoint("TOPLEFT", body, "TOPLEFT", 22, y)
-        local val = CreateLabel(body, "", "GameFontNormal")
-        val:SetPoint("TOPRIGHT", body, "TOPRIGHT", -24, y)
-        local slider = CreateFrame("Slider", nil, body, "OptionsSliderTemplate")
-        slider:SetSize(175, 16)
-        slider:SetPoint("TOPRIGHT", body, "TOPRIGHT", -70, y + 2)
-        slider:SetMinMaxValues(low, high)
-        slider:SetValueStep(step)
-        slider:SetObeyStepOnDrag(true)
-        slider:SetValue(db[key])
-        local function Display(v) val:SetText(string.format("%.2g", v)) end
-        Display(db[key])
-        slider:SetScript("OnValueChanged", function(_, raw)
-            local v = math.floor(raw / step + 0.5) * step
-            Changed(key, v)
-            Display(v)
-        end)
-        y = y - 37
-    end
-    local function FontRow(text, field)
-        local conf = db[field]
-        local label = CreateLabel(body, text, "GameFontNormal")
-        label:SetPoint("TOPLEFT", body, "TOPLEFT", 22, y)
-        label:SetTextColor(1, 0.79, 0.42)
-        y = y - 30
-        local function FontChoice(title, fieldKey, choices)
-            local label2 = CreateLabel(body, title, "GameFontHighlightSmall")
-            label2:SetPoint("TOPLEFT", body, "TOPLEFT", 28, y)
-            local button = CreateFrame("Button", nil, body, "UIPanelButtonTemplate")
-            button:SetSize(155, 23)
-            button:SetPoint("TOPRIGHT", body, "TOPRIGHT", -26, y + 5)
-            local function Display()
-                for _, item in ipairs(choices) do
-                    if conf[fieldKey] == item[1] then button:SetText(item[2]); return end
-                end
-            end
-            Display()
-            button:SetScript("OnClick", function()
-                for i, item in ipairs(choices) do
-                    if item[1] == conf[fieldKey] then
-                        conf[fieldKey] = choices[i % #choices + 1][1]
-                        break
-                    end
-                end
-                Display()
-                addon.Tooltip:Apply()
+        for i, choice in ipairs(choices) do
+            local option = CreateFrame("Button", nil, menu)
+            option:SetPoint("TOPLEFT", menu, "TOPLEFT", 2, -2 - (i-1)*24)
+            option:SetPoint("TOPRIGHT", menu, "TOPRIGHT", -2, -2 - (i-1)*24)
+            option:SetHeight(24)
+            local t = CreateLabel(option, choice[2], "GameFontHighlightSmall")
+            t:SetPoint("LEFT", option, "LEFT", 8, 0)
+            option:SetScript("OnEnter", function() t:SetTextColor(1, 0.78, 0.39) end)
+            option:SetScript("OnLeave", function() t:SetTextColor(1, 1, 1) end)
+            option:SetScript("OnClick", function()
+                setValue(choice[1]); Display(); menu:Hide(); Update()
             end)
-            y = y - 32
         end
-        FontChoice("Font", "font", {{"FRIZQT", "Friz Quadrata"}, {"ARIAL", "Arial Narrow"}, {"MORPHEUS", "Morpheus"}})
-        FontChoice("Outline", "outline", {{"NONE", "None"}, {"OUTLINE", "Outline"}, {"THICKOUTLINE", "Thick Outline"}})
-        local size = CreateLabel(body, "Size", "GameFontHighlightSmall")
-        size:SetPoint("TOPLEFT", body, "TOPLEFT", 28, y)
-        local edit = CreateFrame("EditBox", nil, body, "InputBoxTemplate")
-        edit:SetSize(45, 20)
-        edit:SetPoint("TOPRIGHT", body, "TOPRIGHT", -31, y + 5)
+        menu:Hide()
+        button:SetScript("OnClick", function() menu:SetShown(not menu:IsShown()) end)
+        Display()
+        return row
+    end
+    local function Number(parent, text, y, getValue, setValue, min, max, step)
+        local row = Row(parent, text, y)
+        local edit = CreateFrame("EditBox", nil, row)
+        edit:SetSize(42, 20)
+        edit:SetPoint("RIGHT", row, "RIGHT", -14, 0)
         edit:SetAutoFocus(false)
-        edit:SetNumeric(true)
-        edit:SetText(tostring(conf.size))
-        edit:SetScript("OnEnterPressed", function(self)
-            local n = tonumber(self:GetText())
-            if n then conf.size = math.max(8, math.min(30, n)); addon.Tooltip:Apply() end
-            self:SetText(tostring(conf.size)); self:ClearFocus()
+        edit:SetFontObject("GameFontNormal")
+        edit:SetTextColor(1, 0.81, 0.45)
+        edit:SetJustifyH("CENTER")
+        local bg = edit:CreateTexture(nil, "BACKGROUND")
+        bg:SetAllPoints()
+        bg:SetColorTexture(0.12, 0.07, 0.045, 1)
+        local slider = CreateFrame("Slider", nil, row)
+        slider:SetOrientation("HORIZONTAL")
+        slider:SetSize(115, 18)
+        slider:SetPoint("RIGHT", edit, "LEFT", -10, 0)
+        slider:SetMinMaxValues(min, max)
+        slider:SetValueStep(step)
+        local track = slider:CreateTexture(nil, "BACKGROUND")
+        track:SetPoint("LEFT"); track:SetPoint("RIGHT"); track:SetHeight(7)
+        track:SetTexture(ASSET .. "Sliders\\Slider_Track.png")
+        local thumb = slider:CreateTexture(nil, "OVERLAY")
+        thumb:SetSize(24, 28)
+        thumb:SetTexture(ASSET .. "Sliders\\Slider_Gem.png")
+        slider:SetThumbTexture(thumb)
+        local function Commit(v)
+            v = tonumber(v)
+            if not v then v = getValue() end
+            v = math.max(min, math.min(max, v))
+            v = math.floor(v / step + 0.5) * step
+            v = tonumber(string.format("%.3f", v))
+            setValue(v); slider:SetValue(v); edit:SetText(string.format("%g", v)); Update()
+        end
+        slider:SetScript("OnValueChanged", function(_, value)
+            local v = tonumber(string.format("%.3f", math.floor(value / step + 0.5) * step))
+            setValue(v)
+            if not edit:HasFocus() then edit:SetText(string.format("%g", v)) end
+            Update()
         end)
-        edit:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
-        y = y - 32
-        local shadow = CreateFrame("CheckButton", nil, body, "UICheckButtonTemplate")
-        shadow:SetSize(24, 24)
-        shadow:SetPoint("TOPLEFT", body, "TOPLEFT", 25, y + 4)
-        shadow:SetChecked(conf.shadow)
-        local shadowText = CreateLabel(body, "Shadow", "GameFontHighlightSmall")
-        shadowText:SetPoint("LEFT", shadow, "RIGHT", 6, 0)
-        shadow:SetScript("OnClick", function(self) conf.shadow = self:GetChecked(); addon.Tooltip:Apply() end)
-        y = y - 43
+        slider:SetValue(getValue())
+        edit:SetText(string.format("%g", getValue()))
+        edit:SetScript("OnEnterPressed", function(self)
+            Commit((self:GetText() or ""):gsub(",", ".")); self:ClearFocus()
+        end)
+        edit:SetScript("OnEscapePressed", function(self)
+            self:SetText(string.format("%g", getValue())); self:ClearFocus()
+        end)
+        edit:SetScript("OnEditFocusLost", function(self)
+            Commit((self:GetText() or ""):gsub(",", "."))
+        end)
+        return row
+    end
+    local function Check(parent, text, y, getValue, setValue)
+        local row = Row(parent, text, y)
+        local b = CreateFrame("CheckButton", nil, row, "UICheckButtonTemplate")
+        b:SetSize(25, 25)
+        b:SetPoint("RIGHT", row, "RIGHT", -19, 0)
+        b:SetChecked(getValue())
+        b:SetScript("OnClick", function(self)
+            setValue(not not self:GetChecked()); Update()
+        end)
+    end
+    Choice(general, "ANCHOR POINT", -4, function() return db.anchor end,
+        function(v) db.anchor = v end, {{"corner", "Bottom Right"}, {"mouse", "Mouse Cursor"}})
+    local anchorRow = Row(general, "EDIT ANCHOR POSITION", -54)
+    local editAnchor = CreateFrame("Button", nil, anchorRow)
+    editAnchor:SetSize(154, 23)
+    editAnchor:SetPoint("RIGHT", anchorRow, "RIGHT", -14, 0)
+    local anchorText = CreateLabel(editAnchor, "Edit Position", "GameFontNormal")
+    anchorText:SetPoint("CENTER")
+    editAnchor:SetScript("OnClick", function() addon.Tooltip:EditAnchor() end)
+    Number(general, "SCALE", -104, function() return db.scale end,
+        function(v) db.scale = v end, 0.5, 1.5, 0.01)
+    Number(general, "FRAME OPACITY", -154, function() return db.opacity end,
+        function(v) db.opacity = v end, 0.1, 1, 0.01)
+
+    local contentOptions = {
+        {"HEALTH BAR", "healthBar", {{"off", "Off"}, {"below", "Below"}, {"insideTop", "Inside Top"}, {"insideBottom", "Inside Bottom"}, {"above", "Above"}}},
+        {"GUILD NAME", "guild"}, {"THREAT", "threat"}, {"SHOW IDS", "ids"},
+        {"SHOW ITEM LEVEL", "itemLevel"}, {"CLASS COLORED NAMES", "classNames"},
+        {"SHOW TARGET'S TARGET", "targetTarget"}, {"HIDE FACTION", "hideFaction"}
+    }
+    for i, entry in ipairs(contentOptions) do
+        local key = entry[2]
+        local y = -4 - (i-1)*43
+        if entry[3] then
+            Choice(contents, entry[1], y, function() return db[key] end,
+                function(v) db[key] = v end, entry[3])
+        else
+            Check(contents, entry[1], y, function() return db[key] end,
+                function(v) db[key] = v end)
+        end
     end
 
-    Heading("TOOLTIP")
-    Check("Enable Tooltip", "enabled")
-    Heading("POSITION & APPEARANCE")
-    Choice("Anchor Point", "anchor", {{"corner", "Bottom Right"}, {"mouse", "Mouse Cursor"}})
-    local edit = CreateFrame("Button", nil, body, "UIPanelButtonTemplate")
-    edit:SetSize(160, 24)
-    edit:SetPoint("TOPLEFT", body, "TOPLEFT", 22, y)
-    edit:SetText("Edit Anchor Position")
-    edit:SetScript("OnClick", function() addon.Tooltip:EditAnchor() end)
-    y = y - 35
-    Range("Scale", "scale", 0.5, 1.5, 0.05)
-    Range("Frame Opacity", "opacity", 0.1, 1, 0.05)
-    Heading("CONTENTS")
-    Choice("Health Bar", "healthBar", {
-        {"off", "Off"}, {"below", "Below"}, {"insideTop", "Inside Top"},
-        {"insideBottom", "Inside Bottom"}, {"above", "Above"}
-    })
-    Check("Guild Name", "guild")
-    Check("Threat", "threat")
-    Check("Show IDs", "ids")
-    Check("Show Item Level", "itemLevel")
-    Check("Class Colored Names", "classNames")
-    Check("Show Target's Target", "targetTarget")
-    Check("Hide Faction", "hideFaction")
-    Heading("FONTS")
-    FontRow("TITLE TEXT", "titleFont")
-    FontRow("BODY TEXT", "textFont")
-    local note = CreateLabel(body, "Changes are saved automatically.", "GameFontHighlightSmall")
-    note:SetPoint("TOPLEFT", body, "TOPLEFT", 22, y)
-    y = y - 30
-    body:SetHeight(math.max(100, -y + 20))
-    RefreshScroll()
+    local function FontGroup(config, offset, title)
+        local titleLabel = CreateLabel(fonts, title, "GameFontNormalLarge")
+        titleLabel:SetPoint("TOPLEFT", fonts, "TOPLEFT", 14, offset)
+        titleLabel:SetTextColor(1, 0.79, 0.42)
+        Choice(fonts, "FONT", offset-30, function() return config.font end,
+            function(v) config.font = v end,
+            {{"FRIZQT", "Friz Quadrata"}, {"ARIAL", "Arial Narrow"}, {"MORPHEUS", "Morpheus"}})
+        Choice(fonts, "OUTLINE", offset-78, function() return config.outline end,
+            function(v) config.outline = v end,
+            {{"NONE", "None"}, {"OUTLINE", "Outline"}, {"THICKOUTLINE", "Thick Outline"}})
+        Number(fonts, "SIZE", offset-126, function() return config.size end,
+            function(v) config.size = v end, 8, 30, 1)
+        Check(fonts, "SHADOW", offset-174, function() return config.shadow end,
+            function(v) config.shadow = v end)
+    end
+    FontGroup(db.titleFont, -4, "TITLE TEXT")
+    FontGroup(db.textFont, -224, "BODY TEXT")
+    RefreshTabs()
     return page
 end
 
