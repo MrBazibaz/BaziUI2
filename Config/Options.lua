@@ -269,10 +269,12 @@ local function CreateTooltipPage()
     main:ClearAllPoints()
     main:SetPoint("TOPLEFT", page, "TOPLEFT", 12, -100)
     main:SetPoint("TOPRIGHT", page, "TOPRIGHT", -12, -100)
+    main:SetPoint("BOTTOM", page, "BOTTOM", 0, 0)
+    if main.SetClipsChildren then main:SetClipsChildren(true) end
     -- Lueur-inspired vertical page selectors, outside the content panel.
     local tabBar = CreateFrame("Frame", nil, page)
     tabBar:SetPoint("TOPLEFT", optionsFrame, "TOPRIGHT", 8, -112)
-    tabBar:SetFrameStrata("TOOLTIP")
+    tabBar:SetFrameStrata("FULLSCREEN_DIALOG")
     tabBar:SetSize(54, 180)
 
     local function RefreshTabs()
@@ -296,6 +298,13 @@ local function CreateTooltipPage()
         b:SetPoint("TOPLEFT", tabBar, "TOPLEFT", 0, -((i-1)*52))
         b.fill = b:CreateTexture(nil, "BACKGROUND")
         b.fill:SetAllPoints()
+        -- Bronze NineSlice frame matching the main Bazi UI window.
+        local rim = CreateFrame("Frame", nil, b, "NineSlicePanelTemplate")
+        rim:SetAllPoints(b)
+        rim:SetFrameLevel(b:GetFrameLevel() + 1)
+        if NineSliceUtil and NineSliceUtil.ApplyLayoutByName then
+            pcall(NineSliceUtil.ApplyLayoutByName, rim, "Dialog")
+        end
         b.border = b:CreateTexture(nil, "BORDER")
         b.border:SetPoint("TOPLEFT"); b.border:SetPoint("TOPRIGHT"); b.border:SetHeight(2)
         local bottom = b:CreateTexture(nil, "BORDER")
@@ -319,10 +328,25 @@ local function CreateTooltipPage()
         tabButtons[name] = b
     end
     local function NewTab(name)
-        local panel = CreateFrame("Frame", nil, main)
-        panel:SetPoint("TOPLEFT", main, "TOPLEFT", 10, -12)
-        panel:SetPoint("BOTTOMRIGHT", main, "BOTTOMRIGHT", -10, 10)
-        tabPanels[name] = panel
+        local viewport = CreateFrame("ScrollFrame", nil, main)
+        viewport:SetPoint("TOPLEFT", main, "TOPLEFT", 10, -12)
+        viewport:SetPoint("BOTTOMRIGHT", main, "BOTTOMRIGHT", -10, 10)
+        if viewport.SetClipsChildren then viewport:SetClipsChildren(true) end
+        viewport:EnableMouseWheel(true)
+        local panel = CreateFrame("Frame", nil, viewport)
+        panel:SetHeight(name == "Contents" and 420 or 390)
+        panel:SetWidth(math.max(1, viewport:GetWidth()))
+        viewport:SetScrollChild(panel)
+        viewport:SetScript("OnSizeChanged", function(self)
+            panel:SetWidth(math.max(1, self:GetWidth()))
+            local limit = math.max(0, panel:GetHeight() - self:GetHeight())
+            self:SetVerticalScroll(math.min(self:GetVerticalScroll(), limit))
+        end)
+        viewport:SetScript("OnMouseWheel", function(self, delta)
+            local limit = math.max(0, panel:GetHeight() - self:GetHeight())
+            self:SetVerticalScroll(math.max(0, math.min(limit, self:GetVerticalScroll() - delta * 36)))
+        end)
+        tabPanels[name] = viewport
         return panel
     end
     local general = NewTab("General")
@@ -828,7 +852,7 @@ function addon.Options:Create()
     nav:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", 12, -49)
     local navBackground = nav:CreateTexture(nil, "BACKGROUND")
     navBackground:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", 2, -55)
-    navBackground:SetPoint("BOTTOMRIGHT", optionsFrame, "BOTTOMLEFT", 190, 8)
+    navBackground:SetPoint("BOTTOMRIGHT", optionsFrame, "BOTTOMLEFT", 190, 12)
     navBackground:SetColorTexture(0.105, 0.063, 0.038, 0.96)
     nav:SetWidth(180)
     nav:SetPoint("BOTTOMLEFT", optionsFrame, "BOTTOMLEFT", 12, 22)
@@ -887,7 +911,7 @@ function addon.Options:Create()
     separator:SetColorTexture(0.72, 0.49, 0.25, 0.65)
     separator:SetWidth(1)
     separator:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", 190, -55)
-    separator:SetPoint("BOTTOMLEFT", optionsFrame, "BOTTOMLEFT", 190, 8)
+    separator:SetPoint("BOTTOMLEFT", optionsFrame, "BOTTOMLEFT", 190, 12)
 
     -- Scrollable categories, with a fixed footer and search box.
     local scrollFrame = CreateFrame("ScrollFrame", nil, nav)
