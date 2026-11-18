@@ -271,77 +271,57 @@ local function CreateTooltipPage()
     main:SetPoint("TOPRIGHT", page, "TOPRIGHT", -12, -100)
     main:SetPoint("BOTTOM", page, "BOTTOM", 0, 0)
     if main.SetClipsChildren then main:SetClipsChildren(true) end
-    -- Lueur-inspired vertical page selectors, outside the content panel.
+    -- Text tabs use the same bronze borders and plum selection as categories.
     local tabBar = CreateFrame("Frame", nil, page)
     tabBar:SetPoint("TOPLEFT", optionsFrame, "TOPRIGHT", 8, -112)
     tabBar:SetFrameStrata("FULLSCREEN_DIALOG")
-    tabBar:SetSize(54, 180)
+    tabBar:SetSize(108, 132)
 
     local function RefreshTabs()
         for name, button in pairs(tabButtons) do
             local selected = name == activeTab
-            button.fill:SetColorTexture(selected and 0.43 or 0.16,
-                selected and 0.22 or 0.095,
-                selected and 0.34 or 0.06, 1)
-            button.label:SetTextColor(selected and 1 or 0.76,
-                selected and 0.85 or 0.65, selected and 0.48 or 0.42)
-            button.border:SetColorTexture(selected and 1 or 0.48,
-                selected and 0.77 or 0.35, selected and 0.39 or 0.21, 1)
+            button.fill:SetColorTexture(selected and 0.34 or 0.23,
+                selected and 0.17 or 0.12, selected and 0.25 or 0.07, 0.98)
+            button.label:SetTextColor(selected and 1 or 0.95,
+                selected and 0.85 or 0.80, selected and 0.55 or 0.66)
+            for _, edge in ipairs(button.edges) do
+                edge:SetColorTexture(selected and 0.83 or 0.54,
+                    selected and 0.63 or 0.37, selected and 0.30 or 0.20, 0.95)
+            end
         end
         for name, panel in pairs(tabPanels) do panel:SetShown(name == activeTab) end
     end
 
-    for i, entry in ipairs({{"General", "G"}, {"Contents", "C"}, {"Fonts", "F"}}) do
-        local name, letter = entry[1], entry[2]
+    for i, name in ipairs({"General", "Contents", "Fonts"}) do
         local b = CreateFrame("Button", nil, tabBar)
-        b:SetSize(44, 44)
-        b:SetPoint("TOPLEFT", tabBar, "TOPLEFT", 0, -((i-1)*52))
+        b:SetSize(108, 34)
+        b:SetPoint("TOPLEFT", tabBar, "TOPLEFT", 0, -((i - 1) * 35))
         b.fill = b:CreateTexture(nil, "BACKGROUND")
         b.fill:SetAllPoints()
-        -- Bronze NineSlice frame matching the main Bazi UI window.
-        -- Bronze beveled trim, without depending on a client-specific template.
-        local rimTop = b:CreateTexture(nil, "OVERLAY")
-        rimTop:SetTexture("Interface\\Buttons\\WHITE8X8")
-        rimTop:SetVertexColor(0.88, 0.69, 0.39)
-        rimTop:SetPoint("TOPLEFT", b, "TOPLEFT", 1, -1)
-        rimTop:SetPoint("TOPRIGHT", b, "TOPRIGHT", -1, -1)
-        rimTop:SetHeight(3)
-        local rimBottom = b:CreateTexture(nil, "OVERLAY")
-        rimBottom:SetTexture("Interface\\Buttons\\WHITE8X8")
-        rimBottom:SetVertexColor(0.38, 0.23, 0.11)
-        rimBottom:SetPoint("BOTTOMLEFT", b, "BOTTOMLEFT", 1, 1)
-        rimBottom:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", -1, 1)
-        rimBottom:SetHeight(3)
-        for _, side in ipairs({"LEFT", "RIGHT"}) do
+        b.edges = {}
+        for _, side in ipairs({"TOP", "BOTTOM", "LEFT", "RIGHT"}) do
             local edge = b:CreateTexture(nil, "OVERLAY")
-            edge:SetTexture("Interface\\Buttons\\WHITE8X8")
-            edge:SetVertexColor(0.68, 0.48, 0.25)
-            edge:SetWidth(3)
-            edge:SetPoint("TOP" .. side, b, "TOP" .. side, 0, -1)
-            edge:SetPoint("BOTTOM" .. side, b, "BOTTOM" .. side, 0, 1)
+            if side == "TOP" then
+                edge:SetPoint("TOPLEFT"); edge:SetPoint("TOPRIGHT"); edge:SetHeight(1)
+            elseif side == "BOTTOM" then
+                edge:SetPoint("BOTTOMLEFT"); edge:SetPoint("BOTTOMRIGHT"); edge:SetHeight(1)
+            elseif side == "LEFT" then
+                edge:SetPoint("TOPLEFT"); edge:SetPoint("BOTTOMLEFT"); edge:SetWidth(1)
+            else
+                edge:SetPoint("TOPRIGHT"); edge:SetPoint("BOTTOMRIGHT"); edge:SetWidth(1)
+            end
+            b.edges[#b.edges + 1] = edge
         end
-        b.border = b:CreateTexture(nil, "BORDER")
-        b.border:SetPoint("TOPLEFT"); b.border:SetPoint("TOPRIGHT"); b.border:SetHeight(2)
-        local bottom = b:CreateTexture(nil, "BORDER")
-        bottom:SetPoint("BOTTOMLEFT"); bottom:SetPoint("BOTTOMRIGHT"); bottom:SetHeight(2)
-        bottom:SetColorTexture(0.65, 0.46, 0.25, 1)
-        local left = b:CreateTexture(nil, "BORDER")
-        left:SetPoint("TOPLEFT"); left:SetPoint("BOTTOMLEFT"); left:SetWidth(2)
-        left:SetColorTexture(0.65, 0.46, 0.25, 1)
-        local right = b:CreateTexture(nil, "BORDER")
-        right:SetPoint("TOPRIGHT"); right:SetPoint("BOTTOMRIGHT"); right:SetWidth(2)
-        right:SetColorTexture(0.65, 0.46, 0.25, 1)
-        b.label = CreateLabel(b, letter, "GameFontNormalLarge")
-        b.label:SetPoint("CENTER")
+        b.label = CreateLabel(b, name, "GameFontNormal")
+        b.label:SetPoint("LEFT", b, "LEFT", 12, 0)
         b:SetScript("OnClick", function() activeTab = name; RefreshTabs() end)
-        b:SetScript("OnEnter", function(self)
-            GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-            GameTooltip:SetText(name, 1, 0.81, 0.45)
-            GameTooltip:Show()
+        b:SetScript("OnEnter", function()
+            if activeTab ~= name then b.fill:SetColorTexture(0.28, 0.15, 0.085, 0.98) end
         end)
-        b:SetScript("OnLeave", function() GameTooltip:Hide() end)
+        b:SetScript("OnLeave", RefreshTabs)
         tabButtons[name] = b
     end
+
     local function NewTab(name)
         local viewport = CreateFrame("ScrollFrame", nil, main)
         viewport:SetPoint("TOPLEFT", main, "TOPLEFT", 10, -12)
