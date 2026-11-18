@@ -3,7 +3,7 @@
 -- No dependency on Bazi UI's old tooltip engine or health bar.
 local function TooltipEnabled()
   local db=BaziUI and BaziUI.db and BaziUI.db.profile and BaziUI.db.profile.tooltip
-  return not db or db.enabled ~= false
+  return not db or (db.enabled ~= false and db.itemLevel ~= false)
 end
 local addon = BaziUI
 local shared = _G.BaziIlvlShared or {}
