@@ -65,6 +65,7 @@ end
 -- Reapply only on mode changes; never accumulate tooltip padding.
 local insideMode, insideTipHeight, insideFirstAnchor
 local insideBottomPadded = false
+local insideBottomExtraHeight = 0
 local healthMode
 -- Keep Blizzard's bar transparent while our overlay is active. Blizzard can
 -- reapply alpha when changing units, so verify the state rather than caching it.
@@ -80,6 +81,10 @@ local function SetNativeBarHidden(hidden)
     end
 end
 local function ResetInsideSpacing()
+    if insideBottomExtraHeight > 0 then
+        tip:SetHeight(math.max(1, tip:GetHeight() - insideBottomExtraHeight))
+        insideBottomExtraHeight = 0
+    end
     if insideBottomPadded then
         if tip.SetPadding then pcall(tip.SetPadding, tip, 0, 0) end
         insideBottomPadded = false
@@ -104,7 +109,7 @@ local function ApplyInsideSpacing(mode, native)
         -- Reserve bottom space INSIDE the native tooltip frame, so the gold
         -- backdrop extends beneath the bar rather than the bar protruding.
         if tip.SetPadding then
-            local ok = pcall(tip.SetPadding, tip, 0, 9)
+            local ok = pcall(tip.SetPadding, tip, 0, 12)
             if ok then insideBottomPadded = true end
         end
         return
@@ -182,8 +187,31 @@ local function UpdateHealth()
             if mode == "insideTop" then
                 health:SetPoint("TOPLEFT", tip, "TOPLEFT", inset, -10)
             else
-                health:SetPoint("BOTTOMLEFT", tip, "BOTTOMLEFT", inset, 5)
+                local lastLine
+                for i = tip:NumLines(), 1, -1 do
+                    local left = _G["GameTooltipTextLeft" .. i]
+                    local right = _G["GameTooltipTextRight" .. i]
+                    if (left and left:IsShown() and left:GetText() and left:GetText() ~= "")
+                        or (right and right:IsShown() and right:GetText() and right:GetText() ~= "") then
+                        lastLine = left or right
+                        break
+                    end
+                end
+                if lastLine then
+                    health:SetPoint("TOPLEFT", lastLine, "BOTTOMLEFT", 0, -3)
+                else
+                    health:SetPoint("BOTTOMLEFT", tip, "BOTTOMLEFT", inset, 5)
+                end
             end
+        end
+    end
+    -- Ensure the gold tooltip frame includes the bar below the final text line.
+    if mode == "insideBottom" and health:GetBottom() and tip:GetBottom() then
+        local deficit = (tip:GetBottom() + 5) - health:GetBottom()
+        if deficit > 0.5 and deficit < 40 then
+            local extra = math.ceil(deficit)
+            tip:SetHeight(tip:GetHeight() + extra)
+            insideBottomExtraHeight = insideBottomExtraHeight + extra
         end
     end
     -- pcall protects against secret-value restrictions on specific client builds.
@@ -228,6 +256,24 @@ local function UnitContent()
     if db.hideFaction then
         RemoveLine(_G.FACTION_HORDE, true)
         RemoveLine(_G.FACTION_ALLIANCE, true)
+    end
+    if db.itemLevel then
+        local level
+        local ok, player = pcall(UnitIsUnit, unit, "player")
+        if ok and player and GetAverageItemLevel then
+            local good, _, equipped = pcall(GetAverageItemLevel)
+            if good and type(equipped) == "number" and (not issecretvalue or not issecretvalue(equipped)) then
+                level = equipped
+            end
+        elseif C_PaperDollInfo and C_PaperDollInfo.GetInspectItemLevel then
+            local good, result = pcall(C_PaperDollInfo.GetInspectItemLevel, unit)
+            if good and type(result) == "number" and (not issecretvalue or not issecretvalue(result)) then
+                level = result
+            end
+        end
+        if level and level > 0 and not FindLine("Item Level") then
+            tip:AddLine(string.format("Item Level: %.1f", level), 1, 0.82, 0.42)
+        end
     end
     if db.targetTarget then
         local target = unit .. "target"
