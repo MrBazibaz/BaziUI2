@@ -150,24 +150,25 @@ function addon.Options:Create()
     frame:RegisterForDrag("LeftButton");frame:SetScript("OnDragStart",frame.StartMoving)
     frame:SetScript("OnDragStop",frame.StopMovingOrSizing)
     frame:SetScale(addon.db.profile.uiScale or 1)
-    -- Exterior-only soft shadow: no full-frame overlays or interior darkening.
-    -- Stronger exterior bands fade outward across 36 UI units.
-    local shadowBands=9
-    for i=1,shadowBands do
-        local inner=(i-1)*4
-        local outer=i*4
-        local alpha=0.48*((shadowBands-i+1)/shadowBands)^1.9
-        local function ShadowStrip(x1,y1,x2,y2)
-            local t=frame:CreateTexture(nil,"BACKGROUND",nil,-7)
-            t:SetColorTexture(0,0,0,alpha)
-            t:SetPoint("TOPLEFT",frame,"TOPLEFT",x1,y1)
-            t:SetPoint("BOTTOMRIGHT",frame,"TOPLEFT",x2,y2)
+    -- Smooth 9-slice exterior shadow. Requires Assets/Effects/Window_Shadow.png.
+    -- The center of the source image is fully transparent; it is not drawn.
+    local shadowFile=ASSET.."Effects\\Window_Shadow.png"
+    local shadowSize=15
+    local shadowCuts={0,23/128,105/128,1}
+    local shadowWidths={shadowSize,1140-2*shadowSize,shadowSize}
+    local shadowHeights={shadowSize,740-2*shadowSize,shadowSize}
+    local shadowX={-shadowSize,shadowSize,1140-shadowSize}
+    local shadowY={shadowSize,-shadowSize,-740+shadowSize}
+    for row=1,3 do
+        for col=1,3 do
+            if not (row==2 and col==2) then
+                local t=frame:CreateTexture(nil,"BACKGROUND",nil,-7)
+                t:SetTexture(shadowFile)
+                t:SetTexCoord(shadowCuts[col],shadowCuts[col+1],shadowCuts[row],shadowCuts[row+1])
+                t:SetPoint("TOPLEFT",frame,"TOPLEFT",shadowX[col],shadowY[row])
+                t:SetSize(shadowWidths[col],shadowHeights[row])
+            end
         end
-        -- Top and bottom include corners; side strips occupy only the middle.
-        ShadowStrip(-outer,outer,1140+outer,inner)
-        ShadowStrip(-outer,-740-inner,1140+outer,-740-outer)
-        ShadowStrip(-outer,inner,-inner,-740-inner)
-        ShadowStrip(1140+inner,inner,1140+outer,-740-inner)
     end
     -- A fully opaque fill is essential: transparent ornamental corner TGAs
     -- must not reveal the game world through large square holes.
