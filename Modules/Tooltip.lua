@@ -66,6 +66,7 @@ end
 local insideMode, insideTipHeight, insideFirstAnchor
 local insideBottomPadded = false
 local insideBottomExtraHeight = 0
+local healthLastLine
 local healthMode
 -- Keep Blizzard's bar transparent while our overlay is active. Blizzard can
 -- reapply alpha when changing units, so verify the state rather than caching it.
@@ -99,6 +100,7 @@ local function ResetInsideSpacing()
     end
     if insideTipHeight then tip:SetHeight(insideTipHeight); insideTipHeight = nil end
     insideMode = nil
+    healthLastLine = nil
 end
 local function ApplyInsideSpacing(mode, native)
     if insideMode == mode then return end
@@ -191,8 +193,13 @@ local function UpdateHealth()
                 for i = tip:NumLines(), 1, -1 do
                     local left = _G["GameTooltipTextLeft" .. i]
                     local right = _G["GameTooltipTextRight" .. i]
-                    if (left and left:IsShown() and left:GetText() and left:GetText() ~= "")
-                        or (right and right:IsShown() and right:GetText() and right:GetText() ~= "") then
+                    local lt = left and left:GetText()
+                    local rt = right and right:GetText()
+                    local leftValid = lt and (not issecretvalue or not issecretvalue(lt))
+                        and (not canaccessvalue or canaccessvalue(lt)) and lt ~= ""
+                    local rightValid = rt and (not issecretvalue or not issecretvalue(rt))
+                        and (not canaccessvalue or canaccessvalue(rt)) and rt ~= ""
+                    if leftValid or rightValid then
                         lastLine = left or right
                         break
                     end
