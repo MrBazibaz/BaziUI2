@@ -151,12 +151,12 @@ function addon.Options:Create()
     frame:SetScript("OnDragStop",frame.StopMovingOrSizing)
     frame:SetScale(addon.db.profile.uiScale or 1)
     -- Exterior-only soft shadow: no full-frame overlays or interior darkening.
-    -- Thin bands fade smoothly outward; the outermost band is nearly transparent.
-    local shadowBands=10
+    -- Stronger exterior bands fade outward across 36 UI units.
+    local shadowBands=9
     for i=1,shadowBands do
-        local inner=(i-1)*2
-        local outer=i*2
-        local alpha=0.14*((shadowBands-i+1)/shadowBands)^1.7
+        local inner=(i-1)*4
+        local outer=i*4
+        local alpha=0.48*((shadowBands-i+1)/shadowBands)^1.9
         local function ShadowStrip(x1,y1,x2,y2)
             local t=frame:CreateTexture(nil,"BACKGROUND",nil,-7)
             t:SetColorTexture(0,0,0,alpha)
