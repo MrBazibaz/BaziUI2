@@ -111,6 +111,13 @@ local function CreateSlider(parent, labelText, description, minValue, maxValue, 
         if onValueChanged then onValueChanged(rounded) end
     end)
     slider:SetValue(value)
+    if labelText == "WINDOW SCALE" then
+        slider:SetScript("OnMouseUp", function()
+            if optionsFrame and addon.db and addon.db.profile then
+                optionsFrame:SetScale(addon.db.profile.uiScale)
+            end
+        end)
+    end
     RefreshProgress(value)
     valueText:SetText(string.format("%g", value))
     return slider
@@ -143,7 +150,7 @@ local function CreateGeneralPage()
     local db = addon.db.profile
     CreateSlider(page, "WINDOW SCALE", "Size of the Bazi UI settings window", 0.70, 1.20, 0.01, db.uiScale, -142, function(value)
         db.uiScale = value
-        if optionsFrame then optionsFrame:SetScale(value) end
+        -- Apply scale on mouse release so the slider does not move under the cursor.
     end)
     CreateSlider(page, "FONT SIZE", "Default text size for supported modules", 10, 20, 1, db.fontSize, -204, function(value)
         db.fontSize = value
@@ -368,6 +375,16 @@ function addon.Options:Create()
         grip:SetPoint(anchor, optionsFrame, anchor, 0, 0)
         grip:SetFrameLevel(optionsFrame:GetFrameLevel() + 35)
         grip:EnableMouse(true)
+        -- Two understated diagonal lines indicate that the corner can be dragged.
+        for i = 0, 1 do
+            local stroke = grip:CreateTexture(nil, "OVERLAY")
+            stroke:SetColorTexture(0.75, 0.57, 0.31, 0.85)
+            stroke:SetSize(11 - i * 4, 1)
+            stroke:SetPoint("BOTTOM", grip, "BOTTOM", anchor == "BOTTOMLEFT" and (-10 + i * 4) or (10 - i * 4), 8 + i * 4)
+            if stroke.SetRotation then
+                stroke:SetRotation(anchor == "BOTTOMLEFT" and -math.pi / 4 or math.pi / 4)
+            end
+        end
         grip:RegisterForDrag("LeftButton")
         grip:SetScript("OnDragStart", function()
             if not InCombatLockdown or not InCombatLockdown() then
@@ -455,7 +472,7 @@ function addon.Options:Create()
     -- Small category search, kept entirely inside the existing sidebar.
     local search = CreateFrame("EditBox", nil, nav)
     search:SetPoint("TOPLEFT", nav, "TOPLEFT", 14, -6)
-    search:SetSize(164, 20)
+    search:SetSize(162, 17)
     search:SetAutoFocus(false)
     search:SetFontObject("GameFontHighlightSmall")
     search:SetTextInsets(27, 9, 0, 0)
