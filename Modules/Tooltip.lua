@@ -65,6 +65,13 @@ end
 -- Reapply only on mode changes; never accumulate tooltip padding.
 local insideMode, insideTipHeight, insideFirstAnchor
 local healthMode
+local nativeBarHidden = false
+local function SetNativeBarHidden(hidden)
+    if nativeBarHidden == hidden then return end
+    nativeBarHidden = hidden
+    local native = _G.GameTooltipStatusBar or tip.StatusBar
+    if native then native:SetAlpha(hidden and 0 or 1) end
+end
 local function ResetInsideSpacing()
     if insideFirstAnchor then
         local first = _G.GameTooltipTextLeft1
@@ -108,8 +115,7 @@ local function UpdateHealth()
         ResetInsideSpacing()
         healthMode = nil
         health:Hide()
-        if mode == "off" and tip and tip.StatusBar then tip.StatusBar:Hide() end
-        if mode == "off" and _G.GameTooltipStatusBar then _G.GameTooltipStatusBar:Hide() end
+        SetNativeBarHidden(db.enabled and mode == "off")
         return
     end
     -- FlareUI approach: never reanchor Blizzard's native status bar.
@@ -167,7 +173,7 @@ local function UpdateHealth()
     -- pcall protects against secret-value restrictions on specific client builds.
     local setOK = pcall(health.SetValue, health, value)
     if not setOK then health:Hide(); return end
-    native:Hide()
+    SetNativeBarHidden(true)
     health:Show()
 
 end
@@ -299,7 +305,7 @@ function T:Initialize()
     tip:HookScript("OnShow", function()
         local db = DB()
         if not db then return end
-        if not db.enabled then return end
+        if not db.enabled then SetNativeBarHidden(false); return end
         T:Apply()
         UpdateHealth()
     end)
@@ -354,8 +360,15 @@ function T:Initialize()
             elseif point == "TOP" or point == "BOTTOM" then x = mx - width / 2 end
             if point:find("TOP") then y = my - height - 14
             elseif point == "LEFT" or point == "RIGHT" then y = my - height / 2 end
-            tip:ClearAllPoints()
-            tip:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", x, y)
+            -- Avoid reanchoring the tooltip when the cursor has not moved.
+            -- Pixel rounding also prevents subpixel layout churn.
+            x, y = math.floor(x + 0.5), math.floor(y + 0.5)
+            local currentPoint, currentParent, currentRelative, currentX, currentY = tip:GetPoint(1)
+            if currentPoint ~= "BOTTOMLEFT" or currentParent ~= UIParent
+                or currentRelative ~= "BOTTOMLEFT" or currentX ~= x or currentY ~= y then
+                tip:ClearAllPoints()
+                tip:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", x, y)
+            end
         end
         elapsedHealth = elapsedHealth + elapsed
         if elapsedHealth >= 0.15 then
