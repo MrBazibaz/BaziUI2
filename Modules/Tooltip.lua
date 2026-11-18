@@ -65,7 +65,6 @@ end
 -- Reapply only on mode changes; never accumulate tooltip padding.
 local insideMode, insideTipHeight, insideFirstAnchor
 local insideBottomPadded = false
-local insideBottomExtraHeight = 0
 local healthLastLine
 local healthMode
 -- Keep Blizzard's bar transparent while our overlay is active. Blizzard can
@@ -82,10 +81,6 @@ local function SetNativeBarHidden(hidden)
     end
 end
 local function ResetInsideSpacing()
-    if insideBottomExtraHeight > 0 then
-        tip:SetHeight(math.max(1, tip:GetHeight() - insideBottomExtraHeight))
-        insideBottomExtraHeight = 0
-    end
     if insideBottomPadded then
         if tip.SetPadding then pcall(tip.SetPadding, tip, 0, 0) end
         insideBottomPadded = false
@@ -111,7 +106,7 @@ local function ApplyInsideSpacing(mode, native)
         -- Reserve bottom space INSIDE the native tooltip frame, so the gold
         -- backdrop extends beneath the bar rather than the bar protruding.
         if tip.SetPadding then
-            local ok = pcall(tip.SetPadding, tip, 0, 12)
+            local ok = pcall(tip.SetPadding, tip, 0, 15)
             if ok then insideBottomPadded = true end
         end
         return
@@ -214,15 +209,8 @@ local function UpdateHealth()
             end
         end
     end
-    -- Ensure the gold tooltip frame includes the bar below the final text line.
-    if mode == "insideBottom" and health:GetBottom() and tip:GetBottom() then
-        local deficit = (tip:GetBottom() + 5) - health:GetBottom()
-        if deficit > 0.5 and deficit < 40 then
-            local extra = math.ceil(deficit)
-            tip:SetHeight(tip:GetHeight() + extra)
-            insideBottomExtraHeight = insideBottomExtraHeight + extra
-        end
-    end
+    -- Do not manually resize GameTooltip on health ticks. Blizzard rebuilds
+    -- its layout for unit changes; changing height here causes oscillation.
     -- pcall protects against secret-value restrictions on specific client builds.
     local setOK = pcall(health.SetValue, health, value)
     if not setOK then health:Hide(); return end
