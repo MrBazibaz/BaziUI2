@@ -150,7 +150,7 @@ function addon.Options:Create()
     frame:RegisterForDrag("LeftButton");frame:SetScript("OnDragStart",frame.StartMoving)
     frame:SetScript("OnDragStop",frame.StopMovingOrSizing)
     frame:SetScale(addon.db.profile.uiScale or 1)
-    -- TEMP VISUAL TEST: draw the 9-slice shadow on top of the window edges.
+    -- Position the tested 9-slice shadow outside the window border.
     -- Keep the tested PNG slicing; stretch only the straight edge sections.
     local shadowFile=ASSET.."Effects\\Window_Shadow.png"
     local shadowSize=36
@@ -158,14 +158,14 @@ function addon.Options:Create()
     shadowFrame:SetFrameStrata("TOOLTIP")
     shadowFrame:SetFrameLevel(100)
     shadowFrame:SetScale(frame:GetScale())
-    shadowFrame:SetSize(1140,740)
+    shadowFrame:SetSize(1140+shadowSize*2,740+shadowSize*2)
     shadowFrame:SetPoint("CENTER",frame,"CENTER",0,0)
     shadowFrame:EnableMouse(false)
     local cuts={0,23/128,105/128,1}
-    local widths={shadowSize,1140-shadowSize*2,shadowSize}
-    local heights={shadowSize,740-shadowSize*2,shadowSize}
-    local xOffsets={0,shadowSize,1140-shadowSize}
-    local yOffsets={0,shadowSize,740-shadowSize}
+    local widths={shadowSize,1140,shadowSize}
+    local heights={shadowSize,740,shadowSize}
+    local xOffsets={0,shadowSize,1140+shadowSize}
+    local yOffsets={0,shadowSize,740+shadowSize}
     for row=1,3 do
         for col=1,3 do
             if row~=2 or col~=2 then
