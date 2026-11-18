@@ -200,7 +200,7 @@ end
 -- in Blizzard's own tooltip height calculation and works with unit-frame hints.
 function T:EnsureHealthSpacer()
     local db = DB()
-    if not db or not db.enabled or db.healthBar ~= "insideBottom" then return end
+    if not db or not db.enabled or db.healthBar ~= "insideBottom" or not UnitToken() then return end
     local n = tip:NumLines()
     local line = _G["GameTooltipTextLeft" .. n]
     local text = line and line:GetText()
