@@ -2,6 +2,8 @@
 -- Port of ilvl Forever PlayerTooltip.lua's lifecycle and inspect algorithm.
 -- No dependency on Bazi UI's old tooltip engine or health bar.
 local addon = BaziUI
+local shared = _G.BaziIlvlShared or {}
+_G.BaziIlvlShared = shared
 local CACHE_TIME, REQUEST_GAP, REQUEST_TIMEOUT = 300, 1.5, 4
 local cache, pending, lastRequest, added = {}, nil, 0, {}
 local retryScheduled = false
@@ -107,10 +109,11 @@ local function addLine(tooltip, guid, value)
 end
 local function store(guid, value)
     cache[guid] = {value=value,time=GetTime()}
+    shared[guid] = value
+    if shared.display then shared.display(guid, value) end
     local unit = tooltipUnit(GameTooltip)
     if GameTooltip:IsShown() and unit and guidOf(unit) == guid then
-        addLine(GameTooltip, guid, value)
-        GameTooltip:Show()
+        -- The original port owns the only visible line.
     end
 end
 local function whenLoaded(link, callback)
@@ -214,7 +217,10 @@ local function onUnit(tooltip, data)
             request(unit, guid)
         end
     end
-    if value then addLine(tooltip, guid, value) end
+    if value then
+        shared[guid] = value
+        -- This worker supplies cached values; the original port renders.
+    end
 end
 if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPreCall and TooltipDataProcessor.AllTypes then
     TooltipDataProcessor.AddTooltipPreCall(TooltipDataProcessor.AllTypes, function(tooltip)
