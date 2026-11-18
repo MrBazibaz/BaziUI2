@@ -242,11 +242,19 @@ function addon.Options:Create()
     footerDivider:SetColorTexture(0.67,0.48,0.25,0.48)
     MetallicEdge(true,"TOPLEFT","BOTTOMLEFT",0,0)
     MetallicEdge(true,"TOPRIGHT","BOTTOMRIGHT",0,0)
+    -- Alpha bounds measured from the actual 256x256 TGA files.
+    -- Crop only empty pixels. Preserve the original artwork aspect ratio.
+    -- Test size: 70 UI units wide; top 55, bottom 52 (rounded).
+    local function CroppedCorner(file,point,w,h,u1,u2,v1,v2)
+        local t=BorderPiece(file,w,h,point,0,0)
+        t:SetTexCoord(u1,u2,v1,v2)
+        return t
+    end
     frame.baziCornerTextures = {
-        TL=BorderPiece("Corner_TL.tga",CORNER_SIZE,CORNER_SIZE,"TOPLEFT",0,0),
-        TR=BorderPiece("Corner_TR.tga",CORNER_SIZE,CORNER_SIZE,"TOPRIGHT",0,0),
-        BL=BorderPiece("Corner_BL.tga",CORNER_SIZE,CORNER_SIZE,"BOTTOMLEFT",0,0),
-        BR=BorderPiece("Corner_BR.tga",CORNER_SIZE,CORNER_SIZE,"BOTTOMRIGHT",0,0),
+        TL=CroppedCorner("Corner_TL.tga","TOPLEFT",70,55,0,160/256,0,125/256),
+        TR=CroppedCorner("Corner_TR.tga","TOPRIGHT",70,56,96/256,1,0,127/256),
+        BL=CroppedCorner("Corner_BL.tga","BOTTOMLEFT",70,52,0,160/256,138/256,1),
+        BR=CroppedCorner("Corner_BR.tga","BOTTOMRIGHT",70,52,96/256,1,138/256,1),
     }
     -- Keep the header continuous as well; corner artwork overlays it.
     local header=Paint(frame,"BORDER",0.09,0.063,0.11,0.99,3,-3,-3,3)
