@@ -67,8 +67,30 @@ local function UpdateHealth()
     local unit = UnitToken()
     local mode = db.healthBar
     if not db.enabled or not unit or mode == "off" then health:Hide(); return end
+    -- Retail/Forever can return secret health numbers. Do not compare,
+    -- stringify or do arithmetic on them in addon-tainted execution.
+    -- Blizzard's native tooltip status bar already handles secret values.
+    local native = _G.GameTooltipStatusBar or tip.StatusBar
+    if not native then health:Hide(); return end
+    health:Hide()
+    native:ClearAllPoints()
+    if mode == "above" then
+        native:SetPoint("BOTTOMLEFT", tip, "TOPLEFT", 6, 2)
+        native:SetPoint("BOTTOMRIGHT", tip, "TOPRIGHT", -6, 2)
+    elseif mode == "below" then
+        native:SetPoint("TOPLEFT", tip, "BOTTOMLEFT", 6, -2)
+        native:SetPoint("TOPRIGHT", tip, "BOTTOMRIGHT", -6, -2)
+    elseif mode == "insideTop" then
+        native:SetPoint("TOPLEFT", tip, "TOPLEFT", 6, -5)
+        native:SetPoint("TOPRIGHT", tip, "TOPRIGHT", -6, -5)
+    else
+        native:SetPoint("BOTTOMLEFT", tip, "BOTTOMLEFT", 6, 5)
+        native:SetPoint("BOTTOMRIGHT", tip, "BOTTOMRIGHT", -6, 5)
+    end
+    native:Show()
+    return
+    --[[ Legacy custom bar positioning (unused while secret values are enabled).
     local max = UnitHealthMax(unit)
-    if not max or max <= 0 then health:Hide(); return end
     health:SetMinMaxValues(0, max)
     health:SetValue(UnitHealth(unit))
     health:ClearAllPoints()
@@ -87,6 +109,7 @@ local function UpdateHealth()
     end
     health:Show()
     if _G.GameTooltipStatusBar then _G.GameTooltipStatusBar:Hide() end
+    ]]
 end
 local function UnitContent()
     local db = DB()
