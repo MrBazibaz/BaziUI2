@@ -265,9 +265,13 @@ local function CreateTooltipPage()
     end)
 
     local main = CreatePanel(page, -100, 400)
-    -- Lueur-inspired vertical page selectors. Keep all Bazi UI colors and artwork.
-    local tabBar = CreateFrame("Frame", nil, main)
-    tabBar:SetPoint("TOPRIGHT", main, "TOPRIGHT", -8, -12)
+    -- Reserve a separate strip outside the content panel for protruding tabs.
+    main:ClearAllPoints()
+    main:SetPoint("TOPLEFT", page, "TOPLEFT", 12, -100)
+    main:SetPoint("TOPRIGHT", page, "TOPRIGHT", -82, -100)
+    -- Lueur-inspired vertical page selectors, outside the content panel.
+    local tabBar = CreateFrame("Frame", nil, page)
+    tabBar:SetPoint("TOPLEFT", main, "TOPRIGHT", 9, -12)
     tabBar:SetSize(54, 180)
 
     local function RefreshTabs()
@@ -316,7 +320,7 @@ local function CreateTooltipPage()
     local function NewTab(name)
         local panel = CreateFrame("Frame", nil, main)
         panel:SetPoint("TOPLEFT", main, "TOPLEFT", 10, -12)
-        panel:SetPoint("BOTTOMRIGHT", main, "BOTTOMRIGHT", -68, 10)
+        panel:SetPoint("BOTTOMRIGHT", main, "BOTTOMRIGHT", -10, 10)
         tabPanels[name] = panel
         return panel
     end
