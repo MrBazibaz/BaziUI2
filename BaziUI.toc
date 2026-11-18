@@ -13,5 +13,6 @@ Modules\ILVLForeverPlayer.lua
 Modules\IlvlForeverPlayerTooltip.lua
 Modules\TooltipPresentation.lua
 Modules\TooltipContents.lua
+Modules\TooltipFonts.lua
 Config\Options.lua
 Core\Commands.lua
