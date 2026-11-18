@@ -355,7 +355,16 @@ function T:Initialize()
     health:SetStatusBarTexture("Interface\\TargetingFrame\\UI-StatusBar")
     health:SetStatusBarColor(0.28, 0.78, 0.35)
     health:Hide()
-    -- Keep Blizzard's bar until a valid custom unit bar can be displayed.
+    -- Suppress native bar as soon as Blizzard shows it, before the next tick.
+    local nativeBar = _G.GameTooltipStatusBar or tip.StatusBar
+    if nativeBar then
+        nativeBar:HookScript("OnShow", function()
+            local db = DB()
+            if db and db.enabled and db.healthBar ~= "off" then
+                SetNativeBarHidden(true)
+            end
+        end)
+    end
     hooksecurefunc("GameTooltip_SetDefaultAnchor", Anchor)
     -- Tooltip script support varies by client. An unsupported script must not
     -- abort initialization before the cursor positioning driver is created.
@@ -391,9 +400,15 @@ function T:Initialize()
         if not db then return end
         if not db.enabled then SetNativeBarHidden(false); return end
         T:Apply()
+        T:EnsureHealthSpacer()
         UpdateHealth()
     end)
-    tip:HookScript("OnHide", function() health:Hide(); healthMode = nil; ResetInsideSpacing() end)
+    tip:HookScript("OnHide", function()
+        health:Hide()
+        healthMode = nil
+        ResetInsideSpacing()
+        if addon.ItemLevel then addon.ItemLevel:ResetTooltipRow() end
+    end)
     -- Use an independent update frame. GameTooltip itself can be reanchored by
     -- Blizzard/other addons and its own update handler is not reliable here.
     local cursorDriver = CreateFrame("Frame", nil, UIParent)
