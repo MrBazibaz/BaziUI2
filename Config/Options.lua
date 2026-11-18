@@ -563,7 +563,7 @@ local function CreateTooltipPage()
         function(v) db.opacity = v end, 0.1, 1, 0.01)
 
     local contentOptions = {
-        {"HEALTH BAR", "healthBar", {{"off", "Off"}, {"below", "Below"}, {"insideTop", "Inside Top"}, {"insideBottom", "Inside Bottom"}, {"above", "Above"}}},
+        {"HEALTH BAR", "healthBar", {{"off", "Off"}, {"below", "Below"}}},
         {"GUILD NAME", "guild"}, {"THREAT", "threat"}, {"SHOW IDS", "ids"},
         {"SHOW ITEM LEVEL", "itemLevel"}, {"CLASS COLORED NAMES", "classNames"},
         {"SHOW TARGET'S TARGET", "targetTarget"}, {"HIDE FACTION", "hideFaction"}
