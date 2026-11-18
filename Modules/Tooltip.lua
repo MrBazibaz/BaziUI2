@@ -66,7 +66,12 @@ local function UpdateHealth()
     if not db or not health then return end
     local unit = UnitToken()
     local mode = db.healthBar
-    if not db.enabled or not unit or mode == "off" then health:Hide(); return end
+    if not db.enabled or not unit or mode == "off" then
+        health:Hide()
+        if mode == "off" and tip and tip.StatusBar then tip.StatusBar:Hide() end
+        if mode == "off" and _G.GameTooltipStatusBar then _G.GameTooltipStatusBar:Hide() end
+        return
+    end
     -- Retail/Forever can return secret health numbers. Do not compare,
     -- stringify or do arithmetic on them in addon-tainted execution.
     -- Blizzard's native tooltip status bar already handles secret values.
