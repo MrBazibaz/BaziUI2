@@ -165,6 +165,9 @@ function T:ToggleDebug()
         " anchor=" .. tostring(db and db.anchor) ..
         " cursorPosition=" .. tostring(db and db.cursorPosition) ..
         " tooltipShown=" .. tostring(tip and tip:IsShown()))
+    DebugLine("driver=" .. tostring(self.cursorDriver ~= nil) ..
+        " shown=" .. tostring(self.cursorDriver and self.cursorDriver:IsShown()) ..
+        " onUpdate=" .. tostring(self.cursorDriver and self.cursorDriver:GetScript("OnUpdate") ~= nil))
 end
 function T:Initialize()
     if self.initialized then return end
@@ -213,7 +216,27 @@ function T:Initialize()
     -- Blizzard/other addons and its own update handler is not reliable here.
     local cursorDriver = CreateFrame("Frame", nil, UIParent)
     local elapsedHealth = 0
+    self.cursorDriver = cursorDriver
+    cursorDriver:Show()
     cursorDriver:SetScript("OnUpdate", function(_, elapsed)
+        if debugEnabled then
+            debugTicks = debugTicks + 1
+            debugElapsed = debugElapsed + elapsed
+            if debugElapsed >= 2 then
+                debugElapsed = 0
+                local current = DB()
+                local mx, my = GetCursorPosition()
+                local p, relativeTo, relativePoint, px, py = tip:GetPoint(1)
+                DebugLine("ticks=" .. debugTicks ..
+                    " mode=" .. tostring(current and current.anchor) ..
+                    " shown=" .. tostring(tip:IsShown()) ..
+                    " mouse=" .. math.floor(mx) .. "," .. math.floor(my) ..
+                    " point=" .. tostring(p) ..
+                    " relative=" .. tostring(relativePoint) ..
+                    " offsets=" .. tostring(px) .. "," .. tostring(py))
+                debugTicks = 0
+            end
+        end
         local db = DB()
         if db and db.enabled and db.anchor == "mouse" and tip:IsShown() then
             local uiScale = UIParent:GetEffectiveScale()
@@ -241,24 +264,6 @@ function T:Initialize()
             elseif point == "LEFT" or point == "RIGHT" then y = my - height / 2 end
             tip:ClearAllPoints()
             tip:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", x, y)
-        end
-        if debugEnabled then
-            debugTicks = debugTicks + 1
-            debugElapsed = debugElapsed + elapsed
-            if debugElapsed >= 2 then
-                debugElapsed = 0
-                local current = DB()
-                local mx, my = GetCursorPosition()
-                local p, relativeTo, relativePoint, px, py = tip:GetPoint(1)
-                DebugLine("ticks=" .. debugTicks ..
-                    " mode=" .. tostring(current and current.anchor) ..
-                    " shown=" .. tostring(tip:IsShown()) ..
-                    " mouse=" .. math.floor(mx) .. "," .. math.floor(my) ..
-                    " point=" .. tostring(p) ..
-                    " relative=" .. tostring(relativePoint) ..
-                    " offsets=" .. tostring(px) .. "," .. tostring(py))
-                debugTicks = 0
-            end
         end
         elapsedHealth = elapsedHealth + elapsed
         if elapsedHealth >= 0.15 then
