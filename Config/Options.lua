@@ -273,9 +273,9 @@ local function CreateTooltipPage()
     if main.SetClipsChildren then main:SetClipsChildren(true) end
     -- Text tabs use the same bronze borders and plum selection as categories.
     local tabBar = CreateFrame("Frame", nil, page)
-    tabBar:SetPoint("TOPLEFT", main, "TOPRIGHT", 0, 0)
+    tabBar:SetPoint("TOPLEFT", main, "TOPRIGHT", 10, 0)
     tabBar:SetFrameStrata("FULLSCREEN_DIALOG")
-    tabBar:SetSize(108, 132)
+    tabBar:SetSize(108, 105)
 
     local function RefreshTabs()
         for name, button in pairs(tabButtons) do
@@ -296,8 +296,8 @@ local function CreateTooltipPage()
 
     for i, name in ipairs({"General", "Contents", "Fonts"}) do
         local b = CreateFrame("Button", nil, tabBar)
-        b:SetSize(108, 42)
-        b:SetPoint("TOPLEFT", tabBar, "TOPLEFT", 0, -((i - 1) * 42))
+        b:SetSize(108, 29)
+        b:SetPoint("TOPLEFT", tabBar, "TOPLEFT", 0, -((i - 1) * 34))
         b.fill = b:CreateTexture(nil, "BACKGROUND")
         b.fill:SetAllPoints()
         b.edges = {}
@@ -913,7 +913,7 @@ function addon.Options:Create()
     separator:SetColorTexture(0.72, 0.49, 0.25, 0.65)
     separator:SetWidth(1)
     separator:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", 190, -55)
-    separator:SetPoint("BOTTOMLEFT", optionsFrame, "BOTTOMLEFT", 190, 12)
+    separator:SetPoint("BOTTOMLEFT", optionsFrame, "BOTTOMLEFT", 190, 3)
 
     -- Scrollable categories, with a fixed footer and search box.
     local scrollFrame = CreateFrame("ScrollFrame", nil, nav)
