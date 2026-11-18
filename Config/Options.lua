@@ -131,7 +131,7 @@ local function CreateGeneralPage()
     local page = CreateFrame("Frame", nil, contentFrame)
     page:SetAllPoints(contentFrame)
     pages.General = page
-    local introPanel = CreatePanel(page, -10, 66)
+    local introPanel = CreatePanel(page, -2, 66)
     CreateSection(introPanel, "GENERAL SETTINGS", -14)
     local intro = CreateLabel(page, "Adjust the Bazi UI window and default text size.", "GameFontHighlightSmall")
     intro:SetParent(introPanel)
@@ -203,7 +203,7 @@ local function CreateNavigationButton(parent, name, label, y)
     -- Custom flat navigation: the active page gets purple, not every button.
     local button = CreateFrame("Button", nil, parent)
     button:SetSize(170, 29)
-    button:SetPoint("TOPLEFT", parent, "TOPLEFT", 4, y)
+    button:SetPoint("TOPLEFT", parent, "TOPLEFT", 0, y)
     local fill = button:CreateTexture(nil, "BACKGROUND")
     fill:SetAllPoints(button)
     -- Straight bronze edges to match the rectangular fill.
@@ -454,7 +454,7 @@ function addon.Options:Create()
 
     -- Small category search, kept entirely inside the existing sidebar.
     local search = CreateFrame("EditBox", nil, nav)
-    search:SetPoint("TOPLEFT", nav, "TOPLEFT", 4, -2)
+    search:SetPoint("TOPLEFT", nav, "TOPLEFT", 4, -6)
     search:SetSize(170, 20)
     search:SetAutoFocus(false)
     search:SetFontObject("GameFontHighlightSmall")
@@ -582,7 +582,7 @@ function addon.Options:Create()
             local button = navButtons[name]
             if string.find(string.lower(name), query, 1, true) then
                 button:ClearAllPoints()
-                button:SetPoint("TOPLEFT", scrollChild, "TOPLEFT", 4, -shown * 29)
+                button:SetPoint("TOPLEFT", scrollChild, "TOPLEFT", 0, -shown * 29)
                 button:Show()
                 shown = shown + 1
             else
