@@ -287,7 +287,10 @@ local function SpellContent(_, data)
     local db = DB()
     if not db or not db.enabled or not db.ids then return end
     local id = data and data.id
-    if not Readable(id) then _, id = tip:GetSpell() end
+    if not Readable(id) then
+        local _, spellID = tip:GetSpell()
+        id = spellID
+    end
     if Readable(id) and type(id) == "number" and not FindLine("Spell ID") then
         tip:AddDoubleLine(" ", "Spell ID " .. id, 1, 1, 1, 0.6, 0.6, 0.6)
         if tip:IsShown() then tip:Show() end
@@ -378,11 +381,11 @@ function T:Initialize()
     if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall
         and Enum and Enum.TooltipDataType then
         local add = TooltipDataProcessor.AddTooltipPostCall
-        add(Enum.TooltipDataType.Unit, UnitContent)
-        add(Enum.TooltipDataType.Item, ItemContent)
-        add(Enum.TooltipDataType.Spell, SpellContent)
+        add(Enum.TooltipDataType.Unit, function(frame) if frame == tip then UnitContent() end end)
+        add(Enum.TooltipDataType.Item, function(frame, data) if frame == tip then ItemContent(frame, data) end end)
+        add(Enum.TooltipDataType.Spell, function(frame, data) if frame == tip then SpellContent(frame, data) end end)
         if Enum.TooltipDataType.UnitAura then
-            add(Enum.TooltipDataType.UnitAura, SpellContent)
+            add(Enum.TooltipDataType.UnitAura, function(frame, data) if frame == tip then SpellContent(frame, data) end end)
         end
         if TooltipDataProcessor.AddLinePreCall and Enum.TooltipDataLineType
             and Enum.TooltipDataLineType.UnitThreat then
