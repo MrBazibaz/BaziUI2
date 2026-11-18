@@ -12,5 +12,6 @@ Modules\ItemLevel.lua
 Modules\ILVLForeverPlayer.lua
 Modules\IlvlForeverPlayerTooltip.lua
 Modules\TooltipPresentation.lua
+Modules\TooltipContents.lua
 Config\Options.lua
 Core\Commands.lua
