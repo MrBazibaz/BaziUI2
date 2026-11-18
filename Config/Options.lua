@@ -505,8 +505,8 @@ function addon.Options:Create()
     local separator = contentFrame:CreateTexture(nil, "BORDER")
     separator:SetColorTexture(0.72, 0.49, 0.25, 0.65)
     separator:SetWidth(1)
-    separator:SetPoint("TOPLEFT", contentFrame, "TOPLEFT", -12, 0)
-    separator:SetPoint("BOTTOMLEFT", contentFrame, "BOTTOMLEFT", -12, 0)
+    separator:SetPoint("TOPLEFT", contentFrame, "TOPLEFT", -14, 0)
+    separator:SetPoint("BOTTOMLEFT", contentFrame, "BOTTOMLEFT", -14, 0)
 
     -- Scrollable categories, with a fixed footer and search box.
     local scrollFrame = CreateFrame("ScrollFrame", nil, nav)
