@@ -87,7 +87,7 @@ local function ApplyInsideSpacing(mode)
         return
     end
     if not padded then
-        local ok = pcall(tip.SetPadding, tip, 0, 22)
+        local ok = pcall(tip.SetPadding, tip, 0, 12)
         padded = ok
     end
 end
@@ -130,6 +130,17 @@ local function UpdateHealth()
     if not ok or value == nil then
         health:Hide()
         ResetInsideSpacing()
+        healthMode = nil
+        return
+    end
+    -- Dead units should not reserve a health-bar row.
+    local deadOK, dead = pcall(UnitIsDeadOrGhost, unit)
+    if deadOK and (not issecretvalue or not issecretvalue(dead))
+        and (not canaccessvalue or canaccessvalue(dead)) and dead then
+        health:Hide()
+        ResetInsideSpacing()
+        healthMode = nil
+        SetNativeBarHidden(true)
         return
     end
     -- Secret percentages may be passed directly to SetValue; never compare them.
@@ -158,8 +169,8 @@ local function UpdateHealth()
             health:SetPoint("TOPLEFT", tip, "TOPLEFT", 10, -10)
             health:SetPoint("TOPRIGHT", tip, "TOPRIGHT", -10, -10)
         else
-            health:SetPoint("BOTTOMLEFT", tip, "BOTTOMLEFT", 10, 10)
-            health:SetPoint("BOTTOMRIGHT", tip, "BOTTOMRIGHT", -10, 10)
+            health:SetPoint("BOTTOMLEFT", tip, "BOTTOMLEFT", 10, 6)
+            health:SetPoint("BOTTOMRIGHT", tip, "BOTTOMRIGHT", -10, 6)
         end
     end
     -- Do not manually resize GameTooltip on health ticks. Blizzard rebuilds
