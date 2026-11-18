@@ -118,24 +118,30 @@ local function UpdateHealth()
     health:Hide()
     ApplyInsideSpacing(mode, native)
     native:ClearAllPoints()
-    if mode == "above" then
-        -- Restore the original full-width external positioning.
-        native:SetPoint("BOTTOMLEFT", tip, "TOPLEFT", 6, 2)
-        native:SetPoint("BOTTOMRIGHT", tip, "TOPRIGHT", -6, 2)
-    elseif mode == "below" then
-        native:SetPoint("TOPLEFT", tip, "BOTTOMLEFT", 6, -2)
-        native:SetPoint("TOPRIGHT", tip, "BOTTOMRIGHT", -6, -2)
+    local tipWidth = tip:GetWidth() or 0
+    if mode == "above" or mode == "below" then
+        -- Recalculate on every tooltip update: a previous inside mode may
+        -- have left a narrower explicit width on Blizzard's native bar.
+        if tipWidth > 12 then native:SetWidth(tipWidth - 12) end
+        if mode == "above" then
+            native:SetPoint("BOTTOMLEFT", tip, "TOPLEFT", 6, 2)
+        else
+            native:SetPoint("TOPLEFT", tip, "BOTTOMLEFT", 6, 0)
+        end
     else
-        -- Inside modes only: keep the bar slightly narrower than the title.
         local title = _G.GameTooltipTextLeft1
         local titleWidth = title and title:GetStringWidth() or 0
-        local tipWidth = tip:GetWidth() or 0
-        local barWidth = math.min(titleWidth - 6, tipWidth - 12)
+        -- Match the title's actual inset, not the frame's outer border.
+        local titleLeft = title and title:GetLeft()
+        local tipLeft = tip:GetLeft()
+        local inset = (titleLeft and tipLeft) and (titleLeft - tipLeft) or 10
+        inset = math.max(6, inset)
+        local barWidth = math.min(titleWidth - 4, tipWidth - inset - 6)
         if barWidth > 0 then native:SetWidth(barWidth) end
         if mode == "insideTop" then
-            native:SetPoint("TOPLEFT", tip, "TOPLEFT", 6, -8)
+            native:SetPoint("TOPLEFT", tip, "TOPLEFT", inset, -10)
         else
-            native:SetPoint("BOTTOMLEFT", tip, "BOTTOMLEFT", 6, 2)
+            native:SetPoint("BOTTOMLEFT", tip, "BOTTOMLEFT", inset, 0)
         end
     end
     native:Show()
