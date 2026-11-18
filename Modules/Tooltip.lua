@@ -64,6 +64,7 @@ end
 -- Keep the native bar (secret unit health values are not readable by addons).
 -- Reapply only on mode changes; never accumulate tooltip padding.
 local insideMode, insideTipHeight, insideFirstAnchor
+local insideBottomPadded = false
 local healthMode
 -- Keep Blizzard's bar transparent while our overlay is active. Blizzard can
 -- reapply alpha when changing units, so verify the state rather than caching it.
@@ -79,6 +80,10 @@ local function SetNativeBarHidden(hidden)
     end
 end
 local function ResetInsideSpacing()
+    if insideBottomPadded then
+        if tip.SetPadding then pcall(tip.SetPadding, tip, 0, 0) end
+        insideBottomPadded = false
+    end
     if insideFirstAnchor then
         local first = _G.GameTooltipTextLeft1
         if first then
@@ -96,7 +101,12 @@ local function ApplyInsideSpacing(mode, native)
     if mode ~= "insideTop" and mode ~= "insideBottom" then return end
     insideMode = mode
     if mode == "insideBottom" then
-        -- The bar sits in the existing bottom inset; avoid adding a full bar height.
+        -- Reserve bottom space INSIDE the native tooltip frame, so the gold
+        -- backdrop extends beneath the bar rather than the bar protruding.
+        if tip.SetPadding then
+            local ok = pcall(tip.SetPadding, tip, 0, 14)
+            if ok then insideBottomPadded = true end
+        end
         return
     end
     local first = _G.GameTooltipTextLeft1
@@ -172,7 +182,7 @@ local function UpdateHealth()
             if mode == "insideTop" then
                 health:SetPoint("TOPLEFT", tip, "TOPLEFT", inset, -10)
             else
-                health:SetPoint("BOTTOMLEFT", tip, "BOTTOMLEFT", inset, -2)
+                health:SetPoint("BOTTOMLEFT", tip, "BOTTOMLEFT", inset, 6)
             end
         end
     end
@@ -234,20 +244,16 @@ end
 -- Use Blizzard's cursor anchors instead of reanchoring GameTooltip each frame.
 -- Native anchoring keeps the tooltip in the same coordinate system as its owner.
 local cursorAnchors = {
-    TOPLEFT = "ANCHOR_CURSOR_RIGHT",
     LEFT = "ANCHOR_CURSOR_RIGHT",
-    BOTTOMLEFT = "ANCHOR_CURSOR_RIGHT",
-    TOPRIGHT = "ANCHOR_CURSOR_LEFT",
     RIGHT = "ANCHOR_CURSOR_LEFT",
-    BOTTOMRIGHT = "ANCHOR_CURSOR_LEFT",
-    TOP = "ANCHOR_CURSOR",
-    BOTTOM = "ANCHOR_CURSOR",
 }
 local function Anchor(_, parent)
     local db = DB()
     if not db or not db.enabled then return end
     if db.anchor == "mouse" then
-        local anchor = cursorAnchors[db.cursorPosition or "BOTTOMRIGHT"] or "ANCHOR_CURSOR_LEFT"
+        local pos = db.cursorPosition
+        local anchor = (pos == "LEFT" or pos == "TOPLEFT" or pos == "BOTTOMLEFT")
+            and cursorAnchors.LEFT or cursorAnchors.RIGHT
         tip:SetOwner(parent or UIParent, anchor)
     else
         tip:SetOwner(parent or UIParent, "ANCHOR_NONE")
