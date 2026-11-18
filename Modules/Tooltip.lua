@@ -64,6 +64,7 @@ end
 -- Keep the native bar (secret unit health values are not readable by addons).
 -- Reapply only on mode changes; never accumulate tooltip padding.
 local insideMode, insideTipHeight, insideFirstAnchor
+local healthMode
 local function ResetInsideSpacing()
     if insideFirstAnchor then
         local first = _G.GameTooltipTextLeft1
@@ -105,68 +106,70 @@ local function UpdateHealth()
     local mode = db.healthBar
     if not db.enabled or not unit or mode == "off" then
         ResetInsideSpacing()
+        healthMode = nil
         health:Hide()
         if mode == "off" and tip and tip.StatusBar then tip.StatusBar:Hide() end
         if mode == "off" and _G.GameTooltipStatusBar then _G.GameTooltipStatusBar:Hide() end
         return
     end
-    -- Retail/Forever can return secret health numbers. Do not compare,
-    -- stringify or do arithmetic on them in addon-tainted execution.
-    -- Blizzard's native tooltip status bar already handles secret values.
+    -- FlareUI approach: never reanchor Blizzard's native status bar.
+    -- Its secure health values and layout belong to Blizzard.
     local native = _G.GameTooltipStatusBar or tip.StatusBar
-    if not native then health:Hide(); return end
-    health:Hide()
-    ApplyInsideSpacing(mode, native)
-    native:ClearAllPoints()
+    if not native then return end
+    local guid = native.GetAttribute and native:GetAttribute("guid")
+    if not guid or not UnitPercentHealthFromGUID then
+        health:Hide()
+        ResetInsideSpacing()
+        return
+    end
+    local ok, value = pcall(UnitPercentHealthFromGUID, guid)
+    if not ok or value == nil then
+        health:Hide()
+        ResetInsideSpacing()
+        return
+    end
+    -- Secret percentages may be passed directly to SetValue; never compare them.
+    local modeChanged = healthMode ~= mode
+    if modeChanged then
+        healthMode = mode
+        health:ClearAllPoints()
+    end
+    ApplyInsideSpacing(mode, health)
+    local title = _G.GameTooltipTextLeft1
     local tipWidth = tip:GetWidth() or 0
     if mode == "above" or mode == "below" then
-        -- Recalculate on every tooltip update: a previous inside mode may
-        -- have left a narrower explicit width on Blizzard's native bar.
-        if tipWidth > 12 then native:SetWidth(tipWidth - 12) end
-        if mode == "above" then
-            native:SetPoint("BOTTOMLEFT", tip, "TOPLEFT", 6, 2)
-        else
-            native:SetPoint("TOPLEFT", tip, "BOTTOMLEFT", 6, 0)
+        if modeChanged or math.abs((health:GetWidth() or 0) - math.max(1, tipWidth - 12)) > 1 then
+            health:SetWidth(math.max(1, tipWidth - 12))
+        end
+        if modeChanged then
+            if mode == "above" then
+                health:SetPoint("BOTTOMLEFT", tip, "TOPLEFT", 6, 2)
+            else
+                health:SetPoint("TOPLEFT", tip, "BOTTOMLEFT", 6, 0)
+            end
         end
     else
-        local title = _G.GameTooltipTextLeft1
         local titleWidth = title and title:GetStringWidth() or 0
-        -- Match the title's actual inset, not the frame's outer border.
-        local titleLeft = title and title:GetLeft()
-        local tipLeft = tip:GetLeft()
-        local inset = (titleLeft and tipLeft) and (titleLeft - tipLeft) or 10
-        inset = math.max(6, inset)
-        local barWidth = math.min(titleWidth - 4, tipWidth - inset - 6)
-        if barWidth > 0 then native:SetWidth(barWidth) end
-        if mode == "insideTop" then
-            native:SetPoint("TOPLEFT", tip, "TOPLEFT", inset, -10)
-        else
-            native:SetPoint("BOTTOMLEFT", tip, "BOTTOMLEFT", inset, 0)
+        local inset = 10
+        if title and title:GetLeft() and tip:GetLeft() then
+            inset = math.max(6, title:GetLeft() - tip:GetLeft())
+        end
+        local barWidth = math.max(1, math.min(titleWidth - 4, tipWidth - inset - 6))
+        if math.abs((health:GetWidth() or 0) - barWidth) > 1 then health:SetWidth(barWidth) end
+        if modeChanged then
+            if mode == "insideTop" then
+                health:SetPoint("TOPLEFT", tip, "TOPLEFT", inset, -10)
+            else
+                health:SetPoint("BOTTOMLEFT", tip, "BOTTOMLEFT", inset, -2)
+            end
         end
     end
-    native:Show()
-    return
-    --[[ Legacy custom bar positioning (unused while secret values are enabled).
-    local max = UnitHealthMax(unit)
-    health:SetMinMaxValues(0, max)
-    health:SetValue(UnitHealth(unit))
-    health:ClearAllPoints()
-    if mode == "above" then
-        health:SetPoint("BOTTOMLEFT", tip, "TOPLEFT", 6, 2)
-        health:SetPoint("BOTTOMRIGHT", tip, "TOPRIGHT", -6, 2)
-    elseif mode == "below" then
-        health:SetPoint("TOPLEFT", tip, "BOTTOMLEFT", 6, -2)
-        health:SetPoint("TOPRIGHT", tip, "BOTTOMRIGHT", -6, -2)
-    elseif mode == "insideTop" then
-        health:SetPoint("TOPLEFT", tip, "TOPLEFT", 6, -5)
-        health:SetPoint("TOPRIGHT", tip, "TOPRIGHT", -6, -5)
-    else
-        health:SetPoint("BOTTOMLEFT", tip, "BOTTOMLEFT", 6, 5)
-        health:SetPoint("BOTTOMRIGHT", tip, "BOTTOMRIGHT", -6, 5)
-    end
+    -- pcall protects against secret-value restrictions on specific client builds.
+    local setOK = pcall(health.SetValue, health, value)
+    if not setOK then health:Hide(); return end
+    native:Hide()
     health:Show()
-    if _G.GameTooltipStatusBar then _G.GameTooltipStatusBar:Hide() end
-    ]]
+
 end
 local function UnitContent()
     local db = DB()
@@ -299,7 +302,7 @@ function T:Initialize()
         T:Apply()
         UpdateHealth()
     end)
-    tip:HookScript("OnHide", function() health:Hide(); ResetInsideSpacing() end)
+    tip:HookScript("OnHide", function() health:Hide(); healthMode = nil; ResetInsideSpacing() end)
     -- Use an independent update frame. GameTooltip itself can be reanchored by
     -- Blizzard/other addons and its own update handler is not reliable here.
     local cursorDriver = CreateFrame("Frame", nil, UIParent)
