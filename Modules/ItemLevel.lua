@@ -9,6 +9,7 @@ local slots = {"HeadSlot","NeckSlot","ShoulderSlot","BackSlot","ChestSlot",
     "MainHandSlot","SecondaryHandSlot","RangedSlot"}
 local cache, pending, lastRequest = {}, nil, -10
 local retryScheduled = false
+local refreshingTooltip = false
 local labels, averageLabel = {}, nil
 local REQUEST_GAP, REQUEST_TIMEOUT, CACHE_TIME = 1.5, 4, 300
 local eventFrame = CreateFrame("Frame")
@@ -64,12 +65,19 @@ local function hasLevelLine()
             or value:find("Average Item Level:",1,true)) then return true end
     end
 end
-local function addLevel(guid, level)
+local function addLevel(guid, level, async)
     if not tooltipEnabled() or not number(level) or not GameTooltip:IsShown() then return end
     local unit = tooltipUnit()
     if not unit or guidOf(unit) ~= guid or hasLevelLine() then return end
     GameTooltip:AddLine(string.format("Item Level: %.1f", level), 1, 0.79, 0.43)
-    GameTooltip:Show()
+    -- A post-call runs during Blizzard's tooltip build. Calling Show() from
+    -- there can recursively rebuild the tooltip and destabilize its layout.
+    -- Only async inspect results need a guarded layout refresh.
+    if async and not refreshingTooltip then
+        refreshingTooltip = true
+        GameTooltip:Show()
+        refreshingTooltip = false
+    end
 end
 local function inspectOpen()
     return InspectFrame and InspectFrame:IsShown()
@@ -154,7 +162,7 @@ local function onInspectReady(guid)
         local level = averageFromInspect(unit)
         if number(level) then
             cache[guid] = {value=level,time=GetTime()}
-            addLevel(guid, level)
+            addLevel(guid, level, true)
         end
     end
     if ClearInspectPlayer and not inspectOpen() then pcall(ClearInspectPlayer) end
