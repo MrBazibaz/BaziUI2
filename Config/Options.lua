@@ -231,10 +231,10 @@ function addon.Options:Create()
     end
     -- Edges overlap corners by ~20 units; corners are drawn on top.
     -- The TGA vertical edges have only half their 32px width opaque.
-    TiledHorizontal("Edge_Top_Seamless.tga",EDGE_TOP_OUTSET,50,1090,10)
-    TiledHorizontal("Edge_Bottom_Seamless.tga",-740+EDGE_BOTTOM_OUTSET,50,1090,10)
+    TiledHorizontal("Edge_Top_Seamless.tga",EDGE_TOP_OUTSET-2,50,1090,7)
+    TiledHorizontal("Edge_Bottom_Seamless.tga",-740+EDGE_BOTTOM_OUTSET+2,50,1090,7)
     TiledVertical("Edge_Left_Seamless.tga",-EDGE_SIDE_OUTSET+2, -35,-705,6)
-    TiledVertical("Edge_Right_Seamless.tga",1140-6, -35,-705,6)
+    TiledVertical("Edge_Right_Seamless.tga",1140-5, -35,-705,6)
     -- Footer and lower frame edge share one bottom-anchored container.
     -- No hardcoded top offset: resizing keeps the artwork on the actual edge.
     local footerChrome=CreateFrame("Frame",nil,frame)
