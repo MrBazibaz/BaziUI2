@@ -66,14 +66,14 @@ local function hasLevelLine()
     end
 end
 local function addLevel(guid, level, async)
-    if not tooltipEnabled() or not number(level) or not GameTooltip:IsShown() then return end
+    if not tooltipEnabled() or not number(level) then return end
     local unit = tooltipUnit()
     if not unit or guidOf(unit) ~= guid or hasLevelLine() then return end
     GameTooltip:AddLine(string.format("Item Level: %.1f", level), 1, 0.79, 0.43)
     -- A post-call runs during Blizzard's tooltip build. Calling Show() from
     -- there can recursively rebuild the tooltip and destabilize its layout.
     -- Only async inspect results need a guarded layout refresh.
-    if async and not refreshingTooltip then
+    if async and GameTooltip:IsShown() and not refreshingTooltip then
         refreshingTooltip = true
         GameTooltip:Show()
         refreshingTooltip = false
