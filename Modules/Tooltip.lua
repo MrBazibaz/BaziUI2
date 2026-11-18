@@ -254,24 +254,7 @@ local function UnitContent()
         RemoveLine(_G.FACTION_HORDE, true)
         RemoveLine(_G.FACTION_ALLIANCE, true)
     end
-    if db.itemLevel then
-        local level
-        local ok, player = pcall(UnitIsUnit, unit, "player")
-        if ok and player and GetAverageItemLevel then
-            local good, _, equipped = pcall(GetAverageItemLevel)
-            if good and type(equipped) == "number" and (not issecretvalue or not issecretvalue(equipped)) then
-                level = equipped
-            end
-        elseif C_PaperDollInfo and C_PaperDollInfo.GetInspectItemLevel then
-            local good, result = pcall(C_PaperDollInfo.GetInspectItemLevel, unit)
-            if good and type(result) == "number" and (not issecretvalue or not issecretvalue(result)) then
-                level = result
-            end
-        end
-        if level and level > 0 and not FindLine("Item Level") then
-            tip:AddLine(string.format("Item Level: %.1f", level), 1, 0.82, 0.42)
-        end
-    end
+    if addon.ItemLevel then addon.ItemLevel:OnUnit() end
     if db.targetTarget then
         local target = unit .. "target"
         local ok, exists = pcall(UnitExists, target)
