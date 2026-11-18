@@ -144,35 +144,21 @@ local function UpdateHealth()
         health:ClearAllPoints()
     end
     ApplyInsideSpacing(mode, health)
-    local title = _G.GameTooltipTextLeft1
-    local tipWidth = tip:GetWidth() or 0
-    if mode == "above" or mode == "below" then
-        if modeChanged or math.abs((health:GetWidth() or 0) - math.max(1, tipWidth - 12)) > 1 then
-            health:SetWidth(math.max(1, tipWidth - 12))
-        end
-        if modeChanged then
-            if mode == "above" then
-                health:SetPoint("BOTTOMLEFT", tip, "TOPLEFT", 6, 2)
-            else
-                health:SetPoint("TOPLEFT", tip, "BOTTOMLEFT", 6, 0)
-            end
-        end
-    else
-        local titleWidth = title and title:GetStringWidth() or 0
-        local inset = 10
-        if title and title:GetLeft() and tip:GetLeft() then
-            inset = math.max(6, title:GetLeft() - tip:GetLeft())
-        end
-        local barWidth = math.max(1, tipWidth - inset - 10)
-        if math.abs((health:GetWidth() or 0) - barWidth) > 1 then health:SetWidth(barWidth) end
-        if mode == "insideTop" then
-            if modeChanged then health:SetPoint("TOPLEFT", tip, "TOPLEFT", inset, -10) end
+    -- Anchor both ends to the frame instead of calculating widths/offsets.
+    -- Tooltip font-string geometry can be secret on WoW Forever.
+    if modeChanged then
+        if mode == "above" then
+            health:SetPoint("BOTTOMLEFT", tip, "TOPLEFT", 10, 2)
+            health:SetPoint("BOTTOMRIGHT", tip, "TOPRIGHT", -10, 2)
+        elseif mode == "below" then
+            health:SetPoint("TOPLEFT", tip, "BOTTOMLEFT", 10, 0)
+            health:SetPoint("TOPRIGHT", tip, "BOTTOMRIGHT", -10, 0)
+        elseif mode == "insideTop" then
+            health:SetPoint("TOPLEFT", tip, "TOPLEFT", 10, -10)
+            health:SetPoint("TOPRIGHT", tip, "TOPRIGHT", -10, -10)
         else
-            -- Stable bottom inset: text space is reserved by tooltip padding.
-            -- Never anchor to a changing FontString or reposition each tick.
-            if modeChanged then
-                health:SetPoint("BOTTOMLEFT", tip, "BOTTOMLEFT", inset, 6)
-            end
+            health:SetPoint("BOTTOMLEFT", tip, "BOTTOMLEFT", 10, 6)
+            health:SetPoint("BOTTOMRIGHT", tip, "BOTTOMRIGHT", -10, 6)
         end
     end
     -- Do not manually resize GameTooltip on health ticks. Blizzard rebuilds
@@ -232,7 +218,6 @@ local function UnitContent()
         RemoveLine(_G.FACTION_HORDE, true)
         RemoveLine(_G.FACTION_ALLIANCE, true)
     end
-    if addon.ItemLevel then addon.ItemLevel:OnUnit() end
     if db.targetTarget then
         local target = unit .. "target"
         local ok, exists = pcall(UnitExists, target)
@@ -253,6 +238,7 @@ local function UnitContent()
             if color and title then title:SetTextColor(color.r, color.g, color.b) end
         end
     end
+    if addon.ItemLevel then addon.ItemLevel:OnUnit() end
     T:EnsureHealthSpacer()
     UpdateHealth()
 end
