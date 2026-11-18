@@ -375,12 +375,15 @@ function addon.Options:Create()
         grip:SetPoint(anchor, optionsFrame, anchor, 0, 0)
         grip:SetFrameLevel(optionsFrame:GetFrameLevel() + 35)
         grip:EnableMouse(true)
-        -- Two understated diagonal lines indicate that the corner can be dragged.
+        -- Two visible bronze diagonals inside each corner, without changing
+        -- the approved outer NineSlice border artwork.
         for i = 0, 1 do
             local stroke = grip:CreateTexture(nil, "OVERLAY")
-            stroke:SetColorTexture(0.75, 0.57, 0.31, 0.85)
-            stroke:SetSize(11 - i * 4, 1)
-            stroke:SetPoint("BOTTOM", grip, "BOTTOM", anchor == "BOTTOMLEFT" and (-10 + i * 4) or (10 - i * 4), 8 + i * 4)
+            stroke:SetColorTexture(0.90, 0.69, 0.38, 0.95)
+            stroke:SetSize(19 - i * 5, 2)
+            local offset = 13 + i * 6
+            stroke:SetPoint("CENTER", grip, "BOTTOMLEFT",
+                anchor == "BOTTOMLEFT" and offset or (35 - offset), offset)
             if stroke.SetRotation then
                 stroke:SetRotation(anchor == "BOTTOMLEFT" and -math.pi / 4 or math.pi / 4)
             end
@@ -463,8 +466,8 @@ function addon.Options:Create()
     local nav = CreateFrame("Frame", nil, optionsFrame)
     nav:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", 12, -49)
     local navBackground = nav:CreateTexture(nil, "BACKGROUND")
-    navBackground:SetPoint("TOPLEFT", nav, "TOPLEFT", 0, 10)
-    navBackground:SetPoint("BOTTOMRIGHT", nav, "BOTTOMRIGHT", 0, -4)
+    navBackground:SetPoint("TOPLEFT", nav, "TOPLEFT", 0, -6)
+    navBackground:SetPoint("BOTTOMRIGHT", nav, "BOTTOMRIGHT", -2, -14)
     navBackground:SetColorTexture(0.105, 0.063, 0.038, 0.96)
     nav:SetWidth(180)
     nav:SetPoint("BOTTOMLEFT", optionsFrame, "BOTTOMLEFT", 12, 22)
@@ -472,7 +475,7 @@ function addon.Options:Create()
     -- Small category search, kept entirely inside the existing sidebar.
     local search = CreateFrame("EditBox", nil, nav)
     search:SetPoint("TOPLEFT", nav, "TOPLEFT", 14, -6)
-    search:SetSize(162, 17)
+    search:SetSize(164, 17)
     search:SetAutoFocus(false)
     search:SetFontObject("GameFontHighlightSmall")
     search:SetTextInsets(27, 9, 0, 0)
@@ -522,8 +525,8 @@ function addon.Options:Create()
     local separator = contentFrame:CreateTexture(nil, "BORDER")
     separator:SetColorTexture(0.72, 0.49, 0.25, 0.65)
     separator:SetWidth(1)
-    separator:SetPoint("TOPLEFT", contentFrame, "TOPLEFT", -14, 0)
-    separator:SetPoint("BOTTOMLEFT", contentFrame, "BOTTOMLEFT", -14, 0)
+    separator:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", 190, -55)
+    separator:SetPoint("BOTTOMLEFT", optionsFrame, "BOTTOMLEFT", 190, 8)
 
     -- Scrollable categories, with a fixed footer and search box.
     local scrollFrame = CreateFrame("ScrollFrame", nil, nav)
