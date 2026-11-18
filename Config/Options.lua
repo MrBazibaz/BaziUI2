@@ -111,7 +111,7 @@ local function General()
     Section(settings,"Appearance",-19)
     local db=addon.db.profile
     Slider(settings,"Window Scale","Size of the Bazi UI settings window",-59,0.70,1.20,0.01,db.uiScale,function(v)
-        db.uiScale=v;if frame then frame:SetScale(v);if frame.baziShadowFrame then frame.baziShadowFrame:SetScale(v) end end
+        db.uiScale=v;if frame then frame:SetScale(v) end
     end)
     Slider(settings,"Font Size","Default text size for supported modules",-136,10,20,1,db.fontSize,function(v)db.fontSize=v end)
 end
@@ -150,37 +150,6 @@ function addon.Options:Create()
     frame:RegisterForDrag("LeftButton");frame:SetScript("OnDragStart",frame.StartMoving)
     frame:SetScript("OnDragStop",frame.StopMovingOrSizing)
     frame:SetScale(addon.db.profile.uiScale or 1)
-    -- Position the tested 9-slice shadow outside the window border.
-    -- Keep the tested PNG slicing; stretch only the straight edge sections.
-    local shadowFile=ASSET.."Effects\\Window_Shadow.png"
-    local shadowSize=36
-    local shadowFrame=CreateFrame("Frame","BaziUIWindowShadow",UIParent)
-    shadowFrame:SetFrameStrata("TOOLTIP")
-    shadowFrame:SetFrameLevel(100)
-    shadowFrame:SetScale(frame:GetScale())
-    shadowFrame:SetSize(1140+shadowSize*2,740+shadowSize*2)
-    shadowFrame:SetPoint("CENTER",frame,"CENTER",0,0)
-    shadowFrame:EnableMouse(false)
-    local cuts={0,23/128,105/128,1}
-    local widths={shadowSize,1140,shadowSize}
-    local heights={shadowSize,740,shadowSize}
-    local xOffsets={0,shadowSize,1140+shadowSize}
-    local yOffsets={0,shadowSize,740+shadowSize}
-    for row=1,3 do
-        for col=1,3 do
-            if row~=2 or col~=2 then
-                local piece=shadowFrame:CreateTexture(nil,"ARTWORK")
-                piece:SetTexture(shadowFile)
-                piece:SetTexCoord(cuts[col],cuts[col+1],cuts[row],cuts[row+1])
-                piece:SetPoint("TOPLEFT",shadowFrame,"TOPLEFT",xOffsets[col],-yOffsets[row])
-                piece:SetSize(widths[col],heights[row])
-            end
-        end
-    end
-    frame.baziShadowFrame=shadowFrame
-    frame:HookScript("OnShow",function()shadowFrame:Show()end)
-    frame:HookScript("OnHide",function()shadowFrame:Hide()end)
-    shadowFrame:Hide()
     -- A fully opaque fill is essential: transparent ornamental corner TGAs
     -- must not reveal the game world through large square holes.
     Paint(frame,"BACKGROUND",0.055,0.043,0.074,1)
