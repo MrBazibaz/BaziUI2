@@ -61,6 +61,40 @@ local function Paint(parent, layer, r,g,b,a, x1,y1,x2,y2)
     if x1 then t:SetPoint("TOPLEFT",parent,"TOPLEFT",x1,y1);t:SetPoint("BOTTOMRIGHT",parent,"BOTTOMRIGHT",x2,y2) else t:SetAllPoints(parent) end
     return t
 end
+-- Reuse the existing button texture as scalable, softly rounded card art.
+-- Only inner panels use this; never apply it to the locked outer frame.
+local function RoundedSurface(parent)
+    local uvX={0,20/256,236/256,1}
+    local uvY={0,17/64,47/64,1}
+    local corner=14
+    for row=1,3 do
+        for col=1,3 do
+            local t=Art(parent,"BACKGROUND",ART.button.."Normal.tga")
+            t:SetTexCoord(uvX[col],uvX[col+1],uvY[row],uvY[row+1])
+            t:SetVertexColor(0.75,0.67,0.79,1)
+            if col==1 then
+                t:SetPoint("LEFT",parent,"LEFT",0,0)
+                t:SetWidth(corner)
+            elseif col==2 then
+                t:SetPoint("LEFT",parent,"LEFT",corner,0)
+                t:SetPoint("RIGHT",parent,"RIGHT",-corner,0)
+            else
+                t:SetPoint("RIGHT",parent,"RIGHT",0,0)
+                t:SetWidth(corner)
+            end
+            if row==1 then
+                t:SetPoint("TOP",parent,"TOP",0,0)
+                t:SetHeight(corner)
+            elseif row==2 then
+                t:SetPoint("TOP",parent,"TOP",0,-corner)
+                t:SetPoint("BOTTOM",parent,"BOTTOM",0,corner)
+            else
+                t:SetPoint("BOTTOM",parent,"BOTTOM",0,0)
+                t:SetHeight(corner)
+            end
+        end
+    end
+end
 local function Label(parent,text,size,r,g,b)
     local f=parent:CreateFontString(nil,"OVERLAY",size or "GameFontNormal")
     f:SetText(text);f:SetTextColor(r or GOLD[1],g or GOLD[2],b or GOLD[3]);f:SetJustifyH("LEFT")
@@ -72,14 +106,18 @@ local function Line(parent,top,xleft,xright)
     t:SetPoint("TOPRIGHT",parent,"TOPRIGHT",xright or 0,top)
     t:SetHeight(1);t:SetColorTexture(0.67,0.48,0.25,0.48)
 end
-local function Panel(parent,x,y,w,h)
+local function Panel(parent,x,y,w,h,rounded)
     local p=CreateFrame("Frame",nil,parent)
     p:SetPoint("TOPLEFT",parent,"TOPLEFT",x,y);p:SetSize(w,h)
     if w==824 then resizablePanels[#resizablePanels+1]=p end
-    Paint(p,"BACKGROUND",0.095,0.065,0.105,0.98)
-    local art=p:CreateTexture(nil,"BORDER");art:SetAllPoints(p)
-    art:SetTexture(ASSET.."Panels\\Panel_Dark.png");art:SetAlpha(0.08)
-    Line(p,0,0,0)
+    if rounded then
+        RoundedSurface(p)
+        Paint(p,"BORDER",0.18,0.105,0.20,0.67,7,-8,-7,8)
+    else
+        Paint(p,"BACKGROUND",0.095,0.065,0.105,0.98)
+        -- Flat sidebar and placeholders preserve their existing geometry.
+        Line(p,0,0,0)
+    end
     return p
 end
 local function Button(parent,text,x,y,w,h,action)
@@ -146,49 +184,61 @@ local function Show(name)
     end
 end
 local function Slider(parent,title,subtitle,y,minv,maxv,step,value,change)
-    local row=Panel(parent,22,y,804,65)
+    local row=Panel(parent,22,y,804,70,true)
     sliderRows[#sliderRows+1]=row
-    -- Inset control row: restrained relief without new textures.
-    local rowTint=Paint(row,"BORDER",0.20,0.12,0.22,0.42,2,-2,-2,2)
-    local rowAccent=Paint(row,"ARTWORK",0.73,0.49,0.22,0.75)
-    rowAccent:ClearAllPoints()
-    rowAccent:SetPoint("TOPLEFT",row,"TOPLEFT",2,-3)
-    rowAccent:SetPoint("BOTTOMLEFT",row,"BOTTOMLEFT",2,3)
-    rowAccent:SetWidth(2)
-    local name=Label(row,title,"GameFontNormal",0.94,0.81,0.58)
-    name:SetPoint("TOPLEFT",row,"TOPLEFT",17,-12)
-    local desc=Label(row,subtitle,"GameFontHighlightSmall",0.66,0.64,0.69)
-    desc:SetPoint("TOPLEFT",row,"TOPLEFT",17,-35)
+    local name=Label(row,title,"GameFontNormal",0.97,0.81,0.58)
+    name:SetPoint("TOPLEFT",row,"TOPLEFT",25,-15)
+    local desc=Label(row,subtitle,"GameFontHighlightSmall",0.74,0.68,0.71)
+    desc:SetPoint("TOPLEFT",row,"TOPLEFT",25,-39)
+
     local valueFrame=CreateFrame("Frame",nil,row)
-    valueFrame:SetSize(48,27)
-    valueFrame:SetPoint("RIGHT",row,"RIGHT",-12,0)
-    Paint(valueFrame,"BACKGROUND",0.10,0.07,0.12,0.92)
-    local valueTop=Paint(valueFrame,"BORDER",0.69,0.49,0.26,0.65)
-    valueTop:ClearAllPoints()
-    valueTop:SetPoint("TOPLEFT");valueTop:SetPoint("TOPRIGHT");valueTop:SetHeight(1)
-    local readout=Label(valueFrame,"","GameFontNormal",1,0.82,0.49)
+    valueFrame:SetSize(55,30)
+    valueFrame:SetPoint("RIGHT",row,"RIGHT",-13,0)
+    RoundedSurface(valueFrame)
+    local readout=Label(valueFrame,"","GameFontNormal",1,0.84,0.54)
     readout:SetPoint("CENTER")
+
+    local sliderWidth=218
     local slider=CreateFrame("Slider",nil,row)
-    slider:SetSize(166,20);slider:SetPoint("RIGHT",valueFrame,"LEFT",-18,0)
-    slider:SetOrientation("HORIZONTAL");slider:SetMinMaxValues(minv,maxv);slider:SetValueStep(step)
-    local track=slider:CreateTexture(nil,"BACKGROUND");track:SetTexture(ART.sliders.."Track.tga")
-    track:SetPoint("LEFT");track:SetPoint("RIGHT");track:SetHeight(8)
-    local progress=slider:CreateTexture(nil,"BORDER");progress:SetTexture(ART.sliders.."Fill_Gold.tga")
-    progress:SetPoint("LEFT",slider,"LEFT",0,0);progress:SetHeight(8)
-    local thumb=slider:CreateTexture(nil,"OVERLAY");thumb:SetTexture(ART.sliders.."Handle.tga");thumb:SetSize(25,28)
+    slider:SetSize(sliderWidth,32)
+    slider:SetPoint("RIGHT",valueFrame,"LEFT",-20,0)
+    slider:SetOrientation("HORIZONTAL")
+    slider:SetMinMaxValues(minv,maxv)
+    slider:SetValueStep(step)
+
+    -- These original TGAs have generous transparent margins.
+    -- Crop those margins instead of shrinking the visible art.
+    local track=slider:CreateTexture(nil,"BACKGROUND")
+    track:SetTexture(ART.sliders.."Track.tga")
+    track:SetPoint("LEFT",slider,"LEFT",0,0)
+    track:SetPoint("RIGHT",slider,"RIGHT",0,0)
+    track:SetHeight(10)
+    track:SetTexCoord(9/512,503/512,15/64,48/64)
+
+    local progress=slider:CreateTexture(nil,"BORDER")
+    progress:SetTexture(ART.sliders.."Fill_Gold.tga")
+    progress:SetPoint("LEFT",slider,"LEFT",0,0)
+    progress:SetHeight(7)
+    -- The gold pixels occupy only x=203..308, y=29..34 in a 512x64 file.
+    progress:SetTexCoord(203/512,309/512,28/64,36/64)
+
+    local thumb=slider:CreateTexture(nil,"OVERLAY")
+    thumb:SetTexture(ART.sliders.."Handle.tga")
+    thumb:SetSize(46,47)
     slider:SetThumbTexture(thumb)
+
     local pendingValue=value
     local isWindowScale=(title=="Window Scale")
     slider:SetScript("OnValueChanged",function(_,raw)
         local v=math.floor(raw/step+0.5)*step
         readout:SetText(string.format("%g",v))
-        progress:SetWidth(math.max(1,166*(v-minv)/(maxv-minv)))
+        local fraction=math.max(0,math.min(1,(v-minv)/(maxv-minv)))
+        progress:SetWidth(math.max(1,sliderWidth*fraction))
         pendingValue=v
         if change and not isWindowScale then change(v) end
     end)
     if isWindowScale then
-        -- Rescaling a window under the mouse while dragging its own slider
-        -- changes mouse coordinates and causes runaway feedback.
+        -- Preserve release-only scale changes to avoid feedback while dragging.
         slider:SetScript("OnMouseUp",function()
             if change then change(pendingValue) end
         end)
@@ -205,10 +255,10 @@ local function Section(parent,name,y)
 end
 local function General()
     local p=Page("General")
-    local hero=Panel(p,12,-8,824,112)
-    local glow=Paint(hero,"BORDER",0.18,0.10,0.23,0.68,1,-1,-1,1)
+    local hero=Panel(p,12,-8,824,112,true)
+    local glow=Paint(hero,"BORDER",0.18,0.10,0.23,0.42,6,-7,-6,7)
     -- Inner highlight and low gold edge create depth without a banner asset.
-    local heroInset=Paint(hero,"ARTWORK",0.36,0.23,0.43,0.18,4,-4,-4,4)
+    local heroInset=Paint(hero,"ARTWORK",0.36,0.23,0.43,0.11,8,-9,-8,9)
     local heroEdge=Paint(hero,"OVERLAY",0.73,0.50,0.24,0.58)
     heroEdge:ClearAllPoints()
     heroEdge:SetPoint("BOTTOMLEFT",hero,"BOTTOMLEFT",3,3)
@@ -220,7 +270,7 @@ local function General()
     h:SetPoint("TOPLEFT",hero,"TOPLEFT",23,-23)
     local sub=Label(hero,"Make Azeroth yours. Fine-tune your interface.","GameFontHighlight",0.85,0.76,0.81)
     sub:SetPoint("TOPLEFT",hero,"TOPLEFT",24,-67)
-    local settings=Panel(p,12,-133,824,272)
+    local settings=Panel(p,12,-133,824,438,true)
     Section(settings,"Appearance",-19)
     local db=addon.db.profile
     Slider(settings,"Window Scale","Size of the Bazi UI settings window",-59,0.70,1.20,0.01,db.uiScale,function(v)
