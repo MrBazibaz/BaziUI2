@@ -331,7 +331,7 @@ function addon.Options:Create()
     emblem:SetTexture(ASSET .. "Icons\\BaziUI_Emblem_256.png")
     optionsFrame.baziEmblem = emblem
 
-    optionsFrame:SetSize(900, 555)
+    optionsFrame:SetSize(db.windowWidth or 900, db.windowHeight or 555)
     optionsFrame:SetResizable(true)
     -- WoW Forever may expose SetResizeBounds instead of the legacy
     -- SetMinResize / SetMaxResize methods. Never call an absent API.
@@ -354,33 +354,29 @@ function addon.Options:Create()
     optionsFrame:SetScript("OnDragStart", optionsFrame.StartMoving)
     optionsFrame:SetScript("OnDragStop", optionsFrame.StopMovingOrSizing)
 
-    -- Resize from either bottom corner, preserving the native NineSlice border.
-    -- Handles live inside the window so they remain clickable at screen edges.
-    local function CreateResizeHandle(side)
-        local handle = CreateFrame("Button", nil, optionsFrame)
-        handle:SetSize(23, 23)
-        handle:SetPoint("BOTTOM" .. side, optionsFrame, "BOTTOM" .. side, side == "LEFT" and 5 or -5, 5)
-        handle:SetFrameLevel(optionsFrame:GetFrameLevel() + 35)
-        handle:EnableMouse(true)
-        local marker = handle:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-        marker:SetPoint("CENTER")
-        marker:SetText(side == "LEFT" and "/" or "\\\\")
-        marker:SetTextColor(0.85, 0.63, 0.34, 0.85)
-        handle:SetScript("OnMouseDown", function(self, button)
-            if button == "LeftButton" then
-                optionsFrame:StartSizing("BOTTOM" .. side)
+    -- Same drag-to-resize interaction as the archived V7 implementation.
+    -- Native NineSlice frame artwork remains untouched.
+    local function ResizeGrip(anchor)
+        local grip = CreateFrame("Button", nil, optionsFrame)
+        grip:SetSize(35, 35)
+        grip:SetPoint(anchor, optionsFrame, anchor, 0, 0)
+        grip:SetFrameLevel(optionsFrame:GetFrameLevel() + 35)
+        grip:EnableMouse(true)
+        grip:RegisterForDrag("LeftButton")
+        grip:SetScript("OnDragStart", function()
+            if not InCombatLockdown or not InCombatLockdown() then
+                optionsFrame:StartSizing(anchor)
             end
         end)
-        handle:SetScript("OnMouseUp", function()
+        grip:SetScript("OnDragStop", function()
             optionsFrame:StopMovingOrSizing()
+            db.windowWidth = math.floor(optionsFrame:GetWidth() + 0.5)
+            db.windowHeight = math.floor(optionsFrame:GetHeight() + 0.5)
         end)
-        handle:SetScript("OnHide", function()
-            optionsFrame:StopMovingOrSizing()
-        end)
-        return handle
+        return grip
     end
-    CreateResizeHandle("LEFT")
-    CreateResizeHandle("RIGHT")
+    ResizeGrip("BOTTOMLEFT")
+    ResizeGrip("BOTTOMRIGHT")
     -- Ease into 75% opacity during movement; restore instantly on stopping.
     local displayedAlpha = 1
     local fadeSeconds = 0.65
