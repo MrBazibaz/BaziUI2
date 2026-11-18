@@ -156,7 +156,7 @@ function addon.Options:Create()
     local test=CreateFrame("Frame","BaziUIShadowDiagnostic",UIParent)
     test:SetFrameStrata("TOOLTIP")
     test:SetFrameLevel(100)
-    test:SetSize(490,290)
+    test:SetSize(620,290)
     test:SetPoint("CENTER",UIParent,"CENTER",0,0)
     test:EnableMouse(false)
     local testBg=test:CreateTexture(nil,"BACKGROUND")
@@ -167,20 +167,22 @@ function addon.Options:Create()
     control:SetSize(200,200)
     control:SetPoint("TOPLEFT",test,"TOPLEFT",20,-52)
     local cuts={0,23/128,105/128,1}
-    local lengths={36,128,36} -- 200 units total, no gaps
-    local offsets={0,36,164}
+    local widths={36,228,36} -- 300 units wide, center stretched only
+    local heights={36,128,36} -- 200 units tall, unchanged
+    local xOffsets={0,36,264}
+    local yOffsets={0,36,164}
     for row=1,3 do
         for col=1,3 do
             local piece=test:CreateTexture(nil,"ARTWORK")
             piece:SetTexture(shadowFile)
             piece:SetTexCoord(cuts[col],cuts[col+1],cuts[row],cuts[row+1])
-            piece:SetPoint("TOPLEFT",test,"TOPRIGHT",-220+offsets[col],-52-offsets[row])
-            piece:SetSize(lengths[col],lengths[row])
+            piece:SetPoint("TOPLEFT",test,"TOPRIGHT",-320+xOffsets[col],-52-yOffsets[row])
+            piece:SetSize(widths[col],heights[row])
         end
     end
     local label=test:CreateFontString(nil,"OVERLAY","GameFontNormalLarge")
     label:SetPoint("TOP",test,"TOP",0,-14)
-    label:SetText("BAZI SHADOW TEST - RED / 3x3 PNG (NO GAPS)")
+    label:SetText("BAZI SHADOW TEST - RED / 3x3 PNG (300 x 200)")
     label:SetTextColor(1,0.9,0.2,1)
     frame:HookScript("OnShow",function()test:Show()end)
     frame:HookScript("OnHide",function()test:Hide()end)
