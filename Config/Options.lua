@@ -150,14 +150,24 @@ function addon.Options:Create()
     frame:RegisterForDrag("LeftButton");frame:SetScript("OnDragStart",frame.StartMoving)
     frame:SetScript("OnDragStop",frame.StopMovingOrSizing)
     frame:SetScale(addon.db.profile.uiScale or 1)
-    -- Subtle layered drop shadow behind the window, without new image assets.
-    -- Each translucent layer expands outward; the opaque fill hides its center.
-    for i=5,1,-1 do
-        local shadow=frame:CreateTexture(nil,"BACKGROUND",nil,-i)
-        shadow:SetColorTexture(0,0,0,0.035)
-        local spread=i*3
-        shadow:SetPoint("TOPLEFT",frame,"TOPLEFT",-spread,spread)
-        shadow:SetPoint("BOTTOMRIGHT",frame,"BOTTOMRIGHT",spread,-spread)
+    -- Exterior-only soft shadow: no full-frame overlays or interior darkening.
+    -- Thin bands fade smoothly outward; the outermost band is nearly transparent.
+    local shadowBands=10
+    for i=1,shadowBands do
+        local inner=(i-1)*2
+        local outer=i*2
+        local alpha=0.14*((shadowBands-i+1)/shadowBands)^1.7
+        local function ShadowStrip(x1,y1,x2,y2)
+            local t=frame:CreateTexture(nil,"BACKGROUND",nil,-7)
+            t:SetColorTexture(0,0,0,alpha)
+            t:SetPoint("TOPLEFT",frame,"TOPLEFT",x1,y1)
+            t:SetPoint("BOTTOMRIGHT",frame,"TOPLEFT",x2,y2)
+        end
+        -- Top and bottom include corners; side strips occupy only the middle.
+        ShadowStrip(-outer,outer,1140+outer,inner)
+        ShadowStrip(-outer,-740-inner,1140+outer,-740-outer)
+        ShadowStrip(-outer,inner,-inner,-740-inner)
+        ShadowStrip(1140+inner,inner,1140+outer,-740-inner)
     end
     -- A fully opaque fill is essential: transparent ornamental corner TGAs
     -- must not reveal the game world through large square holes.
