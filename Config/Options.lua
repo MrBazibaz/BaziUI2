@@ -274,7 +274,7 @@ local function CreateTooltipPage()
     if main.SetClipsChildren then main:SetClipsChildren(true) end
     -- Text tabs use the same bronze borders and plum selection as categories.
     local tabBar = CreateFrame("Frame", nil, page)
-    tabBar:SetPoint("TOPLEFT", main, "TOPRIGHT", 22, 0)
+    tabBar:SetPoint("TOPLEFT", main, "TOPRIGHT", 25, 0)
     tabBar:SetFrameStrata("FULLSCREEN_DIALOG")
     tabBar:SetSize(108, 87)
 
