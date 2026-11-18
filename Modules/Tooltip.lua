@@ -201,9 +201,17 @@ function T:Initialize()
     health:Hide()
     -- Keep Blizzard's bar until a valid custom unit bar can be displayed.
     hooksecurefunc("GameTooltip_SetDefaultAnchor", Anchor)
-    tip:HookScript("OnTooltipSetUnit", UnitContent)
-    tip:HookScript("OnTooltipSetItem", ItemContent)
-    tip:HookScript("OnTooltipSetSpell", SpellContent)
+    -- Tooltip script support varies by client. An unsupported script must not
+    -- abort initialization before the cursor positioning driver is created.
+    local function TryHookTooltipScript(scriptName, handler)
+        local ok, err = pcall(function() tip:HookScript(scriptName, handler) end)
+        if not ok then
+            DebugLine("skipping unsupported " .. scriptName .. ": " .. tostring(err))
+        end
+    end
+    TryHookTooltipScript("OnTooltipSetUnit", UnitContent)
+    TryHookTooltipScript("OnTooltipSetItem", ItemContent)
+    TryHookTooltipScript("OnTooltipSetSpell", SpellContent)
     tip:HookScript("OnShow", function()
         local db = DB()
         if not db then return end
