@@ -174,7 +174,7 @@ local function CreateSlider(parent, labelText, description, minValue, maxValue, 
             valueBox:ClearFocus()
             committing = false
         end
-        valueBox:SetScript("OnMouseDoubleClick", function(self) self:SetFocus(); self:HighlightText() end)
+        valueBox:SetScript("OnEditFocusGained", function(self) self:HighlightText() end)
         valueBox:SetScript("OnEnterPressed", CommitValue)
         valueBox:SetScript("OnEditFocusLost", function()
             if not committing then CommitValue() end
@@ -474,7 +474,7 @@ local function CreateTooltipPage()
         slider:SetValue(getValue())
         RefreshProgress(getValue())
         edit:SetText(string.format("%g", getValue()))
-        edit:SetScript("OnMouseDoubleClick", function(self) self:SetFocus(); self:HighlightText() end)
+        edit:SetScript("OnEditFocusGained", function(self) self:HighlightText() end)
         edit:SetScript("OnEnterPressed", function(self)
             Commit((self:GetText() or ""):gsub(",", ".")); self:ClearFocus()
         end)
