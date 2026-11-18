@@ -30,12 +30,12 @@ local function Art(parent,layer,path)
     return t
 end
 -- Stretch the flat center while retaining original rounded end caps.
-local function ThreeSlice(parent,path,inset,layer)
+local function ThreeSlice(parent,path,inset,layer,v1,v2)
     local pieces={}
     local fractions={{0,0.25},{0.25,0.75},{0.75,1}}
     for i=1,3 do
         local t=Art(parent,layer or "ARTWORK",path)
-        t:SetTexCoord(fractions[i][1],fractions[i][2],0,1)
+        t:SetTexCoord(fractions[i][1],fractions[i][2],v1 or 0,v2 or 1)
         if i==1 then
             t:SetPoint("TOPLEFT",parent,"TOPLEFT")
             t:SetPoint("BOTTOMLEFT",parent,"BOTTOMLEFT")
@@ -85,57 +85,33 @@ end
 local function Button(parent,text,x,y,w,h,action)
     local b=CreateFrame("Button",nil,parent)
     b:SetPoint("TOPLEFT",parent,"TOPLEFT",x,y);b:SetSize(w,h)
-    local normal=ThreeSlice(b,ART.button.."Normal.tga",math.min(18,h/2),"BACKGROUND")
-    local hover=ThreeSlice(b,ART.button.."Hover.tga",math.min(18,h/2),"BORDER")
-    local pressed=ThreeSlice(b,ART.button.."Pressed.tga",math.min(18,h/2),"ARTWORK")
-    local selected=ThreeSlice(b,ART.button.."Selected.tga",math.min(18,h/2),"ARTWORK")
-    local disabled=ThreeSlice(b,ART.button.."Disabled.tga",math.min(18,h/2),"ARTWORK")
-    -- Single clean gold active outline. Hide the selected texture to avoid
-    -- layering a second border over the normal artwork.
-    local outline={}
-    local top=Paint(b,"OVERLAY",0.91,0.66,0.30,0.95)
-    top:ClearAllPoints()
-    top:SetPoint("TOPLEFT",b,"TOPLEFT",3,-2)
-    top:SetPoint("TOPRIGHT",b,"TOPRIGHT",-3,-2)
-    top:SetHeight(2)
-    outline[#outline+1]=top
-    local bottom=Paint(b,"OVERLAY",0.91,0.66,0.30,0.95)
-    bottom:ClearAllPoints()
-    bottom:SetPoint("BOTTOMLEFT",b,"BOTTOMLEFT",3,2)
-    bottom:SetPoint("BOTTOMRIGHT",b,"BOTTOMRIGHT",-3,2)
-    bottom:SetHeight(2)
-    outline[#outline+1]=bottom
-    local left=Paint(b,"OVERLAY",0.91,0.66,0.30,0.95)
-    left:ClearAllPoints()
-    left:SetPoint("TOPLEFT",b,"TOPLEFT",2,-3)
-    left:SetPoint("BOTTOMLEFT",b,"BOTTOMLEFT",2,3)
-    left:SetWidth(2)
-    outline[#outline+1]=left
-    local right=Paint(b,"OVERLAY",0.91,0.66,0.30,0.95)
-    right:ClearAllPoints()
-    right:SetPoint("TOPRIGHT",b,"TOPRIGHT",-2,-3)
-    right:SetPoint("BOTTOMRIGHT",b,"BOTTOMRIGHT",-2,3)
-    right:SetWidth(2)
-    outline[#outline+1]=right
+    local cap=math.min(18,h/2)
+    local normal=ThreeSlice(b,ART.button.."Normal.tga",cap,"BACKGROUND")
+    local hover=ThreeSlice(b,ART.button.."Hover.tga",cap,"BORDER")
+    local pressed=ThreeSlice(b,ART.button.."Pressed.tga",cap,"ARTWORK")
+    local disabled=ThreeSlice(b,ART.button.."Disabled.tga",cap,"ARTWORK")
     local title=Label(b,text,"GameFontNormalSmall",0.91,0.78,0.57)
     title:SetPoint("CENTER")
-    b.baziArt={normal=normal,hover=hover,pressed=pressed,selected=selected,disabled=disabled}
+    -- The original hover art contains a soft, rounded bronze-gold edge.
+    -- Use it as the active state, never a second square border.
     local function Refresh()
         AlphaPieces(normal,1)
-        -- Keep the base dark, with gold used as the selected accent.
-        AlphaPieces(hover,(not b.baziSelected and b:IsMouseOver()) and 0.55 or 0)
+        AlphaPieces(hover,(b.baziSelected or b:IsMouseOver()) and 1 or 0)
         AlphaPieces(pressed,b.baziPressed and 1 or 0)
-        AlphaPieces(selected,0)
-        AlphaPieces(hover,(not b.baziSelected and b:IsMouseOver()) and 0.55 or 0)
-        for _,edge in ipairs(outline) do edge:SetAlpha(b.baziSelected and 1 or 0) end
         AlphaPieces(disabled,b:IsEnabled() and 0 or 1)
+        if b.baziSelected then
+            title:SetTextColor(1,0.86,0.61)
+        else
+            title:SetTextColor(0.91,0.78,0.67)
+        end
     end
     b.baziRefresh=Refresh
     b:SetScript("OnEnter",Refresh)
     b:SetScript("OnLeave",Refresh)
     b:SetScript("OnMouseDown",function()b.baziPressed=true;Refresh()end)
     b:SetScript("OnMouseUp",function()b.baziPressed=false;Refresh()end)
-    b:HookScript("OnEnable",Refresh);b:HookScript("OnDisable",Refresh)
+    b:HookScript("OnEnable",Refresh)
+    b:HookScript("OnDisable",Refresh)
     b:SetScript("OnClick",action)
     Refresh()
     return b
@@ -260,11 +236,11 @@ local function Placeholder(name,description)
     txt:SetPoint("TOPLEFT",panel,"TOPLEFT",25,-76)
 end
 local function Nav(parent,name,icon,y)
-    local b=CreateFrame("Button",nil,parent);b:SetSize(195,40)
-    b:SetPoint("TOPLEFT",parent,"TOPLEFT",9,y+5)
+    local b=CreateFrame("Button",nil,parent);b:SetSize(197,36)
+    b:SetPoint("TOPLEFT",parent,"TOPLEFT",0,y+3)
     -- Dedicated category-button artwork, not the generic sidebar strip.
-    b.hover=ThreeSlice(b,ART.tabs.."Category_Hover.tga",20,"BORDER")
-    b.selected=ThreeSlice(b,ART.tabs.."Category_Selected.tga",20,"ARTWORK")
+    b.hover=ThreeSlice(b,ART.tabs.."Category_Hover.tga",20,"BORDER",9/64,53/64)
+    b.selected=ThreeSlice(b,ART.tabs.."Category_Selected.tga",20,"ARTWORK",9/64,53/64)
     AlphaPieces(b.hover,0);AlphaPieces(b.selected,0)
     local art=Art(b,"OVERLAY",ART.icon..(ICONS[name] or "General")..".tga")
     art:SetSize(22,22);art:SetPoint("LEFT",b,"LEFT",11,0)
@@ -513,10 +489,6 @@ function addon.Options:Create()
     debugText:SetPoint("BOTTOMLEFT",debugOverlay,"BOTTOMLEFT",12,48)
     debugText:SetText("|cff00ff00GREEN: frame bottom|r  |cffff3333RED: footer top|r")
 
-    local footerDivider=Art(footerChrome,"ARTWORK",ART.dividers.."Header_Horizontal.tga")
-    footerDivider:SetPoint("TOPLEFT",footerChrome,"TOPLEFT",16,0)
-    footerDivider:SetPoint("TOPRIGHT",footerChrome,"TOPRIGHT",-16,0)
-    footerDivider:SetHeight(2)
     -- Alpha bounds measured from the actual 256x256 TGA files.
     -- Crop only empty pixels. Preserve the original artwork aspect ratio.
     -- Test size: 70 UI units wide; top 55, bottom 52 (rounded).
@@ -553,17 +525,17 @@ function addon.Options:Create()
     -- Only these inner header textures change; approved frame artwork is untouched.
     local emblem=frame:CreateTexture(nil,"OVERLAY",nil,3)
     emblem:SetTexture(ART.logo)
-    emblem:SetSize(85,85)
-    emblem:SetPoint("TOPLEFT",frame,"TOPLEFT",-8,24)
+    emblem:SetSize(105,105)
+    emblem:SetPoint("TOPLEFT",frame,"TOPLEFT",-12,25)
     emblem:SetVertexColor(0.82,0.76,0.69,1)
     local title=Art(frame,"OVERLAY",ART.wordmark)
     -- Keep the source texture's 2:1 aspect ratio; the old 206x52 squashed it.
-    title:SetSize(194,97)
-    title:SetPoint("TOPLEFT",frame,"TOPLEFT",79,5)
+    title:SetSize(151,76)
+    title:SetPoint("TOPLEFT",frame,"TOPLEFT",99,8)
     title:SetVertexColor(0.84,0.76,0.67,1)
     -- No duplicated 'BAZI UI' subtitle. Version sits to the right of the mark.
     local version=Label(frame,"v0.1.1","GameFontNormalSmall",0.73,0.67,0.64)
-    version:SetPoint("LEFT",title,"RIGHT",6,-1)
+    version:SetPoint("LEFT",title,"RIGHT",8,-1)
     -- Ornamental close control: use the dedicated close icon rather than
     -- the generic square text button. Keep the existing hit area and anchor.
     local close=CreateFrame("Button",nil,frame)
@@ -596,7 +568,7 @@ function addon.Options:Create()
     end)
     local function Category(name,y)
         local h=Label(navBody,name,"GameFontNormalSmall",0.83,0.62,0.34)
-        h:SetPoint("TOPLEFT",navBody,"TOPLEFT",15,y)
+        h:SetPoint("TOPLEFT",navBody,"TOPLEFT",7,y)
     end
     -- Sidebar divider art is independent of the locked exterior border.
     local divider=CreateFrame("Frame",nil,sidebar)
@@ -642,10 +614,6 @@ function addon.Options:Create()
     Nav(navBody,"Tooltip","i",-429)
     Nav(navBody,"UnitFrames","+",-463)
     Nav(navBody,"Nameplates","o",-497)
-    local footer=Label(frame,"BAZI UI  |  Changes are saved automatically","GameFontNormalSmall",0.71,0.63,0.61)
-    footer:SetPoint("BOTTOMLEFT",footerChrome,"BOTTOMLEFT",23,13)
-    local stage=Label(frame,"DESIGN DEVELOPMENT  /  V0.1.1","GameFontNormalSmall",0.76,0.58,0.37)
-    stage:SetPoint("BOTTOMRIGHT",footerChrome,"BOTTOMRIGHT",-20,13)
     -- Bottom-corner resize handles. They are transparent but have generous
     -- hit areas inside the ornamented corners.
     local function ResizeGrip(anchor,direction)
@@ -672,10 +640,10 @@ function addon.Options:Create()
         local w,h=frame:GetSize()
         RebuildEdges()
         frame.baziUpdateShadowBounds()
-        sidebar:SetHeight(h-138)
+        sidebar:SetHeight(h-116)
         local limit=math.max(0,navBody:GetHeight()-navScroll:GetHeight())
         navScroll:SetVerticalScroll(math.min(navScroll:GetVerticalScroll(),limit))
-        content:SetSize(w-280,h-138)
+        content:SetSize(w-280,h-116)
         for _,viewport in pairs(pages) do
             local child=viewport:GetScrollChild()
             if child then child:SetSize(math.max(850,w-290),math.max(640,h-100)) end
