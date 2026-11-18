@@ -93,7 +93,8 @@ local REQUEST_GAP=1.5
 local REQUEST_TIMEOUT=4
 local cache={}
 local pending
-local lastRequest=0
+-- Allow the first inspect immediately, including right after /reload.
+local lastRequest=-REQUEST_GAP
 local added={}
 local function CleanString(value)
   if not ns.IsSecret(value) and type(value)=="string" and value~="" then return value end
