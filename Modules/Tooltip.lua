@@ -164,8 +164,8 @@ function T:Initialize()
         self:StopMovingOrSizing()
         local db = DB()
         if db then
-            db.x = math.floor((self:GetRight() - UIParent:GetRight()) / UIParent:GetEffectiveScale() + 0.5)
-            db.y = math.floor((self:GetBottom() - UIParent:GetBottom()) / UIParent:GetEffectiveScale() + 0.5)
+            db.x = math.floor((self:GetRight() - UIParent:GetRight()) + 0.5)
+            db.y = math.floor((self:GetBottom() - UIParent:GetBottom()) + 0.5)
         end
     end)
     marker:Hide()
@@ -174,7 +174,12 @@ function T:Initialize()
     health:SetStatusBarTexture("Interface\\TargetingFrame\\UI-StatusBar")
     health:SetStatusBarColor(0.28, 0.78, 0.35)
     health:Hide()
-    if _G.GameTooltipStatusBar then _G.GameTooltipStatusBar:Hide() end
+    if _G.GameTooltipStatusBar then
+        _G.GameTooltipStatusBar:HookScript("OnShow", function(self)
+            local db = DB()
+            if db and db.enabled and db.healthBar ~= "off" then self:Hide() end
+        end)
+    end
     hooksecurefunc("GameTooltip_SetDefaultAnchor", Anchor)
     tip:HookScript("OnTooltipSetUnit", UnitContent)
     tip:HookScript("OnTooltipSetItem", ItemContent)
