@@ -818,7 +818,8 @@ function addon.Options:Create()
     end)
     optionsFrame:SetScript("OnUpdate", function(self, elapsed)
         local speed = GetUnitSpeed and GetUnitSpeed("player") or 0
-        if speed > 0 then
+        if type(speed) == "number" and (not issecretvalue or not issecretvalue(speed))
+            and (not canaccessvalue or canaccessvalue(speed)) and speed > 0 then
             displayedAlpha = math.max(0.75, displayedAlpha - elapsed * (0.25 / fadeSeconds))
         else
             displayedAlpha = 1
