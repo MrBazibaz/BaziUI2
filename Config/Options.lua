@@ -242,10 +242,12 @@ function addon.Options:Create()
     footerDivider:SetColorTexture(0.67,0.48,0.25,0.48)
     MetallicEdge(true,"TOPLEFT","BOTTOMLEFT",0,0)
     MetallicEdge(true,"TOPRIGHT","BOTTOMRIGHT",0,0)
-    BorderPiece("Corner_TL.tga",CORNER_SIZE,CORNER_SIZE,"TOPLEFT",0,0)
-    BorderPiece("Corner_TR.tga",CORNER_SIZE,CORNER_SIZE,"TOPRIGHT",0,0)
-    BorderPiece("Corner_BL.tga",CORNER_SIZE,CORNER_SIZE,"BOTTOMLEFT",0,0)
-    BorderPiece("Corner_BR.tga",CORNER_SIZE,CORNER_SIZE,"BOTTOMRIGHT",0,0)
+    frame.baziCornerTextures = {
+        TL=BorderPiece("Corner_TL.tga",CORNER_SIZE,CORNER_SIZE,"TOPLEFT",0,0),
+        TR=BorderPiece("Corner_TR.tga",CORNER_SIZE,CORNER_SIZE,"TOPRIGHT",0,0),
+        BL=BorderPiece("Corner_BL.tga",CORNER_SIZE,CORNER_SIZE,"BOTTOMLEFT",0,0),
+        BR=BorderPiece("Corner_BR.tga",CORNER_SIZE,CORNER_SIZE,"BOTTOMRIGHT",0,0),
+    }
     -- Keep the header continuous as well; corner artwork overlays it.
     local header=Paint(frame,"BORDER",0.09,0.063,0.11,0.99,3,-3,-3,3)
     local emblem=frame:CreateTexture(nil,"OVERLAY");emblem:SetTexture(ASSET.."Icons\\BaziUI_Emblem_256.png")
@@ -309,6 +311,31 @@ SlashCmdList["BAZIDEBUG"] = function()
         frame.baziDebugOverlay:Show()
         print("Bazi UI V7: debug overlay ON. GREEN = frame bottom; RED = footer top.")
     end
+end
+-- Read-only corner geometry inspection. Does not change artwork or anchors.
+SLASH_BAZICORNERS1 = "/bazicorners"
+SlashCmdList["BAZICORNERS"] = function()
+    if not frame or not frame:IsShown() or not frame.baziCornerTextures then
+        print("Bazi UI V7: open /bazi before /bazicorners.")
+        return
+    end
+    local left, bottom = frame:GetLeft(), frame:GetBottom()
+    local scale = frame:GetEffectiveScale() or 1
+    if not left or not bottom then
+        print("Bazi UI V7: frame coordinates unavailable.")
+        return
+    end
+    print(string.format("Bazi UI V7 corners | frame %.1f x %.1f | effective scale %.3f",frame:GetWidth(),frame:GetHeight(),scale))
+    for _,key in ipairs({"TL","TR","BL","BR"}) do
+        local t=frame.baziCornerTextures[key]
+        local l,r,top,b=t:GetLeft(),t:GetRight(),t:GetTop(),t:GetBottom()
+        if l and r and top and b then
+            print(string.format("%s texture: x %.1f..%.1f, y %.1f..%.1f (from frame bottom), size %.1fx%.1f",key,l-left,r-left,b-bottom,top-bottom,t:GetWidth(),t:GetHeight()))
+        else
+            print(key.." texture: coordinates unavailable")
+        end
+    end
+    print("These are TEXTURE rectangles, not visible-gold alpha bounds.")
 end
 SLASH_BAZIFRAME1 = "/baziframe"
 SlashCmdList["BAZIFRAME"] = function()
