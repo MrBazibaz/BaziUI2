@@ -93,17 +93,24 @@ local function Button(parent,text,x,y,w,h,action)
     -- Single clean gold active outline. Hide the selected texture to avoid
     -- layering a second border over the normal artwork.
     local outline={}
-    local function Edge(x1,y1,x2,y2,width,height)
-        local t=Paint(b,"OVERLAY",0.91,0.66,0.30,0.95)
-        t:ClearAllPoints()
-        t:SetPoint("TOPLEFT",b,"TOPLEFT",x1,y1)
-        if width then t:SetWidth(width) else t:SetPoint("TOPRIGHT",b,"TOPRIGHT",x2,y1) end
-        if height then t:SetHeight(height) else t:SetPoint("BOTTOMLEFT",b,"BOTTOMLEFT",x1,y2) end
-        outline[#outline+1]=t
-    end
-    Edge(3,-2,-3,nil,nil,2)
-    Edge(3,nil,-3,2,nil,2)
-    Edge(2,-3,nil,3,2,nil)
+    local top=Paint(b,"OVERLAY",0.91,0.66,0.30,0.95)
+    top:ClearAllPoints()
+    top:SetPoint("TOPLEFT",b,"TOPLEFT",3,-2)
+    top:SetPoint("TOPRIGHT",b,"TOPRIGHT",-3,-2)
+    top:SetHeight(2)
+    outline[#outline+1]=top
+    local bottom=Paint(b,"OVERLAY",0.91,0.66,0.30,0.95)
+    bottom:ClearAllPoints()
+    bottom:SetPoint("BOTTOMLEFT",b,"BOTTOMLEFT",3,2)
+    bottom:SetPoint("BOTTOMRIGHT",b,"BOTTOMRIGHT",-3,2)
+    bottom:SetHeight(2)
+    outline[#outline+1]=bottom
+    local left=Paint(b,"OVERLAY",0.91,0.66,0.30,0.95)
+    left:ClearAllPoints()
+    left:SetPoint("TOPLEFT",b,"TOPLEFT",2,-3)
+    left:SetPoint("BOTTOMLEFT",b,"BOTTOMLEFT",2,3)
+    left:SetWidth(2)
+    outline[#outline+1]=left
     local right=Paint(b,"OVERLAY",0.91,0.66,0.30,0.95)
     right:ClearAllPoints()
     right:SetPoint("TOPRIGHT",b,"TOPRIGHT",-2,-3)
