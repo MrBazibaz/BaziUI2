@@ -1,6 +1,10 @@
 -- Bazi UI: standalone player tooltip item level.
 -- Port of ilvl Forever PlayerTooltip.lua's lifecycle and inspect algorithm.
 -- No dependency on Bazi UI's old tooltip engine or health bar.
+local function TooltipEnabled()
+  local db=BaziUI and BaziUI.db and BaziUI.db.profile and BaziUI.db.profile.tooltip
+  return not db or db.enabled ~= false
+end
 local addon = BaziUI
 local shared = _G.BaziIlvlShared or {}
 _G.BaziIlvlShared = shared
@@ -108,6 +112,7 @@ local function addLine(tooltip, guid, value)
         color and color.r or 1, color and color.g or 0.82, color and color.b or 0)
 end
 local function store(guid, value)
+    if not TooltipEnabled() then return end
     cache[guid] = {value=value,time=GetTime()}
     shared[guid] = value
     if shared.display then shared.display(guid, value) end
@@ -150,6 +155,7 @@ local function retryLater(wait)
     end)
 end
 local function request(unit, guid)
+    if not TooltipEnabled() then return end
     if not (NotifyInspect and CanInspect) or InCombatLockdown() or inspectOpen() then return end
     local now = GetTime()
     if pending and now - pending.time < REQUEST_TIMEOUT then
@@ -201,6 +207,7 @@ local function inspectReady(guid)
     if ClearInspectPlayer and not inspectOpen() then ClearInspectPlayer() end
 end
 local function onUnit(tooltip, data)
+    if not TooltipEnabled() then return end
     if tooltip.IsForbidden and tooltip:IsForbidden() then return end
     local unit = tooltipUnit(tooltip)
     if not unit or not player(unit) then return end
