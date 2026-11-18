@@ -243,6 +243,31 @@ end
 
 
 
+local function CreateQoLPage()
+    local page = CreateFrame("Frame", nil, contentFrame)
+    page:SetAllPoints(contentFrame)
+    pages["Quality of Life"] = page
+    local panel = CreatePanel(page, -12, 180)
+    CreateSection(panel, "QUALITY OF LIFE", -14)
+    CreateDivider(panel, -48)
+    local toggle = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
+    toggle:SetSize(25,25)
+    toggle:SetPoint("TOPLEFT",panel,"TOPLEFT",18,-72)
+    toggle:SetChecked(addon.db.profile.qol.characterItemLevel)
+    local label = CreateLabel(panel,"Character Item Level","GameFontHighlight")
+    label:SetPoint("LEFT",toggle,"RIGHT",6,0)
+    local description = CreateLabel(panel,
+        "Show equipped item levels and average ilvl in the character window.",
+        "GameFontHighlightSmall")
+    description:SetPoint("TOPLEFT",panel,"TOPLEFT",22,-115)
+    description:SetTextColor(0.84,0.73,0.59)
+    toggle:SetScript("OnClick",function(self)
+        addon.db.profile.qol.characterItemLevel = not not self:GetChecked()
+        if addon.ItemLevel then addon.ItemLevel:RefreshCharacter() end
+    end)
+    return page
+end
+
 local function CreateTooltipPage()
     local page = CreateFrame("Frame", nil, contentFrame)
     page:SetAllPoints(contentFrame)
@@ -1013,7 +1038,7 @@ function addon.Options:Create()
 
     CreateGeneralPage()
     CreateVersionHistoryPage()
-    CreatePlaceholderPage("Quality of Life", "Quality-of-life module settings will be added here.")
+    CreateQoLPage()
     CreatePlaceholderPage("Profiles", "Profile management is not implemented yet. Your current settings are preserved.")
     CreatePlaceholderPage("UnitFrames")
     CreatePlaceholderPage("Nameplates")
