@@ -150,56 +150,26 @@ function addon.Options:Create()
     frame:RegisterForDrag("LeftButton");frame:SetScript("OnDragStart",frame.StartMoving)
     frame:SetScript("OnDragStop",frame.StopMovingOrSizing)
     frame:SetScale(addon.db.profile.uiScale or 1)
-    -- Smooth 9-slice exterior shadow. Requires Assets/Effects/Window_Shadow.png.
-    -- The center of the source image is fully transparent; it is not drawn.
+    -- Exterior-only 9-slice shadow. The PNG's outer 23px border is
+    -- mapped to a 15-unit strip OUTSIDE the window on all four sides.
     local shadowFile=ASSET.."Effects\\Window_Shadow.png"
     local shadowSize=15
-    local shadowCuts={0,23/128,105/128,1}
-    local shadowWidths={shadowSize,1140-2*shadowSize,shadowSize}
-    local shadowHeights={shadowSize,740-2*shadowSize,shadowSize}
-    local shadowX={-shadowSize,shadowSize,1140-shadowSize}
-    local shadowY={shadowSize,-shadowSize,-740+shadowSize}
+    local cuts={0,23/128,105/128,1}
+    local widths={shadowSize,1140,shadowSize}
+    local heights={shadowSize,740,shadowSize}
+    local xs={-shadowSize,0,1140}
+    local ys={shadowSize,0,-740}
     for row=1,3 do
         for col=1,3 do
-            if not (row==2 and col==2) then
+            if row~=2 or col~=2 then
                 local t=frame:CreateTexture(nil,"BACKGROUND",nil,-7)
                 t:SetTexture(shadowFile)
-                t:SetTexCoord(shadowCuts[col],shadowCuts[col+1],shadowCuts[row],shadowCuts[row+1])
-                t:SetPoint("TOPLEFT",frame,"TOPLEFT",shadowX[col],shadowY[row])
-                t:SetSize(shadowWidths[col],shadowHeights[row])
+                t:SetTexCoord(cuts[col],cuts[col+1],cuts[row],cuts[row+1])
+                t:SetPoint("TOPLEFT",frame,"TOPLEFT",xs[col],ys[row])
+                t:SetSize(widths[col],heights[row])
             end
         end
     end
-    -- TEMP DIAGNOSTIC: independent top-level test, above all Bazi UI panels.
-    -- Red square = Lua code running; checker square = texture loaded.
-    local test=CreateFrame("Frame","BaziUIShadowDiagnostic",UIParent)
-    test:SetFrameStrata("TOOLTIP")
-    test:SetFrameLevel(100)
-    test:SetSize(490,290)
-    test:SetPoint("CENTER",UIParent,"CENTER",0,0)
-    test:EnableMouse(false)
-    local testBg=test:CreateTexture(nil,"BACKGROUND")
-    testBg:SetAllPoints(test)
-    testBg:SetColorTexture(0.08,0.08,0.08,0.96)
-    local control=test:CreateTexture(nil,"ARTWORK")
-    control:SetColorTexture(1,0.05,0.05,1)
-    control:SetSize(200,200)
-    control:SetPoint("TOPLEFT",test,"TOPLEFT",20,-52)
-    local image=test:CreateTexture(nil,"ARTWORK")
-    image:SetTexture(shadowFile)
-    image:SetSize(200,200)
-    image:SetPoint("TOPRIGHT",test,"TOPRIGHT",-20,-52)
-    local label=test:CreateFontString(nil,"OVERLAY","GameFontNormalLarge")
-    label:SetPoint("TOP",test,"TOP",0,-14)
-    label:SetText("BAZI SHADOW TEST - RED = LUA / RIGHT = PNG")
-    label:SetTextColor(1,0.9,0.2,1)
-    local status=test:CreateFontString(nil,"OVERLAY","GameFontNormal")
-    status:SetPoint("BOTTOM",test,"BOTTOM",0,13)
-    status:SetText("PNG texture: "..tostring(image:GetTexture()))
-    status:SetTextColor(1,1,1,1)
-    frame:HookScript("OnShow",function()test:Show()end)
-    frame:HookScript("OnHide",function()test:Hide()end)
-    test:Hide()
     -- A fully opaque fill is essential: transparent ornamental corner TGAs
     -- must not reveal the game world through large square holes.
     Paint(frame,"BACKGROUND",0.055,0.043,0.074,1)
