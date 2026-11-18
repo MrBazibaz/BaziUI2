@@ -150,6 +150,15 @@ function addon.Options:Create()
     frame:RegisterForDrag("LeftButton");frame:SetScript("OnDragStart",frame.StartMoving)
     frame:SetScript("OnDragStop",frame.StopMovingOrSizing)
     frame:SetScale(addon.db.profile.uiScale or 1)
+    -- Subtle layered drop shadow behind the window, without new image assets.
+    -- Each translucent layer expands outward; the opaque fill hides its center.
+    for i=5,1,-1 do
+        local shadow=frame:CreateTexture(nil,"BACKGROUND",nil,-i)
+        shadow:SetColorTexture(0,0,0,0.035)
+        local spread=i*3
+        shadow:SetPoint("TOPLEFT",frame,"TOPLEFT",-spread,spread)
+        shadow:SetPoint("BOTTOMRIGHT",frame,"BOTTOMRIGHT",spread,-spread)
+    end
     -- A fully opaque fill is essential: transparent ornamental corner TGAs
     -- must not reveal the game world through large square holes.
     Paint(frame,"BACKGROUND",0.055,0.043,0.074,1)
