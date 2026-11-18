@@ -7,6 +7,14 @@ local defaults = {
         uiScale = 1.0,
         fontSize = 14,
         font = "GameFontNormal",
+        tooltip = {
+            enabled = true, anchor = "corner", x = -30, y = 130,
+            scale = 1, opacity = 1, healthBar = "below",
+            guild = true, threat = true, ids = false, itemLevel = true,
+            classNames = true, targetTarget = true, hideFaction = false,
+            titleFont = {font = "FRIZQT", outline = "OUTLINE", size = 14, shadow = true},
+            textFont = {font = "FRIZQT", outline = "NONE", size = 12, shadow = true},
+        },
     },
 }
 
