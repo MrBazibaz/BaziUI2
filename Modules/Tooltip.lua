@@ -265,7 +265,8 @@ local function UnitContent()
             if color and title then title:SetTextColor(color.r, color.g, color.b) end
         end
     end
-    -- ItemLevel has its own unit post-call, as in ilvl Forever.
+    -- Always append ilvl after target text, both cached and inspected.
+    if addon.ItemLevel then addon.ItemLevel:OnUnit() end
     ScrubFrameHint()
     UpdateHealth()
 end
@@ -419,6 +420,7 @@ function T:Initialize()
         if not db then return end
         if not db.enabled then SetNativeBarHidden(false); return end
         T:Apply()
+        ScrubFrameHint()
         UpdateHealth()
     end)
     tip:HookScript("OnHide", function()
