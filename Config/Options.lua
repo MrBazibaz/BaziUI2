@@ -302,7 +302,7 @@ function addon.Options:Create()
     -- Keep the header continuous as well; corner artwork overlays it.
     local header=Paint(frame,"BORDER",0.09,0.063,0.11,0.99,3,-3,-3,3)
     local emblem=frame:CreateTexture(nil,"OVERLAY");emblem:SetTexture(ASSET.."Icons\\BaziUI_Emblem_256.png")
-    emblem:SetSize(70,70);emblem:SetPoint("TOPLEFT",frame,"TOPLEFT",13,8)
+    emblem:SetSize(70,70);emblem:SetPoint("TOPLEFT",frame,"TOPLEFT",13,4)
     local title=Label(frame,"Bazi UI","GameFontNormalHuge",1,0.83,0.53)
     title:SetPoint("TOPLEFT",frame,"TOPLEFT",85,-16)
     local version=Label(frame,"REFORGED  /  V7 PREVIEW","GameFontNormalSmall",0.64,0.58,0.66)
