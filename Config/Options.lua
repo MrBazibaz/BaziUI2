@@ -310,7 +310,20 @@ function addon.Options:Create()
     -- Edges overlap corners by ~20 units; corners are drawn on top.
     -- The TGA vertical edges have only half their 32px width opaque.
     TiledHorizontal("top","Edge_Top.tga",EDGE_TOP_OUTSET-4,40,1100,8)
-    TiledHorizontal("bottom","Edge_Bottom.tga",-740+EDGE_BOTTOM_OUTSET-8,40,1100,7)
+    -- TEMP VISUAL TEST: bottom edge uses the right edge artwork rotated
+    -- 90 degrees clockwise via texture coordinates. No asset is modified.
+    local bottomY=-740+EDGE_BOTTOM_OUTSET-8
+    for x=40,1099,16 do
+        local tileWidth=math.min(16,1100-x)
+        local fraction=tileWidth/16
+        local t=frame:CreateTexture(nil,"OVERLAY",nil,0)
+        t:SetTexture(BORDER_ASSET.."Edge_Right.tga")
+        t:SetPoint("TOPLEFT",frame,"TOPLEFT",x,bottomY)
+        t:SetSize(tileWidth,7)
+        -- Clockwise rotation; crop only the last partial repeat.
+        t:SetTexCoord(0,1, 0,1-fraction, 1,1, 1,1-fraction)
+        RegisterEdge("bottom",t,x,bottomY)
+    end
     TiledVertical("left","Edge_Left.tga",-EDGE_SIDE_OUTSET+3, -35,-710,6)
     TiledVertical("right","Edge_Right.tga",1140-1, -35,-710,6)
     -- Footer and lower frame edge share one bottom-anchored container.
