@@ -65,12 +65,13 @@ end
 -- Reapply only on mode changes; never accumulate tooltip padding.
 local insideMode, insideTipHeight, insideFirstAnchor
 local healthMode
-local nativeBarHidden = false
+-- Keep Blizzard's bar transparent while our overlay is active. Blizzard can
+-- reapply alpha when changing units, so verify the state rather than caching it.
 local function SetNativeBarHidden(hidden)
-    if nativeBarHidden == hidden then return end
-    nativeBarHidden = hidden
     local native = _G.GameTooltipStatusBar or tip.StatusBar
-    if native then native:SetAlpha(hidden and 0 or 1) end
+    if not native then return end
+    local desired = hidden and 0 or 1
+    if native:GetAlpha() ~= desired then native:SetAlpha(desired) end
 end
 local function ResetInsideSpacing()
     if insideFirstAnchor then
@@ -225,12 +226,24 @@ local function SpellContent()
     local _, id = tip:GetSpell()
     if id then AddLine("Spell ID", id); tip:Show() end
 end
+-- Use Blizzard's cursor anchors instead of reanchoring GameTooltip each frame.
+-- Native anchoring keeps the tooltip in the same coordinate system as its owner.
+local cursorAnchors = {
+    TOPLEFT = "ANCHOR_CURSOR_RIGHT",
+    LEFT = "ANCHOR_CURSOR_RIGHT",
+    BOTTOMLEFT = "ANCHOR_CURSOR_RIGHT",
+    TOPRIGHT = "ANCHOR_CURSOR_LEFT",
+    RIGHT = "ANCHOR_CURSOR_LEFT",
+    BOTTOMRIGHT = "ANCHOR_CURSOR_LEFT",
+    TOP = "ANCHOR_CURSOR",
+    BOTTOM = "ANCHOR_CURSOR",
+}
 local function Anchor(_, parent)
     local db = DB()
     if not db or not db.enabled then return end
     if db.anchor == "mouse" then
-        tip:SetOwner(parent or UIParent, "ANCHOR_NONE")
-        -- Position is updated against the cursor while the tooltip is visible.
+        local anchor = cursorAnchors[db.cursorPosition or "BOTTOMRIGHT"] or "ANCHOR_CURSOR_LEFT"
+        tip:SetOwner(parent or UIParent, anchor)
     else
         tip:SetOwner(parent or UIParent, "ANCHOR_NONE")
         tip:ClearAllPoints()
@@ -336,40 +349,6 @@ function T:Initialize()
             end
         end
         local db = DB()
-        if db and db.enabled and db.anchor == "mouse" and tip:IsShown() then
-            local uiScale = UIParent:GetEffectiveScale()
-            local mx, my = GetCursorPosition()
-            mx, my = mx / uiScale, my / uiScale
-            local point = db.cursorPosition or "BOTTOMRIGHT"
-            -- The selected point refers to the tooltip corner nearest the cursor.
-            -- Anchor that exact point; using the opposite corner makes the
-            -- placement look identical for several dropdown choices.
-            local valid = {
-                TOPLEFT = true, TOP = true, TOPRIGHT = true,
-                LEFT = true, RIGHT = true,
-                BOTTOMLEFT = true, BOTTOM = true, BOTTOMRIGHT = true
-            }
-            if not valid[point] then point = "BOTTOMRIGHT" end
-            -- Use one stable anchor and calculate the tooltip offset explicitly.
-            -- This avoids client-specific reanchoring of TOP/RIGHT points.
-            local width = tip:GetWidth() * tip:GetEffectiveScale() / uiScale
-            local height = tip:GetHeight() * tip:GetEffectiveScale() / uiScale
-            local x = mx + 14
-            local y = my + 14
-            if point:find("RIGHT") then x = mx - width - 14
-            elseif point == "TOP" or point == "BOTTOM" then x = mx - width / 2 end
-            if point:find("TOP") then y = my - height - 14
-            elseif point == "LEFT" or point == "RIGHT" then y = my - height / 2 end
-            -- Avoid reanchoring the tooltip when the cursor has not moved.
-            -- Pixel rounding also prevents subpixel layout churn.
-            x, y = math.floor(x + 0.5), math.floor(y + 0.5)
-            local currentPoint, currentParent, currentRelative, currentX, currentY = tip:GetPoint(1)
-            if currentPoint ~= "BOTTOMLEFT" or currentParent ~= UIParent
-                or currentRelative ~= "BOTTOMLEFT" or currentX ~= x or currentY ~= y then
-                tip:ClearAllPoints()
-                tip:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", x, y)
-            end
-        end
         elapsedHealth = elapsedHealth + elapsed
         if elapsedHealth >= 0.15 then
             elapsedHealth = 0
