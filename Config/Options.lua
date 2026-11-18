@@ -174,6 +174,7 @@ local function CreateSlider(parent, labelText, description, minValue, maxValue, 
             valueBox:ClearFocus()
             committing = false
         end
+        valueBox:SetScript("OnMouseDoubleClick", function(self) self:SetFocus(); self:HighlightText() end)
         valueBox:SetScript("OnEnterPressed", CommitValue)
         valueBox:SetScript("OnEditFocusLost", function()
             if not committing then CommitValue() end
@@ -273,9 +274,9 @@ local function CreateTooltipPage()
     if main.SetClipsChildren then main:SetClipsChildren(true) end
     -- Text tabs use the same bronze borders and plum selection as categories.
     local tabBar = CreateFrame("Frame", nil, page)
-    tabBar:SetPoint("TOPLEFT", main, "TOPRIGHT", 10, 0)
+    tabBar:SetPoint("TOPLEFT", main, "TOPRIGHT", 22, 0)
     tabBar:SetFrameStrata("FULLSCREEN_DIALOG")
-    tabBar:SetSize(108, 105)
+    tabBar:SetSize(108, 87)
 
     local function RefreshTabs()
         for name, button in pairs(tabButtons) do
@@ -297,7 +298,7 @@ local function CreateTooltipPage()
     for i, name in ipairs({"General", "Contents", "Fonts"}) do
         local b = CreateFrame("Button", nil, tabBar)
         b:SetSize(108, 29)
-        b:SetPoint("TOPLEFT", tabBar, "TOPLEFT", 0, -((i - 1) * 34))
+        b:SetPoint("TOPLEFT", tabBar, "TOPLEFT", 0, -((i - 1) * 29))
         b.fill = b:CreateTexture(nil, "BACKGROUND")
         b.fill:SetAllPoints()
         b.edges = {}
@@ -473,6 +474,7 @@ local function CreateTooltipPage()
         slider:SetValue(getValue())
         RefreshProgress(getValue())
         edit:SetText(string.format("%g", getValue()))
+        edit:SetScript("OnMouseDoubleClick", function(self) self:SetFocus(); self:HighlightText() end)
         edit:SetScript("OnEnterPressed", function(self)
             Commit((self:GetText() or ""):gsub(",", ".")); self:ClearFocus()
         end)
