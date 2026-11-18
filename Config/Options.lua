@@ -89,15 +89,34 @@ local function Button(parent,text,x,y,w,h,action)
     local hover=ThreeSlice(b,ART.button.."Hover.tga",math.min(18,h/2),"BORDER")
     local pressed=ThreeSlice(b,ART.button.."Pressed.tga",math.min(18,h/2),"ARTWORK")
     local selected=ThreeSlice(b,ART.button.."Selected.tga",math.min(18,h/2),"ARTWORK")
+    -- A subtle golden outline distinguishes the active tab from inactive ones.
+    local activeOutline=CreateFrame("Frame",nil,b)
+    activeOutline:SetAllPoints(b)
+    local edgeTop=Paint(activeOutline,"OVERLAY",0.88,0.63,0.29,0.85)
+    edgeTop:ClearAllPoints();edgeTop:SetPoint("TOPLEFT",activeOutline,"TOPLEFT",9,-1)
+    edgeTop:SetPoint("TOPRIGHT",activeOutline,"TOPRIGHT",-9,-1);edgeTop:SetHeight(1)
+    local edgeBottom=Paint(activeOutline,"OVERLAY",0.78,0.48,0.22,0.85)
+    edgeBottom:ClearAllPoints();edgeBottom:SetPoint("BOTTOMLEFT",activeOutline,"BOTTOMLEFT",9,1)
+    edgeBottom:SetPoint("BOTTOMRIGHT",activeOutline,"BOTTOMRIGHT",-9,1);edgeBottom:SetHeight(1)
+    local edgeLeft=Paint(activeOutline,"OVERLAY",0.78,0.48,0.22,0.85)
+    edgeLeft:ClearAllPoints();edgeLeft:SetPoint("TOPLEFT",activeOutline,"TOPLEFT",1,-8)
+    edgeLeft:SetPoint("BOTTOMLEFT",activeOutline,"BOTTOMLEFT",1,8);edgeLeft:SetWidth(1)
+    local edgeRight=Paint(activeOutline,"OVERLAY",0.78,0.48,0.22,0.85)
+    edgeRight:ClearAllPoints();edgeRight:SetPoint("TOPRIGHT",activeOutline,"TOPRIGHT",-1,-8)
+    edgeRight:SetPoint("BOTTOMRIGHT",activeOutline,"BOTTOMRIGHT",-1,8);edgeRight:SetWidth(1)
+    activeOutline:Hide()
     local disabled=ThreeSlice(b,ART.button.."Disabled.tga",math.min(18,h/2),"ARTWORK")
     local title=Label(b,text,"GameFontNormalSmall",0.91,0.78,0.57)
     title:SetPoint("CENTER")
     b.baziArt={normal=normal,hover=hover,pressed=pressed,selected=selected,disabled=disabled}
+    b.baziOutline=activeOutline
     local function Refresh()
         AlphaPieces(normal,1)
-        AlphaPieces(hover,b:IsMouseOver() and 1 or 0)
+        -- Keep the base dark, with gold used as the selected accent.
+        AlphaPieces(hover,(not b.baziSelected and b:IsMouseOver()) and 0.55 or 0)
         AlphaPieces(pressed,b.baziPressed and 1 or 0)
-        AlphaPieces(selected,b.baziSelected and 1 or 0)
+        AlphaPieces(selected,b.baziSelected and 0.35 or 0)
+        activeOutline:SetShown(not not b.baziSelected)
         AlphaPieces(disabled,b:IsEnabled() and 0 or 1)
     end
     b.baziRefresh=Refresh
@@ -232,8 +251,9 @@ end
 local function Nav(parent,name,icon,y)
     local b=CreateFrame("Button",nil,parent);b:SetSize(195,30)
     b:SetPoint("TOPLEFT",parent,"TOPLEFT",9,y)
-    b.hover=ThreeSlice(b,ART.tabs.."Hover.tga",20,"BORDER")
-    b.selected=ThreeSlice(b,ART.tabs.."Selected.tga",20,"ARTWORK")
+    -- Dedicated category-button artwork, not the generic sidebar strip.
+    b.hover=ThreeSlice(b,ART.tabs.."Category_Hover.tga",20,"BORDER")
+    b.selected=ThreeSlice(b,ART.tabs.."Category_Selected.tga",20,"ARTWORK")
     AlphaPieces(b.hover,0);AlphaPieces(b.selected,0)
     local art=Art(b,"OVERLAY",ART.icon..(ICONS[name] or "General")..".tga")
     art:SetSize(22,22);art:SetPoint("LEFT",b,"LEFT",11,0)
@@ -246,7 +266,8 @@ local function Nav(parent,name,icon,y)
     navigation[name]=b
 end
 local function Tab(parent,name,x,w)
-    local b=Button(parent,name,x,-25,w,35,function()Show(name)end)
+    local caption=(name=="General") and "Settings" or name
+    local b=Button(parent,caption,x,-25,w,35,function()Show(name)end)
     tabs[name]=b
 end
 function addon.Options:Create()
@@ -521,14 +542,14 @@ function addon.Options:Create()
     -- Only these inner header textures change; approved frame artwork is untouched.
     local emblem=frame:CreateTexture(nil,"OVERLAY",nil,3)
     emblem:SetTexture(ART.logo)
-    emblem:SetSize(91,91)
-    emblem:SetPoint("TOPLEFT",frame,"TOPLEFT",-9,11)
-    emblem:SetVertexColor(0.73,0.69,0.67,1)
+    emblem:SetSize(85,85)
+    emblem:SetPoint("TOPLEFT",frame,"TOPLEFT",-8,17)
+    emblem:SetVertexColor(0.65,0.62,0.61,1)
     local title=Art(frame,"OVERLAY",ART.wordmark)
     -- Keep the source texture's 2:1 aspect ratio; the old 206x52 squashed it.
-    title:SetSize(210,105)
-    title:SetPoint("TOPLEFT",frame,"TOPLEFT",82,7)
-    title:SetVertexColor(0.75,0.72,0.69,1)
+    title:SetSize(194,97)
+    title:SetPoint("TOPLEFT",frame,"TOPLEFT",79,5)
+    title:SetVertexColor(0.68,0.66,0.64,1)
     -- No duplicated 'BAZI UI' subtitle. Version sits to the right of the mark.
     local version=Label(frame,"v0.1.1","GameFontNormalSmall",0.73,0.67,0.64)
     version:SetPoint("LEFT",title,"RIGHT",6,-1)
