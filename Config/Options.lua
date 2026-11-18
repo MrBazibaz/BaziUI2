@@ -159,6 +159,22 @@ function addon.Options:Create()
     local heights={shadowSize,740,shadowSize}
     local xs={-shadowSize,0,1140}
     local ys={shadowSize,0,-740}
+    -- Temporary geometry check: /bazishadowtest toggles colored markers
+    -- at the exact positions occupied by the nine-slice textures.
+    local shadowMarkers={}
+    for row=1,3 do
+        for col=1,3 do
+            if row~=2 or col~=2 then
+                local marker=frame:CreateTexture(nil,"OVERLAY",nil,7)
+                marker:SetColorTexture(1,0,0,0.85)
+                marker:SetPoint("TOPLEFT",frame,"TOPLEFT",xs[col],ys[row])
+                marker:SetSize(widths[col],heights[row])
+                marker:Hide()
+                shadowMarkers[#shadowMarkers+1]=marker
+            end
+        end
+    end
+    frame.baziShadowMarkers=shadowMarkers
     for row=1,3 do
         for col=1,3 do
             if row~=2 or col~=2 then
@@ -368,6 +384,16 @@ function addon.Options:Create()
     stage:SetPoint("BOTTOMRIGHT",footerChrome,"BOTTOMRIGHT",-20,13)
     Show("General")
     frame:Hide()
+end
+-- Toggle exterior shadow geometry markers without changing PNG rendering.
+SLASH_BAZISHADOWTEST1="/bazishadowtest"
+SlashCmdList["BAZISHADOWTEST"]=function()
+    if not frame then print("Bazi UI: open /bazi first.");return end
+    local markers=frame.baziShadowMarkers
+    if not markers then return end
+    local show=not markers[1]:IsShown()
+    for _,marker in ipairs(markers) do marker:SetShown(show) end
+    print("Bazi UI shadow geometry: "..(show and "ON (red)" or "OFF"))
 end
 -- Interactive border calibration. Changes are temporary and reset on /reload.
 -- Example: /baziedge bottom 0 -2
