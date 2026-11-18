@@ -9,7 +9,7 @@ local slots = {"HeadSlot","NeckSlot","ShoulderSlot","BackSlot","ChestSlot",
     "MainHandSlot","SecondaryHandSlot","RangedSlot"}
 local cache, pending, lastRequest = {}, nil, -10
 local retryScheduled = false
-local lastAsyncRefreshGUID
+local added = {}
 local labels, averageLabel = {}, nil
 local REQUEST_GAP, REQUEST_TIMEOUT, CACHE_TIME = 1.5, 4, 300
 local eventFrame = CreateFrame("Frame")
@@ -58,35 +58,22 @@ local function tooltipUnit()
     return stringValue(unit) and unit or nil
 end
 local function hasLevelLine()
-    for i=2,GameTooltip:NumLines() do
-        local line = _G["GameTooltipTextLeft"..i]
-        local value = line and line:GetText()
-        if stringValue(value) and (value:find("Item Level:",1,true)
-            or value:find("Average Item Level:",1,true)) then return true end
-    end
-end
--- ilvl Forever's approach: add the line only when a value exists.
--- A placeholder row becomes stale when Blizzard resets/rebuilds the tooltip.
-local function hasLevelLine()
     for i = 2, GameTooltip:NumLines() do
         local line = _G["GameTooltipTextLeft" .. i]
         local value = line and line:GetText()
         if stringValue(value) and value:find("Item Level:", 1, true) then return true end
     end
 end
-local function addLevel(guid, level, async)
+local function addLevel(guid, level)
     if not tooltipEnabled() or not number(level) then return end
     local unit = tooltipUnit()
-    if not unit or guidOf(unit) ~= guid or hasLevelLine() then return end
+    if not unit or guidOf(unit) ~= guid or added[GameTooltip] == guid then return end
+    if hasLevelLine() then added[GameTooltip] = guid; return end
     GameTooltip:AddLine(string.format("Item Level: %.1f", level), 1, 0.79, 0.43)
-    if async and GameTooltip:IsShown() and lastAsyncRefreshGUID ~= guid then
-        lastAsyncRefreshGUID = guid
-        -- Exactly one refresh when inspection completes; never on cached hovers.
-        GameTooltip:Show()
-    end
+    added[GameTooltip] = guid
 end
-function M:ResetTooltipRow()
-    lastAsyncRefreshGUID = nil
+function M:ResetTooltipRow(frame)
+    added[frame or GameTooltip] = nil
 end
 local function inspectOpen()
     return InspectFrame and InspectFrame:IsShown()
@@ -171,7 +158,15 @@ local function onInspectReady(guid)
         local level = averageFromInspect(unit)
         if number(level) then
             cache[guid] = {value=level,time=GetTime()}
-            addLevel(guid, level, true)
+            -- Refresh through Blizzard's data pipeline after inspection.
+            if GameTooltip:IsShown() and tooltipUnit() and guidOf(tooltipUnit()) == guid then
+                if GameTooltip.RefreshData then
+                    pcall(GameTooltip.RefreshData, GameTooltip)
+                else
+                    addLevel(guid, level)
+                    GameTooltip:Show()
+                end
+            end
         end
     end
     if ClearInspectPlayer and not inspectOpen() then pcall(ClearInspectPlayer) end
@@ -234,6 +229,11 @@ function M:RefreshCharacter()
     end
 end
 function M:Initialize()
+    if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPreCall
+        and TooltipDataProcessor.AllTypes then
+        TooltipDataProcessor.AddTooltipPreCall(TooltipDataProcessor.AllTypes,
+            function(frame) if frame == GameTooltip then M:ResetTooltipRow(frame) end end)
+    end
     eventFrame:RegisterEvent("INSPECT_READY")
     eventFrame:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
     pcall(eventFrame.RegisterEvent,eventFrame,"PLAYER_AVG_ITEM_LEVEL_UPDATE")
