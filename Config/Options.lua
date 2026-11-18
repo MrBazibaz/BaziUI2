@@ -150,42 +150,41 @@ function addon.Options:Create()
     frame:RegisterForDrag("LeftButton");frame:SetScript("OnDragStart",frame.StartMoving)
     frame:SetScript("OnDragStop",frame.StopMovingOrSizing)
     frame:SetScale(addon.db.profile.uiScale or 1)
-    -- Exterior-only 9-slice shadow. The PNG's outer 23px border is
-    -- mapped to a 15-unit strip OUTSIDE the window on all four sides.
+    -- TEMP DIAGNOSTIC: compare a known-working red control with the
+    -- same PNG split into 3x3 pieces, separated by 2 UI units.
     local shadowFile=ASSET.."Effects\\Window_Shadow.png"
-    local shadowSize=15
+    local test=CreateFrame("Frame","BaziUIShadowDiagnostic",UIParent)
+    test:SetFrameStrata("TOOLTIP")
+    test:SetFrameLevel(100)
+    test:SetSize(490,290)
+    test:SetPoint("CENTER",UIParent,"CENTER",0,0)
+    test:EnableMouse(false)
+    local testBg=test:CreateTexture(nil,"BACKGROUND")
+    testBg:SetAllPoints(test)
+    testBg:SetColorTexture(0.08,0.08,0.08,0.96)
+    local control=test:CreateTexture(nil,"ARTWORK")
+    control:SetColorTexture(1,0.05,0.05,1)
+    control:SetSize(200,200)
+    control:SetPoint("TOPLEFT",test,"TOPLEFT",20,-52)
     local cuts={0,23/128,105/128,1}
-    local widths={shadowSize,1140,shadowSize}
-    local heights={shadowSize,740,shadowSize}
-    local xs={-shadowSize,0,1140}
-    local ys={shadowSize,0,-740}
-    -- Temporary geometry check: /bazishadowtest toggles colored markers
-    -- at the exact positions occupied by the nine-slice textures.
-    local shadowMarkers={}
+    local lengths={36,124,36} -- 196 pixels of PNG + two 2-unit gaps = 200
+    local offsets={0,38,164}
     for row=1,3 do
         for col=1,3 do
-            if row~=2 or col~=2 then
-                local marker=frame:CreateTexture(nil,"OVERLAY",nil,7)
-                marker:SetColorTexture(1,0,0,0.85)
-                marker:SetPoint("TOPLEFT",frame,"TOPLEFT",xs[col],ys[row])
-                marker:SetSize(widths[col],heights[row])
-                marker:Hide()
-                shadowMarkers[#shadowMarkers+1]=marker
-            end
+            local piece=test:CreateTexture(nil,"ARTWORK")
+            piece:SetTexture(shadowFile)
+            piece:SetTexCoord(cuts[col],cuts[col+1],cuts[row],cuts[row+1])
+            piece:SetPoint("TOPLEFT",test,"TOPRIGHT",-220+offsets[col],-52-offsets[row])
+            piece:SetSize(lengths[col],lengths[row])
         end
     end
-    frame.baziShadowMarkers=shadowMarkers
-    for row=1,3 do
-        for col=1,3 do
-            if row~=2 or col~=2 then
-                local t=frame:CreateTexture(nil,"BACKGROUND",nil,-7)
-                t:SetTexture(shadowFile)
-                t:SetTexCoord(cuts[col],cuts[col+1],cuts[row],cuts[row+1])
-                t:SetPoint("TOPLEFT",frame,"TOPLEFT",xs[col],ys[row])
-                t:SetSize(widths[col],heights[row])
-            end
-        end
-    end
+    local label=test:CreateFontString(nil,"OVERLAY","GameFontNormalLarge")
+    label:SetPoint("TOP",test,"TOP",0,-14)
+    label:SetText("BAZI SHADOW TEST - RED / 3x3 PNG (2px gaps)")
+    label:SetTextColor(1,0.9,0.2,1)
+    frame:HookScript("OnShow",function()test:Show()end)
+    frame:HookScript("OnHide",function()test:Hide()end)
+    test:Hide()
     -- A fully opaque fill is essential: transparent ornamental corner TGAs
     -- must not reveal the game world through large square holes.
     Paint(frame,"BACKGROUND",0.055,0.043,0.074,1)
@@ -384,16 +383,6 @@ function addon.Options:Create()
     stage:SetPoint("BOTTOMRIGHT",footerChrome,"BOTTOMRIGHT",-20,13)
     Show("General")
     frame:Hide()
-end
--- Toggle exterior shadow geometry markers without changing PNG rendering.
-SLASH_BAZISHADOWTEST1="/bazishadowtest"
-SlashCmdList["BAZISHADOWTEST"]=function()
-    if not frame then print("Bazi UI: open /bazi first.");return end
-    local markers=frame.baziShadowMarkers
-    if not markers then return end
-    local show=not markers[1]:IsShown()
-    for _,marker in ipairs(markers) do marker:SetShown(show) end
-    print("Bazi UI shadow geometry: "..(show and "ON (red)" or "OFF"))
 end
 -- Interactive border calibration. Changes are temporary and reset on /reload.
 -- Example: /baziedge bottom 0 -2
