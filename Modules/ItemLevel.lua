@@ -8,6 +8,7 @@ local slots = {"HeadSlot","NeckSlot","ShoulderSlot","BackSlot","ChestSlot",
     "Finger0Slot","Finger1Slot","Trinket0Slot","Trinket1Slot",
     "MainHandSlot","SecondaryHandSlot","RangedSlot"}
 local cache, pending, lastRequest = {}, nil, -10
+local retryScheduled = false
 local labels, averageLabel = {}, nil
 local REQUEST_GAP, REQUEST_TIMEOUT, CACHE_TIME = 1.5, 4, 300
 local eventFrame = CreateFrame("Frame")
@@ -97,13 +98,28 @@ local function averageFromInspect(unit)
             if level then total, count = total + level, count + 1 end
         end
     end
-    if count > 0 then return total / count end
+    -- Do not show a misleading average when inspect inventory is incomplete.
+    if count >= 8 then return total / count end
 end
 local function request(unit, guid)
     if not NotifyInspect or not CanInspect or InCombatLockdown() or inspectOpen() then return end
     local now = GetTime()
-    if pending and now - pending.time < REQUEST_TIMEOUT then return end
-    if now - lastRequest < REQUEST_GAP then return end
+    local wait
+    if pending and now - pending.time < REQUEST_TIMEOUT then
+        wait = pending.time + REQUEST_TIMEOUT - now
+    elseif now - lastRequest < REQUEST_GAP then
+        wait = lastRequest + REQUEST_GAP - now
+    end
+    if wait then
+        if not retryScheduled and C_Timer and C_Timer.After then
+            retryScheduled = true
+            C_Timer.After(math.max(wait, 0.1), function()
+                retryScheduled = false
+                if tooltipEnabled() and GameTooltip:IsShown() then M:OnUnit() end
+            end)
+        end
+        return
+    end
     local ok, can = pcall(CanInspect, unit)
     if not ok or not usable(can) or not can then return end
     pending = {guid=guid,time=now}
