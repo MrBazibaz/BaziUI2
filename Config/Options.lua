@@ -90,6 +90,26 @@ local function Button(parent,text,x,y,w,h,action)
     local pressed=ThreeSlice(b,ART.button.."Pressed.tga",math.min(18,h/2),"ARTWORK")
     local selected=ThreeSlice(b,ART.button.."Selected.tga",math.min(18,h/2),"ARTWORK")
     local disabled=ThreeSlice(b,ART.button.."Disabled.tga",math.min(18,h/2),"ARTWORK")
+    -- Single clean gold active outline. Hide the selected texture to avoid
+    -- layering a second border over the normal artwork.
+    local outline={}
+    local function Edge(x1,y1,x2,y2,width,height)
+        local t=Paint(b,"OVERLAY",0.91,0.66,0.30,0.95)
+        t:ClearAllPoints()
+        t:SetPoint("TOPLEFT",b,"TOPLEFT",x1,y1)
+        if width then t:SetWidth(width) else t:SetPoint("TOPRIGHT",b,"TOPRIGHT",x2,y1) end
+        if height then t:SetHeight(height) else t:SetPoint("BOTTOMLEFT",b,"BOTTOMLEFT",x1,y2) end
+        outline[#outline+1]=t
+    end
+    Edge(3,-2,-3,nil,nil,2)
+    Edge(3,nil,-3,2,nil,2)
+    Edge(2,-3,nil,3,2,nil)
+    local right=Paint(b,"OVERLAY",0.91,0.66,0.30,0.95)
+    right:ClearAllPoints()
+    right:SetPoint("TOPRIGHT",b,"TOPRIGHT",-2,-3)
+    right:SetPoint("BOTTOMRIGHT",b,"BOTTOMRIGHT",-2,3)
+    right:SetWidth(2)
+    outline[#outline+1]=right
     local title=Label(b,text,"GameFontNormalSmall",0.91,0.78,0.57)
     title:SetPoint("CENTER")
     b.baziArt={normal=normal,hover=hover,pressed=pressed,selected=selected,disabled=disabled}
@@ -98,7 +118,9 @@ local function Button(parent,text,x,y,w,h,action)
         -- Keep the base dark, with gold used as the selected accent.
         AlphaPieces(hover,(not b.baziSelected and b:IsMouseOver()) and 0.55 or 0)
         AlphaPieces(pressed,b.baziPressed and 1 or 0)
-        AlphaPieces(selected,b.baziSelected and 1 or 0)
+        AlphaPieces(selected,0)
+        AlphaPieces(hover,(not b.baziSelected and b:IsMouseOver()) and 0.55 or 0)
+        for _,edge in ipairs(outline) do edge:SetAlpha(b.baziSelected and 1 or 0) end
         AlphaPieces(disabled,b:IsEnabled() and 0 or 1)
     end
     b.baziRefresh=Refresh
@@ -231,8 +253,8 @@ local function Placeholder(name,description)
     txt:SetPoint("TOPLEFT",panel,"TOPLEFT",25,-76)
 end
 local function Nav(parent,name,icon,y)
-    local b=CreateFrame("Button",nil,parent);b:SetSize(195,34)
-    b:SetPoint("TOPLEFT",parent,"TOPLEFT",9,y+2)
+    local b=CreateFrame("Button",nil,parent);b:SetSize(195,40)
+    b:SetPoint("TOPLEFT",parent,"TOPLEFT",9,y+5)
     -- Dedicated category-button artwork, not the generic sidebar strip.
     b.hover=ThreeSlice(b,ART.tabs.."Category_Hover.tga",20,"BORDER")
     b.selected=ThreeSlice(b,ART.tabs.."Category_Selected.tga",20,"ARTWORK")
@@ -525,7 +547,7 @@ function addon.Options:Create()
     local emblem=frame:CreateTexture(nil,"OVERLAY",nil,3)
     emblem:SetTexture(ART.logo)
     emblem:SetSize(85,85)
-    emblem:SetPoint("TOPLEFT",frame,"TOPLEFT",-8,17)
+    emblem:SetPoint("TOPLEFT",frame,"TOPLEFT",-8,24)
     emblem:SetVertexColor(0.82,0.76,0.69,1)
     local title=Art(frame,"OVERLAY",ART.wordmark)
     -- Keep the source texture's 2:1 aspect ratio; the old 206x52 squashed it.
