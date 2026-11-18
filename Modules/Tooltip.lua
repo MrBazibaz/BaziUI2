@@ -209,25 +209,20 @@ end
 -- in Blizzard's own tooltip height calculation and works with unit-frame hints.
 -- FlareUI removes the frame-settings hint and its preceding blank line.
 -- The hint is not unit data and otherwise occupies the health bar inset.
+-- FlareUI ScrubLines: clear Blizzard's frame-settings hint and its
+-- separator in the actual tooltip data pass. Do not Hide() fontstrings:
+-- hiding does not remove Blizzard's reserved text layout.
 local function ScrubFrameHint()
-    -- Unit-frame tooltips add a green hint that Blizzard places at the
-    -- bottom, where our custom inside-bottom health bar belongs.
-    -- The old equality check against UNIT_POPUP_RIGHT_CLICK never matched
-    -- the actual "Right click for Frame Settings" text.
-    for i = tip:NumLines(), 2, -1 do
+    local hint = _G.UNIT_POPUP_RIGHT_CLICK
+    for i = 2, tip:NumLines() do
         local line = _G["GameTooltipTextLeft" .. i]
         local value = line and line:GetText()
-        if Readable(value) and type(value) == "string"
-            and (value:find("Frame Settings", 1, true)
-                or value:find("Right click for", 1, true)) then
-            line:SetText("")
-            line:Hide()
-            -- The preceding empty separator is also unnecessary.
-            local previous = _G["GameTooltipTextLeft" .. (i - 1)]
-            local prior = previous and previous:GetText()
-            if Readable(prior) and (prior == "" or prior == " ") then
-                previous:SetText("")
-                previous:Hide()
+        if Readable(value) and type(value) == "string" then
+            if (hint and value == hint)
+                or value:find("Right click for Frame Settings", 1, true) then
+                line:SetText(nil)
+                local previous = i > 2 and _G["GameTooltipTextLeft" .. (i - 1)]
+                if previous then previous:SetText(nil) end
             end
         end
     end
