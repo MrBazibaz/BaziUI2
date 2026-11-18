@@ -98,37 +98,10 @@ local function Slider(parent,title,subtitle,y,minv,maxv,step,value,change)
         if change and not isWindowScale then change(v) end
     end)
     if isWindowScale then
-        -- Capture the pointer in a stable UIParent overlay while the actual
-        -- settings frame changes scale. This prevents slider feedback loops.
-        local capture=CreateFrame("Button",nil,UIParent)
-        capture:SetAllPoints(UIParent)
-        capture:SetFrameStrata("FULLSCREEN_DIALOG")
-        capture:SetFrameLevel(200)
-        capture:EnableMouse(true)
-        capture:Hide()
-        local startX,startValue,pixelsPerStep
-        capture:SetScript("OnUpdate",function()
-            local cursorX=GetCursorPosition()
-            local value=math.max(minv,math.min(maxv,startValue+(cursorX-startX)/pixelsPerStep))
-            value=math.floor(value/step+0.5)*step
-            if value~=pendingValue then
-                pendingValue=value
-                readout:SetText(string.format("%g",value))
-                progress:SetWidth(math.max(1,148*(value-minv)/(maxv-minv)))
-                if change then change(value) end
-            end
-        end)
-        capture:SetScript("OnMouseUp",function()
-            capture:Hide()
-            -- Synchronize the thumb only after the window stops changing scale.
-            slider:SetValue(pendingValue)
-        end)
-        slider:SetScript("OnMouseDown",function()
-            startX=GetCursorPosition()
-            startValue=pendingValue
-            pixelsPerStep=148*(frame:GetEffectiveScale() or 1)/(maxv-minv)
-            if pixelsPerStep<=0 then pixelsPerStep=1 end
-            capture:Show()
+        -- Rescaling a window under the mouse while dragging its own slider
+        -- changes mouse coordinates and causes runaway feedback.
+        slider:SetScript("OnMouseUp",function()
+            if change then change(pendingValue) end
         end)
     end
     slider:SetValue(value)
@@ -457,7 +430,7 @@ function addon.Options:Create()
     -- the generic square text button. Keep the existing hit area and anchor.
     local close=CreateFrame("Button",nil,frame)
     close:SetSize(28,27)
-    close:SetPoint("TOPRIGHT",frame,"TOPRIGHT",-3,-2)
+    close:SetPoint("TOPRIGHT",frame,"TOPRIGHT",-1,-2)
     local closeIcon=close:CreateTexture(nil,"ARTWORK")
     closeIcon:SetTexture(ASSET.."Icons\\Icon_Close.png")
     closeIcon:SetSize(22,22)
@@ -527,7 +500,6 @@ function addon.Options:Create()
             frame:StopMovingOrSizing()
             db.windowWidth=math.floor(frame:GetWidth()+0.5)
             db.windowHeight=math.floor(frame:GetHeight()+0.5)
-            if frame.baziFinishResize then frame.baziFinishResize() end
         end)
         return grip
     end
@@ -550,36 +522,47 @@ function addon.Options:Create()
         for _,row in ipairs(sliderRows) do row:SetWidth(w-336) end
     end
     local layoutPending=false
-    local layoutElapsed=0
     frame:SetScript("OnSizeChanged",function()
         layoutPending=true
     end)
-    frame:HookScript("OnUpdate",function(_,elapsed)
+    frame:HookScript("OnUpdate",function()
         if layoutPending then
-            layoutElapsed=layoutElapsed+elapsed
-            -- Cap texture reanchoring to ~20 Hz while dragging; finish
-            -- immediately on mouse release for precise final alignment.
-            if layoutElapsed>=0.05 then
-                layoutElapsed=0
-                layoutPending=false
-                Relayout()
-            end
+            layoutPending=false
+            Relayout()
         end
     end)
-    frame.baziFinishResize=function()
-        layoutPending=false
-        layoutElapsed=0
-        Relayout()
-    end
     Relayout()
     -- Reduce window opacity while the player moves, restore on stopping.
     local movement=CreateFrame("Frame",nil,UIParent)
     movement:RegisterEvent("PLAYER_STARTED_MOVING")
     movement:RegisterEvent("PLAYER_STOPPED_MOVING")
-    movement:SetScript("OnEvent",function(_,event)
-        local alpha=(event=="PLAYER_STARTED_MOVING") and 0.70 or 1
+    local fadeActive=false
+    local fadeElapsed=0
+    local fadeStart=1
+    local fadeDuration=0.30
+    local function ApplyWindowAlpha(alpha)
         frame:SetAlpha(alpha)
         shadowFrame:SetAlpha(alpha)
+    end
+    movement:SetScript("OnEvent",function(_,event)
+        if event=="PLAYER_STOPPED_MOVING" then
+            fadeActive=false
+            fadeElapsed=0
+            ApplyWindowAlpha(1)
+        else
+            fadeStart=frame:GetAlpha()
+            fadeElapsed=0
+            fadeActive=true
+        end
+    end)
+    movement:SetScript("OnUpdate",function(_,elapsed)
+        if not fadeActive then return end
+        fadeElapsed=math.min(fadeDuration,fadeElapsed+elapsed)
+        local t=fadeElapsed/fadeDuration
+        -- Smoothstep easing: gentle fade-in to 70%, never an abrupt jump.
+        t=t*t*(3-2*t)
+        ApplyWindowAlpha(fadeStart+(0.70-fadeStart)*t)
+        if fadeElapsed>=fadeDuration then fadeActive=false end
     end)
     Show("General")
     frame:Hide()
