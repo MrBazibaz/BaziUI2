@@ -1,6 +1,10 @@
 -- Player tooltip ilvl, ported from ilvl Forever/PlayerTooltip.lua (Vannx).
 -- Original inspect/cache/tooltip lifecycle, with a private BaziUI namespace.
 -- No dependency on BaziUI's disabled tooltip implementation.
+local function TooltipEnabled()
+  local db=BaziUI and BaziUI.db and BaziUI.db.profile and BaziUI.db.profile.tooltip
+  return not db or db.enabled ~= false
+end
 local ns = {}
 ns.db = { playerTooltip = true }
 ns.L = { AVERAGE_ITEM_LEVEL = "Item Level: %s" }
@@ -126,6 +130,7 @@ local function UnitForGUID(guid)
   end
 end
 local function AddLine(tooltip,guid,value)
+  if not TooltipEnabled() then return end
   if added[tooltip]==guid then return end
   added[tooltip]=guid
   local c=NORMAL_FONT_COLOR
@@ -165,6 +170,7 @@ local function RetryLater(wait)
   end)
 end
 local function Request(unit,guid)
+  if not TooltipEnabled() then return end
   if not (NotifyInspect and CanInspect) then return end
   if InCombatLockdown() or InspectWindowOpen() then return end
   local now=GetTime()
@@ -228,6 +234,7 @@ local function OnInspectReady(guid)
 end
 ns.OnTooltipReset("player tooltip",function(tooltip) added[tooltip]=nil end)
 local function OnUnit(tooltip,data)
+  if not TooltipEnabled() then return end
   if not ns.db.playerTooltip then return end
   if tooltip.IsForbidden and tooltip:IsForbidden() then return end
   local unit=TooltipUnit(tooltip)
