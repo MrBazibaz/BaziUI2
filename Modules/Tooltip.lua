@@ -65,7 +65,6 @@ end
 -- never be moved. Our bar is independent and tooltip padding is conditional.
 local healthMode
 local padded = false
-local frameHintTooltip = false
 local function SafeToPad()
     if not tip or (tip.IsForbidden and tip:IsForbidden()) then return false end
     local width = tip:GetWidth()
@@ -88,7 +87,7 @@ local function ApplyInsideSpacing(mode)
         return
     end
     if not padded then
-        local ok = pcall(tip.SetPadding, tip, 0, 15)
+        local ok = pcall(tip.SetPadding, tip, 0, 22)
         padded = ok
     end
 end
@@ -98,7 +97,7 @@ local function SetNativeBarHidden(hidden)
     for _, bar in ipairs({native, attached}) do
         if bar then
             if hidden then
-                bar:SetAlpha(0)
+                bar:Hide()
             else
                 bar:SetAlpha(1)
             end
@@ -137,7 +136,7 @@ local function UpdateHealth()
     -- Unit-frame tooltips contain an extra Blizzard frame-settings hint.
     -- That hint occupies the bottom inset and cannot safely share it.
     local placement = mode
-    if mode == "insideBottom" and (frameHintTooltip or not SafeToPad()) then
+    if mode == "insideBottom" and not SafeToPad() then
         placement = "below"
     end
     local modeChanged = healthMode ~= placement
@@ -159,8 +158,8 @@ local function UpdateHealth()
             health:SetPoint("TOPLEFT", tip, "TOPLEFT", 10, -10)
             health:SetPoint("TOPRIGHT", tip, "TOPRIGHT", -10, -10)
         else
-            health:SetPoint("BOTTOMLEFT", tip, "BOTTOMLEFT", 10, 6)
-            health:SetPoint("BOTTOMRIGHT", tip, "BOTTOMRIGHT", -10, 6)
+            health:SetPoint("BOTTOMLEFT", tip, "BOTTOMLEFT", 10, 10)
+            health:SetPoint("BOTTOMRIGHT", tip, "BOTTOMRIGHT", -10, 10)
         end
     end
     -- Do not manually resize GameTooltip on health ticks. Blizzard rebuilds
@@ -200,6 +199,26 @@ local function RemoveLine(fragment, exact)
 end
 -- Reserve a real text row for the bar. Unlike SetPadding, this participates
 -- in Blizzard's own tooltip height calculation and works with unit-frame hints.
+-- FlareUI removes the frame-settings hint and its preceding blank line.
+-- The hint is not unit data and otherwise occupies the health bar inset.
+local function ScrubFrameHint()
+    local hint = _G.UNIT_POPUP_RIGHT_CLICK
+    if not hint then return end
+    for i = 2, tip:NumLines() do
+        local line = _G["GameTooltipTextLeft" .. i]
+        local value = line and line:GetText()
+        if Readable(value) and type(value) == "string" and value == hint then
+            line:SetText(nil)
+            local previous = i > 2 and _G["GameTooltipTextLeft" .. (i - 1)]
+            if previous then
+                local prior = previous:GetText()
+                if Readable(prior) and (prior == "" or prior == " ") then
+                    previous:SetText(nil)
+                end
+            end
+        end
+    end
+end
 local function UnitContent()
     local db = DB()
     if not db or not db.enabled then return end
@@ -231,8 +250,7 @@ local function UnitContent()
         end
     end
     if addon.ItemLevel then addon.ItemLevel:OnUnit() end
-    local owner = tip:GetOwner()
-    frameHintTooltip = owner and owner ~= WorldFrame and owner ~= UIParent
+    ScrubFrameHint()
     UpdateHealth()
 end
 local function ItemContent(_, data)
@@ -349,15 +367,7 @@ function T:Initialize()
     health:SetStatusBarColor(0.28, 0.78, 0.35)
     health:Hide()
     -- Suppress native bar as soon as Blizzard shows it, before the next tick.
-    local nativeBar = _G.GameTooltipStatusBar or tip.StatusBar
-    if nativeBar then
-        nativeBar:HookScript("OnShow", function()
-            local db = DB()
-            if db and db.enabled and db.healthBar ~= "off" then
-                SetNativeBarHidden(true)
-            end
-        end)
-    end
+
     hooksecurefunc("GameTooltip_SetDefaultAnchor", Anchor)
     -- Tooltip script support varies by client. An unsupported script must not
     -- abort initialization before the cursor positioning driver is created.
@@ -398,7 +408,6 @@ function T:Initialize()
     tip:HookScript("OnHide", function()
         health:Hide()
         healthMode = nil
-        frameHintTooltip = false
         ResetInsideSpacing()
         if addon.ItemLevel then addon.ItemLevel:ResetTooltipRow() end
     end)
