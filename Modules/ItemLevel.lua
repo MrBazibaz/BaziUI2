@@ -158,14 +158,11 @@ local function onInspectReady(guid)
         local level = averageFromInspect(unit)
         if number(level) then
             cache[guid] = {value=level,time=GetTime()}
-            -- Refresh through Blizzard's data pipeline after inspection.
-            if GameTooltip:IsShown() and tooltipUnit() and guidOf(tooltipUnit()) == guid then
-                if GameTooltip.RefreshData then
-                    pcall(GameTooltip.RefreshData, GameTooltip)
-                else
-                    addLevel(guid, level)
-                    GameTooltip:Show()
-                end
+            -- Do not append text to an already-laid-out tooltip. Ask
+            -- Blizzard to rebuild through the same post-call used by cache hits.
+            if GameTooltip:IsShown() and tooltipUnit()
+                and guidOf(tooltipUnit()) == guid and GameTooltip.RefreshData then
+                pcall(GameTooltip.RefreshData, GameTooltip)
             end
         end
     end
