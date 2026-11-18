@@ -152,8 +152,12 @@ function addon.Options:Create()
     local db=addon.db.profile
     frame:SetSize(db.windowWidth or 1140,db.windowHeight or 740);frame:SetPoint("CENTER");frame:SetFrameStrata("DIALOG")
     frame:SetClampedToScreen(true);frame:SetMovable(true);frame:SetResizable(true);frame:EnableMouse(true)
-    frame:SetMinResize(900,650)
-    frame:SetMaxResize(1600,1100)
+    if frame.SetResizeBounds then
+        frame:SetResizeBounds(900,650,1600,1100)
+    else
+        if frame.SetMinResize then frame:SetMinResize(900,650) end
+        if frame.SetMaxResize then frame:SetMaxResize(1600,1100) end
+    end
     frame:RegisterForDrag("LeftButton");frame:SetScript("OnDragStart",frame.StartMoving)
     frame:SetScript("OnDragStop",frame.StopMovingOrSizing)
     frame:SetScale(addon.db.profile.uiScale or 1)
