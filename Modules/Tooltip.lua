@@ -191,13 +191,16 @@ function T:Initialize()
         UpdateHealth()
     end)
     tip:HookScript("OnHide", function() health:Hide() end)
+    -- Use an independent update frame. GameTooltip itself can be reanchored by
+    -- Blizzard/other addons and its own update handler is not reliable here.
+    local cursorDriver = CreateFrame("Frame", nil, UIParent)
     local elapsedHealth = 0
-    tip:HookScript("OnUpdate", function(_, elapsed)
+    cursorDriver:SetScript("OnUpdate", function(_, elapsed)
         local db = DB()
         if db and db.enabled and db.anchor == "mouse" and tip:IsShown() then
-            local scale = UIParent:GetEffectiveScale()
+            local uiScale = UIParent:GetEffectiveScale()
             local mx, my = GetCursorPosition()
-            mx, my = mx / scale, my / scale
+            mx, my = mx / uiScale, my / uiScale
             local point = db.cursorPosition or "BOTTOMRIGHT"
             local opposite = {
                 TOPLEFT = "BOTTOMRIGHT", TOP = "BOTTOM", TOPRIGHT = "BOTTOMLEFT",
