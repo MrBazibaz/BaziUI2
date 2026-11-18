@@ -521,17 +521,17 @@ function addon.Options:Create()
     -- Only these inner header textures change; approved frame artwork is untouched.
     local emblem=frame:CreateTexture(nil,"OVERLAY",nil,3)
     emblem:SetTexture(ART.logo)
-    emblem:SetSize(106,106)
-    emblem:SetPoint("TOPLEFT",frame,"TOPLEFT",-17,19)
-    emblem:SetVertexColor(0.82,0.77,0.75,1)
+    emblem:SetSize(91,91)
+    emblem:SetPoint("TOPLEFT",frame,"TOPLEFT",-9,11)
+    emblem:SetVertexColor(0.73,0.69,0.67,1)
     local title=Art(frame,"OVERLAY",ART.wordmark)
     -- Keep the source texture's 2:1 aspect ratio; the old 206x52 squashed it.
-    title:SetSize(258,129)
-    title:SetPoint("TOPLEFT",frame,"TOPLEFT",91,23)
-    title:SetVertexColor(0.86,0.80,0.75,1)
+    title:SetSize(210,105)
+    title:SetPoint("TOPLEFT",frame,"TOPLEFT",82,7)
+    title:SetVertexColor(0.75,0.72,0.69,1)
     -- No duplicated 'BAZI UI' subtitle. Version sits to the right of the mark.
     local version=Label(frame,"v0.1.1","GameFontNormalSmall",0.73,0.67,0.64)
-    version:SetPoint("LEFT",title,"RIGHT",4,-2)
+    version:SetPoint("LEFT",title,"RIGHT",6,-1)
     -- Ornamental close control: use the dedicated close icon rather than
     -- the generic square text button. Keep the existing hit area and anchor.
     local close=CreateFrame("Button",nil,frame)
@@ -593,10 +593,10 @@ function addon.Options:Create()
     General()
     local others={"Profiles","Import / Export","What's New","Appearance","UnitFrames","Nameplates","ActionBars","Chat","Quest","Gathering","Minimap","Tooltip","Combat","BugTab","QoL Settings"}
     for _,name in ipairs(others) do Placeholder(name) end
-    Tab(frame,"General",475,105);Tab(frame,"Profiles",586,105)
-    Tab(frame,"Import / Export",567,150);Tab(frame,"What's New",723,128)
+    Tab(frame,"General",410,105);Tab(frame,"Profiles",522,105)
+    Tab(frame,"Import / Export",634,150);Tab(frame,"What's New",791,128)
     local newsDot=Art(frame,"OVERLAY",ASSET.."Icons\\BaziUI_Notification_WhatsNew.tga")
-    newsDot:SetSize(12,12);newsDot:SetPoint("TOPLEFT",frame,"TOPLEFT",967,-25)
+    newsDot:SetSize(12,12);newsDot:SetPoint("TOPLEFT",frame,"TOPLEFT",909,-25)
     Nav(navBody,"General","*", -32)
     Nav(navBody,"Appearance","o",-66)
     Nav(navBody,"QoL Settings","+",-100)
