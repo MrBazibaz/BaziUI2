@@ -185,25 +185,27 @@ local function UpdateHealth()
         end
         local barWidth = math.max(1, math.min(titleWidth - 4, tipWidth - inset - 6))
         if math.abs((health:GetWidth() or 0) - barWidth) > 1 then health:SetWidth(barWidth) end
-        if modeChanged then
-            if mode == "insideTop" then
-                health:SetPoint("TOPLEFT", tip, "TOPLEFT", inset, -10)
-            else
-                local lastLine
-                for i = tip:NumLines(), 1, -1 do
-                    local left = _G["GameTooltipTextLeft" .. i]
-                    local right = _G["GameTooltipTextRight" .. i]
-                    local lt = left and left:GetText()
-                    local rt = right and right:GetText()
-                    local leftValid = lt and (not issecretvalue or not issecretvalue(lt))
-                        and (not canaccessvalue or canaccessvalue(lt)) and lt ~= ""
-                    local rightValid = rt and (not issecretvalue or not issecretvalue(rt))
-                        and (not canaccessvalue or canaccessvalue(rt)) and rt ~= ""
-                    if leftValid or rightValid then
-                        lastLine = left or right
-                        break
-                    end
+        if mode == "insideTop" then
+            if modeChanged then health:SetPoint("TOPLEFT", tip, "TOPLEFT", inset, -10) end
+        else
+            local lastLine
+            for i = tip:NumLines(), 1, -1 do
+                local left = _G["GameTooltipTextLeft" .. i]
+                local right = _G["GameTooltipTextRight" .. i]
+                local lt = left and left:GetText()
+                local rt = right and right:GetText()
+                local leftValid = lt and (not issecretvalue or not issecretvalue(lt))
+                    and (not canaccessvalue or canaccessvalue(lt)) and lt ~= ""
+                local rightValid = rt and (not issecretvalue or not issecretvalue(rt))
+                    and (not canaccessvalue or canaccessvalue(rt)) and rt ~= ""
+                if leftValid or rightValid then
+                    lastLine = leftValid and left or right
+                    break
                 end
+            end
+            if modeChanged or lastLine ~= healthLastLine then
+                healthLastLine = lastLine
+                health:ClearAllPoints()
                 if lastLine then
                     health:SetPoint("TOPLEFT", lastLine, "BOTTOMLEFT", 0, -3)
                 else
