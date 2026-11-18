@@ -102,8 +102,36 @@ local function averageFromInspect(unit)
             if level then total, count = total + level, count + 1 end
         end
     end
-    -- Do not show a misleading average when inspect inventory is incomplete.
+    -- ilvl Forever waits for item information before averaging.
     if count >= 8 then return total / count end
+end
+-- Capture item links before ClearInspectPlayer. The item cache can be
+-- incomplete on the first inspect; retry the saved links when they load.
+local waitingLinks = {}
+local function averageSavedLinks(links)
+    local total, count = 0, 0
+    for _, link in pairs(links) do
+        if link then
+            local level = getLevel(link)
+            if not level then return nil end
+            total, count = total + level, count + 1
+        end
+    end
+    if count >= 8 then return total / count end
+end
+local function retrySavedLinks(guid)
+    local links = waitingLinks[guid]
+    if not links then return end
+    local level = averageSavedLinks(links)
+    if level then
+        waitingLinks[guid] = nil
+        cache[guid] = {value=level,time=GetTime()}
+        local unit = tooltipUnit()
+        if unit and guidOf(unit) == guid and GameTooltip:IsShown() then
+            addLevel(guid,level)
+            GameTooltip:Show()
+        end
+    end
 end
 local function request(unit, guid)
     if not NotifyInspect or not CanInspect or InCombatLockdown() or inspectOpen() then return end
@@ -156,6 +184,24 @@ local function onInspectReady(guid)
     local unit = findUnit(guid)
     if unit then
         local level = averageFromInspect(unit)
+        if not number(level) then
+            local links = {}
+            for _, name in ipairs(slots) do
+                local id = GetInventorySlotInfo(name)
+                if number(id) then
+                    local ok, link = pcall(GetInventoryItemLink, unit, id)
+                    if ok and stringValue(link) then links[id] = link end
+                end
+            end
+            waitingLinks[guid] = links
+            level = averageSavedLinks(links)
+            if not level and C_Item and C_Item.RequestLoadItemDataByID then
+                for _, link in pairs(links) do
+                    local itemID = link:match("item:(%d+)")
+                    if itemID then pcall(C_Item.RequestLoadItemDataByID, tonumber(itemID)) end
+                end
+            end
+        end
         if number(level) then
             cache[guid] = {value=level,time=GetTime()}
             -- Match ilvl Forever: put the inspected result directly into
@@ -234,9 +280,12 @@ function M:Initialize()
     end
     eventFrame:RegisterEvent("INSPECT_READY")
     eventFrame:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
+    eventFrame:RegisterEvent("GET_ITEM_INFO_RECEIVED")
     pcall(eventFrame.RegisterEvent,eventFrame,"PLAYER_AVG_ITEM_LEVEL_UPDATE")
     eventFrame:SetScript("OnEvent",function(_,event,guid)
         if event=="INSPECT_READY" then onInspectReady(guid)
+        elseif event=="GET_ITEM_INFO_RECEIVED" then
+            for waitingGUID in pairs(waitingLinks) do retrySavedLinks(waitingGUID) end
         else M:RefreshCharacter() end
     end)
     if PaperDollFrame_SetLevel then
