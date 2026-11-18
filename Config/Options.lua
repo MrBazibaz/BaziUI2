@@ -178,34 +178,47 @@ function addon.Options:Create()
         end
         return tex
     end
-    -- Keep all eight border pieces on the same frame edges and matching corner joins.
-    -- V7 concept proportions: larger ornamental corners; edge art runs behind them.
-    local CORNER_SIZE=88
-    -- The original edge TGAs taper to spikes and cannot join the corners.
-    -- Use restrained continuous metallic rules until matched art is available.
-    local EDGE_INSET=48
-    local function MetallicEdge(vertical, pointA, pointB, x, y)
-        local outer=frame:CreateTexture(nil,"OVERLAY",nil,1)
-        outer:SetColorTexture(0.28,0.14,0.06,1)
-        local shine=frame:CreateTexture(nil,"OVERLAY",nil,2)
-        shine:SetColorTexture(0.84,0.56,0.23,1)
-        if vertical then
-            outer:SetPoint(pointA,frame,pointA,x,-EDGE_INSET)
-            outer:SetPoint(pointB,frame,pointB,x,EDGE_INSET)
-            outer:SetWidth(3)
-            shine:SetPoint(pointA,frame,pointA,x,-EDGE_INSET)
-            shine:SetPoint(pointB,frame,pointB,x,EDGE_INSET)
-            shine:SetWidth(1)
-        else
-            outer:SetPoint(pointA,frame,pointA,EDGE_INSET,y)
-            outer:SetPoint(pointB,frame,pointB,-EDGE_INSET,y)
-            outer:SetHeight(3)
-            shine:SetPoint(pointA,frame,pointA,EDGE_INSET,y)
-            shine:SetPoint(pointB,frame,pointB,-EDGE_INSET,y)
-            shine:SetHeight(1)
+    -- V7 border test: measured TGA geometry, fixed-size repeated tiles.
+    -- Top corners: 8 UI outward; bottom corners: 10 UI outward.
+    -- Edge placement is a test, not yet a verified final seam.
+    local CORNER_TOP_OUTSET=8
+    local CORNER_BOTTOM_OUTSET=10
+    local EDGE_TOP_OUTSET=8
+    local EDGE_BOTTOM_OUTSET=10
+    local EDGE_SIDE_OUTSET=8
+    local BORDER_TEST_TILE=112
+    local function TiledHorizontal(file, y, fromX, toX, height)
+        local count=math.ceil((toX-fromX)/BORDER_TEST_TILE)
+        for i=0,count-1 do
+            local x=fromX+i*BORDER_TEST_TILE
+            local width=math.min(BORDER_TEST_TILE,toX-x)
+            local t=frame:CreateTexture(nil,"OVERLAY",nil,0)
+            t:SetTexture(BORDER_ASSET..file)
+            t:SetPoint("TOPLEFT",frame,"TOPLEFT",x,y)
+            t:SetSize(width,height)
+            -- Partial final tile: crop rather than squeeze.
+            t:SetTexCoord(0,width/BORDER_TEST_TILE,0,1)
         end
     end
-    MetallicEdge(false,"TOPLEFT","TOPRIGHT",0,0)
+    local function TiledVertical(file, x, topY, bottomY, width)
+        local total=topY-bottomY
+        local count=math.ceil(total/BORDER_TEST_TILE)
+        for i=0,count-1 do
+            local y=topY-i*BORDER_TEST_TILE
+            local height=math.min(BORDER_TEST_TILE,y-bottomY)
+            local t=frame:CreateTexture(nil,"OVERLAY",nil,0)
+            t:SetTexture(BORDER_ASSET..file)
+            t:SetPoint("TOPLEFT",frame,"TOPLEFT",x,y)
+            t:SetSize(width,height)
+            t:SetTexCoord(0,1,0,height/BORDER_TEST_TILE)
+        end
+    end
+    -- Edges overlap corners by ~20 units; corners are drawn on top.
+    -- The TGA vertical edges have only half their 32px width opaque.
+    TiledHorizontal("Edge_Top_Tile.tga",EDGE_TOP_OUTSET,50,1090,14)
+    TiledHorizontal("Edge_Bottom_Tile.tga",-740+EDGE_BOTTOM_OUTSET+14,50,1090,14)
+    TiledVertical("Edge_Left.tga",-EDGE_SIDE_OUTSET, -45,-695,14)
+    TiledVertical("Edge_Right.tga",1140-6, -45,-695,14)
     -- Footer and lower frame edge share one bottom-anchored container.
     -- No hardcoded top offset: resizing keeps the artwork on the actual edge.
     local footerChrome=CreateFrame("Frame",nil,frame)
@@ -233,15 +246,11 @@ function addon.Options:Create()
     debugText:SetPoint("BOTTOMLEFT",debugOverlay,"BOTTOMLEFT",12,48)
     debugText:SetText("|cff00ff00GREEN: frame bottom|r  |cffff3333RED: footer top|r")
 
-    -- Use the matching bottom artwork, not a flat substitute.
-    MetallicEdge(false,"BOTTOMLEFT","BOTTOMRIGHT",0,0)
     local footerDivider=footerChrome:CreateTexture(nil,"ARTWORK")
     footerDivider:SetPoint("TOPLEFT",footerChrome,"TOPLEFT",16,0)
     footerDivider:SetPoint("TOPRIGHT",footerChrome,"TOPRIGHT",-16,0)
     footerDivider:SetHeight(1)
     footerDivider:SetColorTexture(0.67,0.48,0.25,0.48)
-    MetallicEdge(true,"TOPLEFT","BOTTOMLEFT",0,0)
-    MetallicEdge(true,"TOPRIGHT","BOTTOMRIGHT",0,0)
     -- Alpha bounds measured from the actual 256x256 TGA files.
     -- Crop only empty pixels. Preserve the original artwork aspect ratio.
     -- Test size: 70 UI units wide; top 55, bottom 52 (rounded).
@@ -256,6 +265,16 @@ function addon.Options:Create()
         BL=CroppedCorner("Corner_BL.tga","BOTTOMLEFT",70,52,0,160/256,138/256,1),
         BR=CroppedCorner("Corner_BR.tga","BOTTOMRIGHT",70,52,96/256,1,138/256,1),
     }
+    for _,entry in ipairs({
+        {"TL","TOPLEFT",-CORNER_TOP_OUTSET,CORNER_TOP_OUTSET},
+        {"TR","TOPRIGHT",CORNER_TOP_OUTSET,CORNER_TOP_OUTSET},
+        {"BL","BOTTOMLEFT",-CORNER_BOTTOM_OUTSET,-CORNER_BOTTOM_OUTSET},
+        {"BR","BOTTOMRIGHT",CORNER_BOTTOM_OUTSET,-CORNER_BOTTOM_OUTSET},
+    }) do
+        local t=frame.baziCornerTextures[entry[1]]
+        t:ClearAllPoints()
+        t:SetPoint(entry[2],frame,entry[2],entry[3],entry[4])
+    end
     -- Keep the header continuous as well; corner artwork overlays it.
     local header=Paint(frame,"BORDER",0.09,0.063,0.11,0.99,3,-3,-3,3)
     local emblem=frame:CreateTexture(nil,"OVERLAY");emblem:SetTexture(ASSET.."Icons\\BaziUI_Emblem_256.png")
