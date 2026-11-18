@@ -134,22 +134,23 @@ local function UpdateHealth()
         return
     end
     -- Secret percentages may be passed directly to SetValue; never compare them.
-    local modeChanged = healthMode ~= mode
+    local placement = (mode == "insideBottom" and not SafeToPad()) and "below" or mode
+    local modeChanged = healthMode ~= placement
     if modeChanged then
-        healthMode = mode
+        healthMode = placement
         health:ClearAllPoints()
     end
-    ApplyInsideSpacing(mode)
+    ApplyInsideSpacing(placement)
     -- Anchor both ends to the frame instead of calculating widths/offsets.
     -- Tooltip font-string geometry can be secret on WoW Forever.
     if modeChanged then
-        if mode == "above" then
+        if placement == "above" then
             health:SetPoint("BOTTOMLEFT", tip, "TOPLEFT", 10, 2)
             health:SetPoint("BOTTOMRIGHT", tip, "TOPRIGHT", -10, 2)
-        elseif mode == "below" then
+        elseif placement == "below" then
             health:SetPoint("TOPLEFT", tip, "BOTTOMLEFT", 10, 0)
             health:SetPoint("TOPRIGHT", tip, "BOTTOMRIGHT", -10, 0)
-        elseif mode == "insideTop" then
+        elseif placement == "insideTop" then
             health:SetPoint("TOPLEFT", tip, "TOPLEFT", 10, -10)
             health:SetPoint("TOPRIGHT", tip, "TOPRIGHT", -10, -10)
         else
