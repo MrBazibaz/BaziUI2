@@ -262,8 +262,7 @@ local function UnitContent()
             if color and title then title:SetTextColor(color.r, color.g, color.b) end
         end
     end
-    -- Always append ilvl after target text, both cached and inspected.
-    if addon.ItemLevel then addon.ItemLevel:OnUnit() end
+    -- ilvl Forever owns the player ilvl line via its own post-call.
     ScrubFrameHint()
     UpdateHealth()
 end
