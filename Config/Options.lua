@@ -517,13 +517,21 @@ function addon.Options:Create()
     headerShade:SetPoint("TOPLEFT",frame,"TOPLEFT",18,-13)
     headerShade:SetPoint("TOPRIGHT",frame,"TOPRIGHT",-18,-13)
     headerShade:SetHeight(65)
-    local emblem=frame:CreateTexture(nil,"OVERLAY");emblem:SetTexture(ART.logo)
-    emblem:SetSize(70,70);emblem:SetPoint("TOPLEFT",frame,"TOPLEFT",13,-6)
+    -- V7 branding: oversize emblem overlaps the top edge, as in the concept.
+    -- Only these inner header textures change; approved frame artwork is untouched.
+    local emblem=frame:CreateTexture(nil,"OVERLAY",nil,3)
+    emblem:SetTexture(ART.logo)
+    emblem:SetSize(106,106)
+    emblem:SetPoint("TOPLEFT",frame,"TOPLEFT",-17,19)
+    emblem:SetVertexColor(0.82,0.77,0.75,1)
     local title=Art(frame,"OVERLAY",ART.wordmark)
-    title:SetSize(206,52)
-    title:SetPoint("TOPLEFT",frame,"TOPLEFT",83,-7)
-    local version=Label(frame,"BAZI UI  /  V0.1.1","GameFontNormalSmall",0.64,0.58,0.66)
-    version:SetPoint("TOPLEFT",frame,"TOPLEFT",87,-45)
+    -- Keep the source texture's 2:1 aspect ratio; the old 206x52 squashed it.
+    title:SetSize(258,129)
+    title:SetPoint("TOPLEFT",frame,"TOPLEFT",91,23)
+    title:SetVertexColor(0.86,0.80,0.75,1)
+    -- No duplicated 'BAZI UI' subtitle. Version sits to the right of the mark.
+    local version=Label(frame,"v0.1.1","GameFontNormalSmall",0.73,0.67,0.64)
+    version:SetPoint("LEFT",title,"RIGHT",4,-2)
     -- Ornamental close control: use the dedicated close icon rather than
     -- the generic square text button. Keep the existing hit area and anchor.
     local close=CreateFrame("Button",nil,frame)
@@ -585,10 +593,10 @@ function addon.Options:Create()
     General()
     local others={"Profiles","Import / Export","What's New","Appearance","UnitFrames","Nameplates","ActionBars","Chat","Quest","Gathering","Minimap","Tooltip","Combat","BugTab","QoL Settings"}
     for _,name in ipairs(others) do Placeholder(name) end
-    Tab(frame,"General",345,105);Tab(frame,"Profiles",456,105)
+    Tab(frame,"General",475,105);Tab(frame,"Profiles",586,105)
     Tab(frame,"Import / Export",567,150);Tab(frame,"What's New",723,128)
     local newsDot=Art(frame,"OVERLAY",ASSET.."Icons\\BaziUI_Notification_WhatsNew.tga")
-    newsDot:SetSize(12,12);newsDot:SetPoint("TOPLEFT",frame,"TOPLEFT",837,-25)
+    newsDot:SetSize(12,12);newsDot:SetPoint("TOPLEFT",frame,"TOPLEFT",967,-25)
     Nav(navBody,"General","*", -32)
     Nav(navBody,"Appearance","o",-66)
     Nav(navBody,"QoL Settings","+",-100)
