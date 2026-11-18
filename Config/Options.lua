@@ -170,17 +170,36 @@ function addon.Options:Create()
             end
         end
     end
-    -- TEMP DIAGNOSTIC: show the raw shadow PNG prominently, without slicing.
-    -- If this square appears, the texture path and decoding work.
-    local shadowDebug=frame:CreateTexture(nil,"OVERLAY",nil,7)
-    shadowDebug:SetTexture(shadowFile)
-    shadowDebug:SetSize(220,220)
-    shadowDebug:SetPoint("CENTER",frame,"CENTER",0,0)
-    shadowDebug:SetAlpha(1)
-    local shadowDebugLabel=frame:CreateFontString(nil,"OVERLAY","GameFontNormalLarge")
-    shadowDebugLabel:SetPoint("CENTER",frame,"CENTER",0,125)
-    shadowDebugLabel:SetText("SHADOW PNG TEST")
-    shadowDebugLabel:SetTextColor(1,0.25,0.25,1)
+    -- TEMP DIAGNOSTIC: independent top-level test, above all Bazi UI panels.
+    -- Red square = Lua code running; checker square = texture loaded.
+    local test=CreateFrame("Frame","BaziUIShadowDiagnostic",UIParent)
+    test:SetFrameStrata("TOOLTIP")
+    test:SetFrameLevel(100)
+    test:SetSize(490,290)
+    test:SetPoint("CENTER",UIParent,"CENTER",0,0)
+    test:EnableMouse(false)
+    local testBg=test:CreateTexture(nil,"BACKGROUND")
+    testBg:SetAllPoints(test)
+    testBg:SetColorTexture(0.08,0.08,0.08,0.96)
+    local control=test:CreateTexture(nil,"ARTWORK")
+    control:SetColorTexture(1,0.05,0.05,1)
+    control:SetSize(200,200)
+    control:SetPoint("TOPLEFT",test,"TOPLEFT",20,-52)
+    local image=test:CreateTexture(nil,"ARTWORK")
+    image:SetTexture(shadowFile)
+    image:SetSize(200,200)
+    image:SetPoint("TOPRIGHT",test,"TOPRIGHT",-20,-52)
+    local label=test:CreateFontString(nil,"OVERLAY","GameFontNormalLarge")
+    label:SetPoint("TOP",test,"TOP",0,-14)
+    label:SetText("BAZI SHADOW TEST - RED = LUA / RIGHT = PNG")
+    label:SetTextColor(1,0.9,0.2,1)
+    local status=test:CreateFontString(nil,"OVERLAY","GameFontNormal")
+    status:SetPoint("BOTTOM",test,"BOTTOM",0,13)
+    status:SetText("PNG texture: "..tostring(image:GetTexture()))
+    status:SetTextColor(1,1,1,1)
+    frame:HookScript("OnShow",function()test:Show()end)
+    frame:HookScript("OnHide",function()test:Hide()end)
+    test:Hide()
     -- A fully opaque fill is essential: transparent ornamental corner TGAs
     -- must not reveal the game world through large square holes.
     Paint(frame,"BACKGROUND",0.055,0.043,0.074,1)
