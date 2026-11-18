@@ -65,6 +65,7 @@ end
 -- never be moved. Our bar is independent and tooltip padding is conditional.
 local healthMode
 local padded = false
+local frameHintTooltip = false
 local function SafeToPad()
     if not tip or (tip.IsForbidden and tip:IsForbidden()) then return false end
     local width = tip:GetWidth()
@@ -97,7 +98,6 @@ local function SetNativeBarHidden(hidden)
     for _, bar in ipairs({native, attached}) do
         if bar then
             if hidden then
-                bar:Hide()
                 bar:SetAlpha(0)
             else
                 bar:SetAlpha(1)
@@ -134,7 +134,12 @@ local function UpdateHealth()
         return
     end
     -- Secret percentages may be passed directly to SetValue; never compare them.
-    local placement = (mode == "insideBottom" and not SafeToPad()) and "below" or mode
+    -- Unit-frame tooltips contain an extra Blizzard frame-settings hint.
+    -- That hint occupies the bottom inset and cannot safely share it.
+    local placement = mode
+    if mode == "insideBottom" and (frameHintTooltip or not SafeToPad()) then
+        placement = "below"
+    end
     local modeChanged = healthMode ~= placement
     if modeChanged then
         healthMode = placement
@@ -226,6 +231,8 @@ local function UnitContent()
         end
     end
     if addon.ItemLevel then addon.ItemLevel:OnUnit() end
+    local owner = tip:GetOwner()
+    frameHintTooltip = owner and owner ~= WorldFrame and owner ~= UIParent
     UpdateHealth()
 end
 local function ItemContent(_, data)
@@ -391,6 +398,7 @@ function T:Initialize()
     tip:HookScript("OnHide", function()
         health:Hide()
         healthMode = nil
+        frameHintTooltip = false
         ResetInsideSpacing()
         if addon.ItemLevel then addon.ItemLevel:ResetTooltipRow() end
     end)
