@@ -196,7 +196,7 @@ function addon.Options:Create()
     local function TiledHorizontal(side, file, y, fromX, toX, height)
         -- The new seamless horizontal TGAs are 32px wide; the legacy
         -- artwork was displayed as 112-unit tiles.
-        local tileLength=(file=="Edge_Top_Seamless.tga" or file=="Edge_Bottom_Seamless.tga") and 32 or BORDER_TEST_TILE
+        local tileLength=(file=="Edge_Top.tga" or file=="Edge_Bottom.tga") and 32 or BORDER_TEST_TILE
         local count=math.ceil((toX-fromX)/tileLength)
         for i=0,count-1 do
             local x=fromX+i*tileLength
@@ -214,7 +214,7 @@ function addon.Options:Create()
         local total=topY-bottomY
         -- Seamless side strips are 16px tall. Keep each tile short so the
         -- artwork repeats without stretching a single strip over 112 units.
-        local tileLength=(file=="Edge_Left_Seamless.tga" or file=="Edge_Right_Seamless.tga") and 16 or BORDER_TEST_TILE
+        local tileLength=(file=="Edge_Left.tga" or file=="Edge_Right.tga") and 16 or BORDER_TEST_TILE
         local count=math.ceil(total/tileLength)
         for i=0,count-1 do
             local y=topY-i*tileLength
@@ -239,10 +239,10 @@ function addon.Options:Create()
     end
     -- Edges overlap corners by ~20 units; corners are drawn on top.
     -- The TGA vertical edges have only half their 32px width opaque.
-    TiledHorizontal("top","Edge_Top_Seamless.tga",EDGE_TOP_OUTSET-4,50,1090,8)
-    TiledHorizontal("bottom","Edge_Bottom_Seamless.tga",-740+EDGE_BOTTOM_OUTSET-8,50,1090,7)
-    TiledVertical("left","Edge_Left_Seamless.tga",-EDGE_SIDE_OUTSET+2, -35,-705,6)
-    TiledVertical("right","Edge_Right_Seamless.tga",1140-1, -35,-705,6)
+    TiledHorizontal("top","Edge_Top.tga",EDGE_TOP_OUTSET-4,50,1090,8)
+    TiledHorizontal("bottom","Edge_Bottom.tga",-740+EDGE_BOTTOM_OUTSET-8,50,1090,7)
+    TiledVertical("left","Edge_Left.tga",-EDGE_SIDE_OUTSET+2, -35,-705,6)
+    TiledVertical("right","Edge_Right.tga",1140-1, -35,-705,6)
     -- Footer and lower frame edge share one bottom-anchored container.
     -- No hardcoded top offset: resizing keeps the artwork on the actual edge.
     local footerChrome=CreateFrame("Frame",nil,frame)
@@ -284,10 +284,10 @@ function addon.Options:Create()
         return t
     end
     frame.baziCornerTextures = {
-        TL=CroppedCorner("Corner_TL_V7_Test.tga","TOPLEFT",70,55,0,160/256,0,125/256),
-        TR=CroppedCorner("Corner_TR_V7_Test.tga","TOPRIGHT",70,56,96/256,1,0,127/256),
-        BL=CroppedCorner("Corner_BL_V7_Test.tga","BOTTOMLEFT",70,52,0,160/256,138/256,1),
-        BR=CroppedCorner("Corner_BR_V7_Test.tga","BOTTOMRIGHT",70,52,96/256,1,138/256,1),
+        TL=CroppedCorner("Corner_TL.tga","TOPLEFT",70,55,0,160/256,0,125/256),
+        TR=CroppedCorner("Corner_TR.tga","TOPRIGHT",70,56,96/256,1,0,127/256),
+        BL=CroppedCorner("Corner_BL.tga","BOTTOMLEFT",70,52,0,160/256,138/256,1),
+        BR=CroppedCorner("Corner_BR.tga","BOTTOMRIGHT",70,52,96/256,1,138/256,1),
     }
     for _,entry in ipairs({
         {"TL","TOPLEFT",-CORNER_TOP_OUTSET,CORNER_TOP_OUTSET},
