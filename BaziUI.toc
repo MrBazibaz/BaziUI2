@@ -2,7 +2,7 @@
 ## Title: Bazi UI
 ## Notes: A clean, modular World of Warcraft UI.
 ## Author: Bazi
-## Version: 0.1.2
+## Version: 0.1.3
 ## SavedVariables: BaziUIDB
 
 Core\Bootstrap.lua
