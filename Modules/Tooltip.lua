@@ -87,7 +87,7 @@ local function ApplyInsideSpacing(mode)
         return
     end
     if not padded then
-        local ok = pcall(tip.SetPadding, tip, 0, 12)
+        local ok = pcall(tip.SetPadding, tip, 0, 14)
         padded = ok
     end
 end
@@ -143,13 +143,10 @@ local function UpdateHealth()
         SetNativeBarHidden(true)
         return
     end
-    -- Secret percentages may be passed directly to SetValue; never compare them.
-    -- Unit-frame tooltips contain an extra Blizzard frame-settings hint.
-    -- That hint occupies the bottom inset and cannot safely share it.
+    -- FlareUI uses a fixed inset and never repositions its bar based
+    -- on text width or tooltip contents. Only fall back if padding is secret.
     local placement = mode
-    if mode == "insideBottom" and not SafeToPad() then
-        placement = "below"
-    end
+    if mode == "insideBottom" and not SafeToPad() then placement = "below" end
     local modeChanged = healthMode ~= placement
     if modeChanged then
         healthMode = placement
@@ -169,8 +166,8 @@ local function UpdateHealth()
             health:SetPoint("TOPLEFT", tip, "TOPLEFT", 10, -10)
             health:SetPoint("TOPRIGHT", tip, "TOPRIGHT", -10, -10)
         else
-            health:SetPoint("BOTTOMLEFT", tip, "BOTTOMLEFT", 10, 6)
-            health:SetPoint("BOTTOMRIGHT", tip, "BOTTOMRIGHT", -10, 6)
+            health:SetPoint("BOTTOMLEFT", tip, "BOTTOMLEFT", 10, 10)
+            health:SetPoint("BOTTOMRIGHT", tip, "BOTTOMRIGHT", -10, 10)
         end
     end
     -- Do not manually resize GameTooltip on health ticks. Blizzard rebuilds
