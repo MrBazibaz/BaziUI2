@@ -111,7 +111,7 @@ local function General()
     Section(settings,"Appearance",-19)
     local db=addon.db.profile
     Slider(settings,"Window Scale","Size of the Bazi UI settings window",-59,0.70,1.20,0.01,db.uiScale,function(v)
-        db.uiScale=v;if frame then frame:SetScale(v) end
+        db.uiScale=v;if frame then frame:SetScale(v);if frame.baziShadowFrame then frame.baziShadowFrame:SetScale(v) end end
     end)
     Slider(settings,"Font Size","Default text size for supported modules",-136,10,20,1,db.fontSize,function(v)db.fontSize=v end)
 end
@@ -150,43 +150,37 @@ function addon.Options:Create()
     frame:RegisterForDrag("LeftButton");frame:SetScript("OnDragStart",frame.StartMoving)
     frame:SetScript("OnDragStop",frame.StopMovingOrSizing)
     frame:SetScale(addon.db.profile.uiScale or 1)
-    -- TEMP DIAGNOSTIC: compare a known-working red control with the
-    -- same PNG split into 3x3 pieces, separated by 2 UI units.
+    -- Smooth exterior-only 9-slice shadow on its own sibling frame.
+    -- Keep the tested PNG slicing; stretch only the straight edge sections.
     local shadowFile=ASSET.."Effects\\Window_Shadow.png"
-    local test=CreateFrame("Frame","BaziUIShadowDiagnostic",UIParent)
-    test:SetFrameStrata("TOOLTIP")
-    test:SetFrameLevel(100)
-    test:SetSize(620,290)
-    test:SetPoint("CENTER",UIParent,"CENTER",0,0)
-    test:EnableMouse(false)
-    local testBg=test:CreateTexture(nil,"BACKGROUND")
-    testBg:SetAllPoints(test)
-    testBg:SetColorTexture(0.08,0.08,0.08,0.96)
-    local control=test:CreateTexture(nil,"ARTWORK")
-    control:SetColorTexture(1,0.05,0.05,1)
-    control:SetSize(200,200)
-    control:SetPoint("TOPLEFT",test,"TOPLEFT",20,-52)
+    local shadowSize=36
+    local shadowFrame=CreateFrame("Frame","BaziUIWindowShadow",UIParent)
+    shadowFrame:SetFrameStrata("DIALOG")
+    shadowFrame:SetFrameLevel(math.max(0,frame:GetFrameLevel()-1))
+    shadowFrame:SetScale(frame:GetScale())
+    shadowFrame:SetSize(1140+shadowSize*2,740+shadowSize*2)
+    shadowFrame:SetPoint("CENTER",frame,"CENTER",0,0)
+    shadowFrame:EnableMouse(false)
     local cuts={0,23/128,105/128,1}
-    local widths={36,228,36} -- 300 units wide, center stretched only
-    local heights={36,128,36} -- 200 units tall, unchanged
-    local xOffsets={0,36,264}
-    local yOffsets={0,36,164}
+    local widths={shadowSize,1140,shadowSize}
+    local heights={shadowSize,740,shadowSize}
+    local xOffsets={0,shadowSize,1140+shadowSize}
+    local yOffsets={0,shadowSize,740+shadowSize}
     for row=1,3 do
         for col=1,3 do
-            local piece=test:CreateTexture(nil,"ARTWORK")
-            piece:SetTexture(shadowFile)
-            piece:SetTexCoord(cuts[col],cuts[col+1],cuts[row],cuts[row+1])
-            piece:SetPoint("TOPLEFT",test,"TOPRIGHT",-320+xOffsets[col],-52-yOffsets[row])
-            piece:SetSize(widths[col],heights[row])
+            if row~=2 or col~=2 then
+                local piece=shadowFrame:CreateTexture(nil,"ARTWORK")
+                piece:SetTexture(shadowFile)
+                piece:SetTexCoord(cuts[col],cuts[col+1],cuts[row],cuts[row+1])
+                piece:SetPoint("TOPLEFT",shadowFrame,"TOPLEFT",xOffsets[col],-yOffsets[row])
+                piece:SetSize(widths[col],heights[row])
+            end
         end
     end
-    local label=test:CreateFontString(nil,"OVERLAY","GameFontNormalLarge")
-    label:SetPoint("TOP",test,"TOP",0,-14)
-    label:SetText("BAZI SHADOW TEST - RED / 3x3 PNG (300 x 200)")
-    label:SetTextColor(1,0.9,0.2,1)
-    frame:HookScript("OnShow",function()test:Show()end)
-    frame:HookScript("OnHide",function()test:Hide()end)
-    test:Hide()
+    frame.baziShadowFrame=shadowFrame
+    frame:HookScript("OnShow",function()shadowFrame:Show()end)
+    frame:HookScript("OnHide",function()shadowFrame:Hide()end)
+    shadowFrame:Hide()
     -- A fully opaque fill is essential: transparent ornamental corner TGAs
     -- must not reveal the game world through large square holes.
     Paint(frame,"BACKGROUND",0.055,0.043,0.074,1)
