@@ -171,6 +171,34 @@ local function CreatePlaceholderPage(name, description)
     return page
 end
 
+local function CreateVersionHistoryPage()
+    local page = CreateFrame("Frame", nil, contentFrame)
+    page:SetAllPoints(contentFrame)
+    pages["Version History"] = page
+
+    local panel = CreatePanel(page, -10, 200)
+    CreateSection(panel, "VERSION HISTORY", -14)
+
+    local current = CreateLabel(panel, "v0.1.1", "GameFontNormalLarge")
+    current:SetPoint("TOPLEFT", panel, "TOPLEFT", 22, -56)
+    current:SetTextColor(1, 0.81, 0.45)
+    local currentNotes = CreateLabel(panel,
+        "Quality of Life and Profiles categories, category search, and emblem alignment.",
+        "GameFontHighlightSmall")
+    currentNotes:SetPoint("TOPLEFT", panel, "TOPLEFT", 22, -83)
+    currentNotes:SetTextColor(0.92, 0.79, 0.65)
+
+    local previous = CreateLabel(panel, "v0.1.0", "GameFontNormalLarge")
+    previous:SetPoint("TOPLEFT", panel, "TOPLEFT", 22, -119)
+    previous:SetTextColor(1, 0.81, 0.45)
+    local previousNotes = CreateLabel(panel,
+        "Original options menu with window scale, font size and module placeholders.",
+        "GameFontHighlightSmall")
+    previousNotes:SetPoint("TOPLEFT", panel, "TOPLEFT", 22, -146)
+    previousNotes:SetTextColor(0.92, 0.79, 0.65)
+    return page
+end
+
 local function CreateNavigationButton(parent, name, label, y)
     -- Custom flat navigation: the active page gets purple, not every button.
     local button = CreateFrame("Button", nil, parent)
@@ -293,7 +321,7 @@ function addon.Options:Create()
     emblemHost:SetSize(66, 66)
     -- The emblem graphic is slightly asymmetric inside its transparent image.
     -- A tiny optical correction centers the visible B over the native ring.
-    emblemHost:SetPoint("CENTER", optionsFrame, "TOPLEFT", 28, -24)
+    emblemHost:SetPoint("CENTER", optionsFrame, "TOPLEFT", 22, -20)
     emblemHost:SetFrameStrata("FULLSCREEN_DIALOG")
     emblemHost:SetFrameLevel(math.max(borderHost:GetFrameLevel(), borderHost.NineSlice and borderHost.NineSlice:GetFrameLevel() or 0) + 30)
     emblemHost:EnableMouse(false)
@@ -365,6 +393,28 @@ function addon.Options:Create()
     title:SetFontObject("GameFontNormalLarge")
     title:SetJustifyH("CENTER")
 
+    -- The displayed version also opens the changelog. Keep it independent
+    -- of SavedVariables and the native frame artwork.
+    local versionButton = CreateFrame("Button", nil, optionsFrame)
+    versionButton:SetSize(62, 22)
+    versionButton:SetPoint("LEFT", title, "RIGHT", 9, 0)
+    local versionText = CreateLabel(versionButton, "v" .. (addon.version or "0.1.1"), "GameFontHighlightSmall")
+    versionText:SetPoint("CENTER")
+    versionText:SetTextColor(0.79, 0.69, 0.52)
+    versionButton:SetScript("OnEnter", function()
+        versionText:SetTextColor(1, 0.85, 0.58)
+        if GameTooltip then
+            GameTooltip:SetOwner(versionButton, "ANCHOR_RIGHT")
+            GameTooltip:SetText("Version History")
+            GameTooltip:Show()
+        end
+    end)
+    versionButton:SetScript("OnLeave", function()
+        versionText:SetTextColor(0.79, 0.69, 0.52)
+        if GameTooltip then GameTooltip:Hide() end
+    end)
+    versionButton:SetScript("OnClick", function() ShowPage("Version History") end)
+
     local close = CreateFrame("Button", nil, optionsFrame, "UIPanelCloseButton")
     -- Keep the close button inside the header border.
     close:SetPoint("TOPRIGHT", optionsFrame, "TOPRIGHT", -4, 2)
@@ -380,6 +430,45 @@ function addon.Options:Create()
     navBackground:SetColorTexture(0.105, 0.063, 0.038, 0.96)
     nav:SetSize(180, 455)
 
+    -- Small category search, kept entirely inside the existing sidebar.
+    local search = CreateFrame("EditBox", nil, nav)
+    search:SetPoint("TOPLEFT", nav, "TOPLEFT", 4, -5)
+    search:SetSize(170, 25)
+    search:SetAutoFocus(false)
+    search:SetFontObject("GameFontHighlightSmall")
+    search:SetTextInsets(9, 9, 0, 0)
+    search:SetTextColor(0.96, 0.85, 0.66, 1)
+    search:SetMaxLetters(50)
+    local searchBackground = search:CreateTexture(nil, "BACKGROUND")
+    searchBackground:SetAllPoints(search)
+    searchBackground:SetColorTexture(0.10, 0.06, 0.04, 0.96)
+    for _, edge in ipairs({"TOP", "BOTTOM", "LEFT", "RIGHT"}) do
+        local line = search:CreateTexture(nil, "ARTWORK")
+        line:SetColorTexture(0.67, 0.48, 0.26, 0.7)
+        if edge == "TOP" then
+            line:SetPoint("TOPLEFT"); line:SetPoint("TOPRIGHT"); line:SetHeight(1)
+        elseif edge == "BOTTOM" then
+            line:SetPoint("BOTTOMLEFT"); line:SetPoint("BOTTOMRIGHT"); line:SetHeight(1)
+        elseif edge == "LEFT" then
+            line:SetPoint("TOPLEFT"); line:SetPoint("BOTTOMLEFT"); line:SetWidth(1)
+        else
+            line:SetPoint("TOPRIGHT"); line:SetPoint("BOTTOMRIGHT"); line:SetWidth(1)
+        end
+    end
+    local searchHint = CreateLabel(nav, "Search categories...", "GameFontHighlightSmall")
+    searchHint:SetPoint("LEFT", search, "LEFT", 9, 0)
+    searchHint:SetTextColor(0.63, 0.55, 0.46, 0.9)
+    local searchEmpty = CreateLabel(nav, "No matching categories", "GameFontHighlightSmall")
+    searchEmpty:SetPoint("TOPLEFT", nav, "TOPLEFT", 9, -49)
+    searchEmpty:SetTextColor(0.77, 0.65, 0.51)
+    searchEmpty:Hide()
+    search:SetScript("OnEscapePressed", function(self)
+        self:ClearFocus()
+    end)
+    search:SetScript("OnEnterPressed", function(self)
+        self:ClearFocus()
+    end)
+
     contentFrame = CreateFrame("Frame", nil, optionsFrame)
     contentFrame:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", 204, -78)
     contentFrame:SetPoint("BOTTOMRIGHT", optionsFrame, "BOTTOMRIGHT", -16, 18)
@@ -390,21 +479,43 @@ function addon.Options:Create()
     separator:SetPoint("TOPLEFT", contentFrame, "TOPLEFT", -10, 0)
     separator:SetPoint("BOTTOMLEFT", contentFrame, "BOTTOMLEFT", -10, 0)
 
-    CreateNavigationButton(nav, "General", "General", -8)
-    CreateNavigationButton(nav, "Quality of Life", "Quality of Life", -41)
-    CreateNavigationButton(nav, "Profiles", "Profiles", -74)
-    CreateNavigationButton(nav, "UnitFrames", "UnitFrames", -107)
-    CreateNavigationButton(nav, "Nameplates", "Nameplates", -140)
-    CreateNavigationButton(nav, "ActionBars", "ActionBars", -173)
-    CreateNavigationButton(nav, "Chat", "Chat", -206)
-    CreateNavigationButton(nav, "Quest", "Quest", -239)
-    CreateNavigationButton(nav, "Gathering", "Gathering", -272)
-    CreateNavigationButton(nav, "Minimap", "Minimap", -305)
-    CreateNavigationButton(nav, "Tooltip", "Tooltip", -338)
-    CreateNavigationButton(nav, "Combat", "Combat", -371)
-    CreateNavigationButton(nav, "BugTab", "BugTab", -404)
+    CreateNavigationButton(nav, "General", "General", -40)
+    CreateNavigationButton(nav, "Quality of Life", "Quality of Life", -71)
+    CreateNavigationButton(nav, "Profiles", "Profiles", -102)
+    CreateNavigationButton(nav, "UnitFrames", "UnitFrames", -133)
+    CreateNavigationButton(nav, "Nameplates", "Nameplates", -164)
+    CreateNavigationButton(nav, "ActionBars", "ActionBars", -195)
+    CreateNavigationButton(nav, "Chat", "Chat", -226)
+    CreateNavigationButton(nav, "Quest", "Quest", -257)
+    CreateNavigationButton(nav, "Gathering", "Gathering", -288)
+    CreateNavigationButton(nav, "Minimap", "Minimap", -319)
+    CreateNavigationButton(nav, "Tooltip", "Tooltip", -350)
+    CreateNavigationButton(nav, "Combat", "Combat", -381)
+    CreateNavigationButton(nav, "BugTab", "BugTab", -412)
+
+    local navigationOrder = {"General", "Quality of Life", "Profiles", "UnitFrames", "Nameplates", "ActionBars", "Chat", "Quest", "Gathering", "Minimap", "Tooltip", "Combat", "BugTab"}
+    local function UpdateSearch()
+        local query = string.lower(search:GetText() or "")
+        local shown = 0
+        searchHint:SetShown(query == "")
+        for _, name in ipairs(navigationOrder) do
+            local button = navButtons[name]
+            if string.find(string.lower(name), query, 1, true) then
+                button:ClearAllPoints()
+                button:SetPoint("TOPLEFT", nav, "TOPLEFT", 4, -40 - shown * 31)
+                button:Show()
+                shown = shown + 1
+            else
+                button:Hide()
+            end
+        end
+        searchEmpty:SetShown(shown == 0)
+    end
+    search:SetScript("OnTextChanged", UpdateSearch)
+    UpdateSearch()
 
     CreateGeneralPage()
+    CreateVersionHistoryPage()
     CreatePlaceholderPage("Quality of Life", "Quality-of-life module settings will be added here.")
     CreatePlaceholderPage("Profiles", "Profile management is not implemented yet. Your current settings are preserved.")
     CreatePlaceholderPage("UnitFrames")
