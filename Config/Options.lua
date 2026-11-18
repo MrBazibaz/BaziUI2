@@ -82,14 +82,14 @@ local function CreateSlider(parent, labelText, description, minValue, maxValue, 
     local valueBox
     if labelText == "WINDOW SCALE" or labelText == "FONT SIZE" then
         valueBox = CreateFrame("EditBox", nil, row)
-        valueBox:SetSize(43, 23)
-        valueBox:SetPoint("RIGHT", row, "RIGHT", -10, 0)
+        valueBox:SetSize(36, 19)
+        valueBox:SetPoint("RIGHT", row, "RIGHT", -13, 0)
         valueBox:SetAutoFocus(false)
         valueBox:SetFontObject("GameFontNormal")
         valueBox:SetTextColor(1, 0.81, 0.45)
         valueBox:SetJustifyH("CENTER")
         valueBox:SetMaxLetters(5)
-        valueBox:SetTextInsets(3, 3, 0, 0)
+        valueBox:SetTextInsets(2, 2, 0, 0)
         local boxFill = valueBox:CreateTexture(nil, "BACKGROUND")
         boxFill:SetAllPoints(valueBox)
         boxFill:SetColorTexture(0.12, 0.07, 0.045, 0.95)
@@ -152,22 +152,35 @@ local function CreateSlider(parent, labelText, description, minValue, maxValue, 
                 end
             end)
         end
-        local function CommitScale()
-            local number = tonumber(valueBox:GetText():gsub(",", "."))
+        local committing = false
+        local function CommitValue()
+            if committing then return end
+            committing = true
+            local input = valueBox:GetText() or ""
+            local number = tonumber((input:gsub(",", ".")))
             if number then
                 number = math.max(minValue, math.min(maxValue, number))
                 number = math.floor(number / step + 0.5) * step
+                -- SetValue updates the slider thumb and its OnValueChanged
+                -- callback persists the new value to the profile.
                 slider:SetValue(number)
+                -- Force the saved value even when the slider was already there.
                 if onValueChanged then onValueChanged(number) end
-                if labelText == "WINDOW SCALE" and optionsFrame then optionsFrame:SetScale(number) end
+                if labelText == "WINDOW SCALE" and optionsFrame then
+                    optionsFrame:SetScale(number)
+                end
             end
-            valueBox:ClearFocus()
             valueBox:SetText(string.format("%g", slider:GetValue()))
+            valueBox:ClearFocus()
+            committing = false
         end
-        valueBox:SetScript("OnEnterPressed", CommitScale)
+        valueBox:SetScript("OnEnterPressed", CommitValue)
+        valueBox:SetScript("OnEditFocusLost", function()
+            if not committing then CommitValue() end
+        end)
         valueBox:SetScript("OnEscapePressed", function(self)
-            self:ClearFocus()
             self:SetText(string.format("%g", slider:GetValue()))
+            self:ClearFocus()
         end)
     end
     RefreshProgress(value)
