@@ -608,23 +608,32 @@ local function CreateVersionHistoryPage()
     local panel = CreatePanel(page, -10, 200)
     CreateSection(panel, "VERSION HISTORY", -14)
 
-    local current = CreateLabel(panel, "v0.1.2", "GameFontNormalLarge")
+    local current = CreateLabel(panel, "v0.1.3", "GameFontNormalLarge")
     current:SetPoint("TOPLEFT", panel, "TOPLEFT", 22, -56)
     current:SetTextColor(1, 0.81, 0.45)
     local currentNotes = CreateLabel(panel,
-        "Tooltip settings: positioning, appearance, contents, and fonts.",
+        "Tooltip release: anchor, scale, opacity, contents, ilvl and fonts.",
         "GameFontHighlightSmall")
     currentNotes:SetPoint("TOPLEFT", panel, "TOPLEFT", 22, -83)
     currentNotes:SetTextColor(0.92, 0.79, 0.65)
 
-    local previous = CreateLabel(panel, "v0.1.0", "GameFontNormalLarge")
+    local previous = CreateLabel(panel, "v0.1.2", "GameFontNormalLarge")
     previous:SetPoint("TOPLEFT", panel, "TOPLEFT", 22, -119)
     previous:SetTextColor(1, 0.81, 0.45)
     local previousNotes = CreateLabel(panel,
-        "Original options menu with window scale, font size and module placeholders.",
+        "Tooltip development: positioning, appearance and content controls.",
         "GameFontHighlightSmall")
     previousNotes:SetPoint("TOPLEFT", panel, "TOPLEFT", 22, -146)
     previousNotes:SetTextColor(0.92, 0.79, 0.65)
+
+    local original = CreateLabel(panel, "v0.1.0", "GameFontNormalLarge")
+    original:SetPoint("TOPLEFT", panel, "TOPLEFT", 22, -182)
+    original:SetTextColor(1, 0.81, 0.45)
+    local originalNotes = CreateLabel(panel,
+        "Original options menu, settings and module placeholders.",
+        "GameFontHighlightSmall")
+    originalNotes:SetPoint("TOPLEFT", panel, "TOPLEFT", 22, -209)
+    originalNotes:SetTextColor(0.92, 0.79, 0.65)
     return page
 end
 
