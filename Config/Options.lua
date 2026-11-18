@@ -284,7 +284,9 @@ local function CreateTooltipPage()
                 selected and 0.17 or 0.12, selected and 0.25 or 0.07, 0.98)
             button.label:SetTextColor(selected and 1 or 0.95,
                 selected and 0.85 or 0.80, selected and 0.55 or 0.66)
-            button.accent:SetColorTexture(selected and 0.83 or 0.54,\n                selected and 0.63 or 0.37, selected and 0.30 or 0.20, selected and 1 or 0.8)\n            for _, edge in ipairs(button.edges) do
+            button.accent:SetColorTexture(selected and 0.83 or 0.54,
+                selected and 0.63 or 0.37, selected and 0.30 or 0.20, selected and 1 or 0.8)
+            for _, edge in ipairs(button.edges) do
                 edge:SetColorTexture(selected and 0.83 or 0.54,
                     selected and 0.63 or 0.37, selected and 0.30 or 0.20, 0.95)
             end
