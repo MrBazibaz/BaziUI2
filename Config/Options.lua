@@ -132,8 +132,8 @@ local function CreateGeneralPage()
     page:SetAllPoints(contentFrame)
     pages.General = page
     local introPanel = CreatePanel(page, -10, 66)
-    CreateSection(introPanel, "REALM CONFIGURATION", -14)
-    local intro = CreateLabel(page, "Make Azeroth yours. Fine-tune your interface.", "GameFontHighlightSmall")
+    CreateSection(introPanel, "GENERAL SETTINGS", -14)
+    local intro = CreateLabel(page, "Adjust the Bazi UI window and default text size.", "GameFontHighlightSmall")
     intro:SetParent(introPanel)
     intro:SetPoint("TOPLEFT", introPanel, "TOPLEFT", 22, -39)
     intro:SetTextColor(0.96, 0.82, 0.63, 1)
@@ -183,7 +183,7 @@ local function CreateVersionHistoryPage()
     current:SetPoint("TOPLEFT", panel, "TOPLEFT", 22, -56)
     current:SetTextColor(1, 0.81, 0.45)
     local currentNotes = CreateLabel(panel,
-        "Quality of Life and Profiles categories, category search, and emblem alignment.",
+        "Quality of Life and Profiles, search, resize handles, and emblem alignment.",
         "GameFontHighlightSmall")
     currentNotes:SetPoint("TOPLEFT", panel, "TOPLEFT", 22, -83)
     currentNotes:SetTextColor(0.92, 0.79, 0.65)
@@ -321,7 +321,7 @@ function addon.Options:Create()
     emblemHost:SetSize(66, 66)
     -- The emblem graphic is slightly asymmetric inside its transparent image.
     -- A tiny optical correction centers the visible B over the native ring.
-    emblemHost:SetPoint("CENTER", optionsFrame, "TOPLEFT", 22, -20)
+    emblemHost:SetPoint("CENTER", optionsFrame, "TOPLEFT", 24, -21)
     emblemHost:SetFrameStrata("FULLSCREEN_DIALOG")
     emblemHost:SetFrameLevel(math.max(borderHost:GetFrameLevel(), borderHost.NineSlice and borderHost.NineSlice:GetFrameLevel() or 0) + 30)
     emblemHost:EnableMouse(false)
@@ -332,6 +332,9 @@ function addon.Options:Create()
     optionsFrame.baziEmblem = emblem
 
     optionsFrame:SetSize(900, 555)
+    optionsFrame:SetResizable(true)
+    optionsFrame:SetMinResize(900, 555)
+    optionsFrame:SetMaxResize(1500, 1000)
     optionsFrame:SetPoint("CENTER")
     optionsFrame:SetFrameStrata("DIALOG")
     optionsFrame:SetClampedToScreen(true)
@@ -340,6 +343,34 @@ function addon.Options:Create()
     optionsFrame:RegisterForDrag("LeftButton")
     optionsFrame:SetScript("OnDragStart", optionsFrame.StartMoving)
     optionsFrame:SetScript("OnDragStop", optionsFrame.StopMovingOrSizing)
+
+    -- Resize from either bottom corner, preserving the native NineSlice border.
+    -- Handles live inside the window so they remain clickable at screen edges.
+    local function CreateResizeHandle(side)
+        local handle = CreateFrame("Button", nil, optionsFrame)
+        handle:SetSize(23, 23)
+        handle:SetPoint("BOTTOM" .. side, optionsFrame, "BOTTOM" .. side, side == "LEFT" and 5 or -5, 5)
+        handle:SetFrameLevel(optionsFrame:GetFrameLevel() + 35)
+        handle:EnableMouse(true)
+        local marker = handle:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+        marker:SetPoint("CENTER")
+        marker:SetText(side == "LEFT" and "/" or "\\\\")
+        marker:SetTextColor(0.85, 0.63, 0.34, 0.85)
+        handle:SetScript("OnMouseDown", function(self, button)
+            if button == "LeftButton" then
+                optionsFrame:StartSizing("BOTTOM" .. side)
+            end
+        end)
+        handle:SetScript("OnMouseUp", function()
+            optionsFrame:StopMovingOrSizing()
+        end)
+        handle:SetScript("OnHide", function()
+            optionsFrame:StopMovingOrSizing()
+        end)
+        return handle
+    end
+    CreateResizeHandle("LEFT")
+    CreateResizeHandle("RIGHT")
     -- Ease into 75% opacity during movement; restore instantly on stopping.
     local displayedAlpha = 1
     local fadeSeconds = 0.65
@@ -428,12 +459,13 @@ function addon.Options:Create()
     navBackground:SetPoint("TOPLEFT", nav, "TOPLEFT", 0, 10)
     navBackground:SetPoint("BOTTOMRIGHT", nav, "BOTTOMRIGHT", 0, -4)
     navBackground:SetColorTexture(0.105, 0.063, 0.038, 0.96)
-    nav:SetSize(180, 455)
+    nav:SetWidth(180)
+    nav:SetPoint("BOTTOMLEFT", optionsFrame, "BOTTOMLEFT", 12, 22)
 
     -- Small category search, kept entirely inside the existing sidebar.
     local search = CreateFrame("EditBox", nil, nav)
     search:SetPoint("TOPLEFT", nav, "TOPLEFT", 4, -5)
-    search:SetSize(170, 25)
+    search:SetSize(170, 20)
     search:SetAutoFocus(false)
     search:SetFontObject("GameFontHighlightSmall")
     search:SetTextInsets(9, 9, 0, 0)
@@ -455,9 +487,11 @@ function addon.Options:Create()
             line:SetPoint("TOPRIGHT"); line:SetPoint("BOTTOMRIGHT"); line:SetWidth(1)
         end
     end
-    local searchHint = CreateLabel(nav, "Search categories...", "GameFontHighlightSmall")
+    -- Hint must be a child of the EditBox: the previous sibling was hidden
+    -- behind the edit box background, making the field appear empty.
+    local searchHint = CreateLabel(search, "Search...", "GameFontHighlightSmall")
     searchHint:SetPoint("LEFT", search, "LEFT", 9, 0)
-    searchHint:SetTextColor(0.63, 0.55, 0.46, 0.9)
+    searchHint:SetTextColor(0.83, 0.72, 0.57, 0.9)
     local searchEmpty = CreateLabel(nav, "No matching categories", "GameFontHighlightSmall")
     searchEmpty:SetPoint("TOPLEFT", nav, "TOPLEFT", 9, -49)
     searchEmpty:SetTextColor(0.77, 0.65, 0.51)
@@ -497,7 +531,7 @@ function addon.Options:Create()
     local function UpdateSearch()
         local query = string.lower(search:GetText() or "")
         local shown = 0
-        searchHint:SetShown(query == "")
+        searchHint:SetShown(query == "" and not search:HasFocus())
         for _, name in ipairs(navigationOrder) do
             local button = navButtons[name]
             if string.find(string.lower(name), query, 1, true) then
@@ -512,6 +546,8 @@ function addon.Options:Create()
         searchEmpty:SetShown(shown == 0)
     end
     search:SetScript("OnTextChanged", UpdateSearch)
+    search:SetScript("OnEditFocusGained", UpdateSearch)
+    search:SetScript("OnEditFocusLost", UpdateSearch)
     UpdateSearch()
 
     CreateGeneralPage()
