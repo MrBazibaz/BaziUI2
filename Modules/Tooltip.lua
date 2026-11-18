@@ -148,6 +148,24 @@ local function Anchor(_, parent)
         tip:SetPoint("BOTTOMRIGHT", UIParent, "BOTTOMRIGHT", db.x or -30, db.y or 130)
     end
 end
+-- Temporary tooltip positioning diagnostics. Toggle with /run BaziUI.Tooltip:ToggleDebug()
+local debugEnabled = false
+local debugElapsed = 0
+local debugTicks = 0
+local function DebugLine(message)
+    if DEFAULT_CHAT_FRAME then DEFAULT_CHAT_FRAME:AddMessage("|cffffcc55Bazi Tooltip DEBUG:|r " .. message) end
+end
+function T:ToggleDebug()
+    debugEnabled = not debugEnabled
+    debugElapsed = 0
+    debugTicks = 0
+    DebugLine(debugEnabled and "ON (hover an NPC or item for 3 seconds)" or "OFF")
+    local db = DB()
+    DebugLine("enabled=" .. tostring(db and db.enabled) ..
+        " anchor=" .. tostring(db and db.anchor) ..
+        " cursorPosition=" .. tostring(db and db.cursorPosition) ..
+        " tooltipShown=" .. tostring(tip and tip:IsShown()))
+end
 function T:Initialize()
     if self.initialized then return end
     self.initialized = true
@@ -223,6 +241,24 @@ function T:Initialize()
             elseif point == "LEFT" or point == "RIGHT" then y = my - height / 2 end
             tip:ClearAllPoints()
             tip:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", x, y)
+        end
+        if debugEnabled then
+            debugTicks = debugTicks + 1
+            debugElapsed = debugElapsed + elapsed
+            if debugElapsed >= 2 then
+                debugElapsed = 0
+                local current = DB()
+                local mx, my = GetCursorPosition()
+                local p, relativeTo, relativePoint, px, py = tip:GetPoint(1)
+                DebugLine("ticks=" .. debugTicks ..
+                    " mode=" .. tostring(current and current.anchor) ..
+                    " shown=" .. tostring(tip:IsShown()) ..
+                    " mouse=" .. math.floor(mx) .. "," .. math.floor(my) ..
+                    " point=" .. tostring(p) ..
+                    " relative=" .. tostring(relativePoint) ..
+                    " offsets=" .. tostring(px) .. "," .. tostring(py))
+                debugTicks = 0
+            end
         end
         elapsedHealth = elapsedHealth + elapsed
         if elapsedHealth >= 0.15 then
