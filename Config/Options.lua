@@ -381,7 +381,7 @@ function addon.Options:Create()
     -- the generic square text button. Keep the existing hit area and anchor.
     local close=CreateFrame("Button",nil,frame)
     close:SetSize(28,27)
-    close:SetPoint("TOPLEFT",frame,"TOPLEFT",1097,-12)
+    close:SetPoint("TOPLEFT",frame,"TOPLEFT",1102,-7)
     local closeIcon=close:CreateTexture(nil,"ARTWORK")
     closeIcon:SetTexture(ASSET.."Icons\\Icon_Close.png")
     closeIcon:SetSize(22,22)
