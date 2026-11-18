@@ -61,53 +61,49 @@ end
 local function AddLine(label, value)
     if value and value ~= "" then tip:AddDoubleLine(label, tostring(value), 1, 0.79, 0.43, 1, 1, 1) end
 end
--- Keep the native bar (secret unit health values are not readable by addons).
--- Reapply only on mode changes; never accumulate tooltip padding.
-local insideMode, insideTipHeight, insideFirstAnchor
+-- FlareUI pattern: Blizzard's status bar owns secure values and must
+-- never be moved. Our bar is independent and tooltip padding is conditional.
 local healthMode
--- Keep Blizzard's bar transparent while our overlay is active. Blizzard can
--- reapply alpha when changing units, so verify the state rather than caching it.
-local function SetNativeBarHidden(hidden)
-    -- Forever can expose distinct Blizzard status bars on these two fields.
-    -- Preserve their values and anchors; suppress only their visual alpha.
-    local native = _G.GameTooltipStatusBar
-    local attached = tip and tip.StatusBar
-    local desired = hidden and 0 or 1
-    if native and native:GetAlpha() ~= desired then native:SetAlpha(desired) end
-    if attached and attached ~= native and attached:GetAlpha() ~= desired then
-        attached:SetAlpha(desired)
+local padded = false
+local function SafeToPad()
+    if not tip or (tip.IsForbidden and tip:IsForbidden()) then return false end
+    local width = tip:GetWidth()
+    if issecretvalue and issecretvalue(width) then return false end
+    if canaccessvalue and not canaccessvalue(width) then return false end
+    for i = 1, tip:GetNumChildren() do
+        local child = select(i, tip:GetChildren())
+        if child and child.shownWidgetCount and issecretvalue
+            and issecretvalue(child.shownWidgetCount) then return false end
     end
+    return true
 end
 local function ResetInsideSpacing()
-    if insideFirstAnchor then
-        local first = _G.GameTooltipTextLeft1
-        if first then
-            first:ClearAllPoints()
-            first:SetPoint(unpack(insideFirstAnchor))
-        end
-        insideFirstAnchor = nil
-    end
-    if insideTipHeight then tip:SetHeight(insideTipHeight); insideTipHeight = nil end
-    insideMode = nil
+    if padded and tip.SetPadding then pcall(tip.SetPadding, tip, 0, 0) end
+    padded = false
 end
-local function ApplyInsideSpacing(mode, native)
-    if insideMode == mode then return end
-    ResetInsideSpacing()
-    if mode ~= "insideTop" and mode ~= "insideBottom" then return end
-    insideMode = mode
-    if mode == "insideBottom" then return end
-    local first = _G.GameTooltipTextLeft1
-    if not first then return end
-    local point, relative, relativePoint, x, y = first:GetPoint(1)
-    if not point then return end
-    local barHeight = native:GetHeight()
-    if not barHeight or barHeight <= 0 then barHeight = 7 end
-    local extra = barHeight + 2
-    insideTipHeight = tip:GetHeight()
-    tip:SetHeight(insideTipHeight + extra)
-    insideFirstAnchor = {point, relative, relativePoint, x, y}
-    first:ClearAllPoints()
-    first:SetPoint(point, relative, relativePoint, x, y - extra)
+local function ApplyInsideSpacing(mode)
+    if mode ~= "insideBottom" or not SafeToPad() or not tip.SetPadding then
+        ResetInsideSpacing()
+        return
+    end
+    if not padded then
+        local ok = pcall(tip.SetPadding, tip, 0, 15)
+        padded = ok
+    end
+end
+local function SetNativeBarHidden(hidden)
+    local native = _G.GameTooltipStatusBar
+    local attached = tip and tip.StatusBar
+    for _, bar in ipairs({native, attached}) do
+        if bar then
+            if hidden then
+                bar:Hide()
+                bar:SetAlpha(0)
+            else
+                bar:SetAlpha(1)
+            end
+        end
+    end
 end
 local function UpdateHealth()
     local db = DB()
@@ -143,7 +139,7 @@ local function UpdateHealth()
         healthMode = mode
         health:ClearAllPoints()
     end
-    ApplyInsideSpacing(mode, health)
+    ApplyInsideSpacing(mode)
     -- Anchor both ends to the frame instead of calculating widths/offsets.
     -- Tooltip font-string geometry can be secret on WoW Forever.
     if modeChanged then
@@ -198,16 +194,6 @@ local function RemoveLine(fragment, exact)
 end
 -- Reserve a real text row for the bar. Unlike SetPadding, this participates
 -- in Blizzard's own tooltip height calculation and works with unit-frame hints.
-function T:EnsureHealthSpacer()
-    local db = DB()
-    if not db or not db.enabled or db.healthBar ~= "insideBottom" or not UnitToken() then return end
-    local n = tip:NumLines()
-    local line = _G["GameTooltipTextLeft" .. n]
-    local text = line and line:GetText()
-    if text ~= nil and (not issecretvalue or not issecretvalue(text))
-        and (not canaccessvalue or canaccessvalue(text)) and text == " " then return end
-    tip:AddLine(" ", 1, 1, 1)
-end
 local function UnitContent()
     local db = DB()
     if not db or not db.enabled then return end
@@ -239,7 +225,6 @@ local function UnitContent()
         end
     end
     if addon.ItemLevel then addon.ItemLevel:OnUnit() end
-    T:EnsureHealthSpacer()
     UpdateHealth()
 end
 local function ItemContent(_, data)
@@ -400,7 +385,6 @@ function T:Initialize()
         if not db then return end
         if not db.enabled then SetNativeBarHidden(false); return end
         T:Apply()
-        T:EnsureHealthSpacer()
         UpdateHealth()
     end)
     tip:HookScript("OnHide", function()
