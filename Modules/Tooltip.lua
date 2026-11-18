@@ -193,53 +193,105 @@ local function UpdateHealth()
     health:Show()
 
 end
+
+local function Readable(v)
+    return v ~= nil and (not issecretvalue or not issecretvalue(v))
+        and (not canaccessvalue or canaccessvalue(v))
+end
+local function FindLine(fragment)
+    if not Readable(fragment) or type(fragment) ~= "string" then return false end
+    for i = 2, tip:NumLines() do
+        local line = _G["GameTooltipTextLeft" .. i]
+        local value = line and line:GetText()
+        if Readable(value) and type(value) == "string" and value:find(fragment, 1, true) then return true end
+    end
+    return false
+end
+local function RemoveLine(fragment, exact)
+    if not Readable(fragment) or type(fragment) ~= "string" or fragment == "" then return end
+    for i = 2, tip:NumLines() do
+        local line = _G["GameTooltipTextLeft" .. i]
+        local value = line and line:GetText()
+        if Readable(value) and type(value) == "string"
+            and ((exact and value == fragment) or (not exact and value:find(fragment, 1, true))) then
+            line:SetText(nil)
+            return
+        end
+    end
+end
 local function UnitContent()
     local db = DB()
     if not db or not db.enabled then return end
     local unit = UnitToken()
     if not unit then return end
-    if db.guild then
-        local guild = GetGuildInfo(unit)
-        if guild then AddLine("Guild", guild) end
+    if not db.guild then RemoveLine(GetGuildInfo(unit), false) end
+    if db.hideFaction then
+        RemoveLine(_G.FACTION_HORDE, true)
+        RemoveLine(_G.FACTION_ALLIANCE, true)
     end
     if db.targetTarget then
         local target = unit .. "target"
-        if UnitExists(target) then AddLine("Target", UnitName(target)) end
+        local ok, exists = pcall(UnitExists, target)
+        if ok and Readable(exists) and exists then
+            local name = UnitName(target)
+            local prefix = (_G.TARGET or "Target") .. ": "
+            if Readable(name) and type(name) == "string" and name ~= "" and not FindLine(prefix) then
+                tip:AddLine(prefix .. name, 0.95, 0.80, 0.50)
+            end
+        end
     end
-    if db.threat and UnitDetailedThreatSituation then
-        local _, status, percent = UnitDetailedThreatSituation("player", unit)
-        if status and percent then AddLine("Threat", string.format("%.0f%%", percent)) end
+    if db.classNames then
+        local ok, player = pcall(UnitIsPlayer, unit)
+        if ok and Readable(player) and player then
+            local _, class = UnitClass(unit)
+            local color = Readable(class) and RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
+            local title = _G.GameTooltipTextLeft1
+            if color and title then title:SetTextColor(color.r, color.g, color.b) end
+        end
     end
-    if db.classNames and UnitIsPlayer(unit) then
-        local _, class = UnitClass(unit)
-        local color = class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
-        local name = _G.GameTooltipTextLeft1
-        if color and name then name:SetTextColor(color.r, color.g, color.b) end
-    end
-    if db.hideFaction then
-        -- Faction line varies by client; leave Blizzard's unit text intact rather than deleting unrelated lines.
-    end
-    tip:Show()
     UpdateHealth()
 end
-local function ItemContent()
+local function ItemContent(_, data)
     local db = DB()
     if not db or not db.enabled then return end
     local _, link = tip:GetItem()
-    if not link then return end
-    local id = tonumber(link:match("item:(%d+)"))
-    if db.ids and id then AddLine("Item ID", id) end
-    if db.itemLevel then
-        local level = GetDetailedItemLevelInfo and GetDetailedItemLevelInfo(link)
-        if level then AddLine("Item Level", level) end
+    if not Readable(link) then link = nil end
+    if db.ids then
+        local id = data and data.id
+        if not Readable(id) then id = link and tonumber(link:match("item:(%d+)")) end
+        if Readable(id) and type(id) == "number" and not FindLine("Item ID") then
+            tip:AddDoubleLine(" ", "Item ID " .. id, 1, 1, 1, 0.6, 0.6, 0.6)
+        end
     end
-    tip:Show()
+    if db.itemLevel and link and GetDetailedItemLevelInfo then
+        local ok, level = pcall(GetDetailedItemLevelInfo, link)
+        if ok and Readable(level) and type(level) == "number" and level > 1 then
+            local hasNative = false
+            local lineType = Enum and Enum.TooltipDataLineType and Enum.TooltipDataLineType.ItemLevel
+            if lineType and data and type(data.lines) == "table" then
+                for _, line in ipairs(data.lines) do
+                    if Readable(line) and type(line) == "table" and line.type == lineType then
+                        hasNative = true
+                        break
+                    end
+                end
+            end
+            if not hasNative and not FindLine(_G.ITEM_LEVEL or "Item Level") then
+                tip:AddLine(string.format("Item Level %d", level), 1, 0.82, 0.42)
+            end
+        end
+    end
+    if tip:IsShown() then tip:Show() end
 end
-local function SpellContent()
+local function SpellContent(_, data)
     local db = DB()
     if not db or not db.enabled or not db.ids then return end
-    local _, id = tip:GetSpell()
-    if id then AddLine("Spell ID", id); tip:Show() end
+    local id = data and data.id
+    if not Readable(id) then _, id = tip:GetSpell() end
+    if Readable(id) and type(id) == "number" and not FindLine("Spell ID") then
+        tip:AddDoubleLine(" ", "Spell ID " .. id, 1, 1, 1, 0.6, 0.6, 0.6)
+        if tip:IsShown() then tip:Show() end
+    end
 end
 -- Use Blizzard's cursor anchors instead of reanchoring GameTooltip each frame.
 -- Native anchoring keeps the tooltip in the same coordinate system as its owner.
@@ -323,9 +375,27 @@ function T:Initialize()
             DebugLine("skipping unsupported " .. scriptName .. ": " .. tostring(err))
         end
     end
-    TryHookTooltipScript("OnTooltipSetUnit", UnitContent)
-    TryHookTooltipScript("OnTooltipSetItem", ItemContent)
-    TryHookTooltipScript("OnTooltipSetSpell", SpellContent)
+    if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall
+        and Enum and Enum.TooltipDataType then
+        local add = TooltipDataProcessor.AddTooltipPostCall
+        add(Enum.TooltipDataType.Unit, UnitContent)
+        add(Enum.TooltipDataType.Item, ItemContent)
+        add(Enum.TooltipDataType.Spell, SpellContent)
+        if Enum.TooltipDataType.UnitAura then
+            add(Enum.TooltipDataType.UnitAura, SpellContent)
+        end
+        if TooltipDataProcessor.AddLinePreCall and Enum.TooltipDataLineType
+            and Enum.TooltipDataLineType.UnitThreat then
+            TooltipDataProcessor.AddLinePreCall(Enum.TooltipDataLineType.UnitThreat, function()
+                local db = DB()
+                if db and db.enabled and not db.threat then return true end
+            end)
+        end
+    else
+        TryHookTooltipScript("OnTooltipSetUnit", UnitContent)
+        TryHookTooltipScript("OnTooltipSetItem", ItemContent)
+        TryHookTooltipScript("OnTooltipSetSpell", SpellContent)
+    end
     tip:HookScript("OnShow", function()
         local db = DB()
         if not db then return end
