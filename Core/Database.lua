@@ -13,8 +13,8 @@ local defaults = {
             scale = 1, opacity = 1, healthBar = "below",
             guild = true, threat = true, ids = false, itemLevel = true,
             classNames = true, targetTarget = true, hideFaction = false,
-            titleFont = {font = "FRIZQT", outline = "OUTLINE", size = 14, shadow = true},
-            textFont = {font = "FRIZQT", outline = "NONE", size = 12, shadow = true},
+            titleFont = {font = "GLOBAL", outline = "OUTLINE", size = 14, shadow = true},
+            textFont = {font = "GLOBAL", outline = "NONE", size = 12, shadow = true},
         },
     },
 }
