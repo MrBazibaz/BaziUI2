@@ -61,12 +61,50 @@ end
 local function AddLine(label, value)
     if value and value ~= "" then tip:AddDoubleLine(label, tostring(value), 1, 0.79, 0.43, 1, 1, 1) end
 end
+-- Inside modes need room for the bar without reading secret unit health values.
+-- Apply once per tooltip display; do not repeatedly increase its height.
+local insideMode, insideTipHeight, insideFirstAnchor
+local function ResetInsideSpacing()
+    if insideFirstAnchor then
+        local first = _G.GameTooltipTextLeft1
+        if first then
+            first:ClearAllPoints()
+            first:SetPoint(unpack(insideFirstAnchor))
+        end
+        insideFirstAnchor = nil
+    end
+    if insideTipHeight then tip:SetHeight(insideTipHeight); insideTipHeight = nil end
+    insideMode = nil
+end
+local function ApplyInsideSpacing(mode, native)
+    if insideMode == mode then return end
+    ResetInsideSpacing()
+    if mode ~= "insideTop" and mode ~= "insideBottom" then return end
+    local barHeight = native:GetHeight()
+    if not barHeight or barHeight <= 0 then barHeight = 7 end
+    local extra = barHeight + 8
+    insideTipHeight = tip:GetHeight()
+    insideMode = mode
+    tip:SetHeight(insideTipHeight + extra)
+    if mode == "insideTop" then
+        local first = _G.GameTooltipTextLeft1
+        if first then
+            local point, relative, relativePoint, x, y = first:GetPoint(1)
+            if point == "TOPLEFT" and relative == tip then
+                insideFirstAnchor = {point, relative, relativePoint, x, y}
+                first:ClearAllPoints()
+                first:SetPoint(point, relative, relativePoint, x, y - extra)
+            end
+        end
+    end
+end
 local function UpdateHealth()
     local db = DB()
     if not db or not health then return end
     local unit = UnitToken()
     local mode = db.healthBar
     if not db.enabled or not unit or mode == "off" then
+        ResetInsideSpacing()
         health:Hide()
         if mode == "off" and tip and tip.StatusBar then tip.StatusBar:Hide() end
         if mode == "off" and _G.GameTooltipStatusBar then _G.GameTooltipStatusBar:Hide() end
@@ -78,6 +116,7 @@ local function UpdateHealth()
     local native = _G.GameTooltipStatusBar or tip.StatusBar
     if not native then health:Hide(); return end
     health:Hide()
+    ApplyInsideSpacing(mode, native)
     native:ClearAllPoints()
     if mode == "above" then
         native:SetPoint("BOTTOMLEFT", tip, "TOPLEFT", 6, 2)
@@ -247,7 +286,7 @@ function T:Initialize()
         T:Apply()
         UpdateHealth()
     end)
-    tip:HookScript("OnHide", function() health:Hide() end)
+    tip:HookScript("OnHide", function() health:Hide(); ResetInsideSpacing() end)
     -- Use an independent update frame. GameTooltip itself can be reanchored by
     -- Blizzard/other addons and its own update handler is not reliable here.
     local cursorDriver = CreateFrame("Frame", nil, UIParent)
