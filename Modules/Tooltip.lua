@@ -84,6 +84,7 @@ local function UpdateHealth()
         health:SetPoint("BOTTOMRIGHT", tip, "BOTTOMRIGHT", -6, 5)
     end
     health:Show()
+    if _G.GameTooltipStatusBar then _G.GameTooltipStatusBar:Hide() end
 end
 local function UnitContent()
     local db = DB()
@@ -174,12 +175,7 @@ function T:Initialize()
     health:SetStatusBarTexture("Interface\\TargetingFrame\\UI-StatusBar")
     health:SetStatusBarColor(0.28, 0.78, 0.35)
     health:Hide()
-    if _G.GameTooltipStatusBar then
-        _G.GameTooltipStatusBar:HookScript("OnShow", function(self)
-            local db = DB()
-            if db and db.enabled and db.healthBar ~= "off" then self:Hide() end
-        end)
-    end
+    -- Keep Blizzard's bar until a valid custom unit bar can be displayed.
     hooksecurefunc("GameTooltip_SetDefaultAnchor", Anchor)
     tip:HookScript("OnTooltipSetUnit", UnitContent)
     tip:HookScript("OnTooltipSetItem", ItemContent)
@@ -192,5 +188,13 @@ function T:Initialize()
         UpdateHealth()
     end)
     tip:HookScript("OnHide", function() health:Hide() end)
+    local elapsedHealth = 0
+    tip:HookScript("OnUpdate", function(_, elapsed)
+        elapsedHealth = elapsedHealth + elapsed
+        if elapsedHealth >= 0.15 then
+            elapsedHealth = 0
+            UpdateHealth()
+        end
+    end)
     self:Apply()
 end
