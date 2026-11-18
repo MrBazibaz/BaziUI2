@@ -91,9 +91,11 @@ function ns.OnLoad(fn) ns._load=fn end
 local CACHE_TIME=300
 -- Short cooldown between completed inspect requests; the pending request
 -- guard still prevents overlapping inspect calls.
-local REQUEST_GAP=0.25
+local REQUEST_GAP=1.5
 local REQUEST_TIMEOUT=4
 local cache={}
+local shared = _G.BaziIlvlShared or {}
+_G.BaziIlvlShared = shared
 local pending
 -- Allow the first inspect immediately, including right after /reload.
 local lastRequest=-REQUEST_GAP
@@ -138,6 +140,7 @@ local function OwnAverage()
 end
 local function Store(guid,value)
   cache[guid]={value=value,time=GetTime()}
+  shared[guid]=value
   local unit=TooltipUnit(GameTooltip)
   if ns.db.playerTooltip and GameTooltip:IsShown() and unit and GUIDOf(unit)==guid then
     AddLine(GameTooltip,guid,value)
@@ -229,7 +232,8 @@ local function OnUnit(tooltip,data)
     value=OwnAverage()
   else
     local cached=cache[guid]
-    if cached and GetTime()-cached.time<CACHE_TIME then
+    if shared[guid] then value=shared[guid]
+    elseif cached and GetTime()-cached.time<CACHE_TIME then
       value=cached.value
     else
       Request(unit,guid)
