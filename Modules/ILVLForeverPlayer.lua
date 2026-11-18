@@ -132,6 +132,13 @@ local function AddLine(tooltip,guid,value)
   tooltip:AddLine(string.format(ns.L.AVERAGE_ITEM_LEVEL,string.format("|cffffffff%.1f|r",value)),
     c and c.r or 1,c and c.g or 0.82,c and c.b or 0)
 end
+shared.display = function(guid, value)
+  local unit=TooltipUnit(GameTooltip)
+  if GameTooltip:IsShown() and unit and GUIDOf(unit)==guid then
+    AddLine(GameTooltip,guid,value)
+    GameTooltip:Show()
+  end
+end
 local function OwnAverage()
   if not GetAverageItemLevel then return ns.AverageFromSlots("player") end
   local overall,equipped=GetAverageItemLevel()
