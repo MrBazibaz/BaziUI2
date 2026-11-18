@@ -309,7 +309,7 @@ function addon.Options:Create()
     end
     -- Edges overlap corners by ~20 units; corners are drawn on top.
     -- The TGA vertical edges have only half their 32px width opaque.
-    TiledHorizontal("top","Edge_Top.tga",EDGE_TOP_OUTSET-4,45,1095,8)
+    TiledHorizontal("top","Edge_Top.tga",EDGE_TOP_OUTSET-4,40,1100,8)
     TiledHorizontal("bottom","Edge_Bottom.tga",-740+EDGE_BOTTOM_OUTSET-8,40,1100,7)
     TiledVertical("left","Edge_Left.tga",-EDGE_SIDE_OUTSET+3, -35,-710,6)
     TiledVertical("right","Edge_Right.tga",1140-1, -35,-710,6)
