@@ -333,8 +333,18 @@ function addon.Options:Create()
 
     optionsFrame:SetSize(900, 555)
     optionsFrame:SetResizable(true)
-    optionsFrame:SetMinResize(900, 555)
-    optionsFrame:SetMaxResize(1500, 1000)
+    -- WoW Forever may expose SetResizeBounds instead of the legacy
+    -- SetMinResize / SetMaxResize methods. Never call an absent API.
+    if optionsFrame.SetResizeBounds then
+        optionsFrame:SetResizeBounds(900, 555, 1500, 1000)
+    else
+        if optionsFrame.SetMinResize then
+            optionsFrame:SetMinResize(900, 555)
+        end
+        if optionsFrame.SetMaxResize then
+            optionsFrame:SetMaxResize(1500, 1000)
+        end
+    end
     optionsFrame:SetPoint("CENTER")
     optionsFrame:SetFrameStrata("DIALOG")
     optionsFrame:SetClampedToScreen(true)
