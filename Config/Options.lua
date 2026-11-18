@@ -398,7 +398,7 @@ function addon.Options:Create()
     emblemHost:SetSize(66, 66)
     -- The emblem graphic is slightly asymmetric inside its transparent image.
     -- A tiny optical correction centers the visible B over the native ring.
-    emblemHost:SetPoint("CENTER", optionsFrame, "TOPLEFT", 24, -20)
+    emblemHost:SetPoint("CENTER", optionsFrame, "TOPLEFT", 24, -21)
     emblemHost:SetFrameStrata("FULLSCREEN_DIALOG")
     emblemHost:SetFrameLevel(math.max(borderHost:GetFrameLevel(), borderHost.NineSlice and borderHost.NineSlice:GetFrameLevel() or 0) + 30)
     emblemHost:EnableMouse(false)
@@ -472,6 +472,10 @@ function addon.Options:Create()
     local fadeSeconds = 0.65
     optionsFrame:SetScript("OnShow", function(self)
         self:SetSize(900, 555)
+        -- Saved scale must be reapplied after /reload and on every open.
+        local profile = addon.db and addon.db.profile
+        local savedScale = profile and tonumber(profile.uiScale) or 1
+        self:SetScale(math.max(0.70, math.min(1.50, savedScale)))
         displayedAlpha = 1
         self:SetAlpha(1)
     end)
