@@ -60,6 +60,11 @@ function T:Apply()
         return
     end
     tip:SetScale(SafeNumber(db.scale, 1))
+    if marker and not marker:IsShown() then
+        marker:ClearAllPoints()
+        marker:SetPoint("BOTTOMRIGHT", UIParent, "BOTTOMRIGHT",
+            SafeNumber(db.x, -30), SafeNumber(db.y, 130))
+    end
     tip:SetAlpha(1)
     ApplyBackgroundOpacity(SafeNumber(db.opacity, 1))
 end
