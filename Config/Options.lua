@@ -78,9 +78,40 @@ local function CreateSlider(parent, labelText, description, minValue, maxValue, 
     local hint = CreateLabel(row, description, "GameFontHighlightSmall")
     hint:SetPoint("TOPLEFT", row, "TOPLEFT", 15, -30)
     hint:SetTextColor(0.91, 0.78, 0.61, 1)
-    local valueText = CreateLabel(row, "", "GameFontNormal")
-    valueText:SetPoint("RIGHT", row, "RIGHT", -15, 0)
-    valueText:SetTextColor(1, 0.81, 0.45)
+    local valueText
+    local valueBox
+    if labelText == "WINDOW SCALE" then
+        valueBox = CreateFrame("EditBox", nil, row)
+        valueBox:SetSize(43, 23)
+        valueBox:SetPoint("RIGHT", row, "RIGHT", -10, 0)
+        valueBox:SetAutoFocus(false)
+        valueBox:SetFontObject("GameFontNormal")
+        valueBox:SetTextColor(1, 0.81, 0.45)
+        valueBox:SetJustifyH("CENTER")
+        valueBox:SetMaxLetters(4)
+        valueBox:SetTextInsets(3, 3, 0, 0)
+        local boxFill = valueBox:CreateTexture(nil, "BACKGROUND")
+        boxFill:SetAllPoints(valueBox)
+        boxFill:SetColorTexture(0.12, 0.07, 0.045, 0.95)
+        for _, edge in ipairs({"TOP", "BOTTOM", "LEFT", "RIGHT"}) do
+            local border = valueBox:CreateTexture(nil, "ARTWORK")
+            border:SetColorTexture(0.70, 0.50, 0.27, 0.85)
+            if edge == "TOP" then
+                border:SetPoint("TOPLEFT"); border:SetPoint("TOPRIGHT"); border:SetHeight(1)
+            elseif edge == "BOTTOM" then
+                border:SetPoint("BOTTOMLEFT"); border:SetPoint("BOTTOMRIGHT"); border:SetHeight(1)
+            elseif edge == "LEFT" then
+                border:SetPoint("TOPLEFT"); border:SetPoint("BOTTOMLEFT"); border:SetWidth(1)
+            else
+                border:SetPoint("TOPRIGHT"); border:SetPoint("BOTTOMRIGHT"); border:SetWidth(1)
+            end
+        end
+        valueText = valueBox
+    else
+        valueText = CreateLabel(row, "", "GameFontNormal")
+        valueText:SetPoint("RIGHT", row, "RIGHT", -15, 0)
+        valueText:SetTextColor(1, 0.81, 0.45)
+    end
     local slider = CreateFrame("Slider", nil, row)
     slider:SetOrientation("HORIZONTAL")
     slider:SetSize(115, 18)
@@ -106,7 +137,9 @@ local function CreateSlider(parent, labelText, description, minValue, maxValue, 
     end
     slider:SetScript("OnValueChanged", function(self, raw)
         local rounded = math.floor(raw / step + 0.5) * step
-        valueText:SetText(string.format("%g", rounded))
+        if not valueBox or not valueBox:HasFocus() then
+            valueText:SetText(string.format("%g", rounded))
+        end
         RefreshProgress(rounded)
         if onValueChanged then onValueChanged(rounded) end
     end)
@@ -116,6 +149,23 @@ local function CreateSlider(parent, labelText, description, minValue, maxValue, 
             if optionsFrame and addon.db and addon.db.profile then
                 optionsFrame:SetScale(addon.db.profile.uiScale)
             end
+        end)
+        local function CommitScale()
+            local number = tonumber(valueBox:GetText():gsub(",", "."))
+            if number then
+                number = math.max(minValue, math.min(maxValue, number))
+                number = math.floor(number / step + 0.5) * step
+                slider:SetValue(number)
+                if onValueChanged then onValueChanged(number) end
+                if optionsFrame then optionsFrame:SetScale(number) end
+            end
+            valueBox:ClearFocus()
+            valueBox:SetText(string.format("%g", slider:GetValue()))
+        end
+        valueBox:SetScript("OnEnterPressed", CommitScale)
+        valueBox:SetScript("OnEscapePressed", function(self)
+            self:ClearFocus()
+            self:SetText(string.format("%g", slider:GetValue()))
         end)
     end
     RefreshProgress(value)
@@ -148,7 +198,7 @@ local function CreateGeneralPage()
     local appearancePanel = CreatePanel(page, -88, 242)
     CreateSection(appearancePanel, "APPEARANCE", -14)
     local db = addon.db.profile
-    CreateSlider(page, "WINDOW SCALE", "Size of the Bazi UI settings window", 0.70, 1.20, 0.01, db.uiScale, -142, function(value)
+    CreateSlider(page, "WINDOW SCALE", "Size of the Bazi UI settings window", 0.70, 1.50, 0.01, db.uiScale, -142, function(value)
         db.uiScale = value
         -- Apply scale on mouse release so the slider does not move under the cursor.
     end)
@@ -380,8 +430,8 @@ function addon.Options:Create()
         for i = 0, 1 do
             local stroke = grip:CreateTexture(nil, "OVERLAY")
             stroke:SetColorTexture(0.90, 0.69, 0.38, 0.95)
-            stroke:SetSize(19 - i * 5, 2)
-            local offset = 13 + i * 6
+            stroke:SetSize(13 - i * 4, 1.5)
+            local offset = 10 + i * 5
             stroke:SetPoint("CENTER", grip, "BOTTOMLEFT",
                 anchor == "BOTTOMLEFT" and offset or (35 - offset), offset)
             if stroke.SetRotation then
@@ -458,7 +508,7 @@ function addon.Options:Create()
 
     local close = CreateFrame("Button", nil, optionsFrame, "UIPanelCloseButton")
     -- Keep the close button inside the header border.
-    close:SetPoint("TOPRIGHT", optionsFrame, "TOPRIGHT", -4, 2)
+    close:SetPoint("TOPRIGHT", optionsFrame, "TOPRIGHT", -3, 2)
     close:SetFrameStrata("FULLSCREEN_DIALOG")
     close:SetFrameLevel(borderHost:GetFrameLevel() + 20)
     optionsFrame.baziClose = close
@@ -466,8 +516,8 @@ function addon.Options:Create()
     local nav = CreateFrame("Frame", nil, optionsFrame)
     nav:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", 12, -49)
     local navBackground = nav:CreateTexture(nil, "BACKGROUND")
-    navBackground:SetPoint("TOPLEFT", nav, "TOPLEFT", 0, -6)
-    navBackground:SetPoint("BOTTOMRIGHT", nav, "BOTTOMRIGHT", -2, -14)
+    navBackground:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", 2, -55)
+    navBackground:SetPoint("BOTTOMRIGHT", optionsFrame, "BOTTOMLEFT", 190, 8)
     navBackground:SetColorTexture(0.105, 0.063, 0.038, 0.96)
     nav:SetWidth(180)
     nav:SetPoint("BOTTOMLEFT", optionsFrame, "BOTTOMLEFT", 12, 22)
