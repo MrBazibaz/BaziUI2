@@ -231,7 +231,7 @@ function addon.Options:Create()
     TiledHorizontal("Edge_Top_Tile.tga",EDGE_TOP_OUTSET,50,1090,14)
     TiledHorizontal("Edge_Bottom_Tile.tga",-740+EDGE_BOTTOM_OUTSET,50,1090,14)
     TiledVertical("Edge_Left_Seamless.tga",-EDGE_SIDE_OUTSET+2, -35,-705,6)
-    TiledVertical("Edge_Right_Seamless.tga",1140-6, -45,-695,6)
+    TiledVertical("Edge_Right_Seamless.tga",1140-6, -35,-705,6)
     -- Footer and lower frame edge share one bottom-anchored container.
     -- No hardcoded top offset: resizing keeps the artwork on the actual edge.
     local footerChrome=CreateFrame("Frame",nil,frame)
