@@ -98,10 +98,37 @@ local function Slider(parent,title,subtitle,y,minv,maxv,step,value,change)
         if change and not isWindowScale then change(v) end
     end)
     if isWindowScale then
-        -- Rescaling a window under the mouse while dragging its own slider
-        -- changes mouse coordinates and causes runaway feedback.
-        slider:SetScript("OnMouseUp",function()
-            if change then change(pendingValue) end
+        -- Capture the pointer in a stable UIParent overlay while the actual
+        -- settings frame changes scale. This prevents slider feedback loops.
+        local capture=CreateFrame("Button",nil,UIParent)
+        capture:SetAllPoints(UIParent)
+        capture:SetFrameStrata("FULLSCREEN_DIALOG")
+        capture:SetFrameLevel(200)
+        capture:EnableMouse(true)
+        capture:Hide()
+        local startX,startValue,pixelsPerStep
+        capture:SetScript("OnUpdate",function()
+            local cursorX=GetCursorPosition()
+            local value=math.max(minv,math.min(maxv,startValue+(cursorX-startX)/pixelsPerStep))
+            value=math.floor(value/step+0.5)*step
+            if value~=pendingValue then
+                pendingValue=value
+                readout:SetText(string.format("%g",value))
+                progress:SetWidth(math.max(1,148*(value-minv)/(maxv-minv)))
+                if change then change(value) end
+            end
+        end)
+        capture:SetScript("OnMouseUp",function()
+            capture:Hide()
+            -- Synchronize the thumb only after the window stops changing scale.
+            slider:SetValue(pendingValue)
+        end)
+        slider:SetScript("OnMouseDown",function()
+            startX=GetCursorPosition()
+            startValue=pendingValue
+            pixelsPerStep=148*(frame:GetEffectiveScale() or 1)/(maxv-minv)
+            if pixelsPerStep<=0 then pixelsPerStep=1 end
+            capture:Show()
         end)
     end
     slider:SetValue(value)
@@ -442,9 +469,17 @@ function addon.Options:Create()
     Line(frame,-93,11,-11)
     -- Fixed navigation: every category remains visible without scrolling.
     local sidebar=Panel(frame,10,-103,240,602)
-    local navBody=CreateFrame("Frame",nil,sidebar)
-    navBody:SetPoint("TOPLEFT",sidebar,"TOPLEFT",4,-7)
+    local navScroll=CreateFrame("ScrollFrame",nil,sidebar)
+    navScroll:SetPoint("TOPLEFT",sidebar,"TOPLEFT",4,-7)
+    navScroll:SetPoint("BOTTOMRIGHT",sidebar,"BOTTOMRIGHT",-4,7)
+    navScroll:EnableMouseWheel(true)
+    local navBody=CreateFrame("Frame",nil,navScroll)
     navBody:SetSize(232,590)
+    navScroll:SetScrollChild(navBody)
+    navScroll:SetScript("OnMouseWheel",function(self,delta)
+        local limit=math.max(0,navBody:GetHeight()-self:GetHeight())
+        self:SetVerticalScroll(math.max(0,math.min(limit,self:GetVerticalScroll()-delta*40)))
+    end)
     local function Category(name,y)
         local h=Label(navBody,name,"GameFontNormalSmall",0.83,0.62,0.34)
         h:SetPoint("TOPLEFT",navBody,"TOPLEFT",15,y)
@@ -492,6 +527,7 @@ function addon.Options:Create()
             frame:StopMovingOrSizing()
             db.windowWidth=math.floor(frame:GetWidth()+0.5)
             db.windowHeight=math.floor(frame:GetHeight()+0.5)
+            if frame.baziFinishResize then frame.baziFinishResize() end
         end)
         return grip
     end
@@ -503,6 +539,8 @@ function addon.Options:Create()
         RebuildEdges()
         frame.baziUpdateShadowBounds()
         sidebar:SetHeight(h-138)
+        local limit=math.max(0,navBody:GetHeight()-navScroll:GetHeight())
+        navScroll:SetVerticalScroll(math.min(navScroll:GetVerticalScroll(),limit))
         content:SetSize(w-280,h-138)
         for _,viewport in pairs(pages) do
             local child=viewport:GetScrollChild()
@@ -512,15 +550,27 @@ function addon.Options:Create()
         for _,row in ipairs(sliderRows) do row:SetWidth(w-336) end
     end
     local layoutPending=false
+    local layoutElapsed=0
     frame:SetScript("OnSizeChanged",function()
         layoutPending=true
     end)
-    frame:HookScript("OnUpdate",function()
+    frame:HookScript("OnUpdate",function(_,elapsed)
         if layoutPending then
-            layoutPending=false
-            Relayout()
+            layoutElapsed=layoutElapsed+elapsed
+            -- Cap texture reanchoring to ~20 Hz while dragging; finish
+            -- immediately on mouse release for precise final alignment.
+            if layoutElapsed>=0.05 then
+                layoutElapsed=0
+                layoutPending=false
+                Relayout()
+            end
         end
     end)
+    frame.baziFinishResize=function()
+        layoutPending=false
+        layoutElapsed=0
+        Relayout()
+    end
     Relayout()
     -- Reduce window opacity while the player moves, restore on stopping.
     local movement=CreateFrame("Frame",nil,UIParent)
