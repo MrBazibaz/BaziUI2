@@ -36,6 +36,11 @@ function addon:OnInitialize()
         self.Options:Initialize()
     end
 
+    if self.ItemLevel and self.ItemLevel.Initialize then
+        local ok, err = pcall(function() self.ItemLevel:Initialize() end)
+        if not ok then self:Print("Item Level initialization failed: " .. tostring(err)) end
+    end
+
     if self.Tooltip and self.Tooltip.Initialize then
         local ok, err = pcall(function() self.Tooltip:Initialize() end)
         if not ok then
