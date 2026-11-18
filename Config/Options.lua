@@ -170,6 +170,17 @@ function addon.Options:Create()
             end
         end
     end
+    -- TEMP DIAGNOSTIC: show the raw shadow PNG prominently, without slicing.
+    -- If this square appears, the texture path and decoding work.
+    local shadowDebug=frame:CreateTexture(nil,"OVERLAY",nil,7)
+    shadowDebug:SetTexture(shadowFile)
+    shadowDebug:SetSize(220,220)
+    shadowDebug:SetPoint("CENTER",frame,"CENTER",0,0)
+    shadowDebug:SetAlpha(1)
+    local shadowDebugLabel=frame:CreateFontString(nil,"OVERLAY","GameFontNormalLarge")
+    shadowDebugLabel:SetPoint("CENTER",frame,"CENTER",0,125)
+    shadowDebugLabel:SetText("SHADOW PNG TEST")
+    shadowDebugLabel:SetTextColor(1,0.25,0.25,1)
     -- A fully opaque fill is essential: transparent ornamental corner TGAs
     -- must not reveal the game world through large square holes.
     Paint(frame,"BACKGROUND",0.055,0.043,0.074,1)
