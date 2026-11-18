@@ -240,7 +240,7 @@ function addon.Options:Create()
     -- Edges overlap corners by ~20 units; corners are drawn on top.
     -- The TGA vertical edges have only half their 32px width opaque.
     TiledHorizontal("top","Edge_Top.tga",EDGE_TOP_OUTSET-4,50,1090,8)
-    TiledHorizontal("bottom","Edge_Bottom.tga",-740+EDGE_BOTTOM_OUTSET-8,50,1090,7)
+    TiledHorizontal("bottom","Edge_Bottom.tga",-740+EDGE_BOTTOM_OUTSET-8,40,1100,7)
     TiledVertical("left","Edge_Left.tga",-EDGE_SIDE_OUTSET+3, -35,-710,6)
     TiledVertical("right","Edge_Right.tga",1140-1, -35,-710,6)
     -- Footer and lower frame edge share one bottom-anchored container.
