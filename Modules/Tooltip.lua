@@ -64,7 +64,6 @@ end
 -- Keep the native bar (secret unit health values are not readable by addons).
 -- Reapply only on mode changes; never accumulate tooltip padding.
 local insideMode, insideTipHeight, insideFirstAnchor
-local insideBottomPadded = false
 local healthMode
 -- Keep Blizzard's bar transparent while our overlay is active. Blizzard can
 -- reapply alpha when changing units, so verify the state rather than caching it.
@@ -80,10 +79,6 @@ local function SetNativeBarHidden(hidden)
     end
 end
 local function ResetInsideSpacing()
-    if insideBottomPadded then
-        if tip.SetPadding then pcall(tip.SetPadding, tip, 0, 0) end
-        insideBottomPadded = false
-    end
     if insideFirstAnchor then
         local first = _G.GameTooltipTextLeft1
         if first then
@@ -100,15 +95,7 @@ local function ApplyInsideSpacing(mode, native)
     ResetInsideSpacing()
     if mode ~= "insideTop" and mode ~= "insideBottom" then return end
     insideMode = mode
-    if mode == "insideBottom" then
-        -- Reserve bottom space INSIDE the native tooltip frame, so the gold
-        -- backdrop extends beneath the bar rather than the bar protruding.
-        if tip.SetPadding then
-            local ok = pcall(tip.SetPadding, tip, 0, 15)
-            if ok then insideBottomPadded = true end
-        end
-        return
-    end
+    if mode == "insideBottom" then return end
     local first = _G.GameTooltipTextLeft1
     if not first then return end
     local point, relative, relativePoint, x, y = first:GetPoint(1)
@@ -176,7 +163,7 @@ local function UpdateHealth()
         if title and title:GetLeft() and tip:GetLeft() then
             inset = math.max(6, title:GetLeft() - tip:GetLeft())
         end
-        local barWidth = math.max(1, math.min(titleWidth - 4, tipWidth - inset - 6))
+        local barWidth = math.max(1, tipWidth - inset - 10)
         if math.abs((health:GetWidth() or 0) - barWidth) > 1 then health:SetWidth(barWidth) end
         if mode == "insideTop" then
             if modeChanged then health:SetPoint("TOPLEFT", tip, "TOPLEFT", inset, -10) end
@@ -223,6 +210,18 @@ local function RemoveLine(fragment, exact)
         end
     end
 end
+-- Reserve a real text row for the bar. Unlike SetPadding, this participates
+-- in Blizzard's own tooltip height calculation and works with unit-frame hints.
+function T:EnsureHealthSpacer()
+    local db = DB()
+    if not db or not db.enabled or db.healthBar ~= "insideBottom" then return end
+    local n = tip:NumLines()
+    local line = _G["GameTooltipTextLeft" .. n]
+    local text = line and line:GetText()
+    if text ~= nil and (not issecretvalue or not issecretvalue(text))
+        and (not canaccessvalue or canaccessvalue(text)) and text == " " then return end
+    tip:AddLine(" ", 1, 1, 1)
+end
 local function UnitContent()
     local db = DB()
     if not db or not db.enabled then return end
@@ -254,6 +253,7 @@ local function UnitContent()
             if color and title then title:SetTextColor(color.r, color.g, color.b) end
         end
     end
+    T:EnsureHealthSpacer()
     UpdateHealth()
 end
 local function ItemContent(_, data)
