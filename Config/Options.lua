@@ -3,6 +3,8 @@ addon.Options = addon.Options or {}
 local ASSET = "Interface\\AddOns\\BaziUI\\Assets\\"
 local frame, content, pages = nil, nil, {}
 local pageScrolls = {}
+local resizablePanels = {}
+local sliderRows = {}
 local navigation, tabs = {}, {}
 local GOLD = {0.87, 0.68, 0.38}
 local function Paint(parent, layer, r,g,b,a, x1,y1,x2,y2)
@@ -25,6 +27,7 @@ end
 local function Panel(parent,x,y,w,h)
     local p=CreateFrame("Frame",nil,parent)
     p:SetPoint("TOPLEFT",parent,"TOPLEFT",x,y);p:SetSize(w,h)
+    if w==824 then resizablePanels[#resizablePanels+1]=p end
     Paint(p,"BACKGROUND",0.105,0.075,0.115,0.96)
     local art=p:CreateTexture(nil,"BORDER");art:SetAllPoints(p)
     art:SetTexture(ASSET.."Panels\\Panel_Dark.png");art:SetAlpha(0.14)
@@ -47,7 +50,7 @@ local function Page(name)
     viewport:SetAllPoints(content)
     viewport:EnableMouseWheel(true)
     local p=CreateFrame("Frame",nil,viewport)
-    p:SetSize(850,640)
+    p:SetSize(math.max(850,frame:GetWidth()-290),math.max(640,frame:GetHeight()-100))
     viewport:SetScrollChild(p)
     viewport:SetScript("OnMouseWheel",function(self,delta)
         local maxScroll=math.max(0,p:GetHeight()-self:GetHeight())
@@ -69,6 +72,7 @@ local function Show(name)
 end
 local function Slider(parent,title,subtitle,y,minv,maxv,step,value,change)
     local row=Panel(parent,22,y,804,65)
+    sliderRows[#sliderRows+1]=row
     local name=Label(row,title,"GameFontNormal",0.94,0.81,0.58)
     name:SetPoint("TOPLEFT",row,"TOPLEFT",17,-12)
     local desc=Label(row,subtitle,"GameFontHighlightSmall",0.66,0.64,0.69)
@@ -145,8 +149,11 @@ local function Tab(parent,name,x,w)
 end
 function addon.Options:Create()
     frame=CreateFrame("Frame","BaziUIOptionsFrame",UIParent)
-    frame:SetSize(1140,740);frame:SetPoint("CENTER");frame:SetFrameStrata("DIALOG")
-    frame:SetClampedToScreen(true);frame:SetMovable(true);frame:EnableMouse(true)
+    local db=addon.db.profile
+    frame:SetSize(db.windowWidth or 1140,db.windowHeight or 740);frame:SetPoint("CENTER");frame:SetFrameStrata("DIALOG")
+    frame:SetClampedToScreen(true);frame:SetMovable(true);frame:SetResizable(true);frame:EnableMouse(true)
+    frame:SetMinResize(900,650)
+    frame:SetMaxResize(1600,1100)
     frame:RegisterForDrag("LeftButton");frame:SetScript("OnDragStart",frame.StartMoving)
     frame:SetScript("OnDragStop",frame.StopMovingOrSizing)
     frame:SetScale(addon.db.profile.uiScale or 1)
@@ -187,6 +194,10 @@ function addon.Options:Create()
     -- Changes are temporary until the chosen values are committed.
     local shadowBounds={left=-610,right=609,top=410,bottom=-410}
     local function UpdateShadowBounds()
+        shadowBounds.left=-frame:GetWidth()/2-40
+        shadowBounds.right=frame:GetWidth()/2+39
+        shadowBounds.top=frame:GetHeight()/2+40
+        shadowBounds.bottom=-frame:GetHeight()/2-40
         local w=shadowBounds.right-shadowBounds.left
         local h=shadowBounds.top-shadowBounds.bottom
         if w<=shadowSize*2 or h<=shadowSize*2 then return false end
@@ -309,10 +320,18 @@ function addon.Options:Create()
     end
     -- Edges overlap corners by ~20 units; corners are drawn on top.
     -- The TGA vertical edges have only half their 32px width opaque.
-    TiledHorizontal("top","Edge_Top.tga",EDGE_TOP_OUTSET-4,40,1100,8)
-    TiledHorizontal("bottom","Edge_Bottom.tga",-740+EDGE_BOTTOM_OUTSET-8,40,1100,7)
-    TiledVertical("left","Edge_Left.tga",-EDGE_SIDE_OUTSET+3, -35,-710,6)
-    TiledVertical("right","Edge_Right.tga",1140-1, -35,-710,6)
+    local function RebuildEdges()
+        for _,pieces in pairs(frame.baziEdgePieces) do
+            for _,entry in ipairs(pieces) do entry.texture:Hide() end
+        end
+        frame.baziEdgePieces={top={},bottom={},left={},right={}}
+        local w,h=frame:GetSize()
+        TiledHorizontal("top","Edge_Top.tga",EDGE_TOP_OUTSET-4,40,w-40,8)
+        TiledHorizontal("bottom","Edge_Bottom.tga",-h+EDGE_BOTTOM_OUTSET-8,40,w-40,7)
+        TiledVertical("left","Edge_Left.tga",-EDGE_SIDE_OUTSET+3,-35,-h+30,6)
+        TiledVertical("right","Edge_Right.tga",w-1,-35,-h+30,6)
+    end
+    RebuildEdges()
     -- Footer and lower frame edge share one bottom-anchored container.
     -- No hardcoded top offset: resizing keeps the artwork on the actual edge.
     local footerChrome=CreateFrame("Frame",nil,frame)
@@ -375,13 +394,13 @@ function addon.Options:Create()
     emblem:SetSize(70,70);emblem:SetPoint("TOPLEFT",frame,"TOPLEFT",13,-6)
     local title=Label(frame,"Bazi UI","GameFontNormalHuge",1,0.83,0.53)
     title:SetPoint("TOPLEFT",frame,"TOPLEFT",85,-16)
-    local version=Label(frame,"BAZI UI  /  V0.1.0","GameFontNormalSmall",0.64,0.58,0.66)
+    local version=Label(frame,"BAZI UI  /  V0.1.1","GameFontNormalSmall",0.64,0.58,0.66)
     version:SetPoint("TOPLEFT",frame,"TOPLEFT",87,-45)
     -- Ornamental close control: use the dedicated close icon rather than
     -- the generic square text button. Keep the existing hit area and anchor.
     local close=CreateFrame("Button",nil,frame)
     close:SetSize(28,27)
-    close:SetPoint("TOPLEFT",frame,"TOPLEFT",1102,-7)
+    close:SetPoint("TOPRIGHT",frame,"TOPRIGHT",-3,-2)
     local closeIcon=close:CreateTexture(nil,"ARTWORK")
     closeIcon:SetTexture(ASSET.."Icons\\Icon_Close.png")
     closeIcon:SetSize(22,22)
@@ -425,8 +444,56 @@ function addon.Options:Create()
     Nav(navBody,"Nameplates","o",-497)
     local footer=Label(frame,"BAZI UI  |  Changes are saved automatically","GameFontNormalSmall",0.71,0.63,0.61)
     footer:SetPoint("BOTTOMLEFT",footerChrome,"BOTTOMLEFT",23,13)
-    local stage=Label(frame,"DESIGN DEVELOPMENT  /  V0.1.0","GameFontNormalSmall",0.76,0.58,0.37)
+    local stage=Label(frame,"DESIGN DEVELOPMENT  /  V0.1.1","GameFontNormalSmall",0.76,0.58,0.37)
     stage:SetPoint("BOTTOMRIGHT",footerChrome,"BOTTOMRIGHT",-20,13)
+    -- Bottom-corner resize handles. They are transparent but have generous
+    -- hit areas inside the ornamented corners.
+    local function ResizeGrip(anchor,direction)
+        local grip=CreateFrame("Button",nil,frame)
+        grip:SetSize(35,35)
+        grip:SetPoint(anchor,frame,anchor,0,0)
+        grip:SetFrameLevel(frame:GetFrameLevel()+12)
+        grip:EnableMouse(true)
+        grip:RegisterForDrag("LeftButton")
+        grip:SetScript("OnDragStart",function()
+            if not InCombatLockdown() then frame:StartSizing(direction) end
+        end)
+        grip:SetScript("OnDragStop",function()
+            frame:StopMovingOrSizing()
+            db.windowWidth=math.floor(frame:GetWidth()+0.5)
+            db.windowHeight=math.floor(frame:GetHeight()+0.5)
+        end)
+        return grip
+    end
+    ResizeGrip("BOTTOMLEFT","BOTTOMLEFT")
+    ResizeGrip("BOTTOMRIGHT","BOTTOMRIGHT")
+    -- Keep the gold border, shadow and interior aligned as the frame resizes.
+    local function Relayout()
+        local w,h=frame:GetSize()
+        RebuildEdges()
+        frame.baziUpdateShadowBounds()
+        sidebar:SetHeight(h-138)
+        content:SetSize(w-280,h-138)
+        for _,viewport in pairs(pages) do
+            local child=viewport:GetScrollChild()
+            if child then child:SetSize(math.max(850,w-290),math.max(640,h-100)) end
+        end
+        for _,panel in ipairs(resizablePanels) do panel:SetWidth(w-316) end
+        for _,row in ipairs(sliderRows) do row:SetWidth(w-336) end
+    end
+    frame:SetScript("OnSizeChanged",function()
+        if frame.baziUpdateShadowBounds then Relayout() end
+    end)
+    Relayout()
+    -- Reduce window opacity while the player moves, restore on stopping.
+    local movement=CreateFrame("Frame",nil,UIParent)
+    movement:RegisterEvent("PLAYER_STARTED_MOVING")
+    movement:RegisterEvent("PLAYER_STOPPED_MOVING")
+    movement:SetScript("OnEvent",function(_,event)
+        local alpha=(event=="PLAYER_STARTED_MOVING") and 0.70 or 1
+        frame:SetAlpha(alpha)
+        shadowFrame:SetAlpha(alpha)
+    end)
     Show("General")
     frame:Hide()
 end
@@ -443,7 +510,6 @@ SlashCmdList["BAZISHADOW"]=function(msg)
     local edge,value=(msg or ""):match("^%s*(%a+)%s+([%+%-]?[%d%.]+)%s*$")
     local command=(msg or ""):match("^%s*(%a+)%s*$")
     if command=="reset" then
-        bounds.left,bounds.right,bounds.top,bounds.bottom=-610,609,410,-410
         frame.baziUpdateShadowBounds()
     elseif edge and bounds[edge] and tonumber(value) then
         local delta=tonumber(value)
@@ -451,14 +517,8 @@ SlashCmdList["BAZISHADOW"]=function(msg)
             print("Bazi UI: max 100 UI units per adjustment.")
             return
         end
-        local old=bounds[edge]
-        bounds[edge]=old+delta
-        if not frame.baziUpdateShadowBounds() then
-            bounds[edge]=old
-            frame.baziUpdateShadowBounds()
-            print("Bazi UI: shadow bounds too small.")
-            return
-        end
+        print("Bazi UI: shadow bounds follow window resizing in v0.1.1; manual edge adjustments are disabled.")
+        return
     elseif command~="show" then
         print("Usage: /bazishadow left|right|top|bottom DELTA ; /bazishadow show ; /bazishadow reset")
         print("Positive = right/up; negative = left/down. Values are temporary.")

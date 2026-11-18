@@ -5,6 +5,8 @@ addon.Database = addon.Database or {}
 local defaults = {
     profile = {
         uiScale = 1.0,
+        windowWidth = 1140,
+        windowHeight = 740,
         fontSize = 14,
         font = "GameFontNormal",
     },
