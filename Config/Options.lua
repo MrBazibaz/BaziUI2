@@ -230,8 +230,8 @@ function addon.Options:Create()
     -- The TGA vertical edges have only half their 32px width opaque.
     TiledHorizontal("Edge_Top_Tile.tga",EDGE_TOP_OUTSET,50,1090,14)
     TiledHorizontal("Edge_Bottom_Tile.tga",-740+EDGE_BOTTOM_OUTSET,50,1090,14)
-    TiledVertical("Edge_Left_Seamless.tga",-EDGE_SIDE_OUTSET, -45,-695,7)
-    TiledVertical("Edge_Right_Seamless.tga",1140-6, -45,-695,7)
+    TiledVertical("Edge_Left_Seamless.tga",-EDGE_SIDE_OUTSET, -45,-695,5)
+    TiledVertical("Edge_Right_Seamless.tga",1140-6, -45,-695,5)
     -- Footer and lower frame edge share one bottom-anchored container.
     -- No hardcoded top offset: resizing keeps the artwork on the actual edge.
     local footerChrome=CreateFrame("Frame",nil,frame)
