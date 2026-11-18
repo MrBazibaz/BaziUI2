@@ -68,10 +68,15 @@ local healthMode
 -- Keep Blizzard's bar transparent while our overlay is active. Blizzard can
 -- reapply alpha when changing units, so verify the state rather than caching it.
 local function SetNativeBarHidden(hidden)
-    local native = _G.GameTooltipStatusBar or tip.StatusBar
-    if not native then return end
+    -- Forever can expose distinct Blizzard status bars on these two fields.
+    -- Preserve their values and anchors; suppress only their visual alpha.
+    local native = _G.GameTooltipStatusBar
+    local attached = tip and tip.StatusBar
     local desired = hidden and 0 or 1
-    if native:GetAlpha() ~= desired then native:SetAlpha(desired) end
+    if native and native:GetAlpha() ~= desired then native:SetAlpha(desired) end
+    if attached and attached ~= native and attached:GetAlpha() ~= desired then
+        attached:SetAlpha(desired)
+    end
 end
 local function ResetInsideSpacing()
     if insideFirstAnchor then
