@@ -140,14 +140,8 @@ local function Anchor(_, parent)
     local db = DB()
     if not db or not db.enabled then return end
     if db.anchor == "mouse" then
-        local point = db.cursorPosition or "BOTTOMRIGHT"
-        local anchors = {
-            TOPLEFT = "ANCHOR_CURSOR_LEFT", TOP = "ANCHOR_CURSOR",
-            TOPRIGHT = "ANCHOR_CURSOR_RIGHT", LEFT = "ANCHOR_CURSOR_LEFT",
-            RIGHT = "ANCHOR_CURSOR_RIGHT", BOTTOMLEFT = "ANCHOR_CURSOR_LEFT",
-            BOTTOM = "ANCHOR_CURSOR", BOTTOMRIGHT = "ANCHOR_CURSOR_RIGHT"
-        }
-        tip:SetOwner(parent or UIParent, anchors[point] or "ANCHOR_CURSOR_RIGHT")
+        tip:SetOwner(parent or UIParent, "ANCHOR_NONE")
+        -- Position is updated against the cursor while the tooltip is visible.
     else
         tip:SetOwner(parent or UIParent, "ANCHOR_NONE")
         tip:ClearAllPoints()
@@ -199,6 +193,22 @@ function T:Initialize()
     tip:HookScript("OnHide", function() health:Hide() end)
     local elapsedHealth = 0
     tip:HookScript("OnUpdate", function(_, elapsed)
+        local db = DB()
+        if db and db.enabled and db.anchor == "mouse" and tip:IsShown() then
+            local scale = UIParent:GetEffectiveScale()
+            local mx, my = GetCursorPosition()
+            mx, my = mx / scale, my / scale
+            local point = db.cursorPosition or "BOTTOMRIGHT"
+            local opposite = {
+                TOPLEFT = "BOTTOMRIGHT", TOP = "BOTTOM", TOPRIGHT = "BOTTOMLEFT",
+                LEFT = "RIGHT", RIGHT = "LEFT",
+                BOTTOMLEFT = "TOPRIGHT", BOTTOM = "TOP", BOTTOMRIGHT = "TOPLEFT"
+            }
+            local dx = point:find("LEFT") and -12 or (point:find("RIGHT") and 12 or 0)
+            local dy = point:find("TOP") and 12 or (point:find("BOTTOM") and -12 or 0)
+            tip:ClearAllPoints()
+            tip:SetPoint(opposite[point] or "TOPLEFT", UIParent, "BOTTOMLEFT", mx + dx, my + dy)
+        end
         elapsedHealth = elapsedHealth + elapsed
         if elapsedHealth >= 0.15 then
             elapsedHealth = 0
