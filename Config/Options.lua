@@ -320,6 +320,31 @@ SlashCmdList["BAZIDEBUG"] = function()
         print("Bazi UI V7: debug overlay ON. GREEN = frame bottom; RED = footer top.")
     end
 end
+-- Live corner-outset calibration. Changes only the four corner anchors.
+-- Usage: /bazicorneroffset 0 (baseline), or a positive UI-unit value outward.
+SLASH_BAZICORNEROFFSET1 = "/bazicorneroffset"
+SlashCmdList["BAZICORNEROFFSET"] = function(msg)
+    if not frame or not frame:IsShown() or not frame.baziCornerTextures then
+        print("Bazi UI V7: open /bazi first.")
+        return
+    end
+    local n=tonumber(msg)
+    if not n or n < -30 or n > 30 then
+        print("Usage: /bazicorneroffset NUMBER (-30 to 30 UI units). 0 = original placement.")
+        return
+    end
+    for _,entry in ipairs({
+        {"TL","TOPLEFT",-1,1},
+        {"TR","TOPRIGHT",1,1},
+        {"BL","BOTTOMLEFT",-1,-1},
+        {"BR","BOTTOMRIGHT",1,-1},
+    }) do
+        local t=frame.baziCornerTextures[entry[1]]
+        t:ClearAllPoints()
+        t:SetPoint(entry[2],frame,entry[2],entry[3]*n,entry[4]*n)
+    end
+    print(string.format("Bazi UI V7: corners moved %.1f UI units outward (all four). Reset: /bazicorneroffset 0",n))
+end
 -- Read-only corner geometry inspection. Does not change artwork or anchors.
 SLASH_BAZICORNERS1 = "/bazicorners"
 SlashCmdList["BAZICORNERS"] = function()
