@@ -175,7 +175,7 @@ function addon.Theme:SkinGameMenuButton(button)
         fill:SetColorTexture(c[1], c[2], c[3], 0.96)
     end
     button:HookScript("OnEnter", function(self) Update(self); RefreshCaption(self) end)
-    button:HookScript("OnLeave", function(self) Update(self); ApplyTextColor(self) end)
+    button:HookScript("OnLeave", function(self) Update(self); RefreshCaption(self) end)
     button:HookScript("OnMouseDown", Update)
     button:HookScript("OnMouseUp", Update)
 end
