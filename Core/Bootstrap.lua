@@ -26,16 +26,21 @@ function addon:OnInitialize()
         self.Theme:Initialize()
     end
 
-    if self.Tooltip and self.Tooltip.Initialize then
-        self.Tooltip:Initialize()
+    -- Register slash commands before optional modules: a module error must not
+    -- make /bazi disappear and leave the user without access to settings.
+    if self.Commands and self.Commands.Initialize then
+        self.Commands:Initialize()
     end
 
     if self.Options and self.Options.Initialize then
         self.Options:Initialize()
     end
 
-    if self.Commands and self.Commands.Initialize then
-        self.Commands:Initialize()
+    if self.Tooltip and self.Tooltip.Initialize then
+        local ok, err = pcall(function() self.Tooltip:Initialize() end)
+        if not ok then
+            self:Print("Tooltip initialization failed: " .. tostring(err))
+        end
     end
 
     self:Print("loaded. Type /bazi or /bui to open settings.")
