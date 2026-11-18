@@ -202,15 +202,19 @@ function T:Initialize()
             local mx, my = GetCursorPosition()
             mx, my = mx / uiScale, my / uiScale
             local point = db.cursorPosition or "BOTTOMRIGHT"
-            local opposite = {
-                TOPLEFT = "BOTTOMRIGHT", TOP = "BOTTOM", TOPRIGHT = "BOTTOMLEFT",
-                LEFT = "RIGHT", RIGHT = "LEFT",
-                BOTTOMLEFT = "TOPRIGHT", BOTTOM = "TOP", BOTTOMRIGHT = "TOPLEFT"
+            -- The selected point refers to the tooltip corner nearest the cursor.
+            -- Anchor that exact point; using the opposite corner makes the
+            -- placement look identical for several dropdown choices.
+            local valid = {
+                TOPLEFT = true, TOP = true, TOPRIGHT = true,
+                LEFT = true, RIGHT = true,
+                BOTTOMLEFT = true, BOTTOM = true, BOTTOMRIGHT = true
             }
-            local dx = point:find("LEFT") and -12 or (point:find("RIGHT") and 12 or 0)
-            local dy = point:find("TOP") and 12 or (point:find("BOTTOM") and -12 or 0)
+            if not valid[point] then point = "BOTTOMRIGHT" end
+            local dx = point:find("LEFT") and 12 or (point:find("RIGHT") and -12 or 0)
+            local dy = point:find("TOP") and -12 or (point:find("BOTTOM") and 12 or 0)
             tip:ClearAllPoints()
-            tip:SetPoint(opposite[point] or "TOPLEFT", UIParent, "BOTTOMLEFT", mx + dx, my + dy)
+            tip:SetPoint(point, UIParent, "BOTTOMLEFT", mx + dx, my + dy)
         end
         elapsedHealth = elapsedHealth + elapsed
         if elapsedHealth >= 0.15 then
