@@ -80,7 +80,7 @@ local function CreateSlider(parent, labelText, description, minValue, maxValue, 
     hint:SetTextColor(0.91, 0.78, 0.61, 1)
     local valueText
     local valueBox
-    if labelText == "WINDOW SCALE" then
+    if labelText == "WINDOW SCALE" or labelText == "FONT SIZE" then
         valueBox = CreateFrame("EditBox", nil, row)
         valueBox:SetSize(43, 23)
         valueBox:SetPoint("RIGHT", row, "RIGHT", -10, 0)
@@ -88,7 +88,7 @@ local function CreateSlider(parent, labelText, description, minValue, maxValue, 
         valueBox:SetFontObject("GameFontNormal")
         valueBox:SetTextColor(1, 0.81, 0.45)
         valueBox:SetJustifyH("CENTER")
-        valueBox:SetMaxLetters(4)
+        valueBox:SetMaxLetters(5)
         valueBox:SetTextInsets(3, 3, 0, 0)
         local boxFill = valueBox:CreateTexture(nil, "BACKGROUND")
         boxFill:SetAllPoints(valueBox)
@@ -144,12 +144,14 @@ local function CreateSlider(parent, labelText, description, minValue, maxValue, 
         if onValueChanged then onValueChanged(rounded) end
     end)
     slider:SetValue(value)
-    if labelText == "WINDOW SCALE" then
-        slider:SetScript("OnMouseUp", function()
-            if optionsFrame and addon.db and addon.db.profile then
-                optionsFrame:SetScale(addon.db.profile.uiScale)
-            end
-        end)
+    if valueBox then
+        if labelText == "WINDOW SCALE" then
+            slider:SetScript("OnMouseUp", function()
+                if optionsFrame and addon.db and addon.db.profile then
+                    optionsFrame:SetScale(addon.db.profile.uiScale)
+                end
+            end)
+        end
         local function CommitScale()
             local number = tonumber(valueBox:GetText():gsub(",", "."))
             if number then
@@ -157,7 +159,7 @@ local function CreateSlider(parent, labelText, description, minValue, maxValue, 
                 number = math.floor(number / step + 0.5) * step
                 slider:SetValue(number)
                 if onValueChanged then onValueChanged(number) end
-                if optionsFrame then optionsFrame:SetScale(number) end
+                if labelText == "WINDOW SCALE" and optionsFrame then optionsFrame:SetScale(number) end
             end
             valueBox:ClearFocus()
             valueBox:SetText(string.format("%g", slider:GetValue()))
@@ -427,7 +429,7 @@ function addon.Options:Create()
         grip:EnableMouse(true)
         -- Two visible bronze diagonals inside each corner, without changing
         -- the approved outer NineSlice border artwork.
-        for i = 0, 1 do
+        for i = 0, 0 do
             local stroke = grip:CreateTexture(nil, "OVERLAY")
             stroke:SetColorTexture(0.90, 0.69, 0.38, 0.95)
             stroke:SetSize(13 - i * 4, 1.5)
