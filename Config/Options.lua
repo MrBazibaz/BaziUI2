@@ -265,37 +265,58 @@ local function CreateTooltipPage()
     end)
 
     local main = CreatePanel(page, -100, 400)
+    -- Lueur-inspired vertical page selectors. Keep all Bazi UI colors and artwork.
     local tabBar = CreateFrame("Frame", nil, main)
-    tabBar:SetPoint("TOPRIGHT", main, "TOPRIGHT", -12, -12)
-    tabBar:SetSize(278, 27)
+    tabBar:SetPoint("TOPRIGHT", main, "TOPRIGHT", -8, -12)
+    tabBar:SetSize(54, 180)
 
     local function RefreshTabs()
         for name, button in pairs(tabButtons) do
-            button.fill:SetColorTexture(name == activeTab and 0.43 or 0.18,
-                name == activeTab and 0.22 or 0.105,
-                name == activeTab and 0.34 or 0.055, 1)
-            button.label:SetTextColor(name == activeTab and 1 or 0.85, name == activeTab and 0.81 or 0.68, 0.47)
+            local selected = name == activeTab
+            button.fill:SetColorTexture(selected and 0.43 or 0.16,
+                selected and 0.22 or 0.095,
+                selected and 0.34 or 0.06, 1)
+            button.label:SetTextColor(selected and 1 or 0.76,
+                selected and 0.85 or 0.65, selected and 0.48 or 0.42)
+            button.border:SetColorTexture(selected and 1 or 0.48,
+                selected and 0.77 or 0.35, selected and 0.39 or 0.21, 1)
         end
         for name, panel in pairs(tabPanels) do panel:SetShown(name == activeTab) end
     end
-    for i, name in ipairs({"General", "Contents", "Fonts"}) do
+
+    for i, entry in ipairs({{"General", "G"}, {"Contents", "C"}, {"Fonts", "F"}}) do
+        local name, letter = entry[1], entry[2]
         local b = CreateFrame("Button", nil, tabBar)
-        b:SetSize(88, 25)
-        b:SetPoint("TOPRIGHT", tabBar, "TOPRIGHT", -(3-i)*94, 0)
+        b:SetSize(44, 44)
+        b:SetPoint("TOPRIGHT", tabBar, "TOPRIGHT", -4, -((i-1)*52))
         b.fill = b:CreateTexture(nil, "BACKGROUND")
         b.fill:SetAllPoints()
-        b.label = CreateLabel(b, name, "GameFontNormal")
+        b.border = b:CreateTexture(nil, "BORDER")
+        b.border:SetPoint("TOPLEFT"); b.border:SetPoint("TOPRIGHT"); b.border:SetHeight(2)
+        local bottom = b:CreateTexture(nil, "BORDER")
+        bottom:SetPoint("BOTTOMLEFT"); bottom:SetPoint("BOTTOMRIGHT"); bottom:SetHeight(2)
+        bottom:SetColorTexture(0.65, 0.46, 0.25, 1)
+        local left = b:CreateTexture(nil, "BORDER")
+        left:SetPoint("TOPLEFT"); left:SetPoint("BOTTOMLEFT"); left:SetWidth(2)
+        left:SetColorTexture(0.65, 0.46, 0.25, 1)
+        local right = b:CreateTexture(nil, "BORDER")
+        right:SetPoint("TOPRIGHT"); right:SetPoint("BOTTOMRIGHT"); right:SetWidth(2)
+        right:SetColorTexture(0.65, 0.46, 0.25, 1)
+        b.label = CreateLabel(b, letter, "GameFontNormalLarge")
         b.label:SetPoint("CENTER")
-        local border = b:CreateTexture(nil, "BORDER")
-        border:SetPoint("BOTTOMLEFT"); border:SetPoint("BOTTOMRIGHT"); border:SetHeight(1)
-        border:SetColorTexture(0.75, 0.55, 0.29, 0.9)
         b:SetScript("OnClick", function() activeTab = name; RefreshTabs() end)
+        b:SetScript("OnEnter", function(self)
+            GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+            GameTooltip:SetText(name, 1, 0.81, 0.45)
+            GameTooltip:Show()
+        end)
+        b:SetScript("OnLeave", function() GameTooltip:Hide() end)
         tabButtons[name] = b
     end
     local function NewTab(name)
         local panel = CreateFrame("Frame", nil, main)
-        panel:SetPoint("TOPLEFT", main, "TOPLEFT", 10, -48)
-        panel:SetPoint("BOTTOMRIGHT", main, "BOTTOMRIGHT", -10, 10)
+        panel:SetPoint("TOPLEFT", main, "TOPLEFT", 10, -12)
+        panel:SetPoint("BOTTOMRIGHT", main, "BOTTOMRIGHT", -68, 10)
         tabPanels[name] = panel
         return panel
     end
