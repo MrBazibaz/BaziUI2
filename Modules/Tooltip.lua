@@ -65,7 +65,6 @@ end
 -- Reapply only on mode changes; never accumulate tooltip padding.
 local insideMode, insideTipHeight, insideFirstAnchor
 local insideBottomPadded = false
-local healthLastLine
 local healthMode
 -- Keep Blizzard's bar transparent while our overlay is active. Blizzard can
 -- reapply alpha when changing units, so verify the state rather than caching it.
@@ -95,7 +94,6 @@ local function ResetInsideSpacing()
     end
     if insideTipHeight then tip:SetHeight(insideTipHeight); insideTipHeight = nil end
     insideMode = nil
-    healthLastLine = nil
 end
 local function ApplyInsideSpacing(mode, native)
     if insideMode == mode then return end
@@ -183,29 +181,10 @@ local function UpdateHealth()
         if mode == "insideTop" then
             if modeChanged then health:SetPoint("TOPLEFT", tip, "TOPLEFT", inset, -10) end
         else
-            local lastLine
-            for i = tip:NumLines(), 1, -1 do
-                local left = _G["GameTooltipTextLeft" .. i]
-                local right = _G["GameTooltipTextRight" .. i]
-                local lt = left and left:GetText()
-                local rt = right and right:GetText()
-                local leftValid = lt and (not issecretvalue or not issecretvalue(lt))
-                    and (not canaccessvalue or canaccessvalue(lt)) and lt ~= ""
-                local rightValid = rt and (not issecretvalue or not issecretvalue(rt))
-                    and (not canaccessvalue or canaccessvalue(rt)) and rt ~= ""
-                if leftValid or rightValid then
-                    lastLine = leftValid and left or right
-                    break
-                end
-            end
-            if modeChanged or lastLine ~= healthLastLine then
-                healthLastLine = lastLine
-                health:ClearAllPoints()
-                if lastLine then
-                    health:SetPoint("TOPLEFT", lastLine, "BOTTOMLEFT", 0, -3)
-                else
-                    health:SetPoint("BOTTOMLEFT", tip, "BOTTOMLEFT", inset, 5)
-                end
+            -- Stable bottom inset: text space is reserved by tooltip padding.
+            -- Never anchor to a changing FontString or reposition each tick.
+            if modeChanged then
+                health:SetPoint("BOTTOMLEFT", tip, "BOTTOMLEFT", inset, 6)
             end
         end
     end
