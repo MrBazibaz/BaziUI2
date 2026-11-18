@@ -272,11 +272,6 @@ local function ItemContent(_, data)
             local ok, result = pcall(getter, link or id)
             if ok and Readable(result) and type(result) == "number" then level = result end
         end
-        if not level and C_Item and C_Item.GetCurrentItemLevel and ItemLocation
-            and ItemLocation.CreateFromEquipmentSlot and data and data.id then
-            -- The normal item-link path above remains authoritative; don't guess
-            -- equipment slots from tooltip text.
-        end
         if level and level > 1 and not FindLine("Item Level")
             and not FindLine("iLvl") then
             tip:AddLine(string.format("Item Level %d", level), 1, 0.82, 0.42)
