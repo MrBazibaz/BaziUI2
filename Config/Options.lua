@@ -270,6 +270,21 @@ function addon.Options:Create()
     local BORDER_TEST_TILE=112
     -- Live edge calibration, kept separate from the four corner textures.
     frame.baziEdgePieces={top={},bottom={},left={},right={}}
+    local edgePool={top={},bottom={},left={},right={}}
+    local edgeUsed={}
+    local function AcquireEdge(side,file)
+        local index=(edgeUsed[side] or 0)+1
+        edgeUsed[side]=index
+        local t=edgePool[side][index]
+        if not t then
+            t=frame:CreateTexture(nil,"OVERLAY",nil,0)
+            edgePool[side][index]=t
+        end
+        t:SetTexture(BORDER_ASSET..file)
+        t:ClearAllPoints()
+        t:Show()
+        return t
+    end
     local function RegisterEdge(side,texture,x,y)
         local pieces=frame.baziEdgePieces[side]
         pieces[#pieces+1]={texture=texture,x=x,y=y}
@@ -282,8 +297,7 @@ function addon.Options:Create()
         for i=0,count-1 do
             local x=fromX+i*tileLength
             local width=math.min(tileLength,toX-x)
-            local t=frame:CreateTexture(nil,"OVERLAY",nil,0)
-            t:SetTexture(BORDER_ASSET..file)
+            local t=AcquireEdge(side,file)
             t:SetPoint("TOPLEFT",frame,"TOPLEFT",x,y)
             RegisterEdge(side,t,x,y)
             t:SetSize(width,height)
@@ -300,8 +314,7 @@ function addon.Options:Create()
         for i=0,count-1 do
             local y=topY-i*tileLength
             local height=math.min(tileLength,y-bottomY)
-            local t=frame:CreateTexture(nil,"OVERLAY",nil,0)
-            t:SetTexture(BORDER_ASSET..file)
+            local t=AcquireEdge(side,file)
             t:SetPoint("TOPLEFT",frame,"TOPLEFT",x,y)
             RegisterEdge(side,t,x,y)
             t:SetSize(width,height)
@@ -321,15 +334,16 @@ function addon.Options:Create()
     -- Edges overlap corners by ~20 units; corners are drawn on top.
     -- The TGA vertical edges have only half their 32px width opaque.
     local function RebuildEdges()
-        for _,pieces in pairs(frame.baziEdgePieces) do
-            for _,entry in ipairs(pieces) do entry.texture:Hide() end
-        end
+        edgeUsed={top=0,bottom=0,left=0,right=0}
         frame.baziEdgePieces={top={},bottom={},left={},right={}}
         local w,h=frame:GetSize()
         TiledHorizontal("top","Edge_Top.tga",EDGE_TOP_OUTSET-4,40,w-40,8)
         TiledHorizontal("bottom","Edge_Bottom.tga",-h+EDGE_BOTTOM_OUTSET-8,40,w-40,7)
         TiledVertical("left","Edge_Left.tga",-EDGE_SIDE_OUTSET+3,-35,-h+30,6)
         TiledVertical("right","Edge_Right.tga",w-1,-35,-h+30,6)
+        for side,pool in pairs(edgePool) do
+            for i=edgeUsed[side]+1,#pool do pool[i]:Hide() end
+        end
     end
     RebuildEdges()
     -- Footer and lower frame edge share one bottom-anchored container.
