@@ -118,20 +118,25 @@ local function UpdateHealth()
     health:Hide()
     ApplyInsideSpacing(mode, native)
     native:ClearAllPoints()
-    -- Match the visible title width rather than the entire tooltip frame.
-    local title = _G.GameTooltipTextLeft1
-    local titleWidth = title and title:GetStringWidth() or 0
-    if titleWidth and titleWidth > 0 then
-        native:SetWidth(titleWidth)
-    end
     if mode == "above" then
-        native:SetPoint("BOTTOMLEFT", title or tip, "TOPLEFT", 0, 2)
+        -- Restore the original full-width external positioning.
+        native:SetPoint("BOTTOMLEFT", tip, "TOPLEFT", 6, 2)
+        native:SetPoint("BOTTOMRIGHT", tip, "TOPRIGHT", -6, 2)
     elseif mode == "below" then
         native:SetPoint("TOPLEFT", tip, "BOTTOMLEFT", 6, -2)
-    elseif mode == "insideTop" then
-        native:SetPoint("TOPLEFT", tip, "TOPLEFT", 6, -5)
+        native:SetPoint("TOPRIGHT", tip, "BOTTOMRIGHT", -6, -2)
     else
-        native:SetPoint("BOTTOMLEFT", tip, "BOTTOMLEFT", 6, 2)
+        -- Inside modes only: keep the bar slightly narrower than the title.
+        local title = _G.GameTooltipTextLeft1
+        local titleWidth = title and title:GetStringWidth() or 0
+        local tipWidth = tip:GetWidth() or 0
+        local barWidth = math.min(titleWidth - 6, tipWidth - 12)
+        if barWidth > 0 then native:SetWidth(barWidth) end
+        if mode == "insideTop" then
+            native:SetPoint("TOPLEFT", tip, "TOPLEFT", 6, -8)
+        else
+            native:SetPoint("BOTTOMLEFT", tip, "BOTTOMLEFT", 6, 2)
+        end
     end
     native:Show()
     return
