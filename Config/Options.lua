@@ -176,7 +176,7 @@ function addon.Options:Create()
     end
     -- Live calibration bounds relative to the Bazi UI frame center.
     -- Changes are temporary until the chosen values are committed.
-    local shadowBounds={left=-590,right=590,top=390,bottom=-390}
+    local shadowBounds={left=-610,right=609,top=410,bottom=-410}
     local function UpdateShadowBounds()
         local w=shadowBounds.right-shadowBounds.left
         local h=shadowBounds.top-shadowBounds.bottom
@@ -421,7 +421,7 @@ function addon.Options:Create()
 end
 -- Live shadow edge calibration, without /reload or file changes.
 -- /bazishadow left -5 moves only the left edge 5 UI units left.
--- /bazishadow reset restores the original 1180 x 780 test bounds.
+-- /bazishadow reset restores the calibrated 1219 x 820 bounds.
 SLASH_BAZISHADOW1="/bazishadow"
 SlashCmdList["BAZISHADOW"]=function(msg)
     if not frame or not frame.baziShadowBounds then
@@ -432,7 +432,7 @@ SlashCmdList["BAZISHADOW"]=function(msg)
     local edge,value=(msg or ""):match("^%s*(%a+)%s+([%+%-]?[%d%.]+)%s*$")
     local command=(msg or ""):match("^%s*(%a+)%s*$")
     if command=="reset" then
-        bounds.left,bounds.right,bounds.top,bounds.bottom=-590,590,390,-390
+        bounds.left,bounds.right,bounds.top,bounds.bottom=-610,609,410,-410
         frame.baziUpdateShadowBounds()
     elseif edge and bounds[edge] and tonumber(value) then
         local delta=tonumber(value)
