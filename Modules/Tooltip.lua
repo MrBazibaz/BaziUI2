@@ -299,7 +299,7 @@ function T:Initialize()
     tip:HookScript("OnShow", function()
         local db = DB()
         if not db then return end
-        if not db.enabled then tip:Hide(); return end
+        if not db.enabled then return end
         T:Apply()
         UpdateHealth()
     end)
