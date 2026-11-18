@@ -155,8 +155,8 @@ function addon.Theme:SkinGameMenuButton(button)
     end
     RefreshCaption(button)
     button:HookScript("OnShow", RefreshCaption)
-    button:HookScript("OnEnable", RefreshCaption)
-    button:HookScript("OnDisable", RefreshCaption)
+    -- Button enable/disable script hooks are not supported on every client template.
+    -- Caption is refreshed on show and pointer interactions instead.
 
     local function Trim(a, b, ax, ay, bx, by, horizontal)
         local edge = button:CreateTexture(nil, "OVERLAY")
