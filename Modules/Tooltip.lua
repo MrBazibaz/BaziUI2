@@ -265,7 +265,7 @@ local function UnitContent()
             if color and title then title:SetTextColor(color.r, color.g, color.b) end
         end
     end
-    if addon.ItemLevel then addon.ItemLevel:OnUnit() end
+    -- ItemLevel has its own unit post-call, as in ilvl Forever.
     ScrubFrameHint()
     UpdateHealth()
 end
