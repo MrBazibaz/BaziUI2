@@ -271,8 +271,8 @@ local function CreateTooltipPage()
     main:SetPoint("TOPRIGHT", page, "TOPRIGHT", -12, -100)
     -- Lueur-inspired vertical page selectors, outside the content panel.
     local tabBar = CreateFrame("Frame", nil, page)
-    tabBar:SetPoint("TOPLEFT", page, "TOPRIGHT", 5, -112)
-    tabBar:SetFrameStrata("DIALOG")
+    tabBar:SetPoint("TOPLEFT", optionsFrame, "TOPRIGHT", 8, -112)
+    tabBar:SetFrameStrata("TOOLTIP")
     tabBar:SetSize(54, 180)
 
     local function RefreshTabs()
@@ -345,7 +345,7 @@ local function CreateTooltipPage()
             hint:SetPoint("TOPLEFT", row, "TOPLEFT", 14, -30)
             hint:SetTextColor(0.91, 0.78, 0.61)
         end
-        return row
+        return row, label
     end
     local function Update() if addon.Tooltip then addon.Tooltip:Apply() end end
     local function Choice(parent, text, y, getValue, setValue, choices)
@@ -423,7 +423,7 @@ local function CreateTooltipPage()
         progress:SetPoint("LEFT", slider, "LEFT", 0, 0)
         local function RefreshProgress(value)
             local fraction = math.max(0, math.min(1, (value - min) / (max - min)))
-            progress:SetWidth(math.max(0.1, 115 * fraction))
+            progress:SetWidth(math.max(0.1, 12 + 91 * fraction))
         end
         local thumb = slider:CreateTexture(nil, "OVERLAY")
         thumb:SetSize(24, 28)
@@ -468,7 +468,7 @@ local function CreateTooltipPage()
             setValue(not not self:GetChecked()); Update()
         end)
     end
-    local anchorRow = Row(general, "EDIT ANCHOR POSITION", -54)
+    local anchorRow, anchorRowLabel = Row(general, "EDIT ANCHOR POSITION", -54)
     local editAnchor = CreateFrame("CheckButton", nil, anchorRow, "UICheckButtonTemplate")
     editAnchor:SetSize(25, 25)
     editAnchor:SetPoint("RIGHT", anchorRow, "RIGHT", -19, 0)
@@ -479,6 +479,7 @@ local function CreateTooltipPage()
         local isMouse = db.anchor == "mouse"
         editAnchor:SetShown(not isMouse)
         anchorText:SetShown(not isMouse)
+        anchorRowLabel:SetShown(not isMouse)
         if isMouse then
             if not cursorChoice then
                 cursorChoice = Choice(general, "CURSOR POSITION", -54,
