@@ -210,13 +210,20 @@ function addon.Options:Create()
             t:SetTexture(BORDER_ASSET..file)
             t:SetPoint("TOPLEFT",frame,"TOPLEFT",x,y)
             t:SetSize(width,height)
-            t:SetTexCoord(0,1,0,height/BORDER_TEST_TILE)
+            -- The 32x256 side art has tapered endcaps at both ends.
+            -- Repeat only its straight central 50% and its opaque half.
+            -- This avoids repeating ornamental spikes every 112 units.
+            local u1,u2=0,0.5
+            if file=="Edge_Right.tga" then u1,u2=0.5,1 end
+            local v1=0.25
+            local v2=v1+0.5*(height/BORDER_TEST_TILE)
+            t:SetTexCoord(u1,u2,v1,v2)
         end
     end
     -- Edges overlap corners by ~20 units; corners are drawn on top.
     -- The TGA vertical edges have only half their 32px width opaque.
     TiledHorizontal("Edge_Top_Tile.tga",EDGE_TOP_OUTSET,50,1090,14)
-    TiledHorizontal("Edge_Bottom_Tile.tga",-740+EDGE_BOTTOM_OUTSET+14,50,1090,14)
+    TiledHorizontal("Edge_Bottom_Tile.tga",-740+EDGE_BOTTOM_OUTSET,50,1090,14)
     TiledVertical("Edge_Left.tga",-EDGE_SIDE_OUTSET, -45,-695,14)
     TiledVertical("Edge_Right.tga",1140-6, -45,-695,14)
     -- Footer and lower frame edge share one bottom-anchored container.
