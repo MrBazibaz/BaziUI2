@@ -232,13 +232,6 @@ function M:Initialize()
         TooltipDataProcessor.AddTooltipPreCall(TooltipDataProcessor.AllTypes,
             function(frame) if frame == GameTooltip then M:ResetTooltipRow(frame) end end)
     end
-    if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall
-        and Enum and Enum.TooltipDataType and Enum.TooltipDataType.Unit then
-        TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Unit,
-            function(frame)
-                if frame == GameTooltip then M:OnUnit() end
-            end)
-    end
     eventFrame:RegisterEvent("INSPECT_READY")
     eventFrame:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
     pcall(eventFrame.RegisterEvent,eventFrame,"PLAYER_AVG_ITEM_LEVEL_UPDATE")
