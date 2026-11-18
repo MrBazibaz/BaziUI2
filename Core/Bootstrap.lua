@@ -4,7 +4,7 @@ BaziUI = BaziUI or namespace or {}
 local addon = BaziUI
 
 addon.name = addonName or "BaziUI"
-addon.version = "0.1.1"
+addon.version = "0.1.2"
 addon.modules = addon.modules or {}
 
 function addon:Print(message)
@@ -24,6 +24,10 @@ function addon:OnInitialize()
 
     if self.Theme and self.Theme.Initialize then
         self.Theme:Initialize()
+    end
+
+    if self.Tooltip and self.Tooltip.Initialize then
+        self.Tooltip:Initialize()
     end
 
     if self.Options and self.Options.Initialize then
