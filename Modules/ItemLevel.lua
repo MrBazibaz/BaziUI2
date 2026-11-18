@@ -158,11 +158,12 @@ local function onInspectReady(guid)
         local level = averageFromInspect(unit)
         if number(level) then
             cache[guid] = {value=level,time=GetTime()}
-            -- Do not append text to an already-laid-out tooltip. Ask
-            -- Blizzard to rebuild through the same post-call used by cache hits.
-            if GameTooltip:IsShown() and tooltipUnit()
-                and guidOf(tooltipUnit()) == guid and GameTooltip.RefreshData then
-                pcall(GameTooltip.RefreshData, GameTooltip)
+            -- Match ilvl Forever: put the inspected result directly into
+            -- the currently visible tooltip and ask it to lay out the new line.
+            local shownUnit = tooltipUnit()
+            if GameTooltip:IsShown() and shownUnit and guidOf(shownUnit) == guid then
+                addLevel(guid, level)
+                GameTooltip:Show()
             end
         end
     end
@@ -230,6 +231,13 @@ function M:Initialize()
         and TooltipDataProcessor.AllTypes then
         TooltipDataProcessor.AddTooltipPreCall(TooltipDataProcessor.AllTypes,
             function(frame) if frame == GameTooltip then M:ResetTooltipRow(frame) end end)
+    end
+    if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall
+        and Enum and Enum.TooltipDataType and Enum.TooltipDataType.Unit then
+        TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Unit,
+            function(frame)
+                if frame == GameTooltip then M:OnUnit() end
+            end)
     end
     eventFrame:RegisterEvent("INSPECT_READY")
     eventFrame:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
