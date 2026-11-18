@@ -273,7 +273,7 @@ local function CreateTooltipPage()
     if main.SetClipsChildren then main:SetClipsChildren(true) end
     -- Text tabs use the same bronze borders and plum selection as categories.
     local tabBar = CreateFrame("Frame", nil, page)
-    tabBar:SetPoint("TOPLEFT", optionsFrame, "TOPRIGHT", 8, -112)
+    tabBar:SetPoint("TOPLEFT", main, "TOPRIGHT", 0, 0)
     tabBar:SetFrameStrata("FULLSCREEN_DIALOG")
     tabBar:SetSize(108, 132)
 
@@ -284,7 +284,7 @@ local function CreateTooltipPage()
                 selected and 0.17 or 0.12, selected and 0.25 or 0.07, 0.98)
             button.label:SetTextColor(selected and 1 or 0.95,
                 selected and 0.85 or 0.80, selected and 0.55 or 0.66)
-            for _, edge in ipairs(button.edges) do
+            button.accent:SetColorTexture(selected and 0.83 or 0.54,\n                selected and 0.63 or 0.37, selected and 0.30 or 0.20, selected and 1 or 0.8)\n            for _, edge in ipairs(button.edges) do
                 edge:SetColorTexture(selected and 0.83 or 0.54,
                     selected and 0.63 or 0.37, selected and 0.30 or 0.20, 0.95)
             end
@@ -294,8 +294,8 @@ local function CreateTooltipPage()
 
     for i, name in ipairs({"General", "Contents", "Fonts"}) do
         local b = CreateFrame("Button", nil, tabBar)
-        b:SetSize(108, 34)
-        b:SetPoint("TOPLEFT", tabBar, "TOPLEFT", 0, -((i - 1) * 35))
+        b:SetSize(108, 42)
+        b:SetPoint("TOPLEFT", tabBar, "TOPLEFT", 0, -((i - 1) * 42))
         b.fill = b:CreateTexture(nil, "BACKGROUND")
         b.fill:SetAllPoints()
         b.edges = {}
@@ -312,6 +312,11 @@ local function CreateTooltipPage()
             end
             b.edges[#b.edges + 1] = edge
         end
+        -- Mirror the navigation accent: right edge for the right-side tabs.
+        b.accent = b:CreateTexture(nil, "OVERLAY")
+        b.accent:SetPoint("TOPRIGHT", b, "TOPRIGHT", 0, 0)
+        b.accent:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", 0, 0)
+        b.accent:SetWidth(3)
         b.label = CreateLabel(b, name, "GameFontNormal")
         b.label:SetPoint("LEFT", b, "LEFT", 12, 0)
         b:SetScript("OnClick", function() activeTab = name; RefreshTabs() end)
