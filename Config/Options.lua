@@ -167,8 +167,8 @@ function addon.Options:Create()
     control:SetSize(200,200)
     control:SetPoint("TOPLEFT",test,"TOPLEFT",20,-52)
     local cuts={0,23/128,105/128,1}
-    local lengths={36,124,36} -- 196 pixels of PNG + two 2-unit gaps = 200
-    local offsets={0,38,164}
+    local lengths={36,128,36} -- 200 units total, no gaps
+    local offsets={0,36,164}
     for row=1,3 do
         for col=1,3 do
             local piece=test:CreateTexture(nil,"ARTWORK")
@@ -180,7 +180,7 @@ function addon.Options:Create()
     end
     local label=test:CreateFontString(nil,"OVERLAY","GameFontNormalLarge")
     label:SetPoint("TOP",test,"TOP",0,-14)
-    label:SetText("BAZI SHADOW TEST - RED / 3x3 PNG (2px gaps)")
+    label:SetText("BAZI SHADOW TEST - RED / 3x3 PNG (NO GAPS)")
     label:SetTextColor(1,0.9,0.2,1)
     frame:HookScript("OnShow",function()test:Show()end)
     frame:HookScript("OnHide",function()test:Hide()end)
