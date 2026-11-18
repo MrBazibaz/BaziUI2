@@ -584,15 +584,15 @@ local function CreateTooltipPage()
         titleLabel:SetPoint("TOPLEFT", fonts, "TOPLEFT", 14, offset)
         titleLabel:SetTextColor(1, 0.79, 0.42)
         Choice(fonts, "FONT", offset-30, function() return config.font end,
-            function(v) config.font = v end,
-            {{"FRIZQT", "Friz Quadrata"}, {"ARIAL", "Arial Narrow"}, {"MORPHEUS", "Morpheus"}})
+            function(v) config.font = v; if BaziUI.TooltipFonts then BaziUI.TooltipFonts.Apply() end end,
+            {{"GLOBAL", "Global"}, {"FRIZQT", "Friz Quadrata"}, {"ARIAL", "Arial Narrow"}, {"MORPHEUS", "Morpheus"}})
         Choice(fonts, "OUTLINE", offset-78, function() return config.outline end,
-            function(v) config.outline = v end,
+            function(v) config.outline = v; if BaziUI.TooltipFonts then BaziUI.TooltipFonts.Apply() end end,
             {{"NONE", "None"}, {"OUTLINE", "Outline"}, {"THICKOUTLINE", "Thick Outline"}})
         Number(fonts, "SIZE", offset-126, function() return config.size end,
-            function(v) config.size = v end, 8, 30, 1)
+            function(v) config.size = v; if BaziUI.TooltipFonts then BaziUI.TooltipFonts.Apply() end end, 8, 30, 1)
         Check(fonts, "SHADOW", offset-174, function() return config.shadow end,
-            function(v) config.shadow = v end)
+            function(v) config.shadow = v; if BaziUI.TooltipFonts then BaziUI.TooltipFonts.Apply() end end)
     end
     FontGroup(db.titleFont, -4, "TITLE TEXT")
     FontGroup(db.textFont, -224, "BODY TEXT")
