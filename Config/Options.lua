@@ -284,10 +284,10 @@ function addon.Options:Create()
         return t
     end
     frame.baziCornerTextures = {
-        TL=CroppedCorner("Corner_TL_V7_Matched.tga","TOPLEFT",70,55,0,160/256,0,125/256),
-        TR=CroppedCorner("Corner_TR_V7_Matched.tga","TOPRIGHT",70,56,96/256,1,0,127/256),
-        BL=CroppedCorner("Corner_BL_V7_Matched.tga","BOTTOMLEFT",70,52,0,160/256,138/256,1),
-        BR=CroppedCorner("Corner_BR_V7_Matched.tga","BOTTOMRIGHT",70,52,96/256,1,138/256,1),
+        TL=CroppedCorner("Corner_TL_V7_Test.tga","TOPLEFT",70,55,0,160/256,0,125/256),
+        TR=CroppedCorner("Corner_TR_V7_Test.tga","TOPRIGHT",70,56,96/256,1,0,127/256),
+        BL=CroppedCorner("Corner_BL_V7_Test.tga","BOTTOMLEFT",70,52,0,160/256,138/256,1),
+        BR=CroppedCorner("Corner_BR_V7_Test.tga","BOTTOMRIGHT",70,52,96/256,1,138/256,1),
     }
     for _,entry in ipairs({
         {"TL","TOPLEFT",-CORNER_TOP_OUTSET,CORNER_TOP_OUTSET},
