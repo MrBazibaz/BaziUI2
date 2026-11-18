@@ -211,10 +211,18 @@ function T:Initialize()
                 BOTTOMLEFT = true, BOTTOM = true, BOTTOMRIGHT = true
             }
             if not valid[point] then point = "BOTTOMRIGHT" end
-            local dx = point:find("LEFT") and 12 or (point:find("RIGHT") and -12 or 0)
-            local dy = point:find("TOP") and -12 or (point:find("BOTTOM") and 12 or 0)
+            -- Use one stable anchor and calculate the tooltip offset explicitly.
+            -- This avoids client-specific reanchoring of TOP/RIGHT points.
+            local width = tip:GetWidth() * tip:GetEffectiveScale() / uiScale
+            local height = tip:GetHeight() * tip:GetEffectiveScale() / uiScale
+            local x = mx + 14
+            local y = my + 14
+            if point:find("RIGHT") then x = mx - width - 14
+            elseif point == "TOP" or point == "BOTTOM" then x = mx - width / 2 end
+            if point:find("TOP") then y = my - height - 14
+            elseif point == "LEFT" or point == "RIGHT" then y = my - height / 2 end
             tip:ClearAllPoints()
-            tip:SetPoint(point, UIParent, "BOTTOMLEFT", mx + dx, my + dy)
+            tip:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", x, y)
         end
         elapsedHealth = elapsedHealth + elapsed
         if elapsedHealth >= 0.15 then
