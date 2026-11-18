@@ -187,7 +187,13 @@ function addon.Options:Create()
     local EDGE_BOTTOM_OUTSET=10
     local EDGE_SIDE_OUTSET=8
     local BORDER_TEST_TILE=112
-    local function TiledHorizontal(file, y, fromX, toX, height)
+    -- Live edge calibration, kept separate from the four corner textures.
+    frame.baziEdgePieces={top={},bottom={},left={},right={}}
+    local function RegisterEdge(side,texture,x,y)
+        local pieces=frame.baziEdgePieces[side]
+        pieces[#pieces+1]={texture=texture,x=x,y=y}
+    end
+    local function TiledHorizontal(side, file, y, fromX, toX, height)
         -- The new seamless horizontal TGAs are 32px wide; the legacy
         -- artwork was displayed as 112-unit tiles.
         local tileLength=(file=="Edge_Top_Seamless.tga" or file=="Edge_Bottom_Seamless.tga") and 32 or BORDER_TEST_TILE
@@ -198,12 +204,13 @@ function addon.Options:Create()
             local t=frame:CreateTexture(nil,"OVERLAY",nil,0)
             t:SetTexture(BORDER_ASSET..file)
             t:SetPoint("TOPLEFT",frame,"TOPLEFT",x,y)
+            RegisterEdge(side,t,x,y)
             t:SetSize(width,height)
             -- Crop only the final partial tile, never stretch it.
             t:SetTexCoord(0,width/tileLength,0,1)
         end
     end
-    local function TiledVertical(file, x, topY, bottomY, width)
+    local function TiledVertical(side, file, x, topY, bottomY, width)
         local total=topY-bottomY
         -- Seamless side strips are 16px tall. Keep each tile short so the
         -- artwork repeats without stretching a single strip over 112 units.
@@ -215,6 +222,7 @@ function addon.Options:Create()
             local t=frame:CreateTexture(nil,"OVERLAY",nil,0)
             t:SetTexture(BORDER_ASSET..file)
             t:SetPoint("TOPLEFT",frame,"TOPLEFT",x,y)
+            RegisterEdge(side,t,x,y)
             t:SetSize(width,height)
             if tileLength==16 then
                 -- Entire seamless texture; crop only the final partial tile.
@@ -231,10 +239,10 @@ function addon.Options:Create()
     end
     -- Edges overlap corners by ~20 units; corners are drawn on top.
     -- The TGA vertical edges have only half their 32px width opaque.
-    TiledHorizontal("Edge_Top_Seamless.tga",EDGE_TOP_OUTSET-2,50,1090,7)
-    TiledHorizontal("Edge_Bottom_Seamless.tga",-740+EDGE_BOTTOM_OUTSET+2,50,1090,7)
-    TiledVertical("Edge_Left_Seamless.tga",-EDGE_SIDE_OUTSET+2, -35,-705,6)
-    TiledVertical("Edge_Right_Seamless.tga",1140-5, -35,-705,6)
+    TiledHorizontal("top","Edge_Top_Seamless.tga",EDGE_TOP_OUTSET-2,50,1090,7)
+    TiledHorizontal("bottom","Edge_Bottom_Seamless.tga",-740+EDGE_BOTTOM_OUTSET+2,50,1090,7)
+    TiledVertical("left","Edge_Left_Seamless.tga",-EDGE_SIDE_OUTSET+2, -35,-705,6)
+    TiledVertical("right","Edge_Right_Seamless.tga",1140-5, -35,-705,6)
     -- Footer and lower frame edge share one bottom-anchored container.
     -- No hardcoded top offset: resizing keeps the artwork on the actual edge.
     local footerChrome=CreateFrame("Frame",nil,frame)
@@ -340,6 +348,28 @@ function addon.Options:Create()
     stage:SetPoint("BOTTOMRIGHT",footerChrome,"BOTTOMRIGHT",-20,13)
     Show("General")
     frame:Hide()
+end
+-- Interactive border calibration. Changes are temporary and reset on /reload.
+-- Example: /baziedge bottom 0 -2
+-- dx: positive right, dy: positive up. Both in WoW UI units.
+SLASH_BAZIEDGE1="/baziedge"
+SlashCmdList["BAZIEDGE"]=function(msg)
+    if not frame or not frame:IsShown() or not frame.baziEdgePieces then
+        print("Bazi UI V7: open /bazi first.")
+        return
+    end
+    local side,sx,sy=(msg or ""):match("^%s*(%a+)%s+([%+%-]?[%d%.]+)%s+([%+%-]?[%d%.]+)%s*$")
+    local dx,dy=tonumber(sx),tonumber(sy)
+    local pieces=side and frame.baziEdgePieces[side]
+    if not pieces or not dx or not dy or math.abs(dx)>30 or math.abs(dy)>30 then
+        print("Usage: /baziedge top|bottom|left|right DX DY (-30..30). Positive DX=right, DY=up. /reload resets.")
+        return
+    end
+    for _,entry in ipairs(pieces) do
+        entry.texture:ClearAllPoints()
+        entry.texture:SetPoint("TOPLEFT",frame,"TOPLEFT",entry.x+dx,entry.y+dy)
+    end
+    print(string.format("Bazi UI V7: %s edge offset DX %.1f DY %.1f (temporary)",side,dx,dy))
 end
 -- Temporary V7 geometry diagnostics. Run /baziframe with the options window open.
 -- Values use UI coordinates; comparing frame and footer positions isolates
