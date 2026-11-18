@@ -163,14 +163,23 @@ function addon.Options:Create()
     shadowFrame:EnableMouse(false)
     local cuts={0,23/128,105/128,1}
     local shadowPieces={}
+    local shadowBoostPieces={}
     for row=1,3 do
         shadowPieces[row]={}
+        shadowBoostPieces[row]={}
         for col=1,3 do
             if row~=2 or col~=2 then
                 local piece=shadowFrame:CreateTexture(nil,"ARTWORK")
                 piece:SetTexture(shadowFile)
                 piece:SetTexCoord(cuts[col],cuts[col+1],cuts[row],cuts[row+1])
                 shadowPieces[row][col]=piece
+                -- A second translucent pass deepens the existing PNG shadow
+                -- without changing its shape, size, or calibrated position.
+                local boost=shadowFrame:CreateTexture(nil,"ARTWORK")
+                boost:SetTexture(shadowFile)
+                boost:SetTexCoord(cuts[col],cuts[col+1],cuts[row],cuts[row+1])
+                boost:SetAlpha(0.55)
+                shadowBoostPieces[row][col]=boost
             end
         end
     end
@@ -195,6 +204,10 @@ function addon.Options:Create()
                     piece:ClearAllPoints()
                     piece:SetPoint("TOPLEFT",shadowFrame,"TOPLEFT",xs[col],-ys[row])
                     piece:SetSize(widths[col],heights[row])
+                    local boost=shadowBoostPieces[row][col]
+                    boost:ClearAllPoints()
+                    boost:SetPoint("TOPLEFT",shadowFrame,"TOPLEFT",xs[col],-ys[row])
+                    boost:SetSize(widths[col],heights[row])
                 end
             end
         end
@@ -203,19 +216,6 @@ function addon.Options:Create()
     frame.baziShadowBounds=shadowBounds
     frame.baziUpdateShadowBounds=UpdateShadowBounds
     UpdateShadowBounds()
-    -- TEMP DIAGNOSTIC: cyan outline = actual shadow-frame bounds.
-    -- Gold artwork remains unchanged. Remove after alignment is verified.
-    local function ShadowGuide(pointA,pointB,width,height)
-        local t=shadowFrame:CreateTexture(nil,"OVERLAY")
-        t:SetColorTexture(0,1,1,1)
-        t:SetPoint(pointA,shadowFrame,pointA,0,0)
-        t:SetPoint(pointB,shadowFrame,pointB,0,0)
-        if width then t:SetWidth(width) else t:SetHeight(height) end
-    end
-    ShadowGuide("TOPLEFT","TOPRIGHT",nil,2)
-    ShadowGuide("BOTTOMLEFT","BOTTOMRIGHT",nil,2)
-    ShadowGuide("TOPLEFT","BOTTOMLEFT",2,nil)
-    ShadowGuide("TOPRIGHT","BOTTOMRIGHT",2,nil)
     frame.baziShadowFrame=shadowFrame
     frame:HookScript("OnShow",function()shadowFrame:Show()end)
     frame:HookScript("OnHide",function()shadowFrame:Hide()end)
@@ -309,7 +309,7 @@ function addon.Options:Create()
     end
     -- Edges overlap corners by ~20 units; corners are drawn on top.
     -- The TGA vertical edges have only half their 32px width opaque.
-    TiledHorizontal("top","Edge_Top.tga",EDGE_TOP_OUTSET-4,50,1090,8)
+    TiledHorizontal("top","Edge_Top.tga",EDGE_TOP_OUTSET-4,45,1095,8)
     TiledHorizontal("bottom","Edge_Bottom.tga",-740+EDGE_BOTTOM_OUTSET-8,40,1100,7)
     TiledVertical("left","Edge_Left.tga",-EDGE_SIDE_OUTSET+3, -35,-710,6)
     TiledVertical("right","Edge_Right.tga",1140-1, -35,-710,6)
