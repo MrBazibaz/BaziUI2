@@ -363,6 +363,9 @@ local function HandleCommand(message)
         if not ok then
             addon:Print("Options error: " .. tostring(err))
         end
+    elseif command == "help" then
+        addon:Print("Commands: /bazi (open settings), /bazi help, /bazi version, /bazi reload, /bazi reset")
+        addon:Print("Diagnostics: /bazi inspect, /bazi inspectmap, /bazi inspecttemplates, /bazi inspectoptions, /bazi inspectuicontrols, /bazi inspectgamemenu, /bazi debugborder")
     elseif command == "version" then
         addon:Print("version " .. addon.version)
     elseif command == "reload" then
