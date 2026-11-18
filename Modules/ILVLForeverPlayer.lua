@@ -89,7 +89,9 @@ function ns.OnLoad(fn) ns._load=fn end
 
 -- Original ilvl Forever PlayerTooltip.lua lifecycle and inspect handling.
 local CACHE_TIME=300
-local REQUEST_GAP=1.5
+-- Short cooldown between completed inspect requests; the pending request
+-- guard still prevents overlapping inspect calls.
+local REQUEST_GAP=0.25
 local REQUEST_TIMEOUT=4
 local cache={}
 local pending
