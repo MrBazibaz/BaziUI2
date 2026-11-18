@@ -398,7 +398,7 @@ function addon.Options:Create()
     emblemHost:SetSize(66, 66)
     -- The emblem graphic is slightly asymmetric inside its transparent image.
     -- A tiny optical correction centers the visible B over the native ring.
-    emblemHost:SetPoint("CENTER", optionsFrame, "TOPLEFT", 24, -21)
+    emblemHost:SetPoint("CENTER", optionsFrame, "TOPLEFT", 24, -20)
     emblemHost:SetFrameStrata("FULLSCREEN_DIALOG")
     emblemHost:SetFrameLevel(math.max(borderHost:GetFrameLevel(), borderHost.NineSlice and borderHost.NineSlice:GetFrameLevel() or 0) + 30)
     emblemHost:EnableMouse(false)
@@ -494,20 +494,7 @@ function addon.Options:Create()
     backdrop:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", 2, -2)
     backdrop:SetPoint("BOTTOMRIGHT", optionsFrame, "BOTTOMRIGHT", -2, 2)
     backdrop:SetColorTexture(0.12, 0.075, 0.044, 1)
-    -- Use the native Blizzard bronze header, without an extra filled title band.
-    -- Keep the native bronze title frame. A subtle custom divider on each
-    -- side of the title adds detail without cutting through the lettering.
-    for _, side in ipairs({"LEFT", "RIGHT"}) do
-        local divider = optionsFrame:CreateTexture(nil, "ARTWORK")
-        divider:SetSize(100, 3)
-        divider:SetTexture("Interface\\AddOns\\BaziUI\\Assets\\Dividers\\Divider_Thin.png")
-        divider:SetAlpha(0.65)
-        if side == "LEFT" then
-            divider:SetPoint("RIGHT", optionsFrame, "TOP", -80, -29)
-        else
-            divider:SetPoint("LEFT", optionsFrame, "TOP", 80, -29)
-        end
-    end
+    -- The native bronze frame already provides the header border.
 
     optionsFrame:Hide()
 
