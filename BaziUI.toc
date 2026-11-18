@@ -9,6 +9,7 @@ Core\Bootstrap.lua
 Core\Database.lua
 Core\Theme.lua
 Modules\ItemLevel.lua
+Modules\IlvlForeverPlayerTooltip.lua
 Modules\ILVLForeverPlayer.lua
 Config\Options.lua
 Core\Commands.lua
