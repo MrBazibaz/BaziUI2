@@ -202,7 +202,7 @@ end
 local function CreateNavigationButton(parent, name, label, y)
     -- Custom flat navigation: the active page gets purple, not every button.
     local button = CreateFrame("Button", nil, parent)
-    button:SetSize(170, 31)
+    button:SetSize(170, 29)
     button:SetPoint("TOPLEFT", parent, "TOPLEFT", 4, y)
     local fill = button:CreateTexture(nil, "BACKGROUND")
     fill:SetAllPoints(button)
@@ -336,7 +336,8 @@ function addon.Options:Create()
     emblem:SetTexture(ASSET .. "Icons\\BaziUI_Emblem_256.png")
     optionsFrame.baziEmblem = emblem
 
-    optionsFrame:SetSize(db.windowWidth or 900, db.windowHeight or 555)
+    -- Always open at the default dimensions, regardless of the last resize.
+    optionsFrame:SetSize(900, 555)
     optionsFrame:SetResizable(true)
     -- WoW Forever may expose SetResizeBounds instead of the legacy
     -- SetMinResize / SetMaxResize methods. Never call an absent API.
@@ -375,8 +376,7 @@ function addon.Options:Create()
         end)
         grip:SetScript("OnDragStop", function()
             optionsFrame:StopMovingOrSizing()
-            db.windowWidth = math.floor(optionsFrame:GetWidth() + 0.5)
-            db.windowHeight = math.floor(optionsFrame:GetHeight() + 0.5)
+            -- Resize applies only to the current opening of the window.
         end)
         return grip
     end
@@ -386,8 +386,13 @@ function addon.Options:Create()
     local displayedAlpha = 1
     local fadeSeconds = 0.65
     optionsFrame:SetScript("OnShow", function(self)
+        self:SetSize(900, 555)
         displayedAlpha = 1
         self:SetAlpha(1)
+    end)
+    optionsFrame:SetScript("OnHide", function(self)
+        self:StopMovingOrSizing()
+        self:SetSize(900, 555)
     end)
     optionsFrame:SetScript("OnUpdate", function(self, elapsed)
         local speed = GetUnitSpeed and GetUnitSpeed("player") or 0
@@ -404,16 +409,7 @@ function addon.Options:Create()
     backdrop:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", 2, -2)
     backdrop:SetPoint("BOTTOMRIGHT", optionsFrame, "BOTTOMRIGHT", -2, 2)
     backdrop:SetColorTexture(0.12, 0.075, 0.044, 1)
-    local header = optionsFrame:CreateTexture(nil, "BORDER")
-    header:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", 3, -3)
-    header:SetPoint("TOPRIGHT", optionsFrame, "TOPRIGHT", -3, -3)
-    header:SetHeight(48)
-    header:SetColorTexture(0.22, 0.12, 0.065, 0.98)
-    local headerLine = optionsFrame:CreateTexture(nil, "ARTWORK")
-    headerLine:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", 8, -56)
-    headerLine:SetPoint("TOPRIGHT", optionsFrame, "TOPRIGHT", -8, -56)
-    headerLine:SetHeight(1)
-    headerLine:SetColorTexture(0.76, 0.55, 0.28, 0.75)
+    -- Use the native Blizzard bronze header, without an extra filled title band.
     -- Keep the native bronze title frame. A subtle custom divider on each
     -- side of the title adds detail without cutting through the lettering.
     for _, side in ipairs({"LEFT", "RIGHT"}) do
@@ -431,7 +427,7 @@ function addon.Options:Create()
     optionsFrame:Hide()
 
     local title = CreateLabel(optionsFrame, "Bazi UI", "GameFontNormal")
-    title:SetPoint("TOP", optionsFrame, "TOP", 0, -27)
+    title:SetPoint("TOP", optionsFrame, "TOP", 0, -19)
     title:SetFontObject("GameFontNormalLarge")
     title:SetJustifyH("CENTER")
 
@@ -455,7 +451,7 @@ function addon.Options:Create()
         versionText:SetTextColor(0.79, 0.69, 0.52)
         if GameTooltip then GameTooltip:Hide() end
     end)
-    versionButton:SetScript("OnClick", function() ShowPage("Version History") end)
+    -- Changelog is opened from the sidebar footer instead.
 
     local close = CreateFrame("Button", nil, optionsFrame, "UIPanelCloseButton")
     -- Keep the close button inside the header border.
@@ -479,7 +475,7 @@ function addon.Options:Create()
     search:SetSize(170, 20)
     search:SetAutoFocus(false)
     search:SetFontObject("GameFontHighlightSmall")
-    search:SetTextInsets(9, 9, 0, 0)
+    search:SetTextInsets(27, 9, 0, 0)
     search:SetTextColor(0.96, 0.85, 0.66, 1)
     search:SetMaxLetters(50)
     local searchBackground = search:CreateTexture(nil, "BACKGROUND")
@@ -500,8 +496,15 @@ function addon.Options:Create()
     end
     -- Hint must be a child of the EditBox: the previous sibling was hidden
     -- behind the edit box background, making the field appear empty.
+    local searchIcon = search:CreateTexture(nil, "ARTWORK")
+    searchIcon:SetSize(15, 15)
+    searchIcon:SetPoint("LEFT", search, "LEFT", 7, 0)
+    searchIcon:SetTexture("Interface\\Icons\\INV_Misc_Spyglass_03")
+    searchIcon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+    searchIcon:SetDesaturated(true)
+    searchIcon:SetVertexColor(0.88, 0.73, 0.49, 0.9)
     local searchHint = CreateLabel(search, "Search...", "GameFontHighlightSmall")
-    searchHint:SetPoint("LEFT", search, "LEFT", 9, 0)
+    searchHint:SetPoint("LEFT", search, "LEFT", 27, 0)
     searchHint:SetTextColor(0.83, 0.72, 0.57, 0.9)
     local searchEmpty = CreateLabel(nav, "No matching categories", "GameFontHighlightSmall")
     searchEmpty:SetPoint("TOPLEFT", nav, "TOPLEFT", 9, -49)
@@ -525,18 +528,31 @@ function addon.Options:Create()
     separator:SetPoint("BOTTOMLEFT", contentFrame, "BOTTOMLEFT", -10, 0)
 
     CreateNavigationButton(nav, "General", "General", -40)
-    CreateNavigationButton(nav, "Quality of Life", "Quality of Life", -71)
-    CreateNavigationButton(nav, "Profiles", "Profiles", -102)
-    CreateNavigationButton(nav, "UnitFrames", "UnitFrames", -133)
-    CreateNavigationButton(nav, "Nameplates", "Nameplates", -164)
-    CreateNavigationButton(nav, "ActionBars", "ActionBars", -195)
-    CreateNavigationButton(nav, "Chat", "Chat", -226)
-    CreateNavigationButton(nav, "Quest", "Quest", -257)
-    CreateNavigationButton(nav, "Gathering", "Gathering", -288)
-    CreateNavigationButton(nav, "Minimap", "Minimap", -319)
-    CreateNavigationButton(nav, "Tooltip", "Tooltip", -350)
-    CreateNavigationButton(nav, "Combat", "Combat", -381)
-    CreateNavigationButton(nav, "BugTab", "BugTab", -412)
+    CreateNavigationButton(nav, "Quality of Life", "Quality of Life", -69)
+    CreateNavigationButton(nav, "Profiles", "Profiles", -98)
+    CreateNavigationButton(nav, "UnitFrames", "UnitFrames", -127)
+    CreateNavigationButton(nav, "Nameplates", "Nameplates", -156)
+    CreateNavigationButton(nav, "ActionBars", "ActionBars", -185)
+    CreateNavigationButton(nav, "Chat", "Chat", -214)
+    CreateNavigationButton(nav, "Quest", "Quest", -243)
+    CreateNavigationButton(nav, "Gathering", "Gathering", -272)
+    CreateNavigationButton(nav, "Minimap", "Minimap", -301)
+    CreateNavigationButton(nav, "Tooltip", "Tooltip", -330)
+    CreateNavigationButton(nav, "Combat", "Combat", -359)
+    CreateNavigationButton(nav, "BugTab", "BugTab", -388)
+
+    local historyButton = CreateFrame("Button", nil, nav)
+    historyButton:SetSize(170, 18)
+    historyButton:SetPoint("TOPLEFT", nav, "TOPLEFT", 4, -425)
+    local historyLabel = CreateLabel(historyButton, "Version History  |  v" .. (addon.version or "0.1.1"), "GameFontHighlightSmall")
+    historyLabel:SetPoint("LEFT", historyButton, "LEFT", 8, 0)
+    historyLabel:SetTextColor(0.62, 0.58, 0.53)
+    historyButton:SetScript("OnClick", function() ShowPage("Version History") end)
+    historyButton:SetScript("OnEnter", function() historyLabel:SetTextColor(0.92, 0.80, 0.60) end)
+    historyButton:SetScript("OnLeave", function() historyLabel:SetTextColor(0.62, 0.58, 0.53) end)
+    local helpLabel = CreateLabel(nav, "Type /bazi help for commands", "GameFontHighlightSmall")
+    helpLabel:SetPoint("TOPLEFT", nav, "TOPLEFT", 12, -447)
+    helpLabel:SetTextColor(0.64, 0.59, 0.53)
 
     local navigationOrder = {"General", "Quality of Life", "Profiles", "UnitFrames", "Nameplates", "ActionBars", "Chat", "Quest", "Gathering", "Minimap", "Tooltip", "Combat", "BugTab"}
     local function UpdateSearch()
@@ -547,7 +563,7 @@ function addon.Options:Create()
             local button = navButtons[name]
             if string.find(string.lower(name), query, 1, true) then
                 button:ClearAllPoints()
-                button:SetPoint("TOPLEFT", nav, "TOPLEFT", 4, -40 - shown * 31)
+                button:SetPoint("TOPLEFT", nav, "TOPLEFT", 4, -40 - shown * 29)
                 button:Show()
                 shown = shown + 1
             else
@@ -555,6 +571,8 @@ function addon.Options:Create()
             end
         end
         searchEmpty:SetShown(shown == 0)
+        historyButton:SetShown(query == "")
+        helpLabel:SetShown(query == "")
     end
     search:SetScript("OnTextChanged", UpdateSearch)
     search:SetScript("OnEditFocusGained", UpdateSearch)
