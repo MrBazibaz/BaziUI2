@@ -155,8 +155,8 @@ function addon.Options:Create()
     local shadowFile=ASSET.."Effects\\Window_Shadow.png"
     local shadowSize=36
     local shadowFrame=CreateFrame("Frame","BaziUIWindowShadow",UIParent)
-    shadowFrame:SetFrameStrata("DIALOG")
-    shadowFrame:SetFrameLevel(math.max(0,frame:GetFrameLevel()-1))
+    shadowFrame:SetFrameStrata("TOOLTIP")
+    shadowFrame:SetFrameLevel(100)
     shadowFrame:SetScale(frame:GetScale())
     shadowFrame:SetSize(1140+shadowSize*2,740+shadowSize*2)
     shadowFrame:SetPoint("CENTER",frame,"CENTER",0,0)
