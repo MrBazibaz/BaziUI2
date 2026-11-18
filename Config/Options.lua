@@ -431,28 +431,6 @@ function addon.Options:Create()
     title:SetFontObject("GameFontNormalLarge")
     title:SetJustifyH("CENTER")
 
-    -- The displayed version also opens the changelog. Keep it independent
-    -- of SavedVariables and the native frame artwork.
-    local versionButton = CreateFrame("Button", nil, optionsFrame)
-    versionButton:SetSize(62, 22)
-    versionButton:SetPoint("LEFT", title, "RIGHT", 9, 0)
-    local versionText = CreateLabel(versionButton, "v" .. (addon.version or "0.1.1"), "GameFontHighlightSmall")
-    versionText:SetPoint("CENTER")
-    versionText:SetTextColor(0.79, 0.69, 0.52)
-    versionButton:SetScript("OnEnter", function()
-        versionText:SetTextColor(1, 0.85, 0.58)
-        if GameTooltip then
-            GameTooltip:SetOwner(versionButton, "ANCHOR_RIGHT")
-            GameTooltip:SetText("Version History")
-            GameTooltip:Show()
-        end
-    end)
-    versionButton:SetScript("OnLeave", function()
-        versionText:SetTextColor(0.79, 0.69, 0.52)
-        if GameTooltip then GameTooltip:Hide() end
-    end)
-    -- Changelog is opened from the sidebar footer instead.
-
     local close = CreateFrame("Button", nil, optionsFrame, "UIPanelCloseButton")
     -- Keep the close button inside the header border.
     close:SetPoint("TOPRIGHT", optionsFrame, "TOPRIGHT", -4, 2)
