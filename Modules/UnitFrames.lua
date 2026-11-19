@@ -89,7 +89,9 @@ local function layout(f, settings)
     f.rimMask:SetSize(rimSize, rimSize)
     f.portrait:SetSize(innerSize, innerSize)
     f.portraitBack:SetSize(innerSize, innerSize)
-    f.model:SetSize(innerSize, innerSize)
+    -- A PlayerModel cannot use a texture mask. Keep its square viewport
+    -- inscribed inside the circular opening so corners cannot escape the ring.
+    f.model:SetSize(innerSize * 0.70, innerSize * 0.70)
     f.portraitMask:SetSize(innerSize, innerSize)
     f.backMask:SetSize(innerSize, innerSize)
     f.levelDisc:SetSize(portraitSize / 2, portraitSize / 2)
@@ -121,12 +123,15 @@ local function update(f)
     -- UnitHealth can be a secret number in Forever. Do not compare or calculate it in Lua.
     f.value:SetText("")
     SetPortraitTexture(f.portrait, f.unit)
+    -- Zoom the 2D portrait texture itself, without shifting the circular mask.
+    -- This reduces the uneven dark crescent from the source portrait crop.
+    f.portrait:SetTexCoord(0.07, 0.93, 0.07, 0.93)
     local settings = cfg()
     local own = settings and unitSettings(settings, f.unit)
     if own and own.portrait3D then
         local ok = pcall(function()
             f.model:SetUnit(f.unit)
-            f.model:SetPortraitZoom(1)
+            f.model:SetPortraitZoom(1.2)
             f.model:SetCamDistanceScale(1)
         end)
         if ok then
