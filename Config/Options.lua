@@ -392,9 +392,14 @@ local function CreateUnitFramesPage()
             local moveLabel = CreateLabel(panel, "Move UnitFrames", "GameFontHighlight")
             moveLabel:SetPoint("LEFT", move, "RIGHT", 5, 0)
             move:SetScript("OnClick", function(self)
-                if not addon.UnitFrames:SetMoveMode(self:GetChecked()) then
+                local enabled=self:GetChecked()==true
+                if not addon.UnitFrames:SetMoveMode(enabled) then
                     self:SetChecked(addon.UnitFrames:IsMoveMode())
                     addon:Print("Cannot move unit frames during combat.")
+                    return
+                end
+                for _,module in ipairs({addon.BossFrames,addon.PartyFrames,addon.RaidFrames}) do
+                    if module and module.SetMoveMode then module:SetMoveMode(enabled) end
                 end
             end)
             page:HookScript("OnShow", function() move:SetChecked(addon.UnitFrames:IsMoveMode()) end)
