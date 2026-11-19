@@ -21,7 +21,7 @@ local defaults = {
             clockFont = {font = "GLOBAL", outline = "NONE", size = 12, shadow = true},
             infoFont = {font = "GLOBAL", outline = "NONE", size = 11, shadow = true},
         },
-        unitframes = {player=false, target=false, focus=false, pet=false, hideBlizzard=false, scale=1, barWidth=162, hpHeight=23, powerHeight=9},
+        unitframes = {player=false, target=false, focus=false, pet=false, hideBlizzard=false, scale=1, barWidth=162, hpHeight=23, powerHeight=9, portraitSize=48},
         tooltip = {
             enabled = true, anchor = "corner", x = -30, y = 130,
             scale = 1, opacity = 1, healthBar = "below",
