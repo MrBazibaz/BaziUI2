@@ -18,15 +18,19 @@ local movers = {}
 local moving = false
 local previewIndicators = false
 local previewPetCast = false
-local auraPreview = { buffs = false, debuffs = false }
-function M:SetTargetAuraPreview(kind, enabled)
-    if kind ~= "buffs" and kind ~= "debuffs" then return end
-    auraPreview[kind] = enabled == true
+local auraPreview = {}
+function M:SetAuraPreview(key, kind, enabled)
+    if not units[key] or (kind ~= "buffs" and kind ~= "debuffs") then return end
+    auraPreview[key] = auraPreview[key] or {}
+    auraPreview[key][kind] = enabled == true
     self:Refresh()
 end
+function M:SetTargetAuraPreview(kind, enabled)
+    self:SetAuraPreview("target", kind, enabled)
+end
 function M:ClearTargetAuraPreviews()
-    auraPreview.buffs, auraPreview.debuffs = false, false
-    self:Refresh()
+    self:SetAuraPreview("target", "buffs", false)
+    self:SetAuraPreview("target", "debuffs", false)
 end
 
 local indicatorNames = {"pvpIcon", "leaderIcon", "raidIcon", "roleIcon", "classIcon", "happinessIcon"}
@@ -85,8 +89,8 @@ local function unitSettings(settings, key)
     end
     return own
 end
-local function updateTargetAuraPreview(f)
-    if not f or f.unit ~= "target" then return end
+local function updateAuraPreview(f)
+    if not f then return end
     if not f.auraPreview then
         f.auraPreview = {}
         for _, kind in ipairs({"buffs", "debuffs"}) do
@@ -104,7 +108,7 @@ local function updateTargetAuraPreview(f)
             f.auraPreview[kind] = group
         end
     end
-    local own = unitSettings(cfg() or {}, "target")
+    local own = unitSettings(cfg() or {}, f.unit)
     for _, kind in ipairs({"buffs", "debuffs"}) do
         local group = f.auraPreview[kind]
         local opt = own["aura_" .. kind] or {}
@@ -114,9 +118,9 @@ local function updateTargetAuraPreview(f)
         local spacing = math.max(0, math.min(20, tonumber(opt.spacing) or 2))
         group:ClearAllPoints()
         group:SetPoint("TOPLEFT", f, "TOPLEFT", tonumber(opt.x) or 0, tonumber(opt.y) or (kind == "buffs" and 32 or -58))
-        group:SetShown(auraPreview[kind])
+        group:SetShown(auraPreview[f.unit] and auraPreview[f.unit][kind] == true)
         for i, tile in ipairs(group.tiles) do
-            tile:SetShown(auraPreview[kind] and i <= math.min(count, #group.tiles))
+            tile:SetShown(auraPreview[f.unit] and auraPreview[f.unit][kind] == true and i <= math.min(count, #group.tiles))
             tile:SetSize(size, size)
             tile:ClearAllPoints()
             local col, row = (i-1) % perRow, math.floor((i-1)/perRow)
@@ -903,7 +907,7 @@ function M:Refresh()
         local f = frames[key]
         if f and not (InCombatLockdown and InCombatLockdown()) then
             layout(f, unitSettings(settings, key))
-            if key == "target" then updateTargetAuraPreview(f) end
+            updateAuraPreview(f)
             update(f)
             applyPosition(f, settings, key)
             if settings.enabled ~= false and settings[key] then
