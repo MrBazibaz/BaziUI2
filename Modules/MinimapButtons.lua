@@ -97,10 +97,14 @@ local function makeMenu()
                 button:SetScript("OnClick", function()
                     if InCombatLockdown and InCombatLockdown() then return end
                     menu:Hide()
-                    if ToggleGameMenu then
-                        ToggleGameMenu()
-                    elseif GameMenuFrame then
-                        if GameMenuFrame:IsShown() then GameMenuFrame:Hide() else GameMenuFrame:Show() end
+                    -- Do not show/hide Blizzard's protected GameMenuFrame directly.
+                    -- Run the standard toggle after our own click handler unwinds.
+                    if C_Timer and C_Timer.After then
+                        C_Timer.After(0, function()
+                            if not InCombatLockdown() and ToggleGameMenu then
+                                ToggleGameMenu()
+                            end
+                        end)
                     end
                 end)
             else
