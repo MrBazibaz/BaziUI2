@@ -30,6 +30,11 @@ local function update(f)
     f.value:SetText("")
     SetPortraitTexture(f.portrait, f.unit)
     if f.model then
+        -- Safety: PlayerModel may render outside its viewport on Forever.
+        -- Keep the masked 2D portrait until a reliably clipped 3D implementation exists.
+        f.model:Hide()
+        f.portrait:Show()
+    elseif false then
         local ok = pcall(function()
             f.model:SetUnit(f.unit)
             f.model:SetPortraitZoom(1)
