@@ -332,14 +332,14 @@ local function CreateUnitFramesPage()
         tabButtons[name] = button
     end
 
-    for _, entry in ipairs({{"General",nil},{"Player","player"},{"Target","target"},{"Focus","focus"},{"Pet","pet"},{"Target of Target","targettarget"},{"Target of Target","targettarget"}}) do
+    for _, entry in ipairs({{"General",nil},{"Player","player"},{"Target","target"},{"Focus","focus"},{"Pet","pet"},{"Target of Target","targettarget"}}) do
         local name, key = entry[1], entry[2]
         local viewport = CreateFrame("ScrollFrame", nil, main)
         viewport:SetPoint("TOPLEFT", main, "TOPLEFT", 10, -12)
         viewport:SetPoint("BOTTOMRIGHT", main, "BOTTOMRIGHT", -10, 10)
         viewport:EnableMouseWheel(true)
         local panel = CreateFrame("Frame", nil, viewport)
-        panel:SetHeight(name == "General" and 300 or 490)
+        panel:SetHeight(name == "General" and 330 or 490)
         panel:SetWidth(500)
         viewport:SetScrollChild(panel)
         viewport:SetScript("OnSizeChanged", function(self) panel:SetWidth(math.max(1, self:GetWidth())) end)
@@ -351,7 +351,7 @@ local function CreateUnitFramesPage()
         if name == "General" then
             CreateSection(panel, "VISIBLE UNIT FRAMES", -12)
             CreateDivider(panel, -45)
-            for i, item in ipairs({{"Player","player"},{"Target","target"},{"Focus","focus"},{"Pet","pet"}}) do
+            for i, item in ipairs({{"Player","player"},{"Target","target"},{"Focus","focus"},{"Pet","pet"},{"Target of Target","targettarget"}}) do
                 local check = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
                 check:SetSize(25,25)
                 check:SetPoint("TOPLEFT", panel, "TOPLEFT", 16, -60-(i-1)*36)
@@ -367,7 +367,7 @@ local function CreateUnitFramesPage()
             end
             local move = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
             move:SetSize(25,25)
-            move:SetPoint("TOPLEFT", panel, "TOPLEFT", 16, -212)
+            move:SetPoint("TOPLEFT", panel, "TOPLEFT", 16, -252)
             local moveLabel = CreateLabel(panel, "Move UnitFrames", "GameFontHighlight")
             moveLabel:SetPoint("LEFT", move, "RIGHT", 5, 0)
             move:SetScript("OnClick", function(self)
