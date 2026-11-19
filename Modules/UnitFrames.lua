@@ -280,6 +280,32 @@ local function create(key, spec)
         end
     end)
     frames[key] = f
+    local mover = CreateFrame("Button", nil, UIParent, "BackdropTemplate")
+    mover:SetSize(224, 48)
+    mover:SetFrameStrata("DIALOG")
+    mover:SetBackdrop({bgFile="Interface\\Buttons\\WHITE8X8", edgeFile="Interface\\Tooltips\\UI-Tooltip-Border", edgeSize=12})
+    mover:SetBackdropColor(0.22, 0.10, 0.32, 0.65)
+    mover:SetBackdropBorderColor(0.85, 0.65, 0.35, 1)
+    local title = mover:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    title:SetPoint("CENTER")
+    title:SetText("Move " .. key)
+    mover:SetMovable(true)
+    mover:EnableMouse(true)
+    mover:RegisterForDrag("LeftButton")
+    mover:SetScript("OnDragStart", function(self)
+        if InCombatLockdown and InCombatLockdown() then return end
+        self:StartMoving()
+    end)
+    mover:SetScript("OnDragStop", function(self)
+        self:StopMovingOrSizing()
+        local x, y = self:GetCenter()
+        local cx, cy = UIParent:GetCenter()
+        if x and y and cx and cy then
+            M:SetPosition(key, math.floor(x - cx + 0.5), math.floor(y - cy + 0.5))
+        end
+    end)
+    mover:Hide()
+    movers[key] = mover
     layout(f, unitSettings(cfg() or {}, key))
     update(f)
 end
