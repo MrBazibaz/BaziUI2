@@ -197,7 +197,11 @@ local function layout(f, settings)
         -- The XP marks sit INSIDE the bronze rim's annulus, not outside it.
         -- Their radial thickness scales with the portrait ring itself.
         local tickHeight = rimSize * 0.085
-        local radius = rimSize * 0.445
+        -- The gold atlas rim has a narrower visible annulus at small
+        -- portrait sizes. Inset the XP ticks at 36, blending back to the
+        -- approved geometry at 60+. Rotation and tick width stay unchanged.
+        local smallInset = 3 * math.max(0, math.min(1, (60 - portraitSize) / 24))
+        local radius = rimSize * 0.445 - smallInset
         local count = #f.petXPRing.segments
         -- Calculate the badge position from its actual anchor rather than
         -- guessing a fixed angle. Its centre is offset from the portrait's
