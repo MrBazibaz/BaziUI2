@@ -210,7 +210,7 @@ local function layout(f, settings)
         local step = sweep / math.max(1, count - 1)
         -- Start at the upper edge of the level badge opening. Clockwise
         -- movement uses decreasing polar angles, ending below the badge.
-        local startAngle = badgeAngle - gapHalf
+        local startAngle = badgeAngle - gapHalf - math.rad(14)
         local tickWidth = math.min(rimSize * 0.048, radius * step * 0.78)
         tickWidth = math.max(2, tickWidth)
         for i, segment in ipairs(f.petXPRing.segments) do
@@ -502,15 +502,15 @@ local function createPetExtras(f)
     f:HookScript("OnUpdate", function(self)
         local ring = self.petXPRing
         local overRing = false
-        if ring and ring:IsShown() and self:IsMouseOver() then
+        if ring and ring:IsShown() then
             local cx, cy = self.portraitAnchor:GetCenter()
             if cx and cy then
-                local scale = UIParent:GetEffectiveScale()
+                local scale = self.portraitAnchor:GetEffectiveScale()
                 local mx, my = GetCursorPosition()
                 local dx, dy = mx / scale - cx, my / scale - cy
-                local radius = (self.rim:GetWidth() or 0) * 0.49
+                local radius = (self.rim:GetWidth() or 0) * 0.445
                 local distance = math.sqrt(dx * dx + dy * dy)
-                overRing = distance >= radius - 5 and distance <= radius + 9
+                overRing = distance >= radius - 7 and distance <= radius + 7
             end
         end
         if overRing == self.xpTooltipActive then return end
