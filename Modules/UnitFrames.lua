@@ -17,10 +17,15 @@ local frames = {}
 local movers = {}
 local moving = false
 local previewIndicators = false
+local previewPetCast = false
 local indicatorNames = {"pvpIcon", "leaderIcon", "raidIcon", "roleIcon", "classIcon", "happinessIcon"}
 local indicatorFields = {"pvp", "leader", "raid", "role", "classification", "happiness"}
 function M:SetIndicatorPreview(enabled)
     previewIndicators = enabled == true
+    self:Refresh()
+end
+function M:SetPetCastPreview(enabled)
+    previewPetCast = enabled == true
     self:Refresh()
 end
 local function position(settings, key)
@@ -456,7 +461,15 @@ updatePetExtras = function(f)
         channel = true
     end
     local casting = name ~= nil and startTime ~= nil and endTime ~= nil
-    f.petCast:SetShown(own.showPetCast ~= false and casting)
+    f.petCast:SetShown(own.showPetCast ~= false and (casting or previewPetCast))
+    if previewPetCast and not casting then
+        f.petCast.startTime = nil
+        f.petCast.endTime = nil
+        f.petCast:SetMinMaxValues(0, 1)
+        f.petCast:SetValue(0.65)
+        f.petCast.label:SetText("Pet Cast Preview")
+        f.petCast:SetStatusBarColor(0.72, 0.43, 0.20)
+    end
     if casting then
         f.petCast.startTime = startTime
         f.petCast.endTime = endTime
@@ -503,7 +516,7 @@ local function createPetExtras(f)
         background:SetColorTexture(0.12, 0.045, 0.13, 0.22)
         ring.backgrounds[i] = background
         local segment = ring:CreateTexture(nil, "OVERLAY")
-        segment:SetColorTexture(0.60, 0.08, 0.65, 1)
+        segment:SetColorTexture(0.73, 0.14, 0.80, 1)
         ring.segments[i] = segment
     end
     f.petXPRing = ring
