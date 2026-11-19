@@ -247,142 +247,72 @@ local function CreateUnitFramesPage()
     local page = CreateFrame("Frame", nil, contentFrame)
     page:SetAllPoints(contentFrame)
     pages["UnitFrames"] = page
-    local panel = CreatePanel(page, -12, 510)
-    CreateSection(panel, "UNIT FRAMES — FIRST TEST", -14)
-    CreateDivider(panel, -48)
-    local note = CreateLabel(panel, "Opt-in test frames. Blizzard frames remain visible until replacement is verified.", "GameFontHighlightSmall")
-    note:SetPoint("TOPLEFT", panel, "TOPLEFT", 22, -65)
-    note:SetTextColor(0.89, 0.73, 0.52)
-    local hideOriginal = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
-    hideOriginal:SetSize(24, 24)
-    hideOriginal:SetPoint("TOPLEFT", panel, "TOPLEFT", 22, -322)
-    local hideText = CreateLabel(panel, "Hide original Blizzard frames (test)", "GameFontHighlight")
-    hideText:SetPoint("LEFT", hideOriginal, "RIGHT", 6, 0)
-    hideOriginal:SetScript("OnClick", function(self)
-        addon.db.profile.unitframes.hideBlizzard = not not self:GetChecked()
-        if addon.UnitFrames then addon.UnitFrames:Refresh() end
-    end)
-    page:HookScript("OnShow", function()
-        hideOriginal:SetChecked(addon.db.profile.unitframes.hideBlizzard)
-    end)
-    local labels = {{"player","Player"},{"target","Target"},{"focus","Focus"},{"pet","Pet"}}
-    for i, item in ipairs(labels) do
-        local key, title = item[1], item[2]
-        local check = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
-        check:SetSize(24,24)
-        check:SetPoint("TOPLEFT", panel, "TOPLEFT", 22, -92 - (i-1)*39)
-        local caption = CreateLabel(panel, title, "GameFontHighlight")
-        caption:SetPoint("LEFT", check, "RIGHT", 6, 0)
-        check:SetScript("OnClick", function(self)
-            addon.db.profile.unitframes[key] = not not self:GetChecked()
+    local db = addon.db.profile.unitframes
+    local overview = CreatePanel(page, -12, 260)
+    CreateSection(overview, "UNIT FRAMES", -14)
+    CreateDivider(overview, -48)
+
+    local function check(parent, title, key, y)
+        local box = CreateFrame("CheckButton", nil, parent, "UICheckButtonTemplate")
+        box:SetSize(24, 24)
+        box:SetPoint("TOPLEFT", parent, "TOPLEFT", 22, y)
+        local label = CreateLabel(parent, title, "GameFontHighlight")
+        label:SetPoint("LEFT", box, "RIGHT", 6, 0)
+        box:SetScript("OnClick", function(self)
+            db[key] = not not self:GetChecked()
             if addon.UnitFrames then addon.UnitFrames:Refresh() end
         end)
-        page:HookScript("OnShow", function()
-            check:SetChecked(addon.db.profile.unitframes[key])
-        end)
+        page:HookScript("OnShow", function() box:SetChecked(db[key] ~= false) end)
+        box:SetChecked(db[key] ~= false)
+        return box
     end
-    local scaleLabel = CreateLabel(panel, "Scale (%)", "GameFontNormal")
-    scaleLabel:SetPoint("TOPLEFT", panel, "TOPLEFT", 22, -271)
-    local edit = CreateFrame("EditBox", nil, panel)
-    edit:SetSize(64,24)
-    edit:SetPoint("LEFT", scaleLabel, "RIGHT", 12, 0)
-    edit:SetAutoFocus(false)
-    edit:SetNumeric(true)
-    edit:SetMaxLetters(3)
-    edit:SetFontObject("GameFontNormal")
-    edit:SetTextColor(1,0.81,0.45)
-    edit:SetJustifyH("CENTER")
-    local bg = edit:CreateTexture(nil,"BACKGROUND")
-    bg:SetAllPoints()
-    bg:SetColorTexture(0.11,0.065,0.04,0.95)
-    local function refresh()
-        edit:SetText(tostring(math.floor((addon.db.profile.unitframes.scale or 1)*100+0.5)))
+    check(overview, "Enable Unit Frames module", "enabled", -65)
+    local names = {{"player","Player"},{"target","Target"},{"focus","Focus"},{"pet","Pet"}}
+    for i, entry in ipairs(names) do
+        local key, title = entry[1], entry[2]
+        local toggle = check(overview, title, key, -105 - (i-1)*34)
+        page:HookScript("OnShow", function() toggle:SetChecked(db[key] == true) end)
+        toggle:SetChecked(db[key] == true)
     end
-    edit:SetScript("OnEnterPressed", function(self)
-        local value = tonumber(self:GetText())
-        if value then
-            addon.db.profile.unitframes.scale = math.max(0.75,math.min(1.65,value/100))
-            if addon.UnitFrames then addon.UnitFrames:Refresh() end
-        end
-        self:ClearFocus()
-        refresh()
-    end)
-    edit:SetScript("OnEscapePressed", function(self) self:ClearFocus(); refresh() end)
-    edit:SetScript("OnMouseDown", function(self, button)
-        if button ~= "LeftButton" then return end
-        local now = GetTime()
-        if self.lastClick and now - self.lastClick < 0.35 then self:SetFocus(); self:HighlightText() end
-        self.lastClick = now
-    end)
-    page:HookScript("OnShow", refresh)
-    refresh()
-    -- Live sliders and editable values for all four unit frame dimensions.
-    local dimensionControls = {
-        {"barWidth", "HP / Mana width", 100, 400, -352},
-        {"hpHeight", "HP height", 12, 45, -390},
-        {"powerHeight", "Mana / Power height", 4, 30, -428},
-        {"portraitSize", "Portrait size", 36, 90, -466},
+
+    local playerPanel = CreatePanel(page, -12, 470)
+    playerPanel:Hide()
+    playerPanel:ClearAllPoints()
+    playerPanel:SetPoint("TOPLEFT", page, "TOPLEFT", 12, -12)
+    playerPanel:SetPoint("TOPRIGHT", page, "TOPRIGHT", -12, -12)
+    CreateSection(playerPanel, "PLAYER FRAME", -14)
+    CreateDivider(playerPanel, -48)
+    local back = CreateFrame("Button", nil, playerPanel, "UIPanelButtonTemplate")
+    back:SetSize(95, 24)
+    back:SetPoint("TOPRIGHT", playerPanel, "TOPRIGHT", -18, -15)
+    back:SetText("Back")
+    back:SetScript("OnClick", function() playerPanel:Hide(); overview:Show() end)
+    local hide = check(playerPanel, "Hide original Blizzard frames (test)", "hideBlizzard", -62)
+    local settings = {
+        {"barWidth", "HP / Mana width", "Width of both bars", 100, 400},
+        {"hpHeight", "HP height", "Health bar height", 12, 45},
+        {"powerHeight", "Mana / Power height", "Resource bar height", 4, 30},
+        {"portraitSize", "Portrait size", "Portrait and ring size", 36, 90},
+        {"portraitX", "Portrait X", "Horizontal portrait offset", -80, 80},
+        {"portraitY", "Portrait Y", "Vertical portrait offset", -80, 80},
     }
-    for _, item in ipairs(dimensionControls) do
-        local key, title, minimum, maximum, y = unpack(item)
-        local caption = CreateLabel(panel, title, "GameFontNormal")
-        caption:SetPoint("TOPLEFT", panel, "TOPLEFT", 22, y)
-        local slider = CreateFrame("Slider", nil, panel, "OptionsSliderTemplate")
-        slider:SetPoint("TOPLEFT", panel, "TOPLEFT", 212, y + 4)
-        slider:SetSize(110, 16)
-        slider:SetMinMaxValues(minimum, maximum)
-        slider:SetValueStep(1)
-        if slider.SetObeyStepOnDrag then slider:SetObeyStepOnDrag(true) end
-        local field = CreateFrame("EditBox", nil, panel)
-        field:SetSize(58, 23)
-        field:SetPoint("LEFT", slider, "RIGHT", 15, 0)
-        field:SetAutoFocus(false)
-        field:SetNumeric(true)
-        field:SetMaxLetters(3)
-        field:SetFontObject("GameFontNormal")
-        field:SetTextColor(1, 0.81, 0.45)
-        field:SetJustifyH("CENTER")
-        local backing = field:CreateTexture(nil, "BACKGROUND")
-        backing:SetAllPoints()
-        backing:SetColorTexture(0.11, 0.065, 0.04, 0.95)
-        local syncing = false
-        local function sync()
-            local value = addon.db.profile.unitframes[key] or minimum
-            syncing = true
-            slider:SetValue(value)
-            field:SetText(tostring(value))
-            syncing = false
-        end
-        local function apply(value)
-            value = math.floor(math.max(minimum, math.min(maximum, value)) + 0.5)
-            addon.db.profile.unitframes[key] = value
-            field:SetText(tostring(value))
-            if addon.UnitFrames then addon.UnitFrames:Refresh() end
-        end
-        slider:SetScript("OnValueChanged", function(_, value)
-            if not syncing then apply(value) end
+    for i, entry in ipairs(settings) do
+        local key, title, hint, low, high = unpack(entry)
+        local slider = CreateSlider(playerPanel, title, hint, low, high, 1, db[key] or 0,
+            -105 - (i-1)*54, function(value)
+                db[key] = value
+                if addon.UnitFrames then addon.UnitFrames:Refresh() end
+            end, false)
+        page:HookScript("OnShow", function()
+            if not slider:IsDraggingThumb() then slider:SetValue(db[key] or 0) end
         end)
-        field:SetScript("OnEnterPressed", function(self)
-            local number = tonumber(self:GetText())
-            if number then
-                apply(number)
-                sync()
-            end
-            self:ClearFocus()
-        end)
-        field:SetScript("OnEscapePressed", function(self) self:ClearFocus(); sync() end)
-        field:SetScript("OnMouseDown", function(self, button)
-            if button ~= "LeftButton" then return end
-            local now = GetTime()
-            if self.lastClick and now - self.lastClick < 0.35 then
-                self:SetFocus()
-                self:HighlightText()
-            end
-            self.lastClick = now
-        end)
-        page:HookScript("OnShow", sync)
-        sync()
     end
+    local openPlayer = CreateFrame("Button", nil, overview, "UIPanelButtonTemplate")
+    openPlayer:SetSize(100, 24)
+    openPlayer:SetPoint("TOPRIGHT", overview, "TOPRIGHT", -20, -107)
+    openPlayer:SetText("Player settings")
+    openPlayer:SetScript("OnClick", function() overview:Hide(); playerPanel:Show() end)
+    page:HookScript("OnHide", function() playerPanel:Hide(); overview:Show() end)
     return page
 end
 
