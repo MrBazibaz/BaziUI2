@@ -561,7 +561,7 @@ local function CreateUnitFramesPage()
                 for label, button in pairs(sectionButtons) do
                     button.fill:SetColorTexture(label == selected and 0.36 or 0.25, label == selected and 0.20 or 0.13, label == selected and 0.28 or 0.07, 1)
                 end
-                root:SetHeight((key=="party" or key=="boss") and (selected=="Layout" and 1350 or selected=="Indicators" and 1350 or selected=="Bar Text" and 820 or selected=="Buffs / Debuffs" and 1230 or 580) or 610)
+                root:SetHeight((key=="party" or key=="boss") and (selected=="Layout" and 1350 or selected=="Indicators" and 1350 or selected=="Bar Text" and 820 or selected=="Buffs / Debuffs" and 1230 or 580) or (key=="raid" and selected=="Layout" and 820 or 610))
                 viewport:SetVerticalScroll(0)
             end
             for i, label in ipairs({"Layout","Indicators","Bar Text","Fonts","Buffs / Debuffs"}) do
@@ -656,7 +656,7 @@ local function CreateUnitFramesPage()
                 setting("Name font size (0 hides)","nameFontSize",11,0,22,1,270,-320)
             end
             if key=="raid" then
-                setting("Vertical spacing","verticalSpacing",8,0,80,1,270,-255,true)
+                setting("Vertical spacing","verticalSpacing",8,0,80,1,270,-580,true)
                 setting("Columns","columns",5,1,8,1,16,-385,true)
                 setting("Horizontal offset","x",-380,-700,700,10,270,-450,true)
                 setting("Vertical offset","y",-250,-500,500,10,16,-515,true)
@@ -668,11 +668,11 @@ local function CreateUnitFramesPage()
                     {"BOTTOMRIGHT","Left / Up"},
                 }
                 local title=CreateLabel(panel,"GROUP ANCHOR","GameFontNormal")
-                title:SetPoint("TOPLEFT",panel,"TOPLEFT",270,-545)
+                title:SetPoint("TOPLEFT",panel,"TOPLEFT",270,-655)
                 title:SetTextColor(1,.79,.42)
                 local anchorButton=CreateFrame("Button",nil,panel)
                 anchorButton:SetSize(195,27)
-                anchorButton:SetPoint("TOPLEFT",panel,"TOPLEFT",270,-567)
+                anchorButton:SetPoint("TOPLEFT",panel,"TOPLEFT",270,-677)
                 local bg=anchorButton:CreateTexture(nil,"BACKGROUND")
                 bg:SetAllPoints()
                 bg:SetColorTexture(.12,.07,.045,1)
@@ -723,7 +723,7 @@ local function CreateUnitFramesPage()
                 page:HookScript("OnShow",redrawAnchor)
                 menu:Hide()
                 redrawAnchor()
-                panel:SetHeight(650)
+                panel:SetHeight(820)
             end
             local function groupRefresh()
                 refreshGroup()
