@@ -80,21 +80,13 @@ local function create(key, spec)
     -- FlareUI-style composition: compact bronze plate, circular portrait on the outer side.
     -- Uses Blizzard's own ring atlas and portrait mask, not FlareUI's excluded artwork.
     local side = (key == "player" or key == "pet") and "LEFT" or "RIGHT"
-    -- Match the minimap's Blizzard heavy-bronze atlas, with a slimmer surround.
-    -- Texture slicing preserves rounded corners instead of stretching them.
-    local border = CreateFrame("Frame", nil, f)
+    -- Use the same Blizzard tooltip border texture, but at a slimmer edge size.
+    -- Keep the existing bar geometry and portrait layering unchanged.
+    local border = CreateFrame("Frame", nil, f, "BackdropTemplate")
     border:SetAllPoints(bg)
     border:SetFrameLevel(f:GetFrameLevel() + 5)
-    local bronze = border:CreateTexture(nil, "BORDER")
-    bronze:SetAtlas("heavybronze-frame-basic")
-    bronze:SetPoint("TOPLEFT", border, "TOPLEFT", -3, 3)
-    bronze:SetPoint("BOTTOMRIGHT", border, "BOTTOMRIGHT", 3, -3)
-    if bronze.SetTextureSliceMargins then
-        bronze:SetTextureSliceMargins(12, 12, 12, 12)
-        if Enum and Enum.UITextureSliceMode then
-            bronze:SetTextureSliceMode(Enum.UITextureSliceMode.Stretched)
-        end
-    end
+    border:SetBackdrop({edgeFile="Interface\\Tooltips\\UI-Tooltip-Border", edgeSize=10})
+    border:SetBackdropBorderColor(0.58, 0.46, 0.30, 1)
     local portraitLayer = CreateFrame("Frame", nil, f)
     portraitLayer:SetAllPoints(f)
     portraitLayer:SetFrameLevel(f:GetFrameLevel() + 8)
