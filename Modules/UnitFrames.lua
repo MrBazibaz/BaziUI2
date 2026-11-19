@@ -196,18 +196,25 @@ local function layout(f, settings)
         -- tick depth modest so the XP track hugs the rim instead of floating.
         -- The XP marks sit INSIDE the bronze rim's annulus, not outside it.
         -- Their radial thickness scales with the portrait ring itself.
-        local tickWidth = math.max(2, rimSize * 0.029)
         local tickHeight = math.max(5, rimSize * 0.085)
         local radius = rimSize * 0.445
         local count = #f.petXPRing.segments
-        -- Leave a 50-degree opening around the level badge. Fill the remaining
-        -- 310 degrees clockwise, beginning immediately after that opening.
-        -- The badge is bottom-left on left portraits, bottom-right on right ones.
-        local badgeAngle = (side == "LEFT") and 225 or 315
-        local startAngle = math.rad(badgeAngle - 32)
-        local sweep = math.rad(296)
+        -- Calculate the badge position from its actual anchor rather than
+        -- guessing a fixed angle. Its centre is offset from the portrait's
+        -- bottom edge by the atlas badge placement.
+        local badgeX = (side == "LEFT") and -17 or 17
+        local badgeY = -innerSize * 0.5 + 3
+        local badgeAngle = math.atan2(badgeY, badgeX)
+        local gapHalf = math.rad(36)
+        local sweep = 2 * math.pi - 2 * gapHalf
+        local step = sweep / math.max(1, count - 1)
+        -- At the bottom edge of the badge opening the XP starts; the track
+        -- travels the long way round and finishes at the other badge edge.
+        local startAngle = badgeAngle + gapHalf
+        local tickWidth = math.min(rimSize * 0.048, radius * step * 0.78)
+        tickWidth = math.max(2, tickWidth)
         for i, segment in ipairs(f.petXPRing.segments) do
-            local angle = startAngle - (i - 1) * (sweep / math.max(1, count - 1))
+            local angle = startAngle + (i - 1) * step
             local x, y = math.cos(angle) * radius, math.sin(angle) * radius
             local background = f.petXPRing.backgrounds[i]
             for _, tile in ipairs({background, segment}) do
