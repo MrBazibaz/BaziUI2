@@ -20,5 +20,6 @@ Modules\MinimapInfo.lua
 Modules\MinimapButtons.lua
 Modules\QoLSounds.lua
 Modules\WindowResize.lua
+Modules\UnitFrames.lua
 Config\Options.lua
 Core\Commands.lua
