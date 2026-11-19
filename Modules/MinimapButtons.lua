@@ -32,14 +32,14 @@ local function makeLauncher()
     if M.Launcher or not map then return end
     local parent = cluster or map
     local b = CreateFrame("Button", "BaziUIMinimapButton", parent)
-    b:SetSize(32, 32)
+    b:SetSize(24, 24)
     b:SetFrameStrata("HIGH")
     b:SetFrameLevel(map:GetFrameLevel() + 16)
     -- The Bazi emblem already includes its own round gold ring.
     -- Render the complete asset instead of stacking a second, offset ring.
     local emblem = b:CreateTexture(nil, "ARTWORK")
     emblem:SetAllPoints(b)
-    emblem:SetTexture("Interface\\AddOns\\BaziUI\\Assets\\Icons\\BaziUI_Emblem_256.png")
+    emblem:SetTexture("Interface\\AddOns\\BaziUI\\Assets\\Icons\\BaziUI_Emblem_64.png")
     b:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
     b:SetScript("OnClick", toggleOptions)
     b:RegisterForDrag("LeftButton")
@@ -239,7 +239,8 @@ function M:Initialize()
     -- Blizzard map directly does not reliably receive middle clicks.
     local surface = CreateFrame("Frame", nil, map)
     surface:SetAllPoints(map)
-    surface:SetFrameLevel(map:GetFrameLevel() + 10)
+    surface:SetFrameStrata("HIGH")
+    surface:SetFrameLevel(map:GetFrameLevel() + 30)
     if surface.SetMouseMotionEnabled then surface:SetMouseMotionEnabled(false) end
     if surface.SetPropagateMouseMotion then surface:SetPropagateMouseMotion(true) end
     surface:EnableMouse(true)
