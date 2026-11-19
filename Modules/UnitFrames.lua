@@ -81,7 +81,8 @@ local function layout(f, settings)
     local centreX = (side == "LEFT" and -5 or 5) + (tonumber(settings.portraitX) or 0)
     local centreY = tonumber(settings.portraitY) or 0
     local rimSize = portraitSize * 62 / 48
-    local innerSize = portraitSize * 0.90
+    -- Size the circular portrait to the visible opening of the ring.
+    local innerSize = portraitSize * 1.08
     f.portraitAnchor:ClearAllPoints()
     f.portraitAnchor:SetPoint(side, f, side, centreX, centreY)
     f.rim:SetSize(rimSize, rimSize)
@@ -89,6 +90,8 @@ local function layout(f, settings)
     f.portrait:SetSize(innerSize, innerSize)
     f.portraitBack:SetSize(innerSize, innerSize)
     f.model:SetSize(innerSize, innerSize)
+    f.portraitMask:SetSize(innerSize, innerSize)
+    f.backMask:SetSize(innerSize, innerSize)
     f.levelDisc:SetSize(portraitSize / 2, portraitSize / 2)
     f.levelDisc:ClearAllPoints()
     f.levelDisc:SetPoint("BOTTOM", f.portrait, "BOTTOM", side == "LEFT" and -portraitSize * 17 / 48 or portraitSize * 17 / 48, -portraitSize * 9 / 48)
@@ -192,9 +195,10 @@ local function create(key, spec)
     portraitBack:SetColorTexture(0.075, 0.055, 0.035, 1)
     f.portraitBack = portraitBack
     local backMask = portraitLayer:CreateMaskTexture()
-    backMask:SetTexture("Interface\\\\CHARACTERFRAME\\\\TempPortraitAlphaMask", "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
+    backMask:SetTexture("Interface\\CHARACTERFRAME\\TempPortraitAlphaMask", "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
     backMask:SetAllPoints(portraitBack)
     portraitBack:AddMaskTexture(backMask)
+    f.backMask = backMask
     local portrait = portraitLayer:CreateTexture(nil, "ARTWORK")
     portrait:SetSize(48,48)
     portrait:SetPoint("CENTER", portraitAnchor, "CENTER")
@@ -202,6 +206,7 @@ local function create(key, spec)
     mask:SetTexture("Interface\\CHARACTERFRAME\\TempPortraitAlphaMask", "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
     mask:SetAllPoints(portrait)
     portrait:AddMaskTexture(mask)
+    f.portraitMask = mask
     portraitBack:ClearAllPoints()
     portraitBack:SetPoint("CENTER", portrait, "CENTER")
     f.portrait = portrait
