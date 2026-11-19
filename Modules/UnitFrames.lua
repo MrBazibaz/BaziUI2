@@ -210,7 +210,7 @@ local function layout(f, settings)
         local step = sweep / math.max(1, count - 1)
         -- Start at the upper edge of the level badge opening. Clockwise
         -- movement uses decreasing polar angles, ending below the badge.
-        local startAngle = badgeAngle - gapHalf - math.rad(14)
+        local startAngle = badgeAngle - gapHalf - math.rad(5)
         local tickWidth = math.min(rimSize * 0.048, radius * step * 0.78)
         tickWidth = math.max(2, tickWidth)
         for i, segment in ipairs(f.petXPRing.segments) do
