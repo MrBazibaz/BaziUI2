@@ -304,7 +304,7 @@ local function CreateUnitFramesPage()
                 if addon.UnitFrames then addon.UnitFrames:Refresh() end
             end, false)
         page:HookScript("OnShow", function()
-            if not slider:IsDraggingThumb() then slider:SetValue(db[key] or 0) end
+            slider:SetValue(db[key] or 0)
         end)
     end
     local openPlayer = CreateFrame("Button", nil, overview, "UIPanelButtonTemplate")
