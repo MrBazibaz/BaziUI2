@@ -4,7 +4,7 @@ BaziUI = BaziUI or namespace or {}
 local addon = BaziUI
 
 addon.name = addonName or "BaziUI"
-addon.version = "0.1.3"
+addon.version = "0.1.4"
 addon.modules = addon.modules or {}
 
 function addon:Print(message)
@@ -30,6 +30,11 @@ function addon:OnInitialize()
     -- make /bazi disappear and leave the user without access to settings.
     if self.Commands and self.Commands.Initialize then
         self.Commands:Initialize()
+    end
+
+    if self.WindowResize and self.WindowResize.Initialize then
+        local ok, err = pcall(function() self.WindowResize:Initialize() end)
+        if not ok then self:Print("Window Resize initialization failed: " .. tostring(err)) end
     end
 
     if self.Options and self.Options.Initialize then
