@@ -46,6 +46,11 @@ function addon:OnInitialize()
         if not ok then self:Print("Minimap initialization failed: " .. tostring(err)) end
     end
 
+    if self.UnitFrames and self.UnitFrames.Initialize then
+        local ok, err = pcall(function() self.UnitFrames:Initialize() end)
+        if not ok then self:Print("Unit Frames initialization failed: " .. tostring(err)) end
+    end
+
     if self.ItemLevel and self.ItemLevel.Initialize then
         local ok, err = pcall(function() self.ItemLevel:Initialize() end)
         if not ok then self:Print("Item Level initialization failed: " .. tostring(err)) end
