@@ -393,27 +393,65 @@ local function CreateUnitFramesPage()
             for _, candidate in ipairs({"Player","Target","Focus","Pet"}) do
                 if candidate ~= name then choices[#choices+1] = candidate end
             end
-            local source = choices[1]
-            local selector = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
-            selector:SetSize(140,25)
-            selector:SetPoint("TOPLEFT", panel, "TOPLEFT", 20, -370)
-            selector:SetText("From: " .. source)
-            selector:SetScript("OnClick", function()
-                for i, candidate in ipairs(choices) do
-                    if candidate == source then source = choices[i % #choices + 1]; break end
+            local function styleButton(button, title)
+                local bg = button:CreateTexture(nil, "BACKGROUND")
+                bg:SetAllPoints()
+                bg:SetColorTexture(0.23, 0.12, 0.065, 0.98)
+                for _, edgeName in ipairs({"TOP","BOTTOM","LEFT","RIGHT"}) do
+                    local edge = button:CreateTexture(nil, "BORDER")
+                    edge:SetColorTexture(0.72, 0.52, 0.27, 0.95)
+                    if edgeName == "TOP" then
+                        edge:SetPoint("TOPLEFT"); edge:SetPoint("TOPRIGHT"); edge:SetHeight(1)
+                    elseif edgeName == "BOTTOM" then
+                        edge:SetPoint("BOTTOMLEFT"); edge:SetPoint("BOTTOMRIGHT"); edge:SetHeight(1)
+                    elseif edgeName == "LEFT" then
+                        edge:SetPoint("TOPLEFT"); edge:SetPoint("BOTTOMLEFT"); edge:SetWidth(1)
+                    else
+                        edge:SetPoint("TOPRIGHT"); edge:SetPoint("BOTTOMRIGHT"); edge:SetWidth(1)
+                    end
                 end
-                selector:SetText("From: " .. source)
-            end)
-            local copy = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
-            copy:SetSize(125,25)
+                local label = CreateLabel(button, title, "GameFontNormal")
+                label:SetPoint("CENTER")
+                label:SetTextColor(1, 0.79, 0.42)
+                button:SetScript("OnEnter", function() bg:SetColorTexture(0.33, 0.18, 0.11, 0.98) end)
+                button:SetScript("OnLeave", function() bg:SetColorTexture(0.23, 0.12, 0.065, 0.98) end)
+                return label
+            end
+            local source = choices[1]
+            local selector = CreateFrame("Button", nil, panel)
+            selector:SetSize(155, 28)
+            selector:SetPoint("TOPLEFT", panel, "TOPLEFT", 20, -370)
+            local selectorText = styleButton(selector, "From: " .. source .. "  v")
+            local dropdown = CreateFrame("Frame", nil, panel)
+            dropdown:SetSize(155, #choices * 27)
+            dropdown:SetPoint("TOPLEFT", selector, "BOTTOMLEFT", 0, -2)
+            dropdown:SetFrameStrata("DIALOG")
+            dropdown:SetFrameLevel(selector:GetFrameLevel() + 20)
+            dropdown:Hide()
+            for i, candidate in ipairs(choices) do
+                local option = CreateFrame("Button", nil, dropdown)
+                option:SetSize(155, 27)
+                option:SetPoint("TOPLEFT", dropdown, "TOPLEFT", 0, -(i-1)*27)
+                styleButton(option, candidate)
+                option:SetScript("OnClick", function()
+                    source = candidate
+                    selectorText:SetText("From: " .. source .. "  v")
+                    dropdown:Hide()
+                end)
+            end
+            selector:SetScript("OnClick", function() dropdown:SetShown(not dropdown:IsShown()) end)
+            local copy = CreateFrame("Button", nil, panel)
+            copy:SetSize(145, 28)
             copy:SetPoint("LEFT", selector, "RIGHT", 12, 0)
-            copy:SetText("Copy settings")
+            styleButton(copy, "Copy settings")
             copy:SetScript("OnClick", function()
+                dropdown:Hide()
                 if addon.UnitFrames and addon.UnitFrames:CopyLayout(string.lower(source), key) then
                     syncControls[name]()
                 end
             end)
-            local note = CreateLabel(panel, "Copy appearance only; frame position stays unchanged.", "GameFontHighlightSmall")
+            local note = CreateLabel(panel, "Copies appearance only. Frame position is preserved.", "GameFontHighlightSmall")
+            note:SetTextColor(0.91, 0.78, 0.61, 1)
             note:SetPoint("TOPLEFT", panel, "TOPLEFT", 20, -408)
         end
     end
