@@ -279,7 +279,7 @@ local function CreateUnitFramesPage()
     local tabBar = CreateFrame("Frame", nil, page)
     tabBar:SetPoint("TOPLEFT", main, "TOPRIGHT", 25, 0)
     tabBar:SetFrameStrata("FULLSCREEN_DIALOG")
-    tabBar:SetSize(108, 145)
+    tabBar:SetSize(108, 174)
     local function RefreshTabs()
         copyHeader:SetShown(activeTab ~= "General")
         for name, controls in pairs(copyControls) do controls:SetShown(name == activeTab) end
@@ -299,7 +299,7 @@ local function CreateUnitFramesPage()
         for name, panel in pairs(tabPanels) do panel:SetShown(name == activeTab) end
         if syncControls[activeTab] then syncControls[activeTab]() end
     end
-    for i, name in ipairs({"General", "Player", "Target", "Focus", "Pet"}) do
+    for i, name in ipairs({"General", "Player", "Target", "Focus", "Pet", "Target of Target"}) do
         local button = CreateFrame("Button", nil, tabBar)
         button:SetSize(108, 29)
         button:SetPoint("TOPLEFT", tabBar, "TOPLEFT", 0, -(i-1)*29)
@@ -332,7 +332,7 @@ local function CreateUnitFramesPage()
         tabButtons[name] = button
     end
 
-    for _, entry in ipairs({{"General",nil},{"Player","player"},{"Target","target"},{"Focus","focus"},{"Pet","pet"}}) do
+    for _, entry in ipairs({{"General",nil},{"Player","player"},{"Target","target"},{"Focus","focus"},{"Pet","pet"},{"Target of Target","targettarget"},{"Target of Target","targettarget"}}) do
         local name, key = entry[1], entry[2]
         local viewport = CreateFrame("ScrollFrame", nil, main)
         viewport:SetPoint("TOPLEFT", main, "TOPLEFT", 10, -12)
