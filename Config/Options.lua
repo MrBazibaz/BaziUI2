@@ -247,7 +247,7 @@ local function CreateUnitFramesPage()
     local page = CreateFrame("Frame", nil, contentFrame)
     page:SetAllPoints(contentFrame)
     pages["UnitFrames"] = page
-    local panel = CreatePanel(page, -12, 430)
+    local panel = CreatePanel(page, -12, 510)
     CreateSection(panel, "UNIT FRAMES — FIRST TEST", -14)
     CreateDivider(panel, -48)
     local note = CreateLabel(panel, "Opt-in test frames. Blizzard frames remain visible until replacement is verified.", "GameFontHighlightSmall")
@@ -316,6 +316,44 @@ local function CreateUnitFramesPage()
     end)
     page:HookScript("OnShow", refresh)
     refresh()
+    -- Adjustable dimensions shared by Player, Target, Focus and Pet.
+    local dimensionControls = {
+        {"barWidth", "HP / Mana width", 100, 400, -355},
+        {"hpHeight", "HP height", 12, 45, -389},
+        {"powerHeight", "Mana / Power height", 4, 30, -423},
+    }
+    for _, item in ipairs(dimensionControls) do
+        local key, title, minimum, maximum, y = unpack(item)
+        local caption = CreateLabel(panel, title, "GameFontNormal")
+        caption:SetPoint("TOPLEFT", panel, "TOPLEFT", 22, y)
+        local field = CreateFrame("EditBox", nil, panel)
+        field:SetSize(62, 23)
+        field:SetPoint("LEFT", caption, "RIGHT", 12, 0)
+        field:SetAutoFocus(false)
+        field:SetNumeric(true)
+        field:SetMaxLetters(3)
+        field:SetFontObject("GameFontNormal")
+        field:SetTextColor(1, 0.81, 0.45)
+        field:SetJustifyH("CENTER")
+        local backing = field:CreateTexture(nil, "BACKGROUND")
+        backing:SetAllPoints()
+        backing:SetColorTexture(0.11, 0.065, 0.04, 0.95)
+        local function sync()
+            field:SetText(tostring(addon.db.profile.unitframes[key]))
+        end
+        field:SetScript("OnEnterPressed", function(self)
+            local number = tonumber(self:GetText())
+            if number then
+                addon.db.profile.unitframes[key] = math.floor(math.max(minimum, math.min(maximum, number)))
+                if addon.UnitFrames then addon.UnitFrames:Refresh() end
+            end
+            self:ClearFocus()
+            sync()
+        end)
+        field:SetScript("OnEscapePressed", function(self) self:ClearFocus(); sync() end)
+        page:HookScript("OnShow", sync)
+        sync()
+    end
     return page
 end
 
