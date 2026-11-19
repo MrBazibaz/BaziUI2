@@ -115,7 +115,7 @@ local function placeSun()
     sun:SetScale(0.9)
     sun:ClearAllPoints()
     -- In the top-right corner, clear of the header row's calendar button.
-    sun:SetPoint("TOPRIGHT", MM.Border, "TOPRIGHT", 9, 10)
+    sun:SetPoint("BOTTOMRIGHT", MM.Border, "BOTTOMRIGHT", 9, -9)
     sun:SetShown(not cfg.hideDayNight)
     placingSun = false
 end
@@ -145,14 +145,26 @@ local function headerLayout()
     if not MM.Header then
         local header = CreateFrame("Frame", nil, cluster)
         header:SetHeight(HEADER_HEIGHT)
+        header:SetFrameStrata(map:GetFrameStrata())
+        header:SetFrameLevel(map:GetFrameLevel() + 8)
         local art = header:CreateTexture(nil, "BACKGROUND")
         plate(art, header)
         MM.Header = header
+        -- Warm translucent backing above the terrain; Blizzard atlas supplies the gold edges.
+        local warm = header:CreateTexture(nil, "BORDER")
+        warm:SetAllPoints(header)
+        warm:SetColorTexture(0.17, 0.095, 0.045, 0.78)
+        MM.HeaderWarmPlate = warm
         local zone = cluster.ZoneTextButton
         if zone.StateTexture then park(zone.StateTexture) end
         if zone.AddTexture then plate(zone.AddTexture, header) end
     end
     local header, tracking, calendar = MM.Header, cluster.Tracking, _G.GameTimeFrame
+    local topLevel = map:GetFrameLevel() + 9
+    for _, widget in ipairs({tracking, calendar, cluster.ZoneTextButton}) do
+        widget:SetFrameStrata(map:GetFrameStrata())
+        widget:SetFrameLevel(topLevel)
+    end
     tracking:SetSize(HEADER_HEIGHT, HEADER_HEIGHT)
     if tracking.Background then tracking.Background:Hide() end
     if tracking.Button then
@@ -196,6 +208,7 @@ local function headerLayout()
             ticker:SetPoint("RIGHT", clock, "RIGHT", -PLATE_INSET, 0)
         end
     end
+    header:SetShown(not (cfg.hideTracking and cfg.hideZone and cfg.hideCalendar and cfg.hideClock))
     tracking:SetShown(not cfg.hideTracking)
     zone:SetShown(not cfg.hideZone)
     calendar:SetShown(not cfg.hideCalendar)
