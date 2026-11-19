@@ -659,30 +659,69 @@ local function CreateUnitFramesPage()
                 setting("Columns","columns",5,1,8,1,16,-385,true)
                 setting("Horizontal offset","x",-380,-700,700,10,270,-450,true)
                 setting("Vertical offset","y",-250,-500,500,10,16,-515,true)
-                local growth=CreateFrame("Button",nil,panel,"UIPanelButtonTemplate")
-                growth:SetSize(195,25)
-                growth:SetPoint("TOPLEFT",panel,"TOPLEFT",270,-395)
-                local function updateGrowth() growth:SetText("Growth: "..(opt.growth=="up" and "Up" or "Down")) end
-                growth:SetScript("OnClick",function()
-                    opt.growth=opt.growth=="up" and "down" or "up"
-                    updateGrowth()
-                    refreshGroup()
-                end)
-                updateGrowth()
-                local anchorButton=CreateFrame("Button",nil,panel,"UIPanelButtonTemplate")
-                anchorButton:SetSize(195,25)
-                anchorButton:SetPoint("TOPLEFT",panel,"TOPLEFT",270,-435)
-                local anchors={"TOPLEFT","TOPRIGHT","BOTTOMLEFT","BOTTOMRIGHT"}
-                local function updateAnchor() anchorButton:SetText("Anchor: "..(opt.anchor or "TOPLEFT")) end
-                anchorButton:SetScript("OnClick",function()
-                    local current=opt.anchor or "TOPLEFT"
-                    local index=1
-                    for i,v in ipairs(anchors) do if v==current then index=i break end end
-                    opt.anchor=anchors[index%#anchors+1]
-                    updateAnchor()
-                    refreshGroup()
-                end)
-                updateAnchor()
+                -- Raid group anchor: same dark/gold dropdown interaction as Tooltip.
+                local choices={
+                    {"TOPLEFT","Right / Down"},
+                    {"TOPRIGHT","Left / Down"},
+                    {"BOTTOMLEFT","Right / Up"},
+                    {"BOTTOMRIGHT","Left / Up"},
+                }
+                local title=CreateLabel(panel,"GROUP ANCHOR","GameFontNormal")
+                title:SetPoint("TOPLEFT",panel,"TOPLEFT",270,-385)
+                title:SetTextColor(1,.79,.42)
+                local anchorButton=CreateFrame("Button",nil,panel)
+                anchorButton:SetSize(195,27)
+                anchorButton:SetPoint("TOPLEFT",panel,"TOPLEFT",270,-407)
+                local bg=anchorButton:CreateTexture(nil,"BACKGROUND")
+                bg:SetAllPoints()
+                bg:SetColorTexture(.12,.07,.045,1)
+                local border=anchorButton:CreateTexture(nil,"BORDER")
+                border:SetPoint("TOPLEFT");border:SetPoint("TOPRIGHT");border:SetHeight(1)
+                border:SetColorTexture(.75,.55,.29,1)
+                local arrow=CreateLabel(anchorButton,"v","GameFontHighlightSmall")
+                arrow:SetPoint("RIGHT",anchorButton,"RIGHT",-7,0)
+                local valueText=CreateLabel(anchorButton,"","GameFontNormal")
+                valueText:SetPoint("CENTER")
+                valueText:SetTextColor(1,.79,.42)
+                local menu=CreateFrame("Frame",nil,panel)
+                menu:SetSize(195,#choices*24+4)
+                menu:SetPoint("TOPLEFT",anchorButton,"BOTTOMLEFT",0,-2)
+                menu:SetFrameStrata("FULLSCREEN_DIALOG")
+                menu:SetFrameLevel(anchorButton:GetFrameLevel()+25)
+                local menuBg=menu:CreateTexture(nil,"BACKGROUND")
+                menuBg:SetAllPoints()
+                menuBg:SetColorTexture(.12,.07,.045,1)
+                local function redrawAnchor()
+                    local selected=opt.anchor or "TOPLEFT"
+                    for _,choice in ipairs(choices) do
+                        if choice[1]==selected then valueText:SetText(choice[2]);return end
+                    end
+                    valueText:SetText("Right / Down")
+                end
+                for i,choice in ipairs(choices) do
+                    local item=CreateFrame("Button",nil,menu)
+                    item:SetPoint("TOPLEFT",menu,"TOPLEFT",2,-2-(i-1)*24)
+                    item:SetPoint("TOPRIGHT",menu,"TOPRIGHT",-2,-2-(i-1)*24)
+                    item:SetHeight(24)
+                    local fill=item:CreateTexture(nil,"BACKGROUND")
+                    fill:SetAllPoints()
+                    fill:SetColorTexture(.12,.07,.045,1)
+                    local itemText=CreateLabel(item,choice[2],"GameFontHighlightSmall")
+                    itemText:SetPoint("LEFT",item,"LEFT",8,0)
+                    item:SetScript("OnEnter",function() fill:SetColorTexture(.34,.18,.11,1) end)
+                    item:SetScript("OnLeave",function() fill:SetColorTexture(.12,.07,.045,1) end)
+                    item:SetScript("OnClick",function()
+                        opt.anchor=choice[1]
+                        menu:Hide()
+                        redrawAnchor()
+                        refreshGroup()
+                    end)
+                end
+                anchorButton:SetScript("OnClick",function() menu:SetShown(not menu:IsShown()) end)
+                page:HookScript("OnHide",function() menu:Hide() end)
+                page:HookScript("OnShow",redrawAnchor)
+                menu:Hide()
+                redrawAnchor()
                 panel:SetHeight(530)
             end
             local function groupRefresh()
