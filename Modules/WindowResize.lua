@@ -6,10 +6,10 @@ local M = addon.WindowResize
 
 M.windows = {
     { key = "character", label = "Character Pane", frames = {"CharacterFrame"} },
-    { key = "spellbook", label = "Spellbook", frames = {"SpellBookFrame", "PlayerSpellsFrame"} },
+    { key = "spellbook", label = "Spellbook", frames = {"SpellBookFrame"} },
     { key = "questlog", label = "Quest Log", frames = {"QuestLogFrame"} },
     { key = "dungeon", label = "Dungeon Journal", frames = {"EncounterJournal"} },
-    { key = "talents", label = "Talents", frames = {"PlayerTalentFrame", "ClassTalentFrame"} },
+    { key = "talents", label = "Talents", frames = {"PlayerTalentFrame", "ClassTalentFrame", "PlayerSpellsFrame"} },
     { key = "guild", label = "Guild", frames = {"GuildFrame", "CommunitiesFrame"} },
     { key = "achievements", label = "Achievements", frames = {"AchievementFrame"} },
     { key = "collections", label = "Collections", frames = {"CollectionsJournal"} },
@@ -36,7 +36,7 @@ local function update(entry)
     if InCombatLockdown and InCombatLockdown() then return end
     frame:SetScale(clamp(cfg.scale or 1))
     if entry.left then entry.left:SetShown(cfg.enabled and cfg.draggable ~= false and frame:IsShown()) end
-    if entry.right then entry.right:SetShown(cfg.enabled and frame:IsShown()) end
+    if entry.right then entry.right:SetShown(cfg.enabled and cfg.draggable ~= false and frame:IsShown()) end
 end
 local function install(key, name)
     if installed[name] then return end
