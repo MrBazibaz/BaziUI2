@@ -117,11 +117,40 @@ local function create(key, spec)
     frames[key] = f
     update(f)
 end
+-- Reversible, opt-in suppression of Blizzard's original frames.
+-- Do not unregister events or reparent protected frames.
+local originals = {
+    player = "PlayerFrame",
+    target = "TargetFrame",
+    focus = "FocusFrame",
+    pet = "PetFrame",
+}
+local originalState = {}
+local function syncOriginal(key, settings)
+    local name = originals[key]
+    local frame = name and _G[name]
+    if not frame or (InCombatLockdown and InCombatLockdown()) then return end
+    local state = originalState[key]
+    local hide = settings.hideBlizzard == true and settings[key] == true
+    if hide then
+        if not state then
+            state = {alpha = frame:GetAlpha(), mouse = frame:IsMouseEnabled()}
+            originalState[key] = state
+        end
+        frame:SetAlpha(0)
+        frame:EnableMouse(false)
+    elseif state then
+        frame:SetAlpha(state.alpha)
+        frame:EnableMouse(state.mouse)
+        originalState[key] = nil
+    end
+end
 function M:Refresh()
     local settings = cfg()
     if not settings then return end
     for key, spec in pairs(units) do
         if settings[key] then create(key, spec) end
+        syncOriginal(key, settings)
         local f = frames[key]
         if f and not (InCombatLockdown and InCombatLockdown()) then
             if settings[key] then
@@ -150,6 +179,8 @@ function M:Initialize()
     self.initialized = true
     local events = CreateFrame("Frame")
     events:RegisterEvent("PLAYER_REGEN_ENABLED")
+    events:RegisterEvent("PLAYER_ENTERING_WORLD")
+    events:RegisterEvent("ADDON_LOADED")
     events:SetScript("OnEvent", function() M:Refresh() end)
     self:Refresh()
 end
