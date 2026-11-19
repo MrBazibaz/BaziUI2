@@ -125,7 +125,12 @@ local function applyPosition(f, settings, key)
     local gap=tonumber(settings.spacing) or 8
     local rowGap=tonumber(settings.verticalSpacing) or gap
     local width=tonumber(own.width) or tonumber(own.barWidth) or 162
-    local height=(tonumber(own.hpHeight) or 23)+(tonumber(own.powerHeight) or 9)+20
+    -- Visible raid bar bounds: 8px top inset, HP, 1px separator, Power,
+    -- and 2px bottom border. Account for the frame's effective scale.
+    -- Do not use the old portrait-era +20px layout padding.
+    local hpHeight=math.max(12,math.min(45,tonumber(own.hpHeight) or 23))
+    local powerHeight=math.max(4,math.min(30,tonumber(own.powerHeight) or 9))
+    local height=(8+hpHeight+1+powerHeight+2)*(1.15*(tonumber(settings.scale) or 1))
     -- Anchor determines growth direction while keeping the saved group origin.
     local anchor=settings.anchor or "TOPLEFT"
     local horizontal=(anchor=="TOPRIGHT" or anchor=="BOTTOMRIGHT") and -1 or 1
