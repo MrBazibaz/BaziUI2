@@ -189,6 +189,20 @@ local function layout(f, settings)
     local bottomExtra = math.max(0, halfRim - centreY - frameHeight / 2)
     f:SetHitRectInsets(-math.ceil(leftExtra), -math.ceil(rightExtra),
         -math.ceil(topExtra), -math.ceil(bottomExtra))
+    if f.petXPRing then
+        -- 64 independent segments form a circular progress track around the
+        -- portrait. Unlike a rotated square status bar, no corners can show.
+        local radius = rimSize * 0.515
+        local thickness = math.max(2, rimSize * 0.038)
+        for i, segment in ipairs(f.petXPRing.segments) do
+            local angle = (i - 1) * (2 * math.pi / #f.petXPRing.segments) - math.pi / 2
+            segment:ClearAllPoints()
+            segment:SetPoint("CENTER", f.portraitAnchor, "CENTER",
+                math.cos(angle) * radius, math.sin(angle) * radius)
+            segment:SetSize(thickness, math.max(3, radius * 2 * math.pi / #f.petXPRing.segments * 1.12))
+            segment:SetRotation(angle + math.pi / 2)
+        end
+    end
     f.rim:SetSize(rimSize, rimSize)
     -- Restore the last clean circular ring crop; asymmetric mask exposed
     -- a rectangular section of Blizzard's atlas behind the portrait.
@@ -380,7 +394,21 @@ updatePetExtras = function(f)
     else
         hasXP = false
     end
-    f.petXP:SetShown(own.showPetXP ~= false and hasXP)
+    -- The circular track replaces the old straight XP bar.
+    f.petXP:Hide()
+    local showRing = own.showPetXP ~= false and hasXP
+    if f.petXPRing then
+        f.petXPRing:SetShown(showRing)
+        if showRing and not (issecretvalue and (issecretvalue(xp) or issecretvalue(xpMax))) then
+            local fraction = xpMax > 0 and math.max(0, math.min(1, xp / xpMax)) or 0
+            local count = #f.petXPRing.segments
+            for i, segment in ipairs(f.petXPRing.segments) do
+                local active = i <= math.floor(fraction * count + 0.5)
+                segment:SetColorTexture(active and 0.76 or 0.17,
+                    active and 0.43 or 0.11, active and 0.96 or 0.22, 0.96)
+            end
+        end
+    end
     if hasXP then
         f.petXP:SetMinMaxValues(0, xpMax)
         f.petXP:SetValue(xp)
@@ -430,6 +458,18 @@ local function createPetExtras(f)
     xp.text:SetPoint("CENTER")
     xp.text:SetTextColor(1, 0.9, 0.72)
     f.petXP = xp
+    local ring = CreateFrame("Frame", nil, f.portraitAnchor)
+    ring:SetAllPoints(f.portraitAnchor)
+    ring:EnableMouse(false)
+    ring.segments = {}
+    for i = 1, 64 do
+        local segment = ring:CreateTexture(nil, "OVERLAY")
+        segment:SetTexture("Interface\\Buttons\\WHITE8X8")
+        segment:SetColorTexture(0.17, 0.11, 0.22, 0.96)
+        ring.segments[i] = segment
+    end
+    f.petXPRing = ring
+    ring:Hide()
     local cast = bar(-20, {0.72, 0.43, 0.20})
     cast:SetHeight(13)
     cast.label = cast:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
