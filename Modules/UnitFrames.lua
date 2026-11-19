@@ -232,6 +232,11 @@ local function layout(f, settings)
     f.levelDisc:ClearAllPoints()
     f.levelDisc:SetPoint("BOTTOM", f.portrait, "BOTTOM", side == "LEFT" and -portraitSize * 17 / 48 or portraitSize * 17 / 48, -portraitSize * 9 / 48)
     f:SetSize(width + 62, math.max(48, hpHeight + powerHeight + 16))
+    if f.petXP then
+        local extraWidth = math.max(100, width)
+        f.petXP:SetWidth(extraWidth)
+        f.petCast:SetWidth(extraWidth)
+    end
     f.health:ClearAllPoints()
     f.health:SetPoint("TOPLEFT", f, "TOPLEFT", side == "LEFT" and 53 or 9, -8)
     f.health:SetSize(width, hpHeight)
@@ -272,6 +277,7 @@ local function layout(f, settings)
     f.barBorder:SetPoint("TOPLEFT", f.health, "TOPLEFT", -2, 2)
     f.barBorder:SetPoint("BOTTOMRIGHT", f.power, "BOTTOMRIGHT", 2, -2)
 end
+local updatePetExtras
 local function update(f)
     if not f or not UnitExists(f.unit) then
         if f then f.health:SetValue(0); f.power:SetValue(0); f.name:SetText("") end
@@ -289,6 +295,7 @@ local function update(f)
     setBarText(f.value, f.unit, own.hpText or "", true)
     setBarText(f.powerText, f.unit, own.powerText or "", false)
     updateExtras(f, own)
+    if f.unit == "pet" then updatePetExtras(f) end
     -- FlareUI's so-called "3d" mode is a Blizzard-rendered static portrait.
     -- Keep one masked texture in both modes; optional zoom changes its crop.
     SetPortraitTexture(f.portrait, f.unit, true)
@@ -342,6 +349,85 @@ local function update(f)
     local kind = UnitPowerType(f.unit)
     local c = PowerBarColor and PowerBarColor[kind]
     if c then f.power:SetStatusBarColor(c.r * 0.56, c.g * 0.56, c.b * 0.56) else f.power:SetStatusBarColor(0.10, 0.30, 0.58) end
+end
+-- Pet-only experience and casting overlays. These are decorative and do not
+-- intercept clicks on the secure pet unit button.
+updatePetExtras = function(f)
+    if not f or not f.petXP then return end
+    local own = unitSettings(cfg() or {}, "pet")
+    local xp, xpMax
+    if type(GetPetExperience) == "function" then xp, xpMax = GetPetExperience() end
+    local hasXP = xp ~= nil and xpMax ~= nil
+    if hasXP and not (issecretvalue and (issecretvalue(xp) or issecretvalue(xpMax))) then
+        hasXP = xpMax > 0
+    end
+    f.petXP:SetShown(own.showPetXP ~= false and hasXP)
+    if hasXP then
+        f.petXP:SetMinMaxValues(0, xpMax)
+        f.petXP:SetValue(xp)
+        f.petXP.text:SetFormattedText("%s / %s", xp, xpMax)
+    end
+    local name, _, texture, startTime, endTime, _, _, notInterruptible
+    local channel = false
+    if type(UnitCastingInfo) == "function" then
+        name, _, texture, startTime, endTime, _, _, notInterruptible = UnitCastingInfo("pet")
+    end
+    if not name and type(UnitChannelInfo) == "function" then
+        name, _, texture, startTime, endTime, _, notInterruptible = UnitChannelInfo("pet")
+        channel = true
+    end
+    local casting = name ~= nil and startTime ~= nil and endTime ~= nil
+    f.petCast:SetShown(own.showPetCast ~= false and casting)
+    if casting then
+        f.petCast.startTime = startTime
+        f.petCast.endTime = endTime
+        f.petCast.channel = channel
+        f.petCast:SetMinMaxValues(0, 1)
+        f.petCast.label:SetText(name)
+        f.petCast:SetStatusBarColor(notInterruptible and 0.55 or 0.72, notInterruptible and 0.46 or 0.43, 0.20)
+    end
+end
+local function createPetExtras(f)
+    local function bar(y, color)
+        local holder = CreateFrame("StatusBar", nil, f)
+        holder:SetStatusBarTexture("Interface\\Buttons\\WHITE8X8")
+        holder:SetStatusBarColor(unpack(color))
+        holder:SetSize(160, 9)
+        holder:SetPoint("TOPLEFT", f.power, "BOTTOMLEFT", 0, y)
+        holder:EnableMouse(false)
+        local bg = holder:CreateTexture(nil, "BACKGROUND")
+        bg:SetAllPoints()
+        bg:SetColorTexture(0.07, 0.05, 0.035, 0.95)
+        local border = CreateFrame("Frame", nil, holder, "BackdropTemplate")
+        border:SetPoint("TOPLEFT", -2, 2)
+        border:SetPoint("BOTTOMRIGHT", 2, -2)
+        border:SetBackdrop({edgeFile="Interface\\Tooltips\\UI-Tooltip-Border", edgeSize=8})
+        border:SetBackdropBorderColor(0.75, 0.56, 0.29, 1)
+        border:EnableMouse(false)
+        return holder
+    end
+    local xp = bar(-5, {0.53, 0.31, 0.72})
+    xp.text = xp:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    xp.text:SetPoint("CENTER")
+    xp.text:SetTextColor(1, 0.9, 0.72)
+    f.petXP = xp
+    local cast = bar(-20, {0.72, 0.43, 0.20})
+    cast:SetHeight(13)
+    cast.label = cast:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    cast.label:SetPoint("CENTER")
+    cast.label:SetTextColor(1, 0.9, 0.72)
+    cast:SetScript("OnUpdate", function(self)
+        if not self:IsShown() or not self.startTime or not self.endTime then return end
+        local duration = self.endTime - self.startTime
+        if duration <= 0 then return end
+        local now = GetTime() * 1000
+        local progress = (now - self.startTime) / duration
+        if self.channel then progress = 1 - progress end
+        self:SetValue(math.max(0, math.min(1, progress)))
+    end)
+    f.petCast = cast
+    xp:Hide()
+    cast:Hide()
 end
 local function create(key, spec)
     if frames[key] or (InCombatLockdown and InCombatLockdown()) then return end
@@ -518,12 +604,21 @@ local function create(key, spec)
     f:RegisterEvent("PLAYER_FOCUS_CHANGED")
     f:RegisterEvent("UNIT_PET")
     f:RegisterEvent("UNIT_HAPPINESS")
+    if key == "pet" then
+        for _, event in ipairs({"UNIT_SPELLCAST_START", "UNIT_SPELLCAST_STOP", "UNIT_SPELLCAST_DELAYED", "UNIT_SPELLCAST_CHANNEL_START", "UNIT_SPELLCAST_CHANNEL_STOP", "UNIT_SPELLCAST_CHANNEL_UPDATE", "UNIT_SPELLCAST_INTERRUPTED", "UNIT_SPELLCAST_FAILED", "UNIT_PET_EXPERIENCE", "PET_XP_UPDATE"}) do
+            pcall(f.RegisterEvent, f, event)
+        end
+    end
     f:RegisterEvent("PLAYER_ENTERING_WORLD")
     f:SetScript("OnEvent", function(self, event, unit)
         if not unit or unit == self.unit or event == "PLAYER_TARGET_CHANGED" or event == "PLAYER_FOCUS_CHANGED" or event == "PLAYER_ENTERING_WORLD" or event == "UNIT_PET" or event == "GROUP_ROSTER_UPDATE" or event == "RAID_TARGET_UPDATE" then
             update(self)
         end
     end)
+    if key == "pet" then
+        createPetExtras(f)
+        updatePetExtras(f)
+    end
     frames[key] = f
     local mover = CreateFrame("Button", nil, UIParent, "BackdropTemplate")
     mover:SetSize(224, 48)
