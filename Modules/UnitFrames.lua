@@ -375,8 +375,9 @@ local function update(f)
             local curve = C_CurveUtil.CreateColorCurve()
             curve:SetType(Enum.LuaCurveType.Linear)
             curve:AddPoint(0, CreateColor(0.80, 0.08, 0.06))
-            curve:AddPoint(0.30, CreateColor(0.95, 0.36, 0.07))
-            curve:AddPoint(0.55, CreateColor(0.98, 0.78, 0.12))
+            curve:AddPoint(0.25, CreateColor(0.80, 0.08, 0.06))
+            curve:AddPoint(0.45, CreateColor(0.95, 0.36, 0.07))
+            curve:AddPoint(0.65, CreateColor(0.98, 0.78, 0.12))
             curve:AddPoint(0.79, CreateColor(0.98, 0.78, 0.12))
             curve:AddPoint(0.80, CreateColor(cr, cg, cb))
             curve:AddPoint(1, CreateColor(cr, cg, cb))
@@ -388,8 +389,9 @@ local function update(f)
     elseif not (issecretvalue and (issecretvalue(health) or issecretvalue(maximum))) then
         local ratio = maximum > 0 and math.max(0, math.min(1, health / maximum)) or 0
         local points = {
-            {0, 0.80, 0.08, 0.06}, {0.30, 0.95, 0.36, 0.07},
-            {0.55, 0.98, 0.78, 0.12}, {0.79, 0.98, 0.78, 0.12},
+            {0, 0.80, 0.08, 0.06}, {0.25, 0.80, 0.08, 0.06},
+            {0.45, 0.95, 0.36, 0.07},
+            {0.65, 0.98, 0.78, 0.12}, {0.79, 0.98, 0.78, 0.12},
             {0.80, cr, cg, cb}, {1, cr, cg, cb},
         }
         for i = 2, #points do
@@ -498,10 +500,10 @@ local function createPetExtras(f)
     ring.backgrounds = {}
     for i = 1, 36 do
         local background = ring:CreateTexture(nil, "ARTWORK")
-        background:SetColorTexture(0.12, 0.075, 0.17, 1)
+        background:SetColorTexture(0.12, 0.045, 0.13, 0.22)
         ring.backgrounds[i] = background
         local segment = ring:CreateTexture(nil, "OVERLAY")
-        segment:SetColorTexture(0.79, 0.48, 0.97, 1)
+        segment:SetColorTexture(0.60, 0.08, 0.65, 1)
         ring.segments[i] = segment
     end
     f.petXPRing = ring
