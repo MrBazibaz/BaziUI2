@@ -49,7 +49,10 @@ local function install(key, name)
     local frame = _G[name]
     if not frame or not frame.GetScale or not frame.SetScale then return end
     installed[name] = true
-    local entry = {key=key, frameName=name}
+    local entry = {key=key, frameName=name, originalPoints={}}
+    for i = 1, frame:GetNumPoints() do
+        entry.originalPoints[i] = {frame:GetPoint(i)}
+    end
     local function handle(side)
         local grip = CreateFrame("Button", nil, frame)
         grip:SetSize(28, 28)
@@ -185,6 +188,26 @@ function M:GetPosition(key)
         end
     end
     return nil
+end
+function M:ResetPosition(key)
+    local cfg = settings(key)
+    if not cfg or not cfg.enabled then return false end
+    if InCombatLockdown and InCombatLockdown() then return false end
+    cfg.position = nil
+    for _, entry in ipairs(self.entries or {}) do
+        if entry.key == key then
+            local frame = _G[entry.frameName]
+            if frame and entry.originalPoints and #entry.originalPoints > 0 then
+                frame:ClearAllPoints()
+                for _, point in ipairs(entry.originalPoints) do
+                    frame:SetPoint(unpack(point))
+                end
+            end
+            entry.positionApplied = false
+        end
+    end
+    self:Refresh()
+    return true
 end
 function M:SetPosition(key, x, y)
     local cfg = settings(key)
