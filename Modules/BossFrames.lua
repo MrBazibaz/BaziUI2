@@ -581,7 +581,7 @@ local function layout(f, settings)
         local icon = f[name]
         if icon then
             local field = indicatorFields[i]
-            local size = math.max(10, math.min(field == "classification" and 120 or 48, tonumber(settings.indicatorSize and settings.indicatorSize[field]) or (field == "classification" and 52 or 17)))
+            local size = math.max(10, math.min(field == "classification" and 120 or 48, tonumber(settings.indicatorSize and settings.indicatorSize[field]) or (field == "classification" and 64 or 17)))
             local x = (icon.baseX or 0) + (tonumber(settings.indicatorX and settings.indicatorX[field]) or tonumber(settings[field.."X"]) or 0)
             local y = (icon.baseY or 0) + (tonumber(settings.indicatorY and settings.indicatorY[field]) or tonumber(settings[field.."Y"]) or 0)
             -- The dragon is a portrait decoration: scale its size and default
@@ -1173,7 +1173,7 @@ local function create(key, spec)
     f.raidIcon = icon(0, 33, "Interface\\TargetingFrame\\UI-RaidTargetingIcons")
     f.roleIcon = icon(26, -23, "Interface\\LFGFrame\\UI-LFG-ICON-PORTRAITROLES")
     -- Native Blizzard boss portrait decoration, selected per classification.
-    f.classIcon = icon(30, 9, "Interface\\TargetingFrame\\UI-RaidTargetingIcons")
+    f.classIcon = icon(-26, -23, "Interface\\TargetingFrame\\UI-RaidTargetingIcons")
     f.happinessIcon = icon(24, -3, "Interface\\PetPaperDollFrame\\UI-PetHappiness")
     -- Elite/rare decoration is above the portrait rim, but must stay below
     -- the level badge and every other indicator.
