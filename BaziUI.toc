@@ -15,5 +15,6 @@ Modules\TooltipPresentation.lua
 Modules\TooltipContents.lua
 Modules\TooltipFonts.lua
 Modules\Minimap.lua
+Modules\QoLSounds.lua
 Config\Options.lua
 Core\Commands.lua
