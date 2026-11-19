@@ -67,7 +67,20 @@ end
 local function applyPosition(f, settings, key)
     local own = position(settings, key)
     f:ClearAllPoints()
-    f:SetPoint("CENTER", UIParent, "TOP", (tonumber(own.offsetX) or 0) + (tonumber(key:match("%d+")) - 2.5) * ((tonumber(own.barWidth) or 162)+70), (tonumber(settings.y) or -45)+(tonumber(own.offsetY) or 0))
+    local index=tonumber(key:match("%d+")) or 1
+    local spacing=tonumber(settings.spacing) or 8
+    local total=0
+    for i=1,4 do
+        local member=settings.members and settings.members[i] or {}
+        total=total+(tonumber(member.width) or tonumber(member.barWidth) or 162)+62
+    end
+    total=total+spacing*3
+    local offset=0
+    for i=1,index-1 do
+        local member=settings.members and settings.members[i] or {}
+        offset=offset+(tonumber(member.width) or tonumber(member.barWidth) or 162)+62+spacing
+    end
+    f:SetPoint("TOPLEFT",UIParent,"TOP", -total/2+offset+(tonumber(own.offsetX) or 0), (tonumber(settings.y) or -45)+(tonumber(own.offsetY) or 0))
 end
 function M:SetPosition(key, x, y)
     local settings = cfg()
@@ -335,10 +348,12 @@ local function updateAuraPreview(f)
         -- Use the same unit-frame origin and offsets as the live container.
         group:SetPoint("TOPLEFT", f, "TOPLEFT", tonumber(opt.x) or 0,
             tonumber(opt.y) or (kind == "buffs" and 32 or -58))
-        group:SetShown(auraPreview[f.unit] and auraPreview[f.unit][kind] == true)
+        local solo=cfg() and cfg().showSolo and not IsInGroup()
+        local show=(auraPreview[f.unit] and auraPreview[f.unit][kind] == true) or (solo and opt.enabled == true)
+        group:SetShown(show)
         for i, tile in ipairs(group.tiles) do
-            group.tiles[i .. "_border"]:SetShown(auraPreview[f.unit] and auraPreview[f.unit][kind] == true and i <= math.min(count, #group.tiles))
-            tile:SetShown(auraPreview[f.unit] and auraPreview[f.unit][kind] == true and i <= math.min(count, #group.tiles))
+            group.tiles[i .. "_border"]:SetShown(show and i <= math.min(count, #group.tiles))
+            tile:SetShown(show and i <= math.min(count, #group.tiles))
             tile:SetSize(size, size)
             tile:ClearAllPoints()
             local col, row = (i-1) % perRow, math.floor((i-1)/perRow)
@@ -445,7 +460,7 @@ local function updateExtras(f, own)
 end
 
 local function layout(f, settings)
-    local width = math.max(100, math.min(400, tonumber(settings.barWidth) or 162))
+    local width = math.max(100, math.min(400, tonumber(settings.width) or tonumber(settings.barWidth) or 162))
     local hpHeight = math.max(12, math.min(45, tonumber(settings.hpHeight) or 23))
     local powerHeight = math.max(4, math.min(30, tonumber(settings.powerHeight) or 9))
     f.portraitSide = settings.portraitSide or f.portraitSide
@@ -463,7 +478,7 @@ local function layout(f, settings)
     f.portraitAnchor:SetPoint(side, f, side, centreX, centreY)
     -- Extend the secure click region ONLY where the portrait protrudes.
     -- Expanding all four sides made huge invisible targeting rectangles.
-    local frameHeight = math.max(48, hpHeight + powerHeight + 16)
+    local frameHeight = math.max(48, tonumber(settings.height) or 0, hpHeight + powerHeight + 16)
     local halfRim = rimSize / 2
     local leftExtra = side == "LEFT" and math.max(0, halfRim - centreX) or 0
     local rightExtra = side == "RIGHT" and math.max(0, halfRim + centreX) or 0
@@ -558,7 +573,7 @@ local function layout(f, settings)
     f.levelDisc:SetSize(portraitSize / 2, portraitSize / 2)
     f.levelDisc:ClearAllPoints()
     f.levelDisc:SetPoint("BOTTOM", f.portrait, "BOTTOM", side == "LEFT" and -portraitSize * 17 / 48 or portraitSize * 17 / 48, -portraitSize * 9 / 48)
-    f:SetSize(width + 62, math.max(48, hpHeight + powerHeight + 16))
+    f:SetSize(width + 62, frameHeight)
     if f.petXP then
         local extraWidth = math.max(100, width)
         f.petXP:SetWidth(extraWidth)
@@ -600,10 +615,11 @@ local function layout(f, settings)
     f.level:SetFont(font, math.max(8, math.min(28, tonumber(settings.levelFontSize) or 12)), "OUTLINE")
     f.level:ClearAllPoints()
     f.level:SetPoint("CENTER", f.levelDisc, "CENTER", tonumber(settings.levelTextX) or 0, tonumber(settings.levelTextY) or 0)
-    f.name:SetFont(font, tonumber(settings.nameFontSize) or size, "OUTLINE")
+    f.name:SetFont(font, math.max(1,tonumber(settings.nameFontSize) or tonumber(settings.fontSize) or size), "OUTLINE")
     f.value:SetFont(font, tonumber(settings.hpFontSize) or size, "OUTLINE")
     f.powerText:SetFont(font, tonumber(settings.powerFontSize) or size, "OUTLINE")
-    f.name:SetShown(settings.showName ~= false)
+    f.name:SetShown(settings.showName ~= false and (tonumber(settings.nameFontSize) or tonumber(settings.fontSize) or 12)>0)
+    f.level:SetShown(settings.showLevel ~= false)
     local function anchorText(text, bar, anchor, x, y)
         local point = anchor == "LEFT" and "LEFT" or anchor == "CENTER" and "CENTER" or "RIGHT"
         local inset = point == "LEFT" and 4 or point == "RIGHT" and -4 or 0
@@ -1124,12 +1140,26 @@ local function updateSample(f,index)
         local c=RAID_CLASS_COLORS[sample.class]
         f.name:SetTextColor(c.r,c.g,c.b)
     end
-    f.value:SetText(sample.hp.."%")
-    f.powerText:SetText(sample.power.."%")
+    local own=unitSettings(cfg() or {},f.unit)
+    local function previewText(template,value)
+        if not template or template=="" then return "" end
+        return (template:gsub("{percent}",tostring(value).."%%"):gsub("{current}",tostring(value)):gsub("{max}","100"))
+    end
+    f.value:SetText(previewText(own.hpText or (own.showHealthPercent and "{percent}" or "{current} / {max}"),sample.hp))
+    f.powerText:SetText(previewText(own.powerText or (own.showPowerPercent and "{percent}" or "{current} / {max}"),sample.power))
     if f.level then f.level:SetText("60") end
+    local hpColors={WARRIOR={.78,.20,.19},PRIEST={.95,.95,.95},ROGUE={1,.96,.35},MAGE={.25,.78,.94}}
+    local c=hpColors[sample.class] or {0.3,0.7,0.3}
+    f.health:SetStatusBarColor(c[1],c[2],c[3])
+    if index==1 then f.power:SetStatusBarColor(.85,.12,.12)
+    elseif index==3 then f.power:SetStatusBarColor(.95,.82,.16)
+    else f.power:SetStatusBarColor(.12,.34,.90) end
     if f.portrait then
-        f.portrait:SetTexture("Interface\\Icons\\"..sample.icon)
-        f.portrait:SetTexCoord(0,1,0,1)
+        local roles={ "Interface\\LFGFrame\\UI-LFG-ICON-PORTRAITROLES" }
+        f.portrait:SetTexture("Interface\\LFGFrame\\UI-LFG-ICON-PORTRAITROLES")
+        if index==1 then f.portrait:SetTexCoord(0,19/64,22/64,41/64)
+        elseif index==2 then f.portrait:SetTexCoord(20/64,39/64,1/64,20/64)
+        else f.portrait:SetTexCoord(20/64,39/64,22/64,41/64) end
     end
     if f.model then f.model:Hide() end
     if f.portrait then f.portrait:Show() end
@@ -1137,7 +1167,7 @@ local function updateSample(f,index)
         if f[field] then f[field]:Hide() end
     end
     if f.roleIcon then
-        f.roleIcon:Show()
+        f.roleIcon:SetShown(own.showRole~=false)
         if index==1 then f.roleIcon:SetTexCoord(0,19/64,22/64,41/64)
         elseif index==2 then f.roleIcon:SetTexCoord(20/64,39/64,1/64,20/64)
         else f.roleIcon:SetTexCoord(20/64,39/64,22/64,41/64) end
@@ -1150,7 +1180,7 @@ function M:Refresh()
         local key="party"..i
         local spec=units[key]
         local own=unitSettings(settings,key)
-        if own.barWidth==nil then own.barWidth=tonumber(own.width) or tonumber(settings.barWidth) or 162 end
+        if own.width==nil then own.width=tonumber(own.barWidth) or tonumber(settings.width) or 162 end
         if own.hpHeight==nil then own.hpHeight=tonumber(settings.hpHeight) or 23 end
         if own.powerHeight==nil then own.powerHeight=tonumber(settings.powerHeight) or 9 end
         if settings.enabled then create(key,spec) end
@@ -1158,6 +1188,7 @@ function M:Refresh()
         if f then
             f.portraitSide=own.portraitSide or (i<=2 and "LEFT" or "RIGHT")
             layout(f,own)
+            updateAuraPreview(f)
             updateLiveAuras(f)
             local exists=UnitExists(key)==true
             local preview=settings.showSolo and not IsInGroup()

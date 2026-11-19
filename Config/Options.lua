@@ -656,7 +656,7 @@ local function CreateUnitFramesPage()
             setting("Frame width","width",key~="raid" and 190 or 110,80,360,5,16,-125)
             setting("Frame height","height",key~="raid" and 48 or 30,22,90,1,270,-190)
             setting("Spacing","spacing",8,0,40,1,16,-255,true)
-            setting("Name font size (0 hides)","fontSize",11,0,22,1,270,-320)
+            setting("Name font size (0 hides)","nameFontSize",11,0,22,1,270,-320)
             if key=="raid" then
                 setting("Columns","columns",5,1,8,1,16,-385,true)
                 setting("Horizontal offset","x",-380,-700,700,10,270,-450,true)
@@ -733,13 +733,43 @@ local function CreateUnitFramesPage()
             panel=sections["Bar Text"]
             CreateSection(panel,"BAR TEXT",-12)
             CreateDivider(panel,-45)
-            groupToggle(panel,"Show health percentage","showHealthPercent",-75)
-            groupToggle(panel,"Show power percentage","showPowerPercent",-115)
+            if key=="party" then
+                local function textMode(label,field,y)
+                    local choices={{"Hidden",""},{"Current","{current}"},{"Current / Max","{current} / {max}"},{"Percent","{percent}"},{"Current (Percent)","{current} ({percent})"}}
+                    local button=CreateFrame("Button",nil,panel,"UIPanelButtonTemplate")
+                    button:SetSize(225,26)
+                    button:SetPoint("TOPLEFT",panel,"TOPLEFT",20,y)
+                    local function sync()
+                        local value=memberValue(field,"{current} / {max}")
+                        for _,item in ipairs(choices) do if item[2]==value then button:SetText(label..": "..item[1]);return end end
+                        button:SetText(label..": Custom")
+                    end
+                    button:SetScript("OnClick",function()
+                        local value=memberValue(field,"{current} / {max}")
+                        local n=1
+                        for i,item in ipairs(choices) do if item[2]==value then n=i break end end
+                        memberSettings()[field]=choices[n%#choices+1][2]
+                        sync()
+                        groupRefresh()
+                    end)
+                    memberRefreshers[#memberRefreshers+1]=sync
+                    sync()
+                end
+                textMode("Health","hpText",-75)
+                textMode("Power","powerText",-125)
+            else
+                groupToggle(panel,"Show health percentage","showHealthPercent",-75)
+                groupToggle(panel,"Show power percentage","showPowerPercent",-115)
+            end
             panel=sections.Fonts
             CreateSection(panel,"FONTS",-12)
             CreateDivider(panel,-45)
             groupSlider(panel,"NAME FONT SIZE","Size of the unit name (0 hides it)","fontSize",0,22,11,-65)
-            if key=="party" then groupSlider(panel,"LEVEL FONT SIZE","Size of the level label","levelFontSize",0,22,11,-145) end
+            if key=="party" then
+                groupSlider(panel,"HP FONT SIZE","HP value text","hpFontSize",0,24,12,-140)
+                groupSlider(panel,"POWER FONT SIZE","Power value text","powerFontSize",0,24,11,-215)
+                groupSlider(panel,"LEVEL FONT SIZE","Size of the level label","levelFontSize",0,22,11,-290)
+            end
             panel=sections["Buffs / Debuffs"]
             CreateSection(panel,"BUFFS / DEBUFFS",-12)
             CreateDivider(panel,-45)
