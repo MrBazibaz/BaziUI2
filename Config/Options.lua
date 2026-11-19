@@ -551,7 +551,7 @@ local function CreateUnitFramesPage()
                 for label, button in pairs(sectionButtons) do
                     button.fill:SetColorTexture(label == selected and 0.36 or 0.25, label == selected and 0.20 or 0.13, label == selected and 0.28 or 0.07, 1)
                 end
-                root:SetHeight(selected == "Layout" and 610 or 480)
+                root:SetHeight(selected == "Layout" and (key=="party" and 740 or 610) or 480)
                 viewport:SetVerticalScroll(0)
             end
             for i, label in ipairs({"Layout","Indicators","Bar Text","Fonts","Buffs / Debuffs"}) do
@@ -608,6 +608,43 @@ local function CreateUnitFramesPage()
                 end
                 memberRefreshers[#memberRefreshers+1]=refresh
                 page:HookScript("OnShow",refresh)
+            end
+            if key=="party" then
+                local function nudge(label,field,x,y)
+                    local caption=CreateLabel(panel,label,"GameFontNormal")
+                    caption:SetPoint("TOPLEFT",panel,"TOPLEFT",x,y)
+                    local value=CreateLabel(panel,"0","GameFontHighlight")
+                    value:SetPoint("LEFT",caption,"RIGHT",20,0)
+                    local function redraw() value:SetText(tostring(tonumber(memberValue(field,0)) or 0)) end
+                    for step,dx in pairs({[-1]=155,[1]=187}) do
+                        local button=CreateFrame("Button",nil,panel,"UIPanelButtonTemplate")
+                        button:SetSize(29,24)
+                        button:SetPoint("TOPLEFT",panel,"TOPLEFT",x+dx,y+5)
+                        button:SetText(step<0 and "-" or "+")
+                        button:SetScript("OnClick",function()
+                            memberSettings()[field]=(tonumber(memberValue(field,0)) or 0)+step
+                            redraw()
+                            if addon.GroupFrames then addon.GroupFrames:Refresh() end
+                        end)
+                    end
+                    memberRefreshers[#memberRefreshers+1]=redraw
+                    redraw()
+                end
+                nudge("FRAME X","offsetX",16,-580)
+                nudge("FRAME Y","offsetY",260,-580)
+                local portraitButton=CreateFrame("Button",nil,panel,"UIPanelButtonTemplate")
+                portraitButton:SetSize(195,25)
+                portraitButton:SetPoint("TOPLEFT",panel,"TOPLEFT",16,-620)
+                local function refreshPortrait()
+                    portraitButton:SetText("Portrait: "..tostring(memberValue("portraitSide",selectedMember<=2 and "LEFT" or "RIGHT")))
+                end
+                portraitButton:SetScript("OnClick",function()
+                    memberSettings().portraitSide=memberValue("portraitSide",selectedMember<=2 and "LEFT" or "RIGHT")=="LEFT" and "RIGHT" or "LEFT"
+                    refreshPortrait()
+                    if addon.GroupFrames then addon.GroupFrames:Refresh() end
+                end)
+                memberRefreshers[#memberRefreshers+1]=refreshPortrait
+                refreshPortrait()
             end
             setting("Frame width","width",key~="raid" and 190 or 110,80,360,5,16,-125)
             setting("Frame height","height",key~="raid" and 48 or 30,22,90,1,270,-190)
