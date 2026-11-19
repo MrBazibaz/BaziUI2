@@ -389,7 +389,7 @@ local function CreateUnitFramesPage()
                 local canvas = CreateFrame("Frame", nil, rootPanel)
                 canvas:SetPoint("TOPLEFT", rootPanel, "TOPLEFT", 0, -49)
                 canvas:SetPoint("TOPRIGHT", rootPanel, "TOPRIGHT", 0, -49)
-                canvas:SetHeight(category == "Indicators" and (name == "Pet" and 1020 or 590) or 520)
+                canvas:SetHeight(category == "Indicators" and (name == "Pet" and 930 or 590) or 520)
                 canvas:Hide()
                 groups[category] = canvas
             end
@@ -403,7 +403,7 @@ local function CreateUnitFramesPage()
                         label == category and 0.18 or 0.12,
                         label == category and 0.26 or 0.07, 1)
                 end
-                rootPanel:SetHeight(category == "Indicators" and (name == "Pet" and 1040 or 610) or (category == "Layout" and 540 or 490))
+                rootPanel:SetHeight(category == "Indicators" and (name == "Pet" and 950 or 610) or (category == "Layout" and 540 or 490))
                 viewport:SetVerticalScroll(0)
             end
             for i, category in ipairs({"Layout", "Indicators", "Bar Text", "Fonts"}) do
@@ -750,14 +750,13 @@ local function CreateUnitFramesPage()
                         end
                     end
                 end
-                petBarControl("petXP", "PET XP BAR", -640)
-                petBarControl("petCast", "PET CASTBAR", -735)
+                petBarControl("petCast", "PET CASTBAR", -640)
 
                 -- Pet XP ring rotation: independent of segment width, sweep and
                 -- portrait size. Numeric entry and +/- adjust by one degree.
                 local rotationSlider = CreateSlider(panel, "PET XP RING ROTATION",
                     "Rotate the XP segments around the portrait (degrees)",
-                    -180, 180, 1, tonumber(own.petXPRotation) or 0, -825,
+                    -180, 180, 1, tonumber(own.petXPRotation) or 0, -735,
                     function(value)
                         own.petXPRotation = value
                         if addon.UnitFrames then addon.UnitFrames:Refresh() end
@@ -791,7 +790,7 @@ local function CreateUnitFramesPage()
                 end
                 local radiusSlider = CreateSlider(panel, "PET XP RING RADIUS",
                     "Move XP segments inward (-) or outward (+), in pixels",
-                    -10, 10, 0.5, tonumber(own.petXPRadiusOffset) or 0, -875,
+                    -10, 10, 0.5, tonumber(own.petXPRadiusOffset) or 0, -785,
                     function(value)
                         own.petXPRadiusOffset = value
                         if addon.UnitFrames then addon.UnitFrames:Refresh() end
