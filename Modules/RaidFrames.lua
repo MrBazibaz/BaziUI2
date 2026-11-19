@@ -40,6 +40,8 @@ local function refreshGroupMover()
         local title=groupMover:CreateFontString(nil,"OVERLAY","GameFontNormal")
         title:SetPoint("CENTER")
         title:SetText("Move Raid Group")
+        groupMover:SetMovable(true)
+        groupMover:EnableMouse(true)
         groupMover:RegisterForDrag("LeftButton")
         groupMover:SetScript("OnDragStart",function(self)
             if InCombatLockdown and InCombatLockdown() then return end
@@ -48,9 +50,11 @@ local function refreshGroupMover()
             self.startX,self.startY=cx/scale,cy/scale
             self.originalX=tonumber(settings.x) or 80
             self.originalY=tonumber(settings.y) or 150
+            self:StartMoving()
         end)
         groupMover:SetScript("OnDragStop",function(self)
             if not self.startX or (InCombatLockdown and InCombatLockdown()) then return end
+            self:StopMovingOrSizing()
             local cx,cy=GetCursorPosition()
             local scale=UIParent:GetEffectiveScale()
             local dx,dy=cx/scale-self.startX,cy/scale-self.startY
@@ -62,8 +66,17 @@ local function refreshGroupMover()
     end
     groupMover:ClearAllPoints()
     local first=frames["raid1"]
-    if first then groupMover:SetPoint("BOTTOMLEFT",first,"TOPLEFT",0,4)
-    else groupMover:SetPoint("CENTER",UIParent,"CENTER") end
+    local left=first and first:GetLeft()
+    local top=first and first:GetTop()
+    if left and top then
+        -- Keep the handle reachable even when the raid layout is off-screen.
+        local width,height=UIParent:GetWidth(),UIParent:GetHeight()
+        local x=math.max(90,math.min(width-90,left+90))
+        local y=math.max(18,math.min(height-18,top+21))
+        groupMover:SetPoint("CENTER",UIParent,"BOTTOMLEFT",x,y)
+    else
+        groupMover:SetPoint("CENTER",UIParent,"CENTER")
+    end
     groupMover:SetShown(moving and settings.enabled~=false)
 end
 
