@@ -630,11 +630,11 @@ local function CreateUnitFramesPage()
                     memberRefreshers[#memberRefreshers+1]=redraw
                     redraw()
                 end
-                nudge("FRAME X","offsetX",16,-510)
-                nudge("FRAME Y","offsetY",260,-510)
+                nudge("FRAME X","offsetX",16,-670)
+                nudge("FRAME Y","offsetY",260,-670)
                 local portraitButton=CreateFrame("Button",nil,panel,"UIPanelButtonTemplate")
                 portraitButton:SetSize(195,25)
-                portraitButton:SetPoint("TOPLEFT",panel,"TOPLEFT",16,-560)
+                portraitButton:SetPoint("TOPLEFT",panel,"TOPLEFT",16,-730)
                 local function refreshPortrait()
                     portraitButton:SetText("Portrait: "..tostring(memberValue("portraitSide",selectedMember<=2 and "LEFT" or "RIGHT")))
                 end
@@ -647,16 +647,19 @@ local function CreateUnitFramesPage()
                 refreshPortrait()
             end
             if key=="party" then
-                setting("HP bar height","hpHeight",23,12,45,1,270,-190)
-                setting("Power bar height","powerHeight",9,4,30,1,270,-260)
-                setting("Portrait size","portraitSize",48,24,90,1,16,-660)
-                setting("Portrait X","portraitX",0,-40,40,1,16,-730)
-                setting("Portrait Y","portraitY",0,-40,40,1,16,-800)
+                -- One full-width row per control, matching Player's layout.
+                setting("HP / Mana Width","width",190,80,360,5,16,-125)
+                setting("HP Height","hpHeight",23,12,45,1,16,-205)
+                setting("Mana / Power Height","powerHeight",9,4,30,1,16,-285)
+                setting("Portrait Size","portraitSize",60,36,90,1,16,-365)
+                setting("Portrait X","portraitX",0,-40,40,1,16,-445)
+                setting("Portrait Y","portraitY",0,-40,40,1,16,-525)
+            else
+                setting("Frame width","width",key~="raid" and 190 or 110,80,360,5,16,-125)
+                setting("Frame height","height",key~="raid" and 48 or 30,22,90,1,270,-190)
+                setting("Spacing","spacing",8,0,40,1,16,-255,true)
+                setting("Name font size (0 hides)","nameFontSize",11,0,22,1,270,-320)
             end
-            setting("Frame width","width",key~="raid" and 190 or 110,80,360,5,16,-125)
-            if key~="party" then setting("Frame height","height",key~="raid" and 48 or 30,22,90,1,270,-190) end
-            setting("Spacing","spacing",8,0,40,1,16,-255,key~="party")
-            if key~="party" then setting("Name font size (0 hides)","nameFontSize",11,0,22,1,270,-320) end
             if key=="raid" then
                 setting("Columns","columns",5,1,8,1,16,-385,true)
                 setting("Horizontal offset","x",-380,-700,700,10,270,-450,true)
@@ -728,8 +731,8 @@ local function CreateUnitFramesPage()
                     memberRefreshers[#memberRefreshers+1]=redraw
                     redraw()
                 end
-                memberNudge(sections.Layout,"NAME X","nameX",16,-885)
-                memberNudge(sections.Layout,"NAME Y","nameY",260,-885)
+                memberNudge(sections.Layout,"NAME X","nameX",16,-790)
+                memberNudge(sections.Layout,"NAME Y","nameY",260,-790)
                 memberNudge(sections["Bar Text"],"HP TEXT X","hpTextX",16,-200)
                 memberNudge(sections["Bar Text"],"HP TEXT Y","hpTextY",260,-200)
                 memberNudge(sections["Bar Text"],"POWER TEXT X","powerTextX",16,-250)
