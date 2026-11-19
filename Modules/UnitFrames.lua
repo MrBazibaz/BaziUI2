@@ -148,7 +148,7 @@ local function createLiveAuras(f)
     end
 end
 local function updateLiveAuras(f)
-    if not f.liveAuras then return end
+    if not f.liveAuras or (InCombatLockdown and InCombatLockdown()) then return end
     local own = unitSettings(cfg() or {}, f.unit)
     for _, kind in ipairs({"buffs", "debuffs"}) do
         local entry = f.liveAuras[kind]
