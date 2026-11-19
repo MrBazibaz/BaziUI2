@@ -414,6 +414,48 @@ local function CreateQoLPage()
         local label = CreateLabel(row, window.label, "GameFontNormal")
         label:SetPoint("LEFT", check, "RIGHT", 5, 0)
         label:SetTextColor(1, 0.8, 0.47)
+        -- Editable window position (UIParent bottom-left coordinates).
+        local coordinateBoxes = {}
+        for index, axis in ipairs({"X", "Y"}) do
+            local offset = index == 1 and -322 or -216
+            local coordLabel = CreateLabel(row, axis .. ":", "GameFontNormalSmall")
+            coordLabel:SetPoint("RIGHT", row, "RIGHT", offset, 0)
+            coordLabel:SetTextColor(0.96, 0.78, 0.53)
+            local edit = CreateFrame("EditBox", nil, row)
+            edit:SetSize(63, 24)
+            edit:SetPoint("LEFT", coordLabel, "RIGHT", 5, 0)
+            edit:SetAutoFocus(false)
+            edit:SetNumeric(false)
+            edit:SetMaxLetters(6)
+            edit:SetFontObject("GameFontNormal")
+            edit:SetTextColor(1, 0.81, 0.45)
+            edit:SetJustifyH("CENTER")
+            local background = edit:CreateTexture(nil, "BACKGROUND")
+            background:SetAllPoints()
+            background:SetColorTexture(0.11, 0.065, 0.04, 0.95)
+            coordinateBoxes[axis] = edit
+        end
+        local function refreshCoordinates()
+            local x, y = resize:GetPosition(key)
+            if not coordinateBoxes.X:HasFocus() then
+                coordinateBoxes.X:SetText(x and tostring(x) or "")
+            end
+            if not coordinateBoxes.Y:HasFocus() then
+                coordinateBoxes.Y:SetText(y and tostring(y) or "")
+            end
+        end
+        local function saveCoordinates()
+            local x = tonumber(coordinateBoxes.X:GetText())
+            local y = tonumber(coordinateBoxes.Y:GetText())
+            if x and y then resize:SetPosition(key, x, y) end
+            coordinateBoxes.X:ClearFocus()
+            coordinateBoxes.Y:ClearFocus()
+            refreshCoordinates()
+        end
+        for _, edit in pairs(coordinateBoxes) do
+            edit:SetScript("OnEnterPressed", saveCoordinates)
+            edit:SetScript("OnEscapePressed", function(self) self:ClearFocus(); refreshCoordinates() end)
+        end
         local drag = CreateFrame("CheckButton", nil, row, "UICheckButtonTemplate")
         drag:SetSize(23,23)
         drag:SetPoint("RIGHT", row, "RIGHT", -111, 0)
@@ -448,6 +490,7 @@ local function CreateQoLPage()
             setting.enabled = not not self:GetChecked()
             drag:SetEnabled(setting.enabled)
             resize:Refresh()
+            refreshCoordinates()
         end)
         drag:SetScript("OnClick", function(self)
             local setting = resize:GetSetting(key)
@@ -469,8 +512,10 @@ local function CreateQoLPage()
             drag:SetChecked(setting.draggable ~= false)
             drag:SetEnabled(setting.enabled)
             updateText()
+            refreshCoordinates()
         end)
         updateText()
+        refreshCoordinates()
     end
     selectTab("General")
     page:HookScript("OnShow", function() selectTab("General") end)
