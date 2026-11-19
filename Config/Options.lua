@@ -635,12 +635,13 @@ local function CreateUnitFramesPage()
             offsetEditor("hpTextY", "HP TEXT Y", 180, -972)
             offsetEditor("powerTextX", "POWER TEXT X", 20, -1040)
             offsetEditor("powerTextY", "POWER TEXT Y", 180, -1040)
-            local function colorSelect(field, caption, x, y)
+            -- Styled dropdown shared by font, colors and bar text anchors.
+            local function unitDropdown(field, caption, choices, x, y, width)
                 local label = CreateLabel(panel, caption, "GameFontNormal")
                 label:SetPoint("TOPLEFT", panel, "TOPLEFT", x, y)
                 label:SetTextColor(1, 0.79, 0.42)
                 local button = CreateFrame("Button", nil, panel)
-                button:SetSize(135, 27)
+                button:SetSize(width or 145, 27)
                 button:SetPoint("TOPLEFT", panel, "TOPLEFT", x, y - 22)
                 local bg = button:CreateTexture(nil, "BACKGROUND")
                 bg:SetAllPoints()
@@ -648,40 +649,49 @@ local function CreateUnitFramesPage()
                 local text = CreateLabel(button, "", "GameFontNormal")
                 text:SetPoint("CENTER")
                 text:SetTextColor(1, 0.79, 0.42)
-                local colors = {"gold", "white", "class"}
-                local function refresh() text:SetText((own[field] or "gold"):upper() .. "  v") end
-                button:SetScript("OnClick", function()
-                    local current = own[field] or "gold"
-                    local index = 1
-                    for i, color in ipairs(colors) do if color == current then index = i; break end end
-                    own[field] = colors[index % #colors + 1]
-                    refresh()
-                    if addon.UnitFrames then addon.UnitFrames:Refresh() end
-                end)
-                refreshers[#refreshers+1] = refresh
+                local menu = CreateFrame("Frame", nil, panel)
+                menu:SetSize(width or 145, #choices * 27)
+                menu:SetPoint("TOPLEFT", button, "BOTTOMLEFT", 0, -2)
+                menu:SetFrameStrata("FULLSCREEN_DIALOG")
+                menu:SetFrameLevel(button:GetFrameLevel() + 25)
+                menu:Hide()
+                local function refresh()
+                    local current = own[field] or choices[1][1]
+                    for _, choice in ipairs(choices) do
+                        if choice[1] == current then text:SetText(choice[2] .. "  v"); return end
+                    end
+                    text:SetText(choices[1][2] .. "  v")
+                end
+                for i, choice in ipairs(choices) do
+                    local item = CreateFrame("Button", nil, menu)
+                    item:SetSize(width or 145, 27)
+                    item:SetPoint("TOPLEFT", menu, "TOPLEFT", 0, -(i-1)*27)
+                    local fill = item:CreateTexture(nil, "BACKGROUND")
+                    fill:SetAllPoints()
+                    fill:SetColorTexture(0.23, 0.12, 0.065, 1)
+                    local captionText = CreateLabel(item, choice[2], "GameFontNormal")
+                    captionText:SetPoint("CENTER")
+                    captionText:SetTextColor(1, 0.79, 0.42)
+                    item:SetScript("OnEnter", function() fill:SetColorTexture(0.34, 0.18, 0.11, 1) end)
+                    item:SetScript("OnLeave", function() fill:SetColorTexture(0.23, 0.12, 0.065, 1) end)
+                    item:SetScript("OnClick", function()
+                        own[field] = choice[1]
+                        menu:Hide()
+                        refresh()
+                        if addon.UnitFrames then addon.UnitFrames:Refresh() end
+                    end)
+                end
+                button:SetScript("OnClick", function() menu:SetShown(not menu:IsShown()) end)
+                refreshers[#refreshers+1] = function() menu:Hide(); refresh() end
             end
-            colorSelect("hpFontColor", "HP FONT COLOR", 20, -1115)
-            colorSelect("powerFontColor", "POWER FONT COLOR", 200, -1115)
+            unitDropdown("hpTextAnchor", "HP TEXT ANCHOR", {{"RIGHT","Right"},{"CENTER","Center"},{"LEFT","Left"}}, 355, -972, 130)
+            unitDropdown("powerTextAnchor", "POWER TEXT ANCHOR", {{"RIGHT","Right"},{"CENTER","Center"},{"LEFT","Left"}}, 355, -1040, 130)
+            unitDropdown("hpFontColor", "HP FONT COLOR", {{"gold","Gold"},{"white","White"},{"class","Class Color"}}, 20, -1115, 150)
+            unitDropdown("powerFontColor", "POWER FONT COLOR", {{"gold","Gold"},{"white","White"},{"class","Class Color"}}, 200, -1115, 150)
             local fontTitle = CreateLabel(panel, "FONT", "GameFontNormalLarge")
             fontTitle:SetPoint("TOPLEFT", panel, "TOPLEFT", 20, -1200)
             fontTitle:SetTextColor(1, 0.79, 0.42)
-            local fontChoice = CreateFrame("Button", nil, panel)
-            fontChoice:SetSize(145, 27)
-            fontChoice:SetPoint("TOPLEFT", panel, "TOPLEFT", 20, -1236)
-            local fontBg = fontChoice:CreateTexture(nil, "BACKGROUND")
-            fontBg:SetAllPoints()
-            fontBg:SetColorTexture(0.23, 0.12, 0.065, 1)
-            local fontLabel = CreateLabel(fontChoice, "", "GameFontNormal")
-            fontLabel:SetPoint("CENTER")
-            fontLabel:SetTextColor(1, 0.79, 0.42)
-            fontChoice:SetScript("OnClick", function()
-                own.fontFace = own.fontFace == "arial" and "friz" or "arial"
-                fontLabel:SetText(own.fontFace == "arial" and "Arial Narrow" or "Friz Quadrata")
-                if addon.UnitFrames then addon.UnitFrames:Refresh() end
-            end)
-            refreshers[#refreshers+1] = function()
-                fontLabel:SetText(own.fontFace == "arial" and "Arial Narrow" or "Friz Quadrata")
-            end
+            unitDropdown("fontFace", "FONT FAMILY", {{"general","General (Default)"},{"friz","Friz Quadrata"},{"arial","Arial Narrow"}}, 20, -1230, 190)
             local fontSlider = CreateSlider(panel, "FONT SIZE", "Name, HP and Power text", 8, 28, 1,
                 own.fontSize or 12, -1276, function(v)
                     own.fontSize = v
