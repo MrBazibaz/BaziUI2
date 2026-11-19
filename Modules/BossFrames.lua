@@ -1173,7 +1173,7 @@ local function create(key, spec)
     f.raidIcon = icon(0, 33, "Interface\\TargetingFrame\\UI-RaidTargetingIcons")
     f.roleIcon = icon(26, -23, "Interface\\LFGFrame\\UI-LFG-ICON-PORTRAITROLES")
     -- Native Blizzard boss portrait decoration, selected per classification.
-    f.classIcon = icon(-26, -23, "Interface\\TargetingFrame\\UI-RaidTargetingIcons")
+    f.classIcon = icon(-8, 2, "Interface\\TargetingFrame\\UI-RaidTargetingIcons")
     f.happinessIcon = icon(24, -3, "Interface\\PetPaperDollFrame\\UI-PetHappiness")
     -- Elite/rare decoration is above the portrait rim, but must stay below
     -- the level badge and every other indicator.
@@ -1343,8 +1343,8 @@ local function updateSample(f,index)
     f.powerText:SetText(previewText(own.powerText or (own.showPowerPercent and "{percent}" or "{current} / {max}"),sample.power))
     f.pvpIcon:Hide()
     f.leaderIcon:Hide()
-    f.raidIcon:Hide()
-    if index==4 and SetRaidTargetIconTexture then SetRaidTargetIconTexture(f.raidIcon,1) end
+    f.raidIcon:SetShown(own.showRaidMarker~=false)
+    if SetRaidTargetIconTexture then SetRaidTargetIconTexture(f.raidIcon,index) end
     if f.level then f.level:SetText("60") end
     if f.classIcon then
         f.classIcon:SetShown(own.showClassification~=false)
@@ -1374,12 +1374,11 @@ local function updateSample(f,index)
         if f[field] then f[field]:Hide() end
     end
     if f.raidIcon then
-        f.raidIcon:SetShown(own.showRaidMarker~=false and index==4)
-        if index==4 and SetRaidTargetIconTexture then SetRaidTargetIconTexture(f.raidIcon,1) end
+        f.raidIcon:SetShown(own.showRaidMarker~=false)
+        if SetRaidTargetIconTexture then SetRaidTargetIconTexture(f.raidIcon,index) end
     end
     if f.classIcon then
         f.classIcon:SetShown(own.showClassification~=false)
-        f.classIcon:SetSize(tonumber(own.classificationSize) or 64,tonumber(own.classificationSize) or 64)
     end
     -- No miniature role overlay: Show Role controls the portrait itself.
 end
