@@ -190,22 +190,22 @@ local function layout(f, settings)
     f:SetHitRectInsets(-math.ceil(leftExtra), -math.ceil(rightExtra),
         -math.ceil(topExtra), -math.ceil(bottomExtra))
     if f.petXPRing then
-        -- Discrete ticks outside the rim. Never rotate opaque rectangular
-        -- textures: overlapping rotated quads form an unwanted solid disc.
-        local radius = rimSize * 0.508
+        -- Radial tick marks: the long axis points towards the portrait centre.
+        -- Keep each tick separated to avoid opaque quads merging into a disc.
+        local radius = rimSize * 0.515
         local count = #f.petXPRing.segments
-        local tickWidth = math.max(2, rimSize * 0.024)
-        local tickHeight = math.max(3, rimSize * 0.038)
+        local tickWidth = math.max(2.5, rimSize * 0.038)
+        local tickHeight = math.max(5, rimSize * 0.073)
         for i, segment in ipairs(f.petXPRing.segments) do
             local angle = -3 * math.pi / 4 - (i - 1) * (2 * math.pi / count)
             local x, y = math.cos(angle) * radius, math.sin(angle) * radius
             local background = f.petXPRing.backgrounds[i]
-            background:ClearAllPoints()
-            background:SetPoint("CENTER", f.portraitAnchor, "CENTER", x, y)
-            background:SetSize(tickWidth, tickHeight)
-            segment:ClearAllPoints()
-            segment:SetPoint("CENTER", background, "CENTER")
-            segment:SetSize(tickWidth, tickHeight)
+            for _, tile in ipairs({background, segment}) do
+                tile:ClearAllPoints()
+                tile:SetPoint("CENTER", f.portraitAnchor, "CENTER", x, y)
+                tile:SetSize(tickWidth, tickHeight)
+                tile:SetRotation(angle + math.pi / 2)
+            end
         end
     end
     f.rim:SetSize(rimSize, rimSize)
@@ -466,7 +466,7 @@ local function createPetExtras(f)
     ring:EnableMouse(false)
     ring.segments = {}
     ring.backgrounds = {}
-    for i = 1, 96 do
+    for i = 1, 48 do
         local background = ring:CreateTexture(nil, "ARTWORK")
         background:SetColorTexture(0.12, 0.075, 0.17, 1)
         ring.backgrounds[i] = background
