@@ -179,6 +179,10 @@ local function layout(f, settings)
     local backSize = rimSize * 0.94
     f.portraitAnchor:ClearAllPoints()
     f.portraitAnchor:SetPoint(side, f, side, centreX, centreY)
+    -- Portraits extend beyond the secure button bounds. Include them in its
+    -- click region so right-click can open the native unit context menu.
+    local hitExtension = math.ceil(rimSize + math.abs(centreX) + 8)
+    f:SetHitRectInsets(-hitExtension, -hitExtension, -hitExtension, -hitExtension)
     f.rim:SetSize(rimSize, rimSize)
     -- Restore the last clean circular ring crop; asymmetric mask exposed
     -- a rectangular section of Blizzard's atlas behind the portrait.
@@ -364,9 +368,11 @@ local function create(key, spec)
     local portraitLayer = CreateFrame("Frame", nil, f)
     portraitLayer:SetAllPoints(f)
     portraitLayer:SetFrameLevel(f:GetFrameLevel() + 8)
+    portraitLayer:EnableMouse(false)
     -- Dark backing plate: remains visible behind the model and inside the bronze ring.
     local portraitAnchor = CreateFrame("Frame", nil, portraitLayer)
     portraitAnchor:SetSize(1, 1)
+    portraitAnchor:EnableMouse(false)
     f.portraitAnchor = portraitAnchor
     local portraitBack = portraitLayer:CreateTexture(nil, "BACKGROUND")
     portraitBack:SetSize(55, 55)
@@ -396,6 +402,7 @@ local function create(key, spec)
     model:SetSize(48, 48)
     model:SetPoint("CENTER", portraitAnchor, "CENTER", -1, 2)
     model:SetFrameLevel(portraitLayer:GetFrameLevel() + 1)
+    model:EnableMouse(false)
     model:Hide()
     f.model = model
     local rim = portraitLayer:CreateTexture(nil, "OVERLAY")
@@ -414,6 +421,7 @@ local function create(key, spec)
     local badgeLayer = CreateFrame("Frame", nil, portraitLayer)
     badgeLayer:SetAllPoints(portraitLayer)
     badgeLayer:SetFrameLevel(portraitLayer:GetFrameLevel() + 2)
+    badgeLayer:EnableMouse(false)
     local disc = badgeLayer:CreateTexture(nil, "OVERLAY")
     disc:SetSize(24,24)
     f.levelDisc = disc
@@ -479,10 +487,12 @@ local function create(key, spec)
     local dragonLayer = CreateFrame("Frame", nil, portraitLayer)
     dragonLayer:SetAllPoints(portraitLayer)
     dragonLayer:SetFrameLevel(portraitLayer:GetFrameLevel() + 1)
+    dragonLayer:EnableMouse(false)
     f.classIcon:SetParent(dragonLayer)
     local indicatorLayer = CreateFrame("Frame", nil, portraitLayer)
     indicatorLayer:SetAllPoints(portraitLayer)
     indicatorLayer:SetFrameLevel(badgeLayer:GetFrameLevel() + 2)
+    indicatorLayer:EnableMouse(false)
     for _, iconName in ipairs(indicatorNames) do
         if iconName ~= "classIcon" then
             f[iconName]:SetParent(indicatorLayer)
