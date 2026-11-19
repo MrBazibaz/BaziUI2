@@ -551,7 +551,7 @@ local function CreateUnitFramesPage()
                 for label, button in pairs(sectionButtons) do
                     button.fill:SetColorTexture(label == selected and 0.36 or 0.25, label == selected and 0.20 or 0.13, label == selected and 0.28 or 0.07, 1)
                 end
-                root:SetHeight(selected == "Layout" and (key=="party" and 1060 or 610) or (selected=="Buffs / Debuffs" and key=="party" and 1230 or 480))
+                root:SetHeight(key=="party" and (selected=="Layout" and 1190 or selected=="Indicators" and 1180 or selected=="Bar Text" and 820 or selected=="Buffs / Debuffs" and 1230 or 580) or 610)
                 viewport:SetVerticalScroll(0)
             end
             for i, label in ipairs({"Layout","Indicators","Bar Text","Fonts","Buffs / Debuffs"}) do
@@ -630,8 +630,6 @@ local function CreateUnitFramesPage()
                     memberRefreshers[#memberRefreshers+1]=redraw
                     redraw()
                 end
-                nudge("FRAME X","offsetX",16,-670)
-                nudge("FRAME Y","offsetY",260,-670)
                 local portraitButton=CreateFrame("Button",nil,panel,"UIPanelButtonTemplate")
                 portraitButton:SetSize(195,25)
                 portraitButton:SetPoint("TOPLEFT",panel,"TOPLEFT",16,-730)
@@ -711,19 +709,34 @@ local function CreateUnitFramesPage()
                 page:HookScript("OnShow",refresh)
             end
             if key=="party" then
-                local function memberNudge(canvas,label,field,x,y)
+                local function coordinate(canvas,label,field,x,y,default)
                     local caption=CreateLabel(canvas,label,"GameFontNormal")
                     caption:SetPoint("TOPLEFT",canvas,"TOPLEFT",x,y)
-                    local value=CreateLabel(canvas,"","GameFontHighlight")
-                    value:SetPoint("LEFT",caption,"RIGHT",12,0)
-                    local function redraw() value:SetText(tostring(tonumber(memberValue(field,0)) or 0)) end
-                    for _,step in ipairs({-1,1}) do
-                        local b=CreateFrame("Button",nil,canvas,"UIPanelButtonTemplate")
-                        b:SetSize(28,22)
-                        b:SetPoint("TOPLEFT",canvas,"TOPLEFT",x+(step==-1 and 166 or 198),y+4)
-                        b:SetText(step==-1 and "-" or "+")
-                        b:SetScript("OnClick",function()
-                            memberSettings()[field]=(tonumber(memberValue(field,0)) or 0)+step
+                    local edit=CreateFrame("EditBox",nil,canvas,"InputBoxTemplate")
+                    edit:SetSize(100,22)
+                    edit:SetPoint("TOPLEFT",canvas,"TOPLEFT",x+2,y-26)
+                    edit:SetAutoFocus(false)
+                    edit:SetFontObject("GameFontHighlight")
+                    edit:SetMaxLetters(8)
+                    edit:SetScript("OnEditFocusGained",function(self) self:HighlightText() end)
+                    local function current() return tonumber(memberValue(field,default or 0)) or (default or 0) end
+                    local function redraw() if not edit:HasFocus() then edit:SetText(tostring(current())) end end
+                    edit:SetScript("OnEnterPressed",function(self)
+                        local n=tonumber(self:GetText())
+                        if n then memberSettings()[field]=math.floor(n);groupRefresh() end
+                        self:ClearFocus()
+                        redraw()
+                    end)
+                    edit:SetScript("OnEscapePressed",function(self) self:ClearFocus();redraw() end)
+                    for _,entry in ipairs({{1,"+"},{-1,"-"}}) do
+                        local delta=entry[1]
+                        local button=CreateFrame("Button",nil,canvas,"UIPanelButtonTemplate")
+                        button:SetSize(22,19)
+                        button:SetPoint("TOPLEFT",canvas,"TOPLEFT",x+113,y-(delta==1 and 25 or 45))
+                        button:SetText(entry[2])
+                        button:SetScript("OnClick",function()
+                            memberSettings()[field]=current()+delta
+                            edit:ClearFocus()
                             redraw()
                             groupRefresh()
                         end)
@@ -731,19 +744,58 @@ local function CreateUnitFramesPage()
                     memberRefreshers[#memberRefreshers+1]=redraw
                     redraw()
                 end
-                memberNudge(sections.Layout,"NAME X","nameX",16,-790)
-                memberNudge(sections.Layout,"NAME Y","nameY",260,-790)
-                memberNudge(sections["Bar Text"],"HP TEXT X","hpTextX",16,-200)
-                memberNudge(sections["Bar Text"],"HP TEXT Y","hpTextY",260,-200)
-                memberNudge(sections["Bar Text"],"POWER TEXT X","powerTextX",16,-250)
-                memberNudge(sections["Bar Text"],"POWER TEXT Y","powerTextY",260,-250)
-                for i,item in ipairs({{"PVP","pvp"},{"LEADER","leader"},{"RAID","raid"},{"ROLE","role"}}) do
-                    memberNudge(sections.Indicators,item[1].." X",item[2].."X",16,-420-(i-1)*48)
-                    memberNudge(sections.Indicators,item[1].." Y",item[2].."Y",260,-420-(i-1)*48)
+                local function anchorButton(canvas,label,field,x,y)
+                    local choices={"LEFT","CENTER","RIGHT","HIDDEN"}
+                    local button=CreateFrame("Button",nil,canvas,"UIPanelButtonTemplate")
+                    button:SetSize(220,25)
+                    button:SetPoint("TOPLEFT",canvas,"TOPLEFT",x,y)
+                    local function redraw() button:SetText(label..": "..tostring(memberValue(field,"LEFT"))) end
+                    button:SetScript("OnClick",function()
+                        local current=memberValue(field,"LEFT")
+                        local idx=1
+                        for i,v in ipairs(choices) do if v==current then idx=i break end end
+                        memberSettings()[field]=choices[idx%#choices+1]
+                        redraw()
+                        groupRefresh()
+                    end)
+                    memberRefreshers[#memberRefreshers+1]=redraw
+                    redraw()
                 end
+                coordinate(sections.Layout,"FRAME X","offsetX",16,-670)
+                coordinate(sections.Layout,"FRAME Y","offsetY",260,-670)
+                coordinate(sections["Bar Text"],"NAME X","nameX",16,-350)
+                coordinate(sections["Bar Text"],"NAME Y","nameY",260,-350)
+                coordinate(sections["Bar Text"],"HP TEXT X","hpTextX",16,-440)
+                coordinate(sections["Bar Text"],"HP TEXT Y","hpTextY",260,-440)
+                coordinate(sections["Bar Text"],"POWER TEXT X","powerTextX",16,-530)
+                coordinate(sections["Bar Text"],"POWER TEXT Y","powerTextY",260,-530)
+                anchorButton(sections["Bar Text"],"Name anchor","nameAnchor",20,-250)
+                anchorButton(sections["Bar Text"],"HP anchor","hpTextAnchor",270,-250)
+                anchorButton(sections["Bar Text"],"Power anchor","powerTextAnchor",20,-290)
+                for i,item in ipairs({{"PVP","pvp"},{"LEADER","leader"},{"RAID","raid"},{"ROLE","role"},{"CLASSIFICATION","classification"}}) do
+                    coordinate(sections.Indicators,item[1].." X",item[2].."X",16,-430-(i-1)*90)
+                    coordinate(sections.Indicators,item[1].." Y",item[2].."Y",260,-430-(i-1)*90)
+                end
+                local canvas=sections.Layout
+                local check=CreateFrame("CheckButton",nil,canvas,"UICheckButtonTemplate")
+                check:SetSize(25,25)
+                check:SetPoint("TOPLEFT",canvas,"TOPLEFT",16,-810)
+                local label=CreateLabel(canvas,"Show castbar","GameFontHighlight")
+                label:SetPoint("LEFT",check,"RIGHT",5,0)
+                local function syncCast() check:SetChecked(memberValue("showPartyCast",true)~=false) end
+                check:SetScript("OnClick",function(self)
+                    memberSettings().showPartyCast=self:GetChecked()==true
+                    groupRefresh()
+                end)
+                memberRefreshers[#memberRefreshers+1]=syncCast
+                syncCast()
+                coordinate(canvas,"CASTBAR X","partyCastX",16,-860)
+                coordinate(canvas,"CASTBAR Y","partyCastY",260,-860)
+                coordinate(canvas,"CASTBAR WIDTH","partyCastWidth",16,-950,190)
+                coordinate(canvas,"CASTBAR HEIGHT","partyCastHeight",260,-950,13)
             end
             panel=sections.Indicators
-            if key=="party" then panel:SetHeight(850) end
+            if key=="party" then panel:SetHeight(1100) end
             CreateSection(panel,"INDICATORS",-12)
             CreateDivider(panel,-45)
             local function groupToggle(canvas,label,field,y)
