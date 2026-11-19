@@ -120,7 +120,8 @@ local function create(key, spec)
     local portraitBack = portraitLayer:CreateTexture(nil, "BACKGROUND")
     portraitBack:SetSize(55, 55)
     portraitBack:SetPoint(side, f, side, side == "LEFT" and -5 or 5, 0)
-    portraitBack:SetColorTexture(0.075, 0.055, 0.035, 1)\n    f.portraitBack = portraitBack
+    portraitBack:SetColorTexture(0.075, 0.055, 0.035, 1)
+    f.portraitBack = portraitBack
     local backMask = portraitLayer:CreateMaskTexture()
     backMask:SetTexture("Interface\\\\CHARACTERFRAME\\\\TempPortraitAlphaMask", "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
     backMask:SetAllPoints(portraitBack)
@@ -142,7 +143,8 @@ local function create(key, spec)
     model:Hide()
     f.model = model
     local rim = portraitLayer:CreateTexture(nil, "OVERLAY")
-    rim:SetSize(62,62)\n    f.rim = rim
+    rim:SetSize(62,62)
+    f.rim = rim
     rim:SetPoint("CENTER", portrait, "CENTER")
     rim:SetAtlas("UI-HUD-UnitFrame-Target-PortraitOn")
     rim:SetTexCoord(252.78/384, 375/384, 1.67/134, 123.89/134)
@@ -156,7 +158,8 @@ local function create(key, spec)
     badgeLayer:SetAllPoints(portraitLayer)
     badgeLayer:SetFrameLevel(portraitLayer:GetFrameLevel() + 2)
     local disc = badgeLayer:CreateTexture(nil, "OVERLAY")
-    disc:SetSize(24,24)\n    f.levelDisc = disc
+    disc:SetSize(24,24)
+    f.levelDisc = disc
     disc:SetPoint("BOTTOM", portrait, "BOTTOM", side == "LEFT" and -17 or 17, -9)
     disc:SetAtlas("UI-HUD-UnitFrame-SmallCircle")
     local level = badgeLayer:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
