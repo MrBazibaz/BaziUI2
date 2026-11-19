@@ -312,7 +312,9 @@ local function CreateQoLPage()
             local selected = key == name
             button.fill:SetColorTexture(selected and 0.34 or 0.23, selected and 0.17 or 0.12,
                 selected and 0.25 or 0.07, 0.98)
-            button.text:SetTextColor(1, selected and 0.85 or 0.8, 0.55)
+            button.label:SetTextColor(selected and 1 or 0.95, selected and 0.85 or 0.80, selected and 0.55 or 0.66)
+            button.accent:SetColorTexture(selected and 0.83 or 0.54, selected and 0.63 or 0.37, selected and 0.30 or 0.20, selected and 1 or 0.8)
+            for _, edge in ipairs(button.edges) do edge:SetColorTexture(selected and 0.83 or 0.54, selected and 0.63 or 0.37, selected and 0.30 or 0.20, 0.95) end
         end
     end
     for i, name in ipairs({"General", "Resize Options"}) do
@@ -323,10 +325,28 @@ local function CreateQoLPage()
         tab.fill:SetAllPoints()
         tab.text = CreateLabel(tab, name, "GameFontNormal")
         tab.text:SetPoint("CENTER")
-        local edge = tab:CreateTexture(nil, "OVERLAY")
-        edge:SetColorTexture(0.7, 0.49, 0.28, 0.9)
-        edge:SetPoint("TOPLEFT"); edge:SetPoint("TOPRIGHT"); edge:SetHeight(1)
+        tab.edges = {}
+        for _, side in ipairs({"TOP", "BOTTOM", "LEFT", "RIGHT"}) do
+            local edge = tab:CreateTexture(nil, "OVERLAY")
+            if side == "TOP" then
+                edge:SetPoint("TOPLEFT"); edge:SetPoint("TOPRIGHT"); edge:SetHeight(1)
+            elseif side == "BOTTOM" then
+                edge:SetPoint("BOTTOMLEFT"); edge:SetPoint("BOTTOMRIGHT"); edge:SetHeight(1)
+            elseif side == "LEFT" then
+                edge:SetPoint("TOPLEFT"); edge:SetPoint("BOTTOMLEFT"); edge:SetWidth(1)
+            else
+                edge:SetPoint("TOPRIGHT"); edge:SetPoint("BOTTOMRIGHT"); edge:SetWidth(1)
+            end
+            tab.edges[#tab.edges+1] = edge
+        end
+        tab.accent = tab:CreateTexture(nil, "OVERLAY")
+        tab.accent:SetPoint("TOPRIGHT"); tab.accent:SetPoint("BOTTOMRIGHT"); tab.accent:SetWidth(3)
+        tab.label = tab.text
+        tab.text:ClearAllPoints()
+        tab.text:SetPoint("LEFT", tab, "LEFT", 12, 0)
         tab:SetScript("OnClick", function() selectTab(name) end)
+        tab:SetScript("OnEnter", function() if active ~= name then tab.fill:SetColorTexture(0.28, 0.15, 0.085, 0.98) end end)
+        tab:SetScript("OnLeave", function() selectTab(active) end)
         tabs[name] = tab
     end
     local viewport = CreateFrame("ScrollFrame", nil, resizePanel)
