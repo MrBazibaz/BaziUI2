@@ -20,10 +20,11 @@ local function cfg()
     return group
 end
 local units = {
-    party1={unit="boss1",x=-330,y=300},
-    party2={unit="boss2",x=-110,y=300},
-    party3={unit="party3",x=110,y=300},
-    party4={unit="party4",x=330,y=300},
+    boss1={unit="boss1",x=300,y=240},
+    boss2={unit="boss2",x=300,y=150},
+    boss3={unit="boss3",x=300,y=60},
+    boss4={unit="boss4",x=300,y=-30},
+    boss5={unit="boss5",x=300,y=-120},
 }
 local frames = {}
 local movers = {}
