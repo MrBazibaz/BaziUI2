@@ -60,8 +60,11 @@ function M:CopyMember(kind,sourceKind,sourceIndex,targetIndex)
         output.showPowerPercent = source.powerText == "percent"
     end
     -- Copy visual settings only; preserve group geometry and unit identity.
-    for _,field in ipairs({"x","y","spacing","columns","growth","anchor","enabled","showSolo","members"}) do output[field]=nil end
-    for k,v in pairs(output) do keep[k]=v end
+    for _,field in ipairs({"x","y","spacing","columns","growth","anchor","enabled","showSolo","members","offsetX","offsetY"}) do output[field]=nil end
+    local offsetX,offsetY=keep.offsetX,keep.offsetY
+    for k in pairs(keep) do keep[k]=nil end
+    for k,v in pairs(output) do keep[k]=clone(v) end
+    keep.offsetX,keep.offsetY=offsetX,offsetY
     self:Refresh()
     return true
 end
@@ -71,12 +74,14 @@ function M:ApplyToAll(kind,sourceIndex)
     if not opt then return false end
     local count=kind=="raid" and 40 or kind=="party" and 4 or 5
     local source=clone(effectiveOptions(opt,sourceIndex))
-    for _,field in ipairs({"x","y","spacing","columns","growth","anchor","enabled","showSolo","members"}) do source[field]=nil end
+    for _,field in ipairs({"x","y","spacing","columns","growth","anchor","enabled","showSolo","members","offsetX","offsetY"}) do source[field]=nil end
     for i=1,count do
         if i~=sourceIndex then
             local target=memberOptions(opt,i)
+            local offsetX,offsetY=target.offsetX,target.offsetY
             for k in pairs(target) do target[k]=nil end
             for k,v in pairs(source) do target[k]=clone(v) end
+            target.offsetX,target.offsetY=offsetX,offsetY
         end
     end
     self:Refresh()
