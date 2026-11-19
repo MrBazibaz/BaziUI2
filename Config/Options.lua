@@ -243,6 +243,70 @@ end
 
 
 
+local function CreateUnitFramesPage()
+    local page = CreateFrame("Frame", nil, contentFrame)
+    page:SetAllPoints(contentFrame)
+    pages["UnitFrames"] = page
+    local panel = CreatePanel(page, -12, 430)
+    CreateSection(panel, "UNIT FRAMES — FIRST TEST", -14)
+    CreateDivider(panel, -48)
+    local note = CreateLabel(panel, "Opt-in test frames. Blizzard frames remain visible until replacement is verified.", "GameFontHighlightSmall")
+    note:SetPoint("TOPLEFT", panel, "TOPLEFT", 22, -65)
+    note:SetTextColor(0.89, 0.73, 0.52)
+    local labels = {{"player","Player"},{"target","Target"},{"focus","Focus"},{"pet","Pet"}}
+    for i, item in ipairs(labels) do
+        local key, title = item[1], item[2]
+        local check = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
+        check:SetSize(24,24)
+        check:SetPoint("TOPLEFT", panel, "TOPLEFT", 22, -92 - (i-1)*39)
+        local caption = CreateLabel(panel, title, "GameFontHighlight")
+        caption:SetPoint("LEFT", check, "RIGHT", 6, 0)
+        check:SetScript("OnClick", function(self)
+            addon.db.profile.unitframes[key] = not not self:GetChecked()
+            if addon.UnitFrames then addon.UnitFrames:Refresh() end
+        end)
+        page:HookScript("OnShow", function()
+            check:SetChecked(addon.db.profile.unitframes[key])
+        end)
+    end
+    local scaleLabel = CreateLabel(panel, "Scale (%)", "GameFontNormal")
+    scaleLabel:SetPoint("TOPLEFT", panel, "TOPLEFT", 22, -271)
+    local edit = CreateFrame("EditBox", nil, panel)
+    edit:SetSize(64,24)
+    edit:SetPoint("LEFT", scaleLabel, "RIGHT", 12, 0)
+    edit:SetAutoFocus(false)
+    edit:SetNumeric(true)
+    edit:SetMaxLetters(3)
+    edit:SetFontObject("GameFontNormal")
+    edit:SetTextColor(1,0.81,0.45)
+    edit:SetJustifyH("CENTER")
+    local bg = edit:CreateTexture(nil,"BACKGROUND")
+    bg:SetAllPoints()
+    bg:SetColorTexture(0.11,0.065,0.04,0.95)
+    local function refresh()
+        edit:SetText(tostring(math.floor((addon.db.profile.unitframes.scale or 1)*100+0.5)))
+    end
+    edit:SetScript("OnEnterPressed", function(self)
+        local value = tonumber(self:GetText())
+        if value then
+            addon.db.profile.unitframes.scale = math.max(0.75,math.min(1.65,value/100))
+            if addon.UnitFrames then addon.UnitFrames:Refresh() end
+        end
+        self:ClearFocus()
+        refresh()
+    end)
+    edit:SetScript("OnEscapePressed", function(self) self:ClearFocus(); refresh() end)
+    edit:SetScript("OnMouseDown", function(self, button)
+        if button ~= "LeftButton" then return end
+        local now = GetTime()
+        if self.lastClick and now - self.lastClick < 0.35 then self:SetFocus(); self:HighlightText() end
+        self.lastClick = now
+    end)
+    page:HookScript("OnShow", refresh)
+    refresh()
+    return page
+end
+
 local function CreateQoLPage()
     local page = CreateFrame("Frame", nil, contentFrame)
     page:SetAllPoints(contentFrame)
@@ -1825,7 +1889,7 @@ function addon.Options:Create()
     CreateVersionHistoryPage()
     CreateQoLPage()
     CreatePlaceholderPage("Profiles", "Profile management is not implemented yet. Your current settings are preserved.")
-    CreatePlaceholderPage("UnitFrames")
+    CreateUnitFramesPage()
     CreatePlaceholderPage("Nameplates")
     CreatePlaceholderPage("ActionBars")
     CreatePlaceholderPage("Chat")
