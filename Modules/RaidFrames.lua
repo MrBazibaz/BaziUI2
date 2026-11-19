@@ -130,7 +130,9 @@ local function applyPosition(f, settings, key)
     -- Do not use the old portrait-era +20px layout padding.
     local hpHeight=math.max(12,math.min(45,tonumber(own.hpHeight) or 23))
     local powerHeight=math.max(4,math.min(30,tonumber(own.powerHeight) or 9))
-    -- Row coordinates are in UIParent units; raid frames themselves are scaled.\n    -- Remove the old top inset and padding so zero spacing visually joins rows.\n    local height=(hpHeight+powerHeight+1)/(1.15*(tonumber(settings.scale) or 1))
+    -- The visible bar stack determines the row pitch, not portrait-era padding.
+    -- Raid frames are scaled, so use scaled dimensions for UIParent positioning.
+    local height=(hpHeight+powerHeight+1)*(1.15*(tonumber(settings.scale) or 1))
     -- Anchor determines growth direction while keeping the saved group origin.
     local anchor=settings.anchor or "TOPLEFT"
     local horizontal=(anchor=="TOPRIGHT" or anchor=="BOTTOMRIGHT") and -1 or 1
