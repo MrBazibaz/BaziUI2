@@ -185,11 +185,30 @@ local function headerLayout()
                     end
                 end
                 NineSliceUtil.ApplyLayout(surround, layout)
-                -- Keep the Blizzard bronze/gold edge visible but subtle.
-                for _, key in ipairs({"TopLeftCorner", "TopRightCorner",
-                    "BottomLeftCorner", "BottomRightCorner",
-                    "TopEdge", "BottomEdge", "LeftEdge", "RightEdge"}) do
+                -- The stock NineSlice vertical edges and corners have a
+                -- minimum height intended for full windows. On a 21px
+                -- minimap header they protrude far above the map.
+                -- Keep its good-looking top/bottom edges, but replace
+                -- the six incompatible pieces with short inset sides.
+                for _, key in ipairs({"TopEdge", "BottomEdge"}) do
                     if surround[key] then surround[key]:SetAlpha(0.82) end
+                end
+                for _, key in ipairs({"LeftEdge", "RightEdge",
+                    "TopLeftCorner", "TopRightCorner",
+                    "BottomLeftCorner", "BottomRightCorner"}) do
+                    if surround[key] then surround[key]:Hide() end
+                end
+                for _, side in ipairs({"LEFT", "RIGHT"}) do
+                    local line = surround:CreateTexture(nil, "ARTWORK")
+                    line:SetColorTexture(0.70, 0.51, 0.28, 0.82)
+                    line:SetWidth(1)
+                    if side == "LEFT" then
+                        line:SetPoint("TOPLEFT", surround, "TOPLEFT", 1, -3)
+                        line:SetPoint("BOTTOMLEFT", surround, "BOTTOMLEFT", 1, 3)
+                    else
+                        line:SetPoint("TOPRIGHT", surround, "TOPRIGHT", -1, -3)
+                        line:SetPoint("BOTTOMRIGHT", surround, "BOTTOMRIGHT", -1, 3)
+                    end
                 end
             end
         end
