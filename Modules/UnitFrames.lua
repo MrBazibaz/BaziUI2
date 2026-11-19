@@ -194,9 +194,11 @@ local function layout(f, settings)
         -- Keep each tick separated to avoid opaque quads merging into a disc.
         -- Match the visible outer edge of the gold portrait ring. Keep
         -- tick depth modest so the XP track hugs the rim instead of floating.
+        -- The XP marks sit INSIDE the bronze rim's annulus, not outside it.
+        -- Their radial thickness scales with the portrait ring itself.
         local tickWidth = math.max(2, rimSize * 0.028)
-        local tickHeight = math.max(4, rimSize * 0.052)
-        local radius = rimSize * 0.49 + tickHeight * 0.5
+        local tickHeight = math.max(5, rimSize * 0.09)
+        local radius = rimSize * 0.445
         local count = #f.petXPRing.segments
         for i, segment in ipairs(f.petXPRing.segments) do
             local angle = -3 * math.pi / 4 - (i - 1) * (2 * math.pi / count)
@@ -463,8 +465,11 @@ local function createPetExtras(f)
     xp.text:SetPoint("CENTER")
     xp.text:SetTextColor(1, 0.9, 0.72)
     f.petXP = xp
-    local ring = CreateFrame("Frame", nil, f.portraitAnchor)
+    -- Same layer as the portrait artwork: bronze OVERLAY renders above the
+    -- XP marks, so they become an inlaid background rather than an outer halo.
+    local ring = CreateFrame("Frame", nil, f.portraitAnchor:GetParent())
     ring:SetAllPoints(f.portraitAnchor)
+    ring:SetFrameLevel(f.portraitAnchor:GetParent():GetFrameLevel())
     ring:EnableMouse(false)
     ring.segments = {}
     ring.backgrounds = {}
