@@ -1477,6 +1477,7 @@ end
 function M:Initialize()
     if self.initialized then return end
     self.initialized = true
+    if addon.GroupFrames then addon.GroupFrames:Initialize() end
     local events = CreateFrame("Frame")
     events:RegisterEvent("PLAYER_REGEN_ENABLED")
     events:RegisterEvent("PLAYER_ENTERING_WORLD")
