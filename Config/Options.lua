@@ -709,57 +709,106 @@ local function CreateUnitFramesPage()
                 page:HookScript("OnShow",refresh)
             end
             if key=="party" then
+                -- Same compact edit field and stacked +/- controls as Player.
                 local function coordinate(canvas,label,field,x,y,default)
-                    local caption=CreateLabel(canvas,label,"GameFontNormal")
-                    caption:SetPoint("TOPLEFT",canvas,"TOPLEFT",x,y)
+                    local title=CreateLabel(canvas,label,"GameFontNormal")
+                    title:SetPoint("TOPLEFT",canvas,"TOPLEFT",x,y)
+                    title:SetTextColor(1,.79,.42)
                     local edit=CreateFrame("EditBox",nil,canvas,"InputBoxTemplate")
-                    edit:SetSize(100,22)
-                    edit:SetPoint("TOPLEFT",canvas,"TOPLEFT",x+2,y-26)
+                    edit:SetSize(76,24)
+                    edit:SetPoint("TOPLEFT",canvas,"TOPLEFT",x,y-22)
                     edit:SetAutoFocus(false)
-                    edit:SetFontObject("GameFontHighlight")
-                    edit:SetMaxLetters(8)
+                    edit:SetMaxLetters(9)
                     edit:SetScript("OnEditFocusGained",function(self) self:HighlightText() end)
                     local function current() return tonumber(memberValue(field,default or 0)) or (default or 0) end
-                    local function redraw() if not edit:HasFocus() then edit:SetText(tostring(current())) end end
-                    edit:SetScript("OnEnterPressed",function(self)
-                        local n=tonumber(self:GetText())
-                        if n then memberSettings()[field]=math.floor(n);groupRefresh() end
-                        self:ClearFocus()
+                    local function redraw()
+                        if not edit:HasFocus() then edit:SetText(tostring(current())) end
+                    end
+                    local function apply(value)
+                        if not value then redraw();return end
+                        memberSettings()[field]=math.floor(value)
+                        edit:ClearFocus()
                         redraw()
-                    end)
+                        groupRefresh()
+                    end
+                    edit:SetScript("OnEnterPressed",function(self) apply(tonumber(self:GetText())) end)
                     edit:SetScript("OnEscapePressed",function(self) self:ClearFocus();redraw() end)
-                    for _,entry in ipairs({{1,"+"},{-1,"-"}}) do
-                        local delta=entry[1]
-                        local button=CreateFrame("Button",nil,canvas,"UIPanelButtonTemplate")
-                        button:SetSize(22,19)
-                        button:SetPoint("TOPLEFT",canvas,"TOPLEFT",x+113,y-(delta==1 and 25 or 45))
-                        button:SetText(entry[2])
-                        button:SetScript("OnClick",function()
-                            memberSettings()[field]=current()+delta
-                            edit:ClearFocus()
-                            redraw()
-                            groupRefresh()
-                        end)
+                    for i,delta in ipairs({1,-1}) do
+                        local button=CreateFrame("Button",nil,canvas)
+                        button:SetSize(22,13)
+                        button:SetPoint("TOPLEFT",edit,"TOPRIGHT",4,-(i-1)*13)
+                        local bg=button:CreateTexture(nil,"BACKGROUND")
+                        bg:SetAllPoints()
+                        bg:SetColorTexture(.23,.12,.065,1)
+                        local text=CreateLabel(button,delta==1 and "+" or "-","GameFontNormalSmall")
+                        text:SetPoint("CENTER")
+                        text:SetTextColor(1,.79,.42)
+                        button:SetScript("OnClick",function() apply(current()+delta) end)
                     end
                     memberRefreshers[#memberRefreshers+1]=redraw
                     redraw()
                 end
-                local function anchorButton(canvas,label,field,x,y)
-                    local choices={"LEFT","CENTER","RIGHT","HIDDEN"}
-                    local button=CreateFrame("Button",nil,canvas,"UIPanelButtonTemplate")
-                    button:SetSize(220,25)
-                    button:SetPoint("TOPLEFT",canvas,"TOPLEFT",x,y)
-                    local function redraw() button:SetText(label..": "..tostring(memberValue(field,"LEFT"))) end
-                    button:SetScript("OnClick",function()
-                        local current=memberValue(field,"LEFT")
-                        local idx=1
-                        for i,v in ipairs(choices) do if v==current then idx=i break end end
-                        memberSettings()[field]=choices[idx%#choices+1]
-                        redraw()
-                        groupRefresh()
-                    end)
-                    memberRefreshers[#memberRefreshers+1]=redraw
+                -- Matching the dark-gold dropdown design already used by Player/Tooltip.
+                local function partyDropdown(canvas,label,field,choices,x,y,width,default)
+                    width=width or 170
+                    local title=CreateLabel(canvas,label,"GameFontNormal")
+                    title:SetPoint("TOPLEFT",canvas,"TOPLEFT",x,y)
+                    title:SetTextColor(1,.79,.42)
+                    local button=CreateFrame("Button",nil,canvas)
+                    button:SetSize(width,27)
+                    button:SetPoint("TOPLEFT",canvas,"TOPLEFT",x,y-22)
+                    local bg=button:CreateTexture(nil,"BACKGROUND")
+                    bg:SetAllPoints()
+                    bg:SetColorTexture(.12,.07,.045,1)
+                    local border=button:CreateTexture(nil,"BORDER")
+                    border:SetPoint("TOPLEFT");border:SetPoint("TOPRIGHT");border:SetHeight(1)
+                    border:SetColorTexture(.75,.55,.29,1)
+                    local arrow=CreateLabel(button,"v","GameFontHighlightSmall")
+                    arrow:SetPoint("RIGHT",button,"RIGHT",-7,0)
+                    local valueText=CreateLabel(button,"","GameFontNormal")
+                    valueText:SetPoint("CENTER")
+                    valueText:SetTextColor(1,.79,.42)
+                    local menu=CreateFrame("Frame",nil,canvas)
+                    menu:SetSize(width,#choices*24+4)
+                    menu:SetPoint("TOPLEFT",button,"BOTTOMLEFT",0,-2)
+                    menu:SetFrameStrata("FULLSCREEN_DIALOG")
+                    menu:SetFrameLevel(button:GetFrameLevel()+25)
+                    local menuBg=menu:CreateTexture(nil,"BACKGROUND")
+                    menuBg:SetAllPoints()
+                    menuBg:SetColorTexture(.12,.07,.045,1)
+                    local function redraw()
+                        local value=memberValue(field,default or choices[1][1])
+                        for _,choice in ipairs(choices) do
+                            if choice[1]==value then valueText:SetText(choice[2]);return end
+                        end
+                        valueText:SetText("Custom")
+                    end
+                    for i,choice in ipairs(choices) do
+                        local item=CreateFrame("Button",nil,menu)
+                        item:SetPoint("TOPLEFT",menu,"TOPLEFT",2,-2-(i-1)*24)
+                        item:SetPoint("TOPRIGHT",menu,"TOPRIGHT",-2,-2-(i-1)*24)
+                        item:SetHeight(24)
+                        local fill=item:CreateTexture(nil,"BACKGROUND")
+                        fill:SetAllPoints()
+                        fill:SetColorTexture(.12,.07,.045,1)
+                        local itemText=CreateLabel(item,choice[2],"GameFontHighlightSmall")
+                        itemText:SetPoint("LEFT",item,"LEFT",8,0)
+                        item:SetScript("OnEnter",function() fill:SetColorTexture(.34,.18,.11,1) end)
+                        item:SetScript("OnLeave",function() fill:SetColorTexture(.12,.07,.045,1) end)
+                        item:SetScript("OnClick",function()
+                            memberSettings()[field]=choice[1]
+                            menu:Hide()
+                            redraw()
+                            groupRefresh()
+                        end)
+                    end
+                    button:SetScript("OnClick",function() menu:SetShown(not menu:IsShown()) end)
+                    menu:Hide()
+                    memberRefreshers[#memberRefreshers+1]=function() menu:Hide();redraw() end
                     redraw()
+                end
+                local function anchorButton(canvas,label,field,x,y)
+                    partyDropdown(canvas,label,field,{{"LEFT","Left"},{"CENTER","Center"},{"RIGHT","Right"},{"HIDDEN","Hidden"}},x,y,190,"CENTER")
                 end
                 coordinate(sections.Layout,"FRAME X","offsetX",16,-670)
                 coordinate(sections.Layout,"FRAME Y","offsetY",260,-670)
@@ -824,25 +873,13 @@ local function CreateUnitFramesPage()
             if key=="party" then
                 groupToggle(panel,"Show names","showName",-175)
                 local function textMode(label,field,y)
-                    local choices={{"Hidden",""},{"Current","{current}"},{"Current / Max","{current} / {max}"},{"Percent","{percent}"},{"Current (Percent)","{current} ({percent})"}}
-                    local button=CreateFrame("Button",nil,panel,"UIPanelButtonTemplate")
-                    button:SetSize(225,26)
-                    button:SetPoint("TOPLEFT",panel,"TOPLEFT",20,y)
-                    local function sync()
-                        local value=memberValue(field,"{current} / {max}")
-                        for _,item in ipairs(choices) do if item[2]==value then button:SetText(label..": "..item[1]);return end end
-                        button:SetText(label..": Custom")
-                    end
-                    button:SetScript("OnClick",function()
-                        local value=memberValue(field,"{current} / {max}")
-                        local n=1
-                        for i,item in ipairs(choices) do if item[2]==value then n=i break end end
-                        memberSettings()[field]=choices[n%#choices+1][2]
-                        sync()
-                        groupRefresh()
-                    end)
-                    memberRefreshers[#memberRefreshers+1]=sync
-                    sync()
+                    partyDropdown(panel,label.." TEXT",field,{
+                        {"","Hidden"},
+                        {"{current}","Current"},
+                        {"{current} / {max}","Current / Max"},
+                        {"{percent}","Percent"},
+                        {"{current} ({percent})","Current (Percent)"}
+                    },20,y,220,"{current} / {max}")
                 end
                 textMode("Health","hpText",-75)
                 textMode("Power","powerText",-125)
