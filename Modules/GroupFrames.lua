@@ -109,6 +109,25 @@ local function createMember(kind, index)
     local powerText = frame:CreateFontString(nil,"OVERLAY","GameFontNormalSmall")
     powerText:SetPoint("RIGHT",power,"RIGHT",-3,0)
     frame.powerText = powerText
+    -- Party-specific indicators; the established single-unit frames are untouched.
+    if kind=="party" then
+        frame.indicators={}
+        local icons={
+            pvp={"Interface\\TargetingFrame\\UI-PVP-FFA",0},
+            leader={"Interface\\GroupFrame\\UI-Group-LeaderIcon",1},
+            raid={"Interface\\TargetingFrame\\UI-RaidTargetingIcons",2},
+            role={"Interface\\LFGFrame\\UI-LFG-ICON-PORTRAITROLES",3},
+        }
+        for id,data in pairs(icons) do
+            local icon=frame:CreateTexture(nil,"OVERLAY")
+            icon:SetTexture(data[1])
+            icon:SetSize(16,16)
+            icon:SetPoint("TOPLEFT",frame,"TOPLEFT",6+data[2]*19,12)
+            icon:Hide()
+            frame.indicators[id]=icon
+        end
+        frame.indicators.raid:SetTexCoord(0,.25,0,.25)
+    end
     frame.unitToken = unit
     frame.hp,frame.power,frame.label,frame.portrait = hp,power,name,portrait
     frame:Hide()
@@ -170,7 +189,26 @@ local function layoutMember(f, kind, index, opt)
         f:SetPoint("TOPLEFT",UIParent,"CENTER",originX+(right and col or -col)*(width+gap),originY+(down and -row or row)*(height+gap))
     end
 end
+local function updatePartyIndicators(f,preview)
+    if not f.indicators then return end
+    local unit=f.unitToken
+    local opt=effectiveOptions(config("party"),tonumber(unit:match("%d+")) or 1)
+    local function safe(value)
+        if issecretvalue and issecretvalue(value) then return nil end
+        return value
+    end
+    local marker=not preview and GetRaidTargetIndex and safe(GetRaidTargetIndex(unit))
+    f.indicators.raid:SetShown(opt.showRaidMarker~=false and (preview or type(marker)=="number"))
+    if type(marker)=="number" and SetRaidTargetIconTexture then
+        SetRaidTargetIconTexture(f.indicators.raid,marker)
+    end
+    f.indicators.pvp:SetShown(opt.showPvP~=false and (preview or safe(UnitIsPVP(unit))==true))
+    f.indicators.leader:SetShown(opt.showLeader~=false and (preview or (UnitIsGroupLeader and safe(UnitIsGroupLeader(unit))==true)))
+    local role=not preview and UnitGroupRolesAssigned and safe(UnitGroupRolesAssigned(unit))
+    f.indicators.role:SetShown(opt.showRole~=false and (preview or role=="TANK" or role=="HEALER" or role=="DAMAGER"))
+end
 local function updateMember(f, preview)
+    updatePartyIndicators(f,preview)
     if preview then
         f.hp:SetMinMaxValues(0,100)
         f.hp:SetValue(75)
