@@ -199,9 +199,18 @@ local function layout(f, settings)
             local size = math.max(10, math.min(field == "classification" and 120 or 48, tonumber(settings.indicatorSize and settings.indicatorSize[field]) or (field == "classification" and 64 or 17)))
             local x = (icon.baseX or 0) + (tonumber(settings.indicatorX and settings.indicatorX[field]) or 0)
             local y = (icon.baseY or 0) + (tonumber(settings.indicatorY and settings.indicatorY[field]) or 0)
-            icon:SetSize(size, size)
+            -- The dragon is a portrait decoration: scale its size and default
+            -- attachment point with the portrait. Manual X/Y stay pixel offsets.
+            local drawSize, drawX, drawY = size, x, y
+            if field == "classification" then
+                local factor = portraitSize / 48
+                drawSize = size * factor
+                drawX = (icon.baseX or 0) * factor + (tonumber(settings.indicatorX and settings.indicatorX[field]) or 0)
+                drawY = (icon.baseY or 0) * factor + (tonumber(settings.indicatorY and settings.indicatorY[field]) or 0)
+            end
+            icon:SetSize(drawSize, drawSize)
             icon:ClearAllPoints()
-            icon:SetPoint("CENTER", f.portraitAnchor, "CENTER", x, y)
+            icon:SetPoint("CENTER", f.portraitAnchor, "CENTER", drawX, drawY)
         end
     end
     f.levelDisc:SetSize(portraitSize / 2, portraitSize / 2)
