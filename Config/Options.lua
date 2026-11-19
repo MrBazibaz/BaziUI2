@@ -286,6 +286,63 @@ local function CreateQoLPage()
     SoundCheck("Mute Failed Spell Sounds",
         "Silence the sound played when a spell or ability fails.",
         "muteFailedSpellSounds", -233)
+    -- Resize Options opens a dedicated panel, leaving existing QoL controls intact.
+    local resizeButton = CreateFrame("Button", nil, panel)
+    resizeButton:SetSize(200, 32)
+    resizeButton:SetPoint("TOPLEFT", panel, "TOPLEFT", 22, -300)
+    local resizeFill = resizeButton:CreateTexture(nil, "BACKGROUND")
+    resizeFill:SetAllPoints()
+    resizeFill:SetColorTexture(0.32, 0.17, 0.25, 0.95)
+    local resizeText = CreateLabel(resizeButton, "Resize Options", "GameFontNormal")
+    resizeText:SetPoint("CENTER")
+    resizeText:SetTextColor(1, 0.83, 0.53)
+    local popup = CreateFrame("Frame", nil, page)
+    popup:SetAllPoints(page)
+    popup:SetFrameLevel(page:GetFrameLevel() + 10)
+    local popupPanel = CreatePanel(popup, -12, 395)
+    CreateSection(popupPanel, "RESIZE OPTIONS", -16)
+    local back = CreateFrame("Button", nil, popupPanel)
+    back:SetSize(80, 28)
+    back:SetPoint("TOPRIGHT", popupPanel, "TOPRIGHT", -15, -12)
+    local backText = CreateLabel(back, "Back", "GameFontNormal")
+    backText:SetPoint("CENTER")
+    back:SetScript("OnClick", function() popup:Hide(); panel:Show() end)
+    local hint = CreateLabel(popupPanel,
+        "Enable a window to drag its bottom corners. Uncheck to lock its saved size.",
+        "GameFontHighlightSmall")
+    hint:SetPoint("TOPLEFT", popupPanel, "TOPLEFT", 22, -57)
+    hint:SetTextColor(0.9, 0.77, 0.60)
+    local resize = addon.WindowResize
+    for i, window in ipairs(resize and resize.windows or {}) do
+        local check = CreateFrame("CheckButton", nil, popupPanel, "UICheckButtonTemplate")
+        check:SetSize(25, 25)
+        check:SetPoint("TOPLEFT", popupPanel, "TOPLEFT", 18, -84 - (i - 1) * 58)
+        local cfg = resize:GetSetting(window.key)
+        check:SetChecked(cfg and cfg.enabled)
+        local caption = CreateLabel(popupPanel, window.label, "GameFontHighlight")
+        caption:SetPoint("LEFT", check, "RIGHT", 7, 0)
+        local scaleText = CreateLabel(popupPanel,
+            string.format("Saved scale: %d%%", math.floor(((cfg and cfg.scale) or 1) * 100 + 0.5)),
+            "GameFontHighlightSmall")
+        scaleText:SetPoint("TOPLEFT", check, "BOTTOMLEFT", 35, -2)
+        scaleText:SetTextColor(0.84, 0.73, 0.59)
+        check:SetScript("OnClick", function(self)
+            local setting = resize:GetSetting(window.key)
+            if not setting then return end
+            setting.enabled = not not self:GetChecked()
+            resize:Refresh()
+        end)
+        popup:HookScript("OnShow", function()
+            local setting = resize:GetSetting(window.key)
+            if setting then
+                check:SetChecked(setting.enabled)
+                scaleText:SetText(string.format("Saved scale: %d%%", math.floor((setting.scale or 1) * 100 + 0.5)))
+            end
+        end)
+    end
+    popup:Hide()
+    resizeButton:SetScript("OnClick", function() panel:Hide(); popup:Show() end)
+    page:HookScript("OnHide", function() popup:Hide(); panel:Show() end)
     return page
 end
 
