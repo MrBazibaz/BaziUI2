@@ -22,5 +22,6 @@ Modules\MinimapButtons.lua
 Modules\QoLSounds.lua
 Modules\WindowResize.lua
 Modules\UnitFrames.lua
+Modules\GroupFrames.lua
 Config\Options.lua
 Core\Commands.lua
