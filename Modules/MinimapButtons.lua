@@ -35,24 +35,11 @@ local function makeLauncher()
     b:SetSize(32, 32)
     b:SetFrameStrata("HIGH")
     b:SetFrameLevel(map:GetFrameLevel() + 16)
-    -- Round Blizzard minimap-style ring and a purple crystal icon.
-    local ring = b:CreateTexture(nil, "BACKGROUND")
-    ring:SetSize(52, 52)
-    ring:SetPoint("CENTER", b, "CENTER", 0, 0)
-    ring:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder")
-    local crystal = b:CreateTexture(nil, "ARTWORK")
-    crystal:SetPoint("CENTER", 0, 0)
-    crystal:SetSize(19, 19)
-    crystal:SetTexture("Interface\\AddOns\\BaziUI\\Assets\\Icons\\BaziUI_Emblem_256.png")
-    crystal:SetTexCoord(0, 1, 0, 1)
-    -- A circular alpha mask clips the square inventory icon into a round medallion.
-    if crystal.AddMaskTexture then
-        local mask = b:CreateMaskTexture()
-        mask:SetSize(19, 19)
-        mask:SetPoint("CENTER", crystal, "CENTER")
-        mask:SetTexture("Interface\\CHARACTERFRAME\\TempPortraitAlphaMask")
-        crystal:AddMaskTexture(mask)
-    end
+    -- The Bazi emblem already includes its own round gold ring.
+    -- Render the complete asset instead of stacking a second, offset ring.
+    local emblem = b:CreateTexture(nil, "ARTWORK")
+    emblem:SetAllPoints(b)
+    emblem:SetTexture("Interface\\AddOns\\BaziUI\\Assets\\Icons\\BaziUI_Emblem_256.png")
     b:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
     b:SetScript("OnClick", toggleOptions)
     b:RegisterForDrag("LeftButton")
@@ -133,7 +120,12 @@ local function makeMenu()
     menu:EnableMouse(true)
     table.insert(UISpecialFrames, "BaziUIMinimapMicroMenu")
     menu:RegisterEvent("PLAYER_REGEN_DISABLED")
-    menu:SetScript("OnShow", function(self) self:RegisterEvent("GLOBAL_MOUSE_DOWN") end)
+    menu:SetScript("OnShow", function(self)
+        -- Do not treat the middle click which opened the menu as an outside click.
+        C_Timer.After(0.1, function()
+            if self:IsShown() then self:RegisterEvent("GLOBAL_MOUSE_DOWN") end
+        end)
+    end)
     menu:SetScript("OnHide", function(self) self:UnregisterEvent("GLOBAL_MOUSE_DOWN") end)
     menu:SetScript("OnEvent", function(self, event)
         if event == "GLOBAL_MOUSE_DOWN" and self:IsMouseOver() then return end
@@ -220,7 +212,12 @@ function M:Apply()
         end
         M.Launcher:SetShown(show)
     end
-    if M.MouseSurface then M.MouseSurface:EnableMouse(cfg.enabled and cfg.microMenu) end
+    if M.MouseSurface then
+        M.MouseSurface:EnableMouse(cfg.enabled and cfg.microMenu)
+        if M.MouseSurface.SetMouseClickEnabled then
+            M.MouseSurface:SetMouseClickEnabled(cfg.enabled and cfg.microMenu)
+        end
+    end
     if M.Menu and not cfg.microMenu then M.Menu:Hide() end
 end
 function M:Initialize()
@@ -232,10 +229,12 @@ function M:Initialize()
     -- Blizzard map directly does not reliably receive middle clicks.
     local surface = CreateFrame("Frame", nil, map)
     surface:SetAllPoints(map)
-    surface:SetFrameLevel(map:GetFrameLevel() + 10)
+    surface:SetFrameStrata("HIGH")
+    surface:SetFrameLevel(map:GetFrameLevel() + 30)
     if surface.SetMouseMotionEnabled then surface:SetMouseMotionEnabled(false) end
     if surface.SetPropagateMouseMotion then surface:SetPropagateMouseMotion(true) end
     surface:EnableMouse(true)
+    if surface.SetMouseClickEnabled then surface:SetMouseClickEnabled(true) end
     if surface.SetPassThroughButtons then
         surface:SetPassThroughButtons("LeftButton", "RightButton", "Button4", "Button5")
     end
