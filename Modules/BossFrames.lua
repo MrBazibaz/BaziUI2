@@ -685,13 +685,12 @@ local function layout(f, settings)
     anchorText(f.powerText, f.power, settings.powerTextAnchor, settings.powerTextX, settings.powerTextY)
     local function tint(fontString, mode)
         if mode == "gold" then fontString:SetTextColor(1, 0.80, 0.38)
-        elseif mode == "white" then fontString:SetTextColor(1, 1, 1)
         elseif mode == "class" then
             local _, class = UnitClass(f.unit)
             local c = class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
             if c then fontString:SetTextColor(c.r, c.g, c.b)
-            else fontString:SetTextColor(1, 0.80, 0.38) end
-        else fontString:SetTextColor(1, 0.80, 0.38) end
+            else fontString:SetTextColor(1, 1, 1) end
+        else fontString:SetTextColor(1, 1, 1) end
     end
     tint(f.value, settings.hpFontColor)
     tint(f.powerText, settings.powerFontColor)
@@ -928,7 +927,7 @@ local function createPetExtras(f)
     cast:SetHeight(13)
     cast.label = cast:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     cast.label:SetPoint("CENTER")
-    cast.label:SetTextColor(1, 0.9, 0.72)
+    cast.label:SetTextColor(1, 1, 1)
     cast:SetScript("OnUpdate", function(self)
         if not self:IsShown() or not self.startTime or not self.endTime then return end
         local duration = self.endTime - self.startTime
@@ -963,7 +962,7 @@ local function createPartyCast(f)
     border:EnableMouse(false)
     cast.label=cast:CreateFontString(nil,"OVERLAY","GameFontNormalSmall")
     cast.label:SetPoint("CENTER")
-    cast.label:SetTextColor(1,.9,.72)
+    cast.label:SetTextColor(1,1,1)
     cast:SetFrameLevel(f.barBorder:GetFrameLevel()+1)
     cast:SetScript("OnUpdate",function(self)
         if not self:IsShown() or not self.startTime or not self.endTime then return end
@@ -1341,6 +1340,10 @@ local function updateSample(f,index)
     end
     f.value:SetText(previewText(own.hpText or (own.showHealthPercent and "{percent}" or "{current} / {max}"),sample.hp))
     f.powerText:SetText(previewText(own.powerText or (own.showPowerPercent and "{percent}" or "{current} / {max}"),sample.power))
+    -- Preview has no real boss unit to supply class colors.
+    -- Use white for numerical labels, matching the other approved frames.
+    f.value:SetTextColor(1,1,1)
+    f.powerText:SetTextColor(1,1,1)
     f.pvpIcon:Hide()
     f.leaderIcon:Hide()
     f.raidIcon:SetShown(own.showRaidMarker~=false)
