@@ -253,6 +253,18 @@ local function CreateUnitFramesPage()
     local note = CreateLabel(panel, "Opt-in test frames. Blizzard frames remain visible until replacement is verified.", "GameFontHighlightSmall")
     note:SetPoint("TOPLEFT", panel, "TOPLEFT", 22, -65)
     note:SetTextColor(0.89, 0.73, 0.52)
+    local hideOriginal = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
+    hideOriginal:SetSize(24, 24)
+    hideOriginal:SetPoint("TOPLEFT", panel, "TOPLEFT", 22, -322)
+    local hideText = CreateLabel(panel, "Hide original Blizzard frames (test)", "GameFontHighlight")
+    hideText:SetPoint("LEFT", hideOriginal, "RIGHT", 6, 0)
+    hideOriginal:SetScript("OnClick", function(self)
+        addon.db.profile.unitframes.hideBlizzard = not not self:GetChecked()
+        if addon.UnitFrames then addon.UnitFrames:Refresh() end
+    end)
+    page:HookScript("OnShow", function()
+        hideOriginal:SetChecked(addon.db.profile.unitframes.hideBlizzard)
+    end)
     local labels = {{"player","Player"},{"target","Target"},{"focus","Focus"},{"pet","Pet"}}
     for i, item in ipairs(labels) do
         local key, title = item[1], item[2]
