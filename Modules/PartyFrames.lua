@@ -560,7 +560,12 @@ local function layout(f, settings)
     -- The model is a genuine 3D render surface, not a masked texture.
     -- Keep its viewport within the ring while we investigate clipping.
     f.model:SetSize(innerSize * 0.72, innerSize * 0.72)
-    f.portraitMask:SetSize(innerSize, innerSize)
+    -- Clip the NORMAL portrait to the inner opening of the gold ring.
+    -- The portrait texture stays full-size for a natural crop, but its mask
+    -- must not extend over the outer rim (especially visible in solo preview).
+    f.portraitMask:ClearAllPoints()
+    f.portraitMask:SetPoint("CENTER",f.portraitAnchor,"CENTER",-1,0)
+    f.portraitMask:SetSize(rimSize * 0.73, rimSize * 0.73)
     f.backMask:SetSize(backSize, backSize)
     for i, name in ipairs(indicatorNames) do
         local icon = f[name]
