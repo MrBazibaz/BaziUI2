@@ -170,6 +170,7 @@ local function layout(f, settings)
     local powerHeight = math.max(4, math.min(30, tonumber(settings.powerHeight) or 9))
     local side = f.portraitSide
     local portraitSize = math.max(36, math.min(90, tonumber(settings.portraitSize) or 48))
+    f.petXPSettings = settings
     -- Shared centre for portrait, ring, mask and model.
     local centreX = (side == "LEFT" and -5 or 5) + (tonumber(settings.portraitX) or 0)
     local centreY = tonumber(settings.portraitY) or 0
