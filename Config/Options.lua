@@ -389,7 +389,7 @@ local function CreateUnitFramesPage()
                 local canvas = CreateFrame("Frame", nil, rootPanel)
                 canvas:SetPoint("TOPLEFT", rootPanel, "TOPLEFT", 0, -49)
                 canvas:SetPoint("TOPRIGHT", rootPanel, "TOPRIGHT", 0, -49)
-                canvas:SetHeight(category == "Indicators" and (name == "Pet" and 940 or 590) or 520)
+                canvas:SetHeight(category == "Indicators" and (name == "Pet" and 1020 or 590) or 520)
                 canvas:Hide()
                 groups[category] = canvas
             end
@@ -403,7 +403,7 @@ local function CreateUnitFramesPage()
                         label == category and 0.18 or 0.12,
                         label == category and 0.26 or 0.07, 1)
                 end
-                rootPanel:SetHeight(category == "Indicators" and (name == "Pet" and 960 or 610) or (category == "Layout" and 540 or 490))
+                rootPanel:SetHeight(category == "Indicators" and (name == "Pet" and 1040 or 610) or (category == "Layout" and 540 or 490))
                 viewport:SetVerticalScroll(0)
             end
             for i, category in ipairs({"Layout", "Indicators", "Bar Text", "Fonts"}) do
@@ -787,6 +787,39 @@ local function CreateUnitFramesPage()
                     local value = tonumber(own.petXPRotation) or 0
                     if math.abs(rotationSlider:GetValue() - value) > 0.01 then
                         rotationSlider:SetValue(value)
+                    end
+                end
+                local radiusSlider = CreateSlider(panel, "PET XP RING RADIUS",
+                    "Move XP segments inward (-) or outward (+), in pixels",
+                    -10, 10, 0.5, tonumber(own.petXPRadiusOffset) or 0, -875,
+                    function(value)
+                        own.petXPRadiusOffset = value
+                        if addon.UnitFrames then addon.UnitFrames:Refresh() end
+                    end, true)
+                local radiusRow = radiusSlider:GetParent()
+                radiusSlider:ClearAllPoints()
+                radiusSlider:SetPoint("RIGHT", radiusRow, "RIGHT", -111, 0)
+                radiusSlider.valueBox:ClearAllPoints()
+                radiusSlider.valueBox:SetPoint("RIGHT", radiusRow, "RIGHT", -71, 0)
+                for i, delta in ipairs({1, -1}) do
+                    local btn = CreateFrame("Button", nil, radiusRow)
+                    btn:SetSize(21, 24)
+                    btn:SetPoint("LEFT", radiusSlider.valueBox, "RIGHT", 5 + (i-1)*22, 0)
+                    local bg = btn:CreateTexture(nil, "BACKGROUND")
+                    bg:SetAllPoints()
+                    bg:SetColorTexture(0.23, 0.12, 0.065, 1)
+                    local glyph = CreateLabel(btn, delta == 1 and "+" or "-", "GameFontNormal")
+                    glyph:SetPoint("CENTER")
+                    btn:SetScript("OnClick", function()
+                        local nextValue = math.max(-10, math.min(10,
+                            (tonumber(own.petXPRadiusOffset) or 0) + delta * 0.5))
+                        radiusSlider:SetValue(nextValue)
+                    end)
+                end
+                refreshers[#refreshers+1] = function()
+                    local value = tonumber(own.petXPRadiusOffset) or 0
+                    if math.abs(radiusSlider:GetValue() - value) > 0.01 then
+                        radiusSlider:SetValue(value)
                     end
                 end
             end
