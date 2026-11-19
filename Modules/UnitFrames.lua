@@ -18,6 +18,17 @@ local movers = {}
 local moving = false
 local previewIndicators = false
 local previewPetCast = false
+local auraPreview = { buffs = false, debuffs = false }
+function M:SetTargetAuraPreview(kind, enabled)
+    if kind ~= "buffs" and kind ~= "debuffs" then return end
+    auraPreview[kind] = enabled == true
+    self:Refresh()
+end
+function M:ClearTargetAuraPreviews()
+    auraPreview.buffs, auraPreview.debuffs = false, false
+    self:Refresh()
+end
+
 local indicatorNames = {"pvpIcon", "leaderIcon", "raidIcon", "roleIcon", "classIcon", "happinessIcon"}
 local indicatorFields = {"pvp", "leader", "raid", "role", "classification", "happiness"}
 function M:SetIndicatorPreview(enabled)
@@ -74,6 +85,48 @@ local function unitSettings(settings, key)
     end
     return own
 end
+local function updateTargetAuraPreview(f)
+    if not f or f.unit ~= "target" then return end
+    if not f.auraPreview then
+        f.auraPreview = {}
+        for _, kind in ipairs({"buffs", "debuffs"}) do
+            local group = CreateFrame("Frame", nil, f)
+            group:SetSize(200, 90)
+            group:EnableMouse(false)
+            group:SetFrameLevel(f:GetFrameLevel() + 9)
+            group.tiles = {}
+            for i = 1, 20 do
+                local tile = group:CreateTexture(nil, "ARTWORK")
+                tile:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark")
+                tile:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+                group.tiles[i] = tile
+            end
+            f.auraPreview[kind] = group
+        end
+    end
+    local own = unitSettings(cfg() or {}, "target")
+    for _, kind in ipairs({"buffs", "debuffs"}) do
+        local group = f.auraPreview[kind]
+        local opt = own["aura_" .. kind] or {}
+        local size = math.max(12, math.min(48, tonumber(opt.size) or 24))
+        local count = math.max(0, math.min(40, tonumber(opt.count) or 12))
+        local perRow = math.max(1, math.min(20, tonumber(opt.perRow) or 6))
+        local spacing = math.max(0, math.min(20, tonumber(opt.spacing) or 2))
+        group:ClearAllPoints()
+        group:SetPoint("TOPLEFT", f, "TOPLEFT", tonumber(opt.x) or 0, tonumber(opt.y) or (kind == "buffs" and 32 or -58))
+        group:SetShown(auraPreview[kind])
+        for i, tile in ipairs(group.tiles) do
+            tile:SetShown(auraPreview[kind] and i <= math.min(count, #group.tiles))
+            tile:SetSize(size, size)
+            tile:ClearAllPoints()
+            local col, row = (i-1) % perRow, math.floor((i-1)/perRow)
+            local dx = col * (size + spacing) * (opt.horizontal == "left" and -1 or 1)
+            local dy = row * (size + spacing) * (opt.vertical == "up" and 1 or -1)
+            tile:SetPoint("TOPLEFT", group, "TOPLEFT", dx, dy)
+        end
+    end
+end
+
 function M:CopyLayout(source, destination)
     local settings = cfg()
     if not settings or not units[source] or not units[destination] or source == destination then return false end
@@ -850,6 +903,7 @@ function M:Refresh()
         local f = frames[key]
         if f and not (InCombatLockdown and InCombatLockdown()) then
             layout(f, unitSettings(settings, key))
+            if key == "target" then updateTargetAuraPreview(f) end
             update(f)
             applyPosition(f, settings, key)
             if settings.enabled ~= false and settings[key] then
