@@ -48,7 +48,7 @@ function M:SetMoveMode(value)
     return true
 end
 function M:IsMoveMode() return moving end
-local layoutKeys = {"barWidth", "hpHeight", "powerHeight", "portraitSize", "portraitX", "portraitY", "showPvP", "showLeader", "showRaidMarker", "showRole", "showClassification", "hpText", "powerText", "fontSize", "fontFace"}
+local layoutKeys = {"barWidth", "hpHeight", "powerHeight", "portraitSize", "portraitX", "portraitY", "showPvP", "showLeader", "showRaidMarker", "showRole", "showClassification", "hpText", "powerText", "fontSize", "nameFontSize", "hpFontSize", "powerFontSize", "fontFace"}
 local function unitSettings(settings, key)
     settings.frames = settings.frames or {}
     local own = settings.frames[key]
@@ -146,9 +146,9 @@ local function layout(f, settings)
     f.power:SetSize(width, powerHeight)
     local font = settings.fontFace == "arial" and "Fonts\\\\ARIALN.TTF" or "Fonts\\\\FRIZQT__.TTF"
     local size = math.max(8, math.min(28, tonumber(settings.fontSize) or 12))
-    f.name:SetFont(font, size, "OUTLINE")
-    f.value:SetFont(font, size, "OUTLINE")
-    f.powerText:SetFont(font, size, "OUTLINE")
+    f.name:SetFont(font, tonumber(settings.nameFontSize) or size, "OUTLINE")
+    f.value:SetFont(font, tonumber(settings.hpFontSize) or size, "OUTLINE")
+    f.powerText:SetFont(font, tonumber(settings.powerFontSize) or size, "OUTLINE")
     f.barBorder:ClearAllPoints()
     f.barBorder:SetPoint("TOPLEFT", f.health, "TOPLEFT", -2, 2)
     f.barBorder:SetPoint("BOTTOMRIGHT", f.power, "BOTTOMRIGHT", 2, -2)
