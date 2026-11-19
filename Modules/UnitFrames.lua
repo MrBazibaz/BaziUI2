@@ -1286,32 +1286,38 @@ function M:ProbeAuraCountdown(key, kind)
     kind = kind == "debuffs" and "debuffs" or "buffs"
     local frame = frames[key]
     local entry = frame and frame.liveAuras and frame.liveAuras[kind]
-    local item = entry and entry.texts and entry.texts[1]
-    local cooldown = item and item.cooldown
-    if not cooldown then
-        debugPrint("No cooldown available for " .. key .. "/" .. kind)
+    if not entry or not entry.texts then
+        debugPrint("No aura buttons for " .. key .. "/" .. kind)
         showAuraDebugWindow()
         return
     end
-    local ok, fontString = pcall(cooldown.GetCountdownFontString, cooldown)
-    if not ok or not fontString then
-        debugPrint("GetCountdownFontString unavailable")
-        showAuraDebugWindow()
-        return
+    local changed, failed, missing = 0, 0, 0
+    debugPrint("Font-only probe: " .. key .. "/" .. kind .. " (" .. #entry.texts .. " buttons)")
+    for i, item in ipairs(entry.texts) do
+        local cooldown = item.cooldown
+        local ok, fontString = pcall(function()
+            return cooldown and cooldown:GetCountdownFontString()
+        end)
+        if not ok or not fontString then
+            missing = missing + 1
+        else
+            local fontOK, fontPath, _, flags = pcall(fontString.GetFont, fontString)
+            if fontOK and type(fontPath) == "string" then
+                local setOK = pcall(fontString.SetFont, fontString, fontPath, 9, flags)
+                if setOK then
+                    changed = changed + 1
+                else
+                    failed = failed + 1
+                end
+            else
+                failed = failed + 1
+            end
+            if i <= 3 then debugText("countdown " .. i, fontString) end
+        end
     end
-    debugPrint("Testing first " .. key .. "/" .. kind .. " cooldown font only")
-    debugText("before", fontString)
-    local fontOK, fontPath, fontSize, flags = pcall(fontString.GetFont, fontString)
-    if fontOK and type(fontPath) == "string" then
-        local changed, err = pcall(fontString.SetFont, fontString, fontPath, 9, flags)
-        debugPrint("SetFont(9) " .. (changed and "OK" or ("FAILED: " .. tostring(err))))
-    else
-        debugPrint("Font information unavailable; no changes made")
-    end
-    local alignOK, alignErr = pcall(fontString.SetJustifyH, fontString, "CENTER")
-    debugPrint("SetJustifyH(CENTER) " .. (alignOK and "OK" or ("FAILED: " .. tostring(alignErr))))
-    debugText("after", fontString)
-    debugPrint("This probe changes appearance only; reload restores the original font.")
+    debugPrint("Changed=" .. changed .. " failed=" .. failed .. " missing=" .. missing)
+    debugPrint("Inspect visible aura timers. /reload restores the original fonts.")
+    debugPrint("No protected cooldown times were read or modified.")
     showAuraDebugWindow()
 end
 SLASH_BAZIAURAPROBE1 = "/baziauraprobe"
