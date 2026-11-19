@@ -120,7 +120,12 @@ local function makeMenu()
     menu:EnableMouse(true)
     table.insert(UISpecialFrames, "BaziUIMinimapMicroMenu")
     menu:RegisterEvent("PLAYER_REGEN_DISABLED")
-    menu:SetScript("OnShow", function(self) self:RegisterEvent("GLOBAL_MOUSE_DOWN") end)
+    menu:SetScript("OnShow", function(self)
+        -- Register after the opening click has finished propagating.
+        C_Timer.After(0.15, function()
+            if self:IsShown() then self:RegisterEvent("GLOBAL_MOUSE_DOWN") end
+        end)
+    end)
     menu:SetScript("OnHide", function(self) self:UnregisterEvent("GLOBAL_MOUSE_DOWN") end)
     menu:SetScript("OnEvent", function(self, event)
         if event == "GLOBAL_MOUSE_DOWN" and self:IsMouseOver() then return end
@@ -235,8 +240,8 @@ function M:Initialize()
     local surface = CreateFrame("Frame", nil, map)
     surface:SetAllPoints(map)
     surface:SetFrameStrata(map:GetFrameStrata())
-    surface:SetFrameLevel(map:GetFrameLevel() + 10)
-    if surface.SetMouseMotionEnabled then surface:SetMouseMotionEnabled(false) end
+    surface:SetFrameLevel(map:GetFrameLevel() + 25)
+    if surface.SetMouseMotionEnabled then surface:SetMouseMotionEnabled(true) end
     if surface.SetPropagateMouseMotion then surface:SetPropagateMouseMotion(true) end
     surface:EnableMouse(true)
     if surface.SetMouseClickEnabled then surface:SetMouseClickEnabled(true) end
