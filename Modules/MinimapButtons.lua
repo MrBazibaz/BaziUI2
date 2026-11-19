@@ -254,7 +254,8 @@ function M:Initialize()
     local function CreateMapSurface()
         surface = CreateFrame("Frame", nil, MinimapFrame)
         surface:SetAllPoints(MinimapFrame)
-        surface:SetFrameLevel(MinimapFrame:GetFrameLevel() + 10)
+        surface:SetFrameStrata("HIGH")
+        surface:SetFrameLevel(100)
         if surface.SetMouseMotionEnabled then surface:SetMouseMotionEnabled(false) end
         if surface.SetPropagateMouseMotion then surface:SetPropagateMouseMotion(true) end
         local cfg = db()
