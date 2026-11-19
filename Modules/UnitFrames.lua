@@ -1185,17 +1185,16 @@ local function showAuraDebugWindow()
         edit:SetFontObject(ChatFontNormal)
         edit:SetWidth(570)
         edit:SetHeight(320)
-        edit:SetTextInsets(3, 3, 3, 3)
         edit:SetScript("OnEscapePressed", function() panel:Hide() end)
         edit:SetScript("OnTextChanged", function(self)
-            local h = self:GetStringHeight()
-            if type(h) == "number" then self:SetHeight(math.max(320, h + 20)) end
+            local lines = self:GetNumLetters() and select(2, (self:GetText() or ""):gsub("\\n", "\\n")) or 0
+            self:SetHeight(math.max(320, (lines + 2) * 17))
         end)
         scroll:SetScrollChild(edit)
         panel.edit = edit
         debugWindow = panel
     end
-    debugWindow.edit:SetText(table.concat(debugLines, "\\n"))
+    debugWindow.edit:SetText(table.concat(debugLines, "\n"))
     debugWindow:Show()
     debugWindow.edit:SetFocus()
     debugWindow.edit:HighlightText()
