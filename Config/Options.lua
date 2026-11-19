@@ -810,7 +810,7 @@ local function CreateUnitFramesPage()
                 memberRefreshers[#memberRefreshers+1]=refresh
                 page:HookScript("OnShow",refresh)
             end
-            groupToggle(panel,"Show names","showName",-75)
+            if key~="party" then groupToggle(panel,"Show names","showName",-75) end
             if key~="party" then groupToggle(panel,"Show power bar","showPower",-115) end
             groupToggle(panel,"PvP indicator","showPvP",-155)
             groupToggle(panel,"Group leader indicator","showLeader",-195)
@@ -822,6 +822,7 @@ local function CreateUnitFramesPage()
             CreateSection(panel,"BAR TEXT",-12)
             CreateDivider(panel,-45)
             if key=="party" then
+                groupToggle(panel,"Show names","showName",-175)
                 local function textMode(label,field,y)
                     local choices={{"Hidden",""},{"Current","{current}"},{"Current / Max","{current} / {max}"},{"Percent","{percent}"},{"Current (Percent)","{current} ({percent})"}}
                     local button=CreateFrame("Button",nil,panel,"UIPanelButtonTemplate")
