@@ -252,10 +252,16 @@ function M:Initialize()
     mouseEvents:RegisterEvent("ZONE_CHANGED_NEW_AREA")
     mouseEvents:RegisterEvent("PLAYER_REGEN_ENABLED")
     mouseEvents:SetScript("OnEvent", function() M:Apply() end)
+    -- Both the overlay and Minimap can receive the same physical click.
+    -- Handle mouse-down and deduplicate it rather than toggling twice on mouse-up.
+    local lastMiddleClick = -1
     local function OnMinimapMiddleClick(_, button)
         local cfg = db()
         if button ~= "MiddleButton" or not cfg or not cfg.enabled or not cfg.microMenu then return end
         if InCombatLockdown and InCombatLockdown() then return end
+        local now = GetTime()
+        if now - lastMiddleClick < 0.25 then return end
+        lastMiddleClick = now
         if M.Menu:IsShown() then M.Menu:Hide(); return end
         M.Menu:ClearAllPoints()
         local x, y = GetCursorPosition()
@@ -263,9 +269,8 @@ function M:Initialize()
         M.Menu:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", x / scale, y / scale)
         M.Menu:Show()
     end
-    surface:SetScript("OnMouseUp", OnMinimapMiddleClick)
-    -- Also hook the minimap itself: some clients route clicks past the overlay.
-    map:HookScript("OnMouseUp", OnMinimapMiddleClick)
+    surface:SetScript("OnMouseDown", OnMinimapMiddleClick)
+    map:HookScript("OnMouseDown", OnMinimapMiddleClick)
     if M.Launcher then
         M.Launcher:HookScript("OnEnter", function() M:Apply() end)
         M.Launcher:HookScript("OnLeave", function() M:Apply() end)
