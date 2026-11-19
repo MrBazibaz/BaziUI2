@@ -403,6 +403,21 @@ local function CreateUnitFramesPage()
             db.groups[key] = db.groups[key] or {}
             local opt = db.groups[key]
             local selectedMember = 1
+            local memberRefreshers = {}
+            local function memberSettings()
+                opt.members = opt.members or {}
+                opt.members[selectedMember] = opt.members[selectedMember] or {}
+                return opt.members[selectedMember]
+            end
+            local function memberValue(field,default)
+                local member=memberSettings()
+                if member[field] ~= nil then return member[field] end
+                if opt[field] ~= nil then return opt[field] end
+                return default
+            end
+            local function refreshMemberControls()
+                for _,refresh in ipairs(memberRefreshers) do refresh() end
+            end
             local sourceKind, sourceIndex = "player", 1
             local memberCount = key=="raid" and 40 or (key=="party" and 4 or 5)
             local function headerButton(parent,label,x,width)
@@ -512,6 +527,7 @@ local function CreateUnitFramesPage()
             local memberPopup=makeDropdown(memberButton,memberItems,function(item)
                 selectedMember=item.index
                 refreshHeader()
+                refreshMemberControls()
             end)
             local sourcePopup=makeDropdown(sourceButton,sourceItems,function(item)
                 sourceCursor=item.index
@@ -520,6 +536,7 @@ local function CreateUnitFramesPage()
             end)
             copyButton:SetScript("OnClick",function()
                 if addon.GroupFrames then addon.GroupFrames:CopyMember(key,sourceKind,sourceIndex,selectedMember) end
+                refreshMemberControls()
             end)
             applyButton:SetScript("OnClick",function()
                 if addon.GroupFrames then addon.GroupFrames:ApplyToAll(key,selectedMember) end
@@ -573,23 +590,33 @@ local function CreateUnitFramesPage()
                 page:HookScript("OnShow",function() check:SetChecked(opt[field] == true) end)
             end
             toggle("Show when solo","showSolo",16,-62)
-            local function setting(label,field,default,min,max,step,x,y)
-                local row = CreateSlider(panel,string.upper(label),label,min,max,step,tonumber(opt[field]) or default,y,function(value)
-                    opt[field]=value
+            local function setting(label,field,default,min,max,step,x,y,shared)
+                local syncing=false
+                local function current()
+                    if shared then return tonumber(opt[field]) or default end
+                    return tonumber(memberValue(field,default)) or default
+                end
+                local row = CreateSlider(panel,string.upper(label),label,min,max,step,current(),y,function(value)
+                    if syncing then return end
+                    if shared then opt[field]=value else memberSettings()[field]=value end
                     if addon.GroupFrames then addon.GroupFrames:Refresh() end
                 end,false)
-                page:HookScript("OnShow",function()
-                    if row and row.SetValue then row:SetValue(tonumber(opt[field]) or default) end
-                end)
+                local function refresh()
+                    syncing=true
+                    row:SetValue(current())
+                    syncing=false
+                end
+                memberRefreshers[#memberRefreshers+1]=refresh
+                page:HookScript("OnShow",refresh)
             end
             setting("Frame width","width",key~="raid" and 190 or 110,80,360,5,16,-125)
             setting("Frame height","height",key~="raid" and 48 or 30,22,90,1,270,-190)
-            setting("Spacing","spacing",8,0,40,1,16,-255)
+            setting("Spacing","spacing",8,0,40,1,16,-255,true)
             setting("Name font size (0 hides)","fontSize",11,0,22,1,270,-320)
             if key=="raid" then
-                setting("Columns","columns",5,1,8,1,16,-385)
-                setting("Horizontal offset","x",-380,-700,700,10,270,-450)
-                setting("Vertical offset","y",-250,-500,500,10,16,-515)
+                setting("Columns","columns",5,1,8,1,16,-385,true)
+                setting("Horizontal offset","x",-380,-700,700,10,270,-450,true)
+                setting("Vertical offset","y",-250,-500,500,10,16,-515,true)
                 local growth=CreateFrame("Button",nil,panel,"UIPanelButtonTemplate")
                 growth:SetSize(195,25)
                 growth:SetPoint("TOPLEFT",panel,"TOPLEFT",270,-395)
@@ -616,19 +643,25 @@ local function CreateUnitFramesPage()
                 updateAnchor()
                 panel:SetHeight(530)
             else
-                setting("Vertical offset","y",key=="boss" and 180 or -45,-500,500,5,16,-385)
+                setting("Vertical offset","y",key=="boss" and 180 or -45,-500,500,5,16,-385,true)
             end
             local function groupRefresh()
                 if addon.GroupFrames then addon.GroupFrames:Refresh() end
             end
             local function groupSlider(canvas,title,hint,field,min,max,default,y)
-                local slider = CreateSlider(canvas,title,hint,min,max,1,opt[field] or default,y,function(value)
-                    opt[field] = value
+                local syncing=false
+                local slider = CreateSlider(canvas,title,hint,min,max,1,memberValue(field,default),y,function(value)
+                    if syncing then return end
+                    memberSettings()[field] = value
                     groupRefresh()
                 end,false)
-                page:HookScript("OnShow",function()
-                    slider:SetValue(opt[field] or default)
-                end)
+                local function refresh()
+                    syncing=true
+                    slider:SetValue(memberValue(field,default))
+                    syncing=false
+                end
+                memberRefreshers[#memberRefreshers+1]=refresh
+                page:HookScript("OnShow",refresh)
             end
             panel=sections.Indicators
             CreateSection(panel,"INDICATORS",-12)
@@ -639,9 +672,11 @@ local function CreateUnitFramesPage()
                 check:SetPoint("TOPLEFT",canvas,"TOPLEFT",20,y)
                 local text=CreateLabel(canvas,label,"GameFontHighlight")
                 text:SetPoint("LEFT",check,"RIGHT",5,0)
-                check:SetChecked(opt[field] ~= false)
-                check:SetScript("OnClick",function(self) opt[field]=self:GetChecked()==true;groupRefresh() end)
-                page:HookScript("OnShow",function() check:SetChecked(opt[field] ~= false) end)
+                check:SetChecked(memberValue(field,true) ~= false)
+                check:SetScript("OnClick",function(self) memberSettings()[field]=self:GetChecked()==true;groupRefresh() end)
+                local function refresh() check:SetChecked(memberValue(field,true) ~= false) end
+                memberRefreshers[#memberRefreshers+1]=refresh
+                page:HookScript("OnShow",refresh)
             end
             groupToggle(panel,"Show names","showName",-75)
             groupToggle(panel,"Show power bar","showPower",-115)
