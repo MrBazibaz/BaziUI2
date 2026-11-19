@@ -757,6 +757,10 @@ local function update(f)
     setBarText(f.value, f.unit, own.hpText or "", true)
     setBarText(f.powerText, f.unit, own.powerText or "", false)
     updateExtras(f, own)
+    if f.bossDragon then
+        local classification=UnitClassification(f.unit)
+        f.bossDragon:SetShown(own.showClassification~=false and (classification=="elite" or classification=="worldboss" or classification=="rareelite"))
+    end
     if f.unit == "pet" then updatePetExtras(f) end
     -- FlareUI's so-called "3d" mode is a Blizzard-rendered static portrait.
     -- Keep one masked texture in both modes; optional zoom changes its crop.
@@ -1021,7 +1025,7 @@ local function create(key, spec)
     f.unit = spec.unit
     f.portraitSide = (unitSettings(cfg() or {},key).portraitSide) or "LEFT"
     local bg = f:CreateTexture(nil, "BACKGROUND")
-    bg:SetPoint("TOPLEFT", f, "TOPLEFT", side=="LEFT" and 49 or 4, -4)
+    bg:SetPoint("TOPLEFT", f, "TOPLEFT", 49, -4)
     bg:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", side=="LEFT" and -4 or -49, 4)
     -- Keep the square backing fully transparent: its corners otherwise show outside the rim.
     bg:SetColorTexture(0.10, 0.065, 0.035, 0)
@@ -1095,6 +1099,12 @@ local function create(key, spec)
     rim:SetPoint("CENTER", portraitAnchor, "CENTER")
     rim:SetAtlas("UI-HUD-UnitFrame-Target-PortraitOn")
     rim:SetTexCoord(252.78/384, 375/384, 1.67/134, 123.89/134)
+    -- Boss-only elite ornament; the normal portrait ring stays untouched.
+    local dragon=portraitLayer:CreateTexture(nil,"OVERLAY",nil,1)
+    dragon:SetTexture("Interface\\TargetingFrame\\UI-TargetingFrame-Elite")
+    dragon:SetSize(100,100)
+    dragon:SetPoint("CENTER",portraitAnchor,"CENTER",3,0)
+    f.bossDragon=dragon
     local rimMask = portraitLayer:CreateMaskTexture()
     rimMask:SetTexture("Interface\\CHARACTERFRAME\\TempPortraitAlphaMask", "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
     rimMask:SetSize(62, 62)
@@ -1324,6 +1334,9 @@ local function updateSample(f,index)
         f.name:SetTextColor(c.r,c.g,c.b)
     end
     local own=unitSettings(cfg() or {},f.unit)
+    if f.bossDragon then f.bossDragon:SetShown(own.showClassification~=false) end
+    f.health:SetStatusBarColor(.72,.16,.16)
+    f.power:SetStatusBarColor(.12,.35,.85)
     local function previewText(template,value)
         if not template or template=="" then return "" end
         return (template:gsub("{percent}",tostring(value).."%%"):gsub("{current}",tostring(value)):gsub("{max}","100"))
