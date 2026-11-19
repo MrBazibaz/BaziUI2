@@ -60,11 +60,11 @@ local function CreatePanel(parent, top, height)
     return panel
 end
 
-local function CreateSlider(parent, labelText, description, minValue, maxValue, step, value, y, onValueChanged)
+local function CreateSlider(parent, labelText, description, minValue, maxValue, step, value, y, onValueChanged, compact)
     local row = CreateFrame("Frame", nil, parent)
     row:SetPoint("TOPLEFT", parent, "TOPLEFT", 24, y)
     row:SetPoint("TOPRIGHT", parent, "TOPRIGHT", -24, y)
-    row:SetHeight(54)
+    row:SetHeight(compact and 34 or 54)
     local fill = row:CreateTexture(nil, "BACKGROUND")
     fill:SetAllPoints(row)
     fill:SetColorTexture(0.25, 0.125, 0.055, 0.96)
@@ -73,10 +73,10 @@ local function CreateSlider(parent, labelText, description, minValue, maxValue, 
     rowArt:SetTexture(ASSET .. "Panels\\Panel_Dark.png")
     rowArt:SetAlpha(0.20)
     local heading = CreateLabel(row, labelText, "GameFontNormal")
-    heading:SetPoint("TOPLEFT", row, "TOPLEFT", 15, -10)
+    heading:SetPoint("TOPLEFT", row, "TOPLEFT", 15, compact and -4 or -10)
     heading:SetTextColor(1, 0.78, 0.39)
     local hint = CreateLabel(row, description, "GameFontHighlightSmall")
-    hint:SetPoint("TOPLEFT", row, "TOPLEFT", 15, -30)
+    hint:SetPoint("TOPLEFT", row, "TOPLEFT", 15, compact and -19 or -30)
     hint:SetTextColor(0.91, 0.78, 0.61, 1)
     local valueText
     local valueBox
@@ -615,7 +615,7 @@ local function CreateMinimapPage()
         CreateSlider(fonts, "SIZE", "Text size", 8, 30, 1, cfg.size, y-79, function(value)
             cfg.size = value
             if addon.MinimapInfo then addon.MinimapInfo:ApplyFonts() end
-        end)
+        end, true)
         local shadow = CreateFrame("CheckButton", nil, fonts, "UICheckButtonTemplate")
         shadow:SetPoint("TOPLEFT", fonts, "TOPLEFT", 14, y-130)
         shadow:SetChecked(cfg.shadow)
