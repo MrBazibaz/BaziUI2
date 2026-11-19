@@ -82,16 +82,16 @@ local function layout(f, settings)
     local centreY = tonumber(settings.portraitY) or 0
     local rimSize = portraitSize * 62 / 48
     -- Size the circular portrait to the visible opening of the ring.
-    local innerSize = portraitSize * 1.08
+    local innerSize = portraitSize
     f.portraitAnchor:ClearAllPoints()
     f.portraitAnchor:SetPoint(side, f, side, centreX, centreY)
     f.rim:SetSize(rimSize, rimSize)
     f.rimMask:SetSize(rimSize, rimSize)
     f.portrait:SetSize(innerSize, innerSize)
     f.portraitBack:SetSize(innerSize, innerSize)
-    -- A PlayerModel cannot use a texture mask. Keep its square viewport
-    -- inscribed inside the circular opening so corners cannot escape the ring.
-    f.model:SetSize(innerSize * 0.70, innerSize * 0.70)
+    -- FlareUI uses a static portrait texture, not PlayerModel.
+    -- The model stays disabled; our own circular mask supplies the round shape.
+    f.model:SetSize(innerSize, innerSize)
     f.portraitMask:SetSize(innerSize, innerSize)
     f.backMask:SetSize(innerSize, innerSize)
     f.levelDisc:SetSize(portraitSize / 2, portraitSize / 2)
@@ -122,29 +122,18 @@ local function update(f)
     f.name:SetText(UnitName(f.unit) or "")
     -- UnitHealth can be a secret number in Forever. Do not compare or calculate it in Lua.
     f.value:SetText("")
-    SetPortraitTexture(f.portrait, f.unit)
-    -- Zoom the 2D portrait texture itself, without shifting the circular mask.
-    -- This reduces the uneven dark crescent from the source portrait crop.
-    f.portrait:SetTexCoord(0.07, 0.93, 0.07, 0.93)
+    -- FlareUI's so-called "3d" mode is a Blizzard-rendered static portrait.
+    -- Keep one masked texture in both modes; optional zoom changes its crop.
+    SetPortraitTexture(f.portrait, f.unit, true)
     local settings = cfg()
     local own = settings and unitSettings(settings, f.unit)
     if own and own.portrait3D then
-        local ok = pcall(function()
-            f.model:SetUnit(f.unit)
-            f.model:SetPortraitZoom(1.2)
-            f.model:SetCamDistanceScale(1)
-        end)
-        if ok then
-            f.model:Show()
-            f.portrait:Hide()
-        else
-            f.model:Hide()
-            f.portrait:Show()
-        end
+        f.portrait:SetTexCoord(0.07, 0.93, 0.07, 0.93)
     else
-        f.model:Hide()
-        f.portrait:Show()
+        f.portrait:SetTexCoord(0, 1, 0, 1)
     end
+    f.model:Hide()
+    f.portrait:Show()
     if f.level then f.level:SetText(UnitLevel(f.unit)) end
     -- Pets have no player class colour.
     local _, class = UnitClass(f.unit)
