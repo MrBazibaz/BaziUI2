@@ -389,7 +389,7 @@ local function CreateUnitFramesPage()
                 local canvas = CreateFrame("Frame", nil, rootPanel)
                 canvas:SetPoint("TOPLEFT", rootPanel, "TOPLEFT", 0, -49)
                 canvas:SetPoint("TOPRIGHT", rootPanel, "TOPRIGHT", 0, -49)
-                canvas:SetHeight(category == "Indicators" and (name == "Pet" and 930 or 590) or (category == "Buffs / Debuffs" and 700 or 520))
+                canvas:SetHeight(category == "Indicators" and (name == "Pet" and 930 or 590) or (category == "Buffs / Debuffs" and 440 or 520))
                 canvas:Hide()
                 groups[category] = canvas
             end
@@ -403,7 +403,7 @@ local function CreateUnitFramesPage()
                         label == category and 0.18 or 0.12,
                         label == category and 0.26 or 0.07, 1)
                 end
-                rootPanel:SetHeight(category == "Indicators" and (name == "Pet" and 950 or 610) or (category == "Buffs / Debuffs" and 750 or (category == "Layout" and 540 or 490)))
+                rootPanel:SetHeight(category == "Indicators" and (name == "Pet" and 950 or 610) or (category == "Buffs / Debuffs" and 490 or (category == "Layout" and 540 or 490)))
                 viewport:SetVerticalScroll(0)
             end
             for i, category in ipairs({"Layout", "Indicators", "Bar Text", "Fonts", "Buffs / Debuffs"}) do
@@ -607,7 +607,7 @@ local function CreateUnitFramesPage()
                 panel = groups["Buffs / Debuffs"]
                 -- Target-only aura layout previews. They never modify real auras.
                 local function auraPreviewControls(kind, top)
-                    local title = CreateLabel(panel, kind == "buffs" and "TARGET BUFFS" or "TARGET DEBUFFS", "GameFontNormal")
+                    local title = CreateLabel(panel, string.upper(name .. " " .. kind), "GameFontNormal")
                     title:SetPoint("TOPLEFT", panel, "TOPLEFT", 20, top)
                     local check = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
                     check:SetSize(24, 24)
@@ -637,14 +637,35 @@ local function CreateUnitFramesPage()
                     }
                     for i, spec in ipairs(fields) do
                         local x = 20 + ((i-1) % 3) * 165
-                        local y = top - 65 - math.floor((i-1)/3)*65
+                        local y = top - 58 - math.floor((i-1)/3)*47
                         local caption = CreateLabel(panel, spec[2], "GameFontNormalSmall")
                         caption:SetPoint("TOPLEFT", panel, "TOPLEFT", x, y)
                         local edit = CreateFrame("EditBox", nil, panel, "InputBoxTemplate")
-                        edit:SetSize(70, 22)
-                        edit:SetPoint("TOPLEFT", panel, "TOPLEFT", x, y-20)
+                        edit:SetSize(65, 22)
+                        edit:SetPoint("TOPLEFT", panel, "TOPLEFT", x, y-17)
                         edit:SetAutoFocus(false)
                         edit:SetText(tostring(opt[spec[1]] or spec[5]))
+                        local function apply(value)
+                            local n = tonumber(value)
+                            if not n then n = opt[spec[1]] end
+                            if n == nil then n = spec[5] end
+                            opt[spec[1]] = math.max(spec[3], math.min(spec[4], math.floor(n)))
+                            edit:SetText(tostring(opt[spec[1]]))
+                            if addon.UnitFrames then addon.UnitFrames:Refresh() end
+                        end
+                        for j, delta in ipairs({1, -1}) do
+                            local button = CreateFrame("Button", nil, panel)
+                            button:SetSize(18, 11)
+                            button:SetPoint("TOPLEFT", edit, "TOPRIGHT", 4, -(j-1)*11)
+                            local background = button:CreateTexture(nil, "BACKGROUND")
+                            background:SetAllPoints()
+                            background:SetColorTexture(0.23, 0.12, 0.065, 1)
+                            local glyph = CreateLabel(button, delta == 1 and "+" or "-", "GameFontNormalSmall")
+                            glyph:SetPoint("CENTER")
+                            button:SetScript("OnClick", function()
+                                apply((opt[spec[1]] == nil and spec[5] or opt[spec[1]]) + delta)
+                            end)
+                        end
                         edit:SetScript("OnEnterPressed", function(self)
                             local value = tonumber(self:GetText()) or spec[5]
                             opt[spec[1]] = math.max(spec[3], math.min(spec[4], math.floor(value)))
@@ -656,7 +677,7 @@ local function CreateUnitFramesPage()
                     local function direction(field, x)
                         local button = CreateFrame("Button", nil, panel)
                         button:SetSize(190, 24)
-                        button:SetPoint("TOPLEFT", panel, "TOPLEFT", x, top-202)
+                        button:SetPoint("TOPLEFT", panel, "TOPLEFT", x, top-163)
                         local bg = button:CreateTexture(nil, "BACKGROUND")
                         bg:SetAllPoints()
                         bg:SetColorTexture(0.23, 0.12, 0.065, 1)
@@ -682,7 +703,7 @@ local function CreateUnitFramesPage()
                     end)
                 end
                 auraPreviewControls("buffs", -20)
-                auraPreviewControls("debuffs", -280)
+                auraPreviewControls("debuffs", -215)
             end
             panel = groups.Indicators
             -- Independent per-unit indicators, text templates and fonts.
