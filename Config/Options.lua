@@ -824,9 +824,9 @@ local function CreateUnitFramesPage()
             local fontTitle = CreateLabel(panel, "FONT", "GameFontNormalLarge")
             fontTitle:SetPoint("TOPLEFT", panel, "TOPLEFT", 20, -15)
             fontTitle:SetTextColor(1, 0.79, 0.42)
-            unitDropdown("fontFace", "FONT FAMILY", {{"general","General (Default)"},{"friz","Friz Quadrata"},{"arial","Arial Narrow"}}, 35, -48, 190)
+            unitDropdown("fontFace", "FONT FAMILY", {{"general","General (Default)"},{"friz","Friz Quadrata"},{"arial","Arial Narrow"}}, 20, -42, 190)
             local fontSlider = CreateSlider(panel, "FONT SIZE", "Name, HP and Power text", 8, 28, 1,
-                own.fontSize or 12, -96, function(v)
+                own.fontSize or 12, -116, function(v)
                     own.fontSize = v
                     if addon.UnitFrames then addon.UnitFrames:Refresh() end
                 end, false)
@@ -838,7 +838,7 @@ local function CreateUnitFramesPage()
             }) do
                 local field = spec[1]
                 local slider = CreateSlider(panel, spec[2], "Independent text size", 8, 28, 1,
-                    own[field] or own.fontSize or 12, -156 - (i-1)*57, function(v)
+                    own[field] or own.fontSize or 12, -176 - (i-1)*57, function(v)
                         own[field] = v
                         if addon.UnitFrames then addon.UnitFrames:Refresh() end
                     end, false)
@@ -848,13 +848,13 @@ local function CreateUnitFramesPage()
             end
 
             local levelSlider = CreateSlider(panel, "LEVEL TEXT SIZE", "Level number only; badge ring stays fixed", 8, 28, 1,
-                own.levelFontSize or 12, -335, function(v)
+                own.levelFontSize or 12, -355, function(v)
                     own.levelFontSize = v
                     if addon.UnitFrames then addon.UnitFrames:Refresh() end
                 end, false)
             refreshers[#refreshers+1] = function() levelSlider:SetValue(own.levelFontSize or 12) end
-            offsetEditor("levelTextX", "LEVEL TEXT X", 20, -415)
-            offsetEditor("levelTextY", "LEVEL TEXT Y", 180, -415)
+            offsetEditor("levelTextX", "LEVEL TEXT X", 20, -435)
+            offsetEditor("levelTextY", "LEVEL TEXT Y", 180, -435)
 
             panel = groups.Layout
             local note = CreateLabel(copyGroup, "Copies appearance only; position is preserved.", "GameFontHighlightSmall")
