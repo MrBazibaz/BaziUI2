@@ -32,18 +32,27 @@ local function makeLauncher()
     if M.Launcher or not map then return end
     local parent = cluster or map
     local b = CreateFrame("Button", "BaziUIMinimapButton", parent)
-    b:SetSize(28, 28)
+    b:SetSize(32, 32)
     b:SetFrameStrata("HIGH")
     b:SetFrameLevel(map:GetFrameLevel() + 16)
     -- Round Blizzard minimap-style ring and a purple crystal icon.
     local ring = b:CreateTexture(nil, "BACKGROUND")
-    ring:SetAllPoints()
+    ring:SetSize(52, 52)
+    ring:SetPoint("CENTER", b, "CENTER", 0, 0)
     ring:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder")
     local crystal = b:CreateTexture(nil, "ARTWORK")
     crystal:SetPoint("CENTER", 0, 0)
     crystal:SetSize(19, 19)
     crystal:SetTexture("Interface\\Icons\\INV_Misc_Gem_Amethyst_02")
     crystal:SetTexCoord(0.09, 0.91, 0.09, 0.91)
+    -- A circular alpha mask clips the square inventory icon into a round medallion.
+    if crystal.AddMaskTexture then
+        local mask = b:CreateMaskTexture()
+        mask:SetSize(19, 19)
+        mask:SetPoint("CENTER", crystal, "CENTER")
+        mask:SetTexture("Interface\\CHARACTERFRAME\\TempPortraitAlphaMask")
+        crystal:AddMaskTexture(mask)
+    end
     b:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
     b:SetScript("OnClick", toggleOptions)
     b:RegisterForDrag("LeftButton")
@@ -149,6 +158,8 @@ function M:Initialize()
     self.initialized = true
     makeLauncher()
     makeMenu()
+    if map.RegisterForClicks then map:RegisterForClicks("AnyUp") end
+    map:EnableMouse(true)
     map:HookScript("OnMouseUp", function(_, button)
         local cfg = db()
         if button ~= "MiddleButton" or not cfg or not cfg.enabled or not cfg.microMenu then return end
@@ -167,6 +178,12 @@ function M:Initialize()
     if addon.Minimap and addon.Minimap.Border then
         addon.Minimap.Border:HookScript("OnEnter", function() M:Apply() end)
         addon.Minimap.Border:HookScript("OnLeave", function() M:Apply() end)
+    end
+    -- Hide Blizzard's separate addon compartment button, not the calendar.
+    local compartment = _G.AddonCompartmentFrame
+    if compartment then
+        compartment:Hide()
+        compartment:HookScript("OnShow", function(self) self:Hide() end)
     end
     self:Apply()
 end
