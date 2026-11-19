@@ -402,7 +402,7 @@ local function CreateUnitFramesPage()
                         label == category and 0.18 or 0.12,
                         label == category and 0.26 or 0.07, 1)
                 end
-                rootPanel:SetHeight(category == "Indicators" and 610 or 490)
+                rootPanel:SetHeight(category == "Indicators" and 610 or (category == "Layout" and 540 or 490))
                 viewport:SetVerticalScroll(0)
             end
             for i, category in ipairs({"Layout", "Indicators", "Bar Text", "Fonts"}) do
@@ -441,17 +441,27 @@ local function CreateUnitFramesPage()
                     slider:SetValue(value)
                 end
             end
+            local flip = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
+            flip:SetSize(25, 25)
+            flip:SetPoint("TOPLEFT", panel, "TOPLEFT", 16, -330)
+            local flipLabel = CreateLabel(panel, "Flip portrait horizontally", "GameFontHighlight")
+            flipLabel:SetPoint("LEFT", flip, "RIGHT", 5, 0)
+            flip:SetScript("OnClick", function(self)
+                own.flipPortrait = self:GetChecked() == true
+                if addon.UnitFrames then addon.UnitFrames:Refresh() end
+            end)
+            refreshers[#refreshers+1] = function() flip:SetChecked(own.flipPortrait == true) end
             syncControls[name] = function()
                 for _, refresh in ipairs(refreshers) do refresh() end
             end
             -- Center-relative pixel coordinates, independent for each unit.
             local function coordField(axis, offset)
                 local title = CreateLabel(panel, "FRAME " .. string.upper(axis), "GameFontNormal")
-                title:SetPoint("TOPLEFT", panel, "TOPLEFT", offset, -355)
+                title:SetPoint("TOPLEFT", panel, "TOPLEFT", offset, -385)
                 title:SetTextColor(1, 0.79, 0.42)
                 local edit = CreateFrame("EditBox", nil, panel, "InputBoxTemplate")
                 edit:SetSize(82, 26)
-                edit:SetPoint("TOPLEFT", panel, "TOPLEFT", offset, -376)
+                edit:SetPoint("TOPLEFT", panel, "TOPLEFT", offset, -406)
                 edit:SetAutoFocus(false)
                 edit:SetNumeric(false)
                 edit:SetScript("OnEditFocusGained", function(self) self:HighlightText() end)
