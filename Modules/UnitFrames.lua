@@ -202,8 +202,10 @@ local function layout(f, settings)
         -- Calculate the badge position from its actual anchor rather than
         -- guessing a fixed angle. Its centre is offset from the portrait's
         -- bottom edge by the atlas badge placement.
-        local badgeX = (side == "LEFT") and -17 or 17
-        local badgeY = -innerSize * 0.5 + 3
+        -- Match the level badge's actual SetPoint below. Both offsets must
+        -- scale with portraitSize, especially at the minimum size of 36.
+        local badgeX = (side == "LEFT" and -1 or 1) * portraitSize * 17 / 48
+        local badgeY = -portraitSize * (1 / 4 + 9 / 48)
         local badgeAngle = math.atan2(badgeY, badgeX)
         local gapHalf = math.rad(36)
         local sweep = 2 * math.pi - math.rad(47) -- extend endpoint another 15 degrees; start fixed
