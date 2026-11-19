@@ -213,9 +213,19 @@ function M:Apply()
         M.Launcher:SetShown(show)
     end
     if M.MouseSurface then
-        M.MouseSurface:EnableMouse(cfg.enabled and cfg.microMenu)
+        local active = cfg.enabled and cfg.microMenu
+        M.MouseSurface:EnableMouse(active)
         if M.MouseSurface.SetMouseClickEnabled then
-            M.MouseSurface:SetMouseClickEnabled(cfg.enabled and cfg.microMenu)
+            M.MouseSurface:SetMouseClickEnabled(active)
+        end
+        -- Match FlareUI: pass the middle button through only when the menu is disabled.
+        -- Changing pass-through buttons is restricted during combat.
+        if M.MouseSurface.SetPassThroughButtons and not (InCombatLockdown and InCombatLockdown()) then
+            if active then
+                M.MouseSurface:SetPassThroughButtons("LeftButton", "RightButton", "Button4", "Button5")
+            else
+                M.MouseSurface:SetPassThroughButtons("LeftButton", "RightButton", "MiddleButton", "Button4", "Button5")
+            end
         end
     end
     if M.Menu and not cfg.microMenu then M.Menu:Hide() end
@@ -234,10 +244,13 @@ function M:Initialize()
     if surface.SetPropagateMouseMotion then surface:SetPropagateMouseMotion(true) end
     surface:EnableMouse(true)
     if surface.SetMouseClickEnabled then surface:SetMouseClickEnabled(true) end
-    if surface.SetPassThroughButtons then
-        surface:SetPassThroughButtons("LeftButton", "RightButton", "Button4", "Button5")
-    end
+    -- Apply() configures button pass-through based on the current menu setting.
     M.MouseSurface = surface
+    local mouseEvents = CreateFrame("Frame")
+    mouseEvents:RegisterEvent("PLAYER_ENTERING_WORLD")
+    mouseEvents:RegisterEvent("ZONE_CHANGED_NEW_AREA")
+    mouseEvents:RegisterEvent("PLAYER_REGEN_ENABLED")
+    mouseEvents:SetScript("OnEvent", function() M:Apply() end)
     surface:SetScript("OnMouseUp", function(_, button)
         local cfg = db()
         if button ~= "MiddleButton" or not cfg or not cfg.enabled or not cfg.microMenu then return end
