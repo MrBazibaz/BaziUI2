@@ -169,23 +169,30 @@ local function headerLayout()
         local backing = surround:CreateTexture(nil, "BACKGROUND")
         backing:SetAllPoints()
         backing:SetColorTexture(0.15, 0.075, 0.035, 0.87)
-        local function edge(side, r, g, b, a)
-            local t = surround:CreateTexture(nil, "ARTWORK")
-            t:SetColorTexture(r, g, b, a)
-            if side == "TOP" then
-                t:SetPoint("TOPLEFT"); t:SetPoint("TOPRIGHT"); t:SetHeight(1)
-            elseif side == "BOTTOM" then
-                t:SetPoint("BOTTOMLEFT"); t:SetPoint("BOTTOMRIGHT"); t:SetHeight(1)
-            elseif side == "LEFT" then
-                t:SetPoint("TOPLEFT"); t:SetPoint("BOTTOMLEFT"); t:SetWidth(1)
-            else
-                t:SetPoint("TOPRIGHT"); t:SetPoint("BOTTOMRIGHT"); t:SetWidth(1)
+        -- Blizzard NineSlice has rounded corners. Reuse the same frame
+        -- layout as the minimap rather than drawing four square lines.
+        if NineSliceUtil and NineSliceUtil.GetLayout and NineSliceUtil.ApplyLayout then
+            local source = NineSliceUtil.GetLayout("ButtonFrameTemplateNoPortrait")
+            if source then
+                local layout = {}
+                for key, value in pairs(source) do
+                    if type(value) == "table" then
+                        local copy = {}
+                        for k, v in pairs(value) do copy[k] = v end
+                        layout[key] = copy
+                    else
+                        layout[key] = value
+                    end
+                end
+                NineSliceUtil.ApplyLayout(surround, layout)
+                -- Keep the Blizzard bronze/gold edge visible but subtle.
+                for _, key in ipairs({"TopLeftCorner", "TopRightCorner",
+                    "BottomLeftCorner", "BottomRightCorner",
+                    "TopEdge", "BottomEdge", "LeftEdge", "RightEdge"}) do
+                    if surround[key] then surround[key]:SetAlpha(0.82) end
+                end
             end
         end
-        edge("TOP", 0.82, 0.64, 0.35, 0.96)
-        edge("BOTTOM", 0.62, 0.42, 0.21, 0.96)
-        edge("LEFT", 0.73, 0.53, 0.28, 0.96)
-        edge("RIGHT", 0.73, 0.53, 0.28, 0.96)
         MM.HeaderSurround = surround
     end
     local header, tracking, calendar = MM.Header, cluster.Tracking, _G.GameTimeFrame
