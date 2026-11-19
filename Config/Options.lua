@@ -389,7 +389,7 @@ local function CreateUnitFramesPage()
                 local canvas = CreateFrame("Frame", nil, rootPanel)
                 canvas:SetPoint("TOPLEFT", rootPanel, "TOPLEFT", 0, -49)
                 canvas:SetPoint("TOPRIGHT", rootPanel, "TOPRIGHT", 0, -49)
-                canvas:SetHeight(category == "Indicators" and (name == "Pet" and 930 or 590) or (category == "Buffs / Debuffs" and 440 or 520))
+                canvas:SetHeight(category == "Indicators" and (name == "Pet" and 930 or 590) or (category == "Buffs / Debuffs" and 510 or 520))
                 canvas:Hide()
                 groups[category] = canvas
             end
@@ -403,7 +403,7 @@ local function CreateUnitFramesPage()
                         label == category and 0.18 or 0.12,
                         label == category and 0.26 or 0.07, 1)
                 end
-                rootPanel:SetHeight(category == "Indicators" and (name == "Pet" and 950 or 610) or (category == "Buffs / Debuffs" and 490 or (category == "Layout" and 540 or 490)))
+                rootPanel:SetHeight(category == "Indicators" and (name == "Pet" and 950 or 610) or (category == "Buffs / Debuffs" and 550 or (category == "Layout" and 540 or 490)))
                 viewport:SetVerticalScroll(0)
             end
             for i, category in ipairs({"Layout", "Indicators", "Bar Text", "Fonts", "Buffs / Debuffs"}) do
@@ -634,10 +634,11 @@ local function CreateUnitFramesPage()
                         {"size", "SIZE", 12, 48, 24}, {"count", "COUNT", 0, 40, 12},
                         {"perRow", "PER ROW", 1, 20, 6}, {"spacing", "GAP", 0, 20, 2},
                         {"x", "X", -250, 250, 0}, {"y", "Y", -250, 250, kind == "buffs" and 32 or -58},
+                        {"durationFontSize", "TIMER FONT", 0, 24, 10}, {"stackFontSize", "STACK FONT", 0, 24, 11},
                     }
                     for i, spec in ipairs(fields) do
                         local x = 20 + ((i-1) % 3) * 165
-                        local y = top - 58 - math.floor((i-1)/3)*47
+                        local y = top - 58 - math.floor((i-1)/3)*40
                         local caption = CreateLabel(panel, spec[2], "GameFontNormalSmall")
                         caption:SetPoint("TOPLEFT", panel, "TOPLEFT", x, y)
                         local edit = CreateFrame("EditBox", nil, panel, "InputBoxTemplate")
@@ -677,7 +678,7 @@ local function CreateUnitFramesPage()
                     local function direction(field, x)
                         local button = CreateFrame("Button", nil, panel)
                         button:SetSize(190, 24)
-                        button:SetPoint("TOPLEFT", panel, "TOPLEFT", x, top-163)
+                        button:SetPoint("TOPLEFT", panel, "TOPLEFT", x, top-185)
                         local bg = button:CreateTexture(nil, "BACKGROUND")
                         bg:SetAllPoints()
                         bg:SetColorTexture(0.23, 0.12, 0.065, 1)
@@ -703,7 +704,7 @@ local function CreateUnitFramesPage()
                     end)
                 end
                 auraPreviewControls("buffs", -20)
-                auraPreviewControls("debuffs", -215)
+                auraPreviewControls("debuffs", -245)
             end
             panel = groups.Indicators
             -- Independent per-unit indicators, text templates and fonts.
