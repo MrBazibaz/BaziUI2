@@ -293,7 +293,7 @@ local function CreateQoLPage()
         "muteErrorSpeech", -72)
     SoundCheck("Mute Failed Spell Sounds",
         "Silence the sound played when a spell or ability fails.",
-        "muteFailedSpellSounds", -152
+        "muteFailedSpellSounds", -152)
     -- Same right-side tabs used by Minimap and Tooltip.
     local resize = addon.WindowResize
     local resizePanel = CreatePanel(page, -12, 420)
