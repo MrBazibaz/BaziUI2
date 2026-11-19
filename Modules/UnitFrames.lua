@@ -217,7 +217,11 @@ local function updateAuraPreview(f)
         group:ClearAllPoints()
         local horizontalLeft = opt.horizontal == "left"
         local verticalUp = opt.vertical == "up"
-        -- Match the live container origin exactly; do not anchor the preview\n        -- by its opposite corner (which shifts it by the whole group size).\n        local live = f.liveAuras and f.liveAuras[kind] and f.liveAuras[kind].frame\n        if live then\n            group:SetPoint("TOPLEFT", live, "TOPLEFT", 0, 0)\n        else\n            group:SetPoint("TOPLEFT", f, "TOPLEFT", tonumber(opt.x) or 0, tonumber(opt.y) or (kind == "buffs" and 32 or -58))\n        end
+        -- Match the live container origin exactly; do not anchor the preview\n        -- by its opposite corner (which shifts it by the whole group size).\n        -- The live container is hidden while preview is enabled. Anchoring
+        -- to that hidden frame also hides the preview through frame hierarchy.
+        -- Use the same unit-frame origin and offsets as the live container.
+        group:SetPoint("TOPLEFT", f, "TOPLEFT", tonumber(opt.x) or 0,
+            tonumber(opt.y) or (kind == "buffs" and 32 or -58))
         group:SetShown(auraPreview[f.unit] and auraPreview[f.unit][kind] == true)
         for i, tile in ipairs(group.tiles) do
             tile:SetShown(auraPreview[f.unit] and auraPreview[f.unit][kind] == true and i <= math.min(count, #group.tiles))
