@@ -147,6 +147,7 @@ end
 function M:Initialize()
     if self.initialized or not map then return end
     self.initialized = true
+    makeLauncher()
     makeMenu()
     map:HookScript("OnMouseUp", function(_, button)
         local cfg = db()
@@ -157,8 +158,10 @@ function M:Initialize()
         M.Menu:SetPoint("TOPLEFT", map, "TOPRIGHT", 8, 0)
         M.Menu:Show()
     end)
-    M.Launcher:HookScript("OnEnter", function() M:Apply() end)
-    M.Launcher:HookScript("OnLeave", function() M:Apply() end)
+    if M.Launcher then
+        M.Launcher:HookScript("OnEnter", function() M:Apply() end)
+        M.Launcher:HookScript("OnLeave", function() M:Apply() end)
+    end
     map:HookScript("OnEnter", function() M:Apply() end)
     map:HookScript("OnLeave", function() M:Apply() end)
     if addon.Minimap and addon.Minimap.Border then
