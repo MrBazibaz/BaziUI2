@@ -68,6 +68,7 @@ function M:CopyMember(kind,sourceKind,sourceIndex,targetIndex)
     for k,v in pairs(output) do keep[k]=clone(v) end
     keep.offsetX,keep.offsetY=offsetX,offsetY
     self:Refresh()
+    if kind=="party" and addon.PartyFrames then addon.PartyFrames:Refresh() end
     return true
 end
 function M:ApplyToAll(kind,sourceIndex)
@@ -87,6 +88,7 @@ function M:ApplyToAll(kind,sourceIndex)
         end
     end
     self:Refresh()
+    if kind=="party" and addon.PartyFrames then addon.PartyFrames:Refresh() end
     return true
 end
 local function createMember(kind, index)
@@ -420,8 +422,9 @@ local function updateMember(f, preview)
     if f.portrait then SetPortraitTexture(f.portrait,f.unitToken) end
 end
 function M:Refresh()
+    if addon.PartyFrames then addon.PartyFrames:Refresh() end
     if safeCombat() then return end
-    for _,kind in ipairs({"party","raid","boss"}) do
+    for _,kind in ipairs({"raid","boss"}) do
         local opt = config(kind)
         if opt then
             groups[kind] = groups[kind] or {}
@@ -451,6 +454,7 @@ end
 function M:Initialize()
     if self.initialized then return end
     self.initialized=true
+    if addon.PartyFrames then addon.PartyFrames:Initialize() end
     local events=CreateFrame("Frame")
     for _,event in ipairs({"PLAYER_ENTERING_WORLD","GROUP_ROSTER_UPDATE","PLAYER_REGEN_ENABLED","UNIT_HEALTH","UNIT_MAXHEALTH","UNIT_POWER_UPDATE","UNIT_MAXPOWER","UNIT_NAME_UPDATE","UNIT_AURA","RAID_TARGET_UPDATE","PLAYER_ROLES_ASSIGNED","UNIT_FLAGS"}) do
         events:RegisterEvent(event)

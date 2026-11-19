@@ -23,5 +23,6 @@ Modules\QoLSounds.lua
 Modules\WindowResize.lua
 Modules\UnitFrames.lua
 Modules\GroupFrames.lua
+Modules\PartyFrames.lua
 Config\Options.lua
 Core\Commands.lua
