@@ -751,6 +751,24 @@ local function CreateUnitFramesPage()
                     end
                 end
                 petBarControl("petCast", "PET CASTBAR", -640)
+                -- Toggle a stationary castbar for layout work even when the pet cannot cast.
+                local castPreview = CreateFrame("Button", nil, panel)
+                castPreview:SetSize(170, 27)
+                castPreview:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -14, -540)
+                local castPreviewText = styleButton(castPreview, "Preview castbar")
+                local castPreviewOn = false
+                local function stopCastPreview()
+                    if not castPreviewOn then return end
+                    castPreviewOn = false
+                    castPreviewText:SetText("Preview castbar")
+                    if addon.UnitFrames then addon.UnitFrames:SetPetCastPreview(false) end
+                end
+                castPreview:SetScript("OnClick", function()
+                    castPreviewOn = not castPreviewOn
+                    castPreviewText:SetText(castPreviewOn and "Stop preview" or "Preview castbar")
+                    if addon.UnitFrames then addon.UnitFrames:SetPetCastPreview(castPreviewOn) end
+                end)
+                viewport:HookScript("OnHide", stopCastPreview)
 
                 -- Pet XP ring rotation: independent of segment width, sweep and
                 -- portrait size. Numeric entry and +/- adjust by one degree.
