@@ -8,14 +8,21 @@ M.windows = {
     { key = "character", label = "Character Pane", frames = {"CharacterFrame"} },
     { key = "spellbook", label = "Spellbook", frames = {"SpellBookFrame", "PlayerSpellsFrame"} },
     { key = "questlog", label = "Quest Log", frames = {"QuestLogFrame"} },
-    { key = "dungeon", label = "Dungeon Journal", frames = {"EncounterJournal", "PVEFrame"} },
+    { key = "dungeon", label = "Dungeon Journal", frames = {"EncounterJournal"} },
+    { key = "talents", label = "Talents", frames = {"PlayerTalentFrame", "ClassTalentFrame"} },
+    { key = "guild", label = "Guild", frames = {"GuildFrame", "CommunitiesFrame"} },
+    { key = "achievements", label = "Achievements", frames = {"AchievementFrame"} },
+    { key = "collections", label = "Collections", frames = {"CollectionsJournal"} },
+    { key = "friends", label = "Friends / Social", frames = {"FriendsFrame"} },
+    { key = "professions", label = "Professions", frames = {"ProfessionsFrame", "TradeSkillFrame"} },
+    { key = "bags", label = "Bags", frames = {"ContainerFrame1"} },
 }
 local installed = {}
 local function settings(key)
     local qol = addon.db and addon.db.profile and addon.db.profile.qol
     if not qol then return nil end
     qol.resizeWindows = qol.resizeWindows or {}
-    qol.resizeWindows[key] = qol.resizeWindows[key] or {enabled = false, scale = 1}
+    qol.resizeWindows[key] = qol.resizeWindows[key] or {enabled = false, draggable = true, scale = 1}
     return qol.resizeWindows[key]
 end
 local function clamp(value)
@@ -28,7 +35,7 @@ local function update(entry)
     if not cfg then return end
     if InCombatLockdown and InCombatLockdown() then return end
     frame:SetScale(clamp(cfg.scale or 1))
-    if entry.left then entry.left:SetShown(cfg.enabled and frame:IsShown()) end
+    if entry.left then entry.left:SetShown(cfg.enabled and cfg.draggable ~= false and frame:IsShown()) end
     if entry.right then entry.right:SetShown(cfg.enabled and frame:IsShown()) end
 end
 local function install(key, name)
@@ -53,7 +60,7 @@ local function install(key, name)
         grip:SetScript("OnMouseDown", function(self, button)
             if button ~= "LeftButton" or (InCombatLockdown and InCombatLockdown()) then return end
             local cfg = settings(key)
-            if not cfg or not cfg.enabled then return end
+            if not cfg or not cfg.enabled or cfg.draggable == false then return end
             self.dragging = true
             self.startX, self.startY = GetCursorPosition()
             self.startScale = clamp(cfg.scale or 1)
@@ -109,4 +116,12 @@ function M:Initialize()
 end
 function M:GetSetting(key)
     return settings(key)
+end
+function M:SetScale(key, percent)
+    local cfg = settings(key)
+    local value = tonumber(percent)
+    if not cfg or not value then return false end
+    cfg.scale = math.floor(clamp(value / 100) * 100 + 0.5) / 100
+    self:Refresh()
+    return true
 end
