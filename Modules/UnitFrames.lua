@@ -17,6 +17,8 @@ local frames = {}
 local movers = {}
 local moving = false
 local previewIndicators = false
+local indicatorNames = {"pvpIcon", "leaderIcon", "raidIcon", "roleIcon", "classIcon"}
+local indicatorFields = {"pvp", "leader", "raid", "role", "classification"}
 function M:SetIndicatorPreview(enabled)
     previewIndicators = enabled == true
     self:Refresh()
@@ -53,7 +55,7 @@ function M:SetMoveMode(value)
     return true
 end
 function M:IsMoveMode() return moving end
-local layoutKeys = {"barWidth", "hpHeight", "powerHeight", "portraitSize", "portraitX", "portraitY", "showPvP", "showLeader", "showRaidMarker", "showRole", "showClassification", "hpText", "powerText", "fontSize", "nameFontSize", "hpFontSize", "powerFontSize", "fontFace", "showName", "hpTextX", "hpTextY", "powerTextX", "powerTextY", "hpFontColor", "powerFontColor", "hpTextAnchor", "powerTextAnchor", "levelFontSize", "levelTextX", "levelTextY"}
+local layoutKeys = {"indicatorSize", "indicatorX", "indicatorY","barWidth", "hpHeight", "powerHeight", "portraitSize", "portraitX", "portraitY", "showPvP", "showLeader", "showRaidMarker", "showRole", "showClassification", "hpText", "powerText", "fontSize", "nameFontSize", "hpFontSize", "powerFontSize", "fontFace", "showName", "hpTextX", "hpTextY", "powerTextX", "powerTextY", "hpFontColor", "powerFontColor", "hpTextAnchor", "powerTextAnchor", "levelFontSize", "levelTextX", "levelTextY"}
 local function unitSettings(settings, key)
     settings.frames = settings.frames or {}
     local own = settings.frames[key]
@@ -149,6 +151,18 @@ local function layout(f, settings)
     f.model:SetSize(innerSize * 0.72, innerSize * 0.72)
     f.portraitMask:SetSize(innerSize, innerSize)
     f.backMask:SetSize(backSize, backSize)
+    for i, name in ipairs(indicatorNames) do
+        local icon = f[name]
+        if icon then
+            local field = indicatorFields[i]
+            local size = math.max(10, math.min(48, tonumber(settings.indicatorSize and settings.indicatorSize[field]) or 17))
+            local x = (icon.baseX or 0) + (tonumber(settings.indicatorX and settings.indicatorX[field]) or 0)
+            local y = (icon.baseY or 0) + (tonumber(settings.indicatorY and settings.indicatorY[field]) or 0)
+            icon:SetSize(size, size)
+            icon:ClearAllPoints()
+            icon:SetPoint("CENTER", f.portraitAnchor, "CENTER", x, y)
+        end
+    end
     f.levelDisc:SetSize(portraitSize / 2, portraitSize / 2)
     f.levelDisc:ClearAllPoints()
     f.levelDisc:SetPoint("BOTTOM", f.portrait, "BOTTOM", side == "LEFT" and -portraitSize * 17 / 48 or portraitSize * 17 / 48, -portraitSize * 9 / 48)
@@ -395,6 +409,7 @@ local function create(key, spec)
         t:SetSize(17, 17)
         t:SetPoint("CENTER", portraitAnchor, "CENTER", x, y)
         t:SetTexture(texture)
+        t.baseX, t.baseY = x, y
         return t
     end
     f.pvpIcon = icon(25, 25, "Interface\\TargetingFrame\\UI-PVP-FFA")
@@ -402,6 +417,13 @@ local function create(key, spec)
     f.raidIcon = icon(0, 33, "Interface\\TargetingFrame\\UI-RaidTargetingIcons")
     f.roleIcon = icon(26, -23, "Interface\\LFGFrame\\UI-LFG-ICON-PORTRAITROLES")
     f.classIcon = icon(-26, -23, "Interface\\TargetingFrame\\UI-TargetingFrame-Skull")
+    -- Indicators are layered above the portrait rim and badge.
+    local indicatorLayer = CreateFrame("Frame", nil, portraitLayer)
+    indicatorLayer:SetAllPoints(portraitLayer)
+    indicatorLayer:SetFrameLevel(badgeLayer:GetFrameLevel() + 2)
+    for _, iconName in ipairs(indicatorNames) do
+        f[iconName]:SetParent(indicatorLayer)
+    end
     f:RegisterEvent("UNIT_FLAGS")
     f:RegisterEvent("GROUP_ROSTER_UPDATE")
     f:RegisterEvent("RAID_TARGET_UPDATE")
