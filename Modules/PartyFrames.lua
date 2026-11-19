@@ -974,6 +974,8 @@ local function updatePartyCast(f,preview)
     cast:Show()
 end
 
+-- Forward declaration: create() registers callbacks before the role helper is defined.
+local updatePartyRolePortrait
 local function create(key, spec)
     if frames[key] or (InCombatLockdown and InCombatLockdown()) then return end
     local f = CreateFrame("Button", "BaziUI_PartyExact_" .. key, UIParent, "SecureUnitButtonTemplate")
@@ -1247,7 +1249,7 @@ local function showPartyRolePortrait(f,role)
     f.portrait:Show()
     return true
 end
-local function updatePartyRolePortrait(f)
+updatePartyRolePortrait = function(f)
     if not f or not UnitExists(f.unit) then return end
     local own=unitSettings(cfg() or {},f.unit)
     if own.rolePortrait==false then return end
