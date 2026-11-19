@@ -478,14 +478,33 @@ local function createPetExtras(f)
     end
     f.petXPRing = ring
     ring:Hide()
-    -- The ring is decorative and must not steal clicks from the secure unit.
-    -- Expose its XP details through the pet frame's normal mouse hover.
-    f:HookScript("OnEnter", function(self)
-        if not self.petXPRing or not self.petXPRing:IsShown() then return end
+    -- The XP ring is decorative: do not steal secure unit clicks.
+    -- Only show its tooltip when the cursor is actually on the circular track,
+    -- not when hovering the health/power bars or portrait interior.
+    f:HookScript("OnUpdate", function(self)
+        local ring = self.petXPRing
+        local overRing = false
+        if ring and ring:IsShown() and self:IsMouseOver() then
+            local cx, cy = self.portraitAnchor:GetCenter()
+            if cx and cy then
+                local scale = UIParent:GetEffectiveScale()
+                local mx, my = GetCursorPosition()
+                local dx, dy = mx / scale - cx, my / scale - cy
+                local radius = (self.rim:GetWidth() or 0) * 0.49
+                local distance = math.sqrt(dx * dx + dy * dy)
+                overRing = distance >= radius - 5 and distance <= radius + 9
+            end
+        end
+        if overRing == self.xpTooltipActive then return end
+        self.xpTooltipActive = overRing
+        if not overRing then
+            if GameTooltip:IsOwned(self) then GameTooltip:Hide() end
+            return
+        end
         local current, maximum = GetPetExperience()
-        if type(current) ~= "number" or type(maximum) ~= "number" then return end
-        if issecretvalue and (issecretvalue(current) or issecretvalue(maximum)) then return end
-        if maximum <= 0 then return end
+        if type(current) ~= "number" or type(maximum) ~= "number"
+            or (issecretvalue and (issecretvalue(current) or issecretvalue(maximum)))
+            or maximum <= 0 then return end
         GameTooltip:SetOwner(self, "ANCHOR_CURSOR")
         GameTooltip:AddLine("Pet Experience", 1, 0.82, 0.25)
         GameTooltip:AddDoubleLine("XP", string.format("%d / %d", current, maximum), 1, 1, 1, 1, 1, 1)
@@ -493,8 +512,9 @@ local function createPetExtras(f)
         GameTooltip:AddDoubleLine("Progress", string.format("%.1f%%", current / maximum * 100), 1, 1, 1, 1, 1, 1)
         GameTooltip:Show()
     end)
-    f:HookScript("OnLeave", function()
-        if GameTooltip:IsOwned(f) then GameTooltip:Hide() end
+    f:HookScript("OnLeave", function(self)
+        self.xpTooltipActive = false
+        if GameTooltip:IsOwned(self) then GameTooltip:Hide() end
     end)
     local cast = bar(-20, {0.72, 0.43, 0.20})
     cast:SetHeight(13)
