@@ -125,10 +125,14 @@ local function applyPosition(f, settings, key)
     local gap=tonumber(settings.spacing) or 8
     local width=tonumber(own.width) or tonumber(own.barWidth) or 162
     local height=(tonumber(own.hpHeight) or 23)+(tonumber(own.powerHeight) or 9)+20
+    -- Anchor determines growth direction while keeping the saved group origin.
+    local anchor=settings.anchor or "TOPLEFT"
+    local horizontal=(anchor=="TOPRIGHT" or anchor=="BOTTOMRIGHT") and -1 or 1
+    local vertical=(anchor=="BOTTOMLEFT" or anchor=="BOTTOMRIGHT") and 1 or -1
     f:ClearAllPoints()
     f:SetPoint("TOPLEFT",UIParent,"TOPLEFT",
-        (tonumber(settings.x) or 80)+col*(width+gap)+(tonumber(own.offsetX) or 0),
-        -(tonumber(settings.y) or 150)-row*(height+gap)+(tonumber(own.offsetY) or 0))
+        (tonumber(settings.x) or 80)+horizontal*col*(width+gap)+(tonumber(own.offsetX) or 0),
+        -(tonumber(settings.y) or 150)+vertical*row*(height+gap)+(tonumber(own.offsetY) or 0))
 end
 function M:SetPosition(key, x, y)
     local settings = cfg()
