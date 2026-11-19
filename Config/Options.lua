@@ -481,22 +481,31 @@ local function CreateMinimapPage()
         {{"round", "Round"}, {"square", "Square"}})
     Select(general, "AUTO ZOOM OUT", -49, "autoZoom",
         {{0, "Off"}, {5, "5 seconds"}, {10, "10 seconds"}, {30, "30 seconds"}})
+    local indoorCheck = CreateFrame("CheckButton", nil, general, "UICheckButtonTemplate")
+    indoorCheck:SetSize(25, 25)
+    indoorCheck:SetPoint("TOPLEFT", general, "TOPLEFT", 16, -96)
+    indoorCheck:SetChecked(db.ignoreIndoorZoom)
+    local indoorLabel = CreateLabel(general, "Ignore Indoors", "GameFontHighlight")
+    indoorLabel:SetPoint("LEFT", indoorCheck, "RIGHT", 7, 0)
+    indoorCheck:SetScript("OnClick", function(self)
+        db.ignoreIndoorZoom = not not self:GetChecked()
+    end)
     CreateSlider(general, "MINIMAP ICON SCALE",
         "Scale player and tracking icons.",
-        1.0, 2.5, 0.1, db.iconScale, -106, function(value)
+        1.0, 2.5, 0.1, db.iconScale, -143, function(value)
             db.iconScale = value
             if addon.Minimap then addon.Minimap:Apply() end
         end)
     CreateSlider(general, "MINIMAP WINDOW SCALE",
         "Resize the entire minimap and its frame.",
-        0.7, 1.5, 0.05, db.mapScale, -169, function(value)
+        0.7, 1.5, 0.05, db.mapScale, -206, function(value)
             db.mapScale = value
             if addon.Minimap then addon.Minimap:Apply() end
         end)
     local note = CreateLabel(general,
         "Map shape and Enable Minimap require /reload to restore Blizzard's map safely.",
         "GameFontHighlightSmall")
-    note:SetPoint("TOPLEFT", general, "TOPLEFT", 12, -245)
+    note:SetPoint("TOPLEFT", general, "TOPLEFT", 12, -282)
     note:SetWidth(340)
     note:SetJustifyH("LEFT")
     note:SetTextColor(0.66, 0.63, 0.59, 1)
