@@ -1278,6 +1278,51 @@ function M:DebugAuras(key, kind)
         end
     end
 end
+-- Opt-in countdown FontString probe. Changes only the first initialized
+-- aura cooldown's font appearance; never reads protected cooldown timing.
+function M:ProbeAuraCountdown(key, kind)
+    debugLines = {}
+    key = units[key] and key or "target"
+    kind = kind == "debuffs" and "debuffs" or "buffs"
+    local frame = frames[key]
+    local entry = frame and frame.liveAuras and frame.liveAuras[kind]
+    local item = entry and entry.texts and entry.texts[1]
+    local cooldown = item and item.cooldown
+    if not cooldown then
+        debugPrint("No cooldown available for " .. key .. "/" .. kind)
+        showAuraDebugWindow()
+        return
+    end
+    local ok, fontString = pcall(cooldown.GetCountdownFontString, cooldown)
+    if not ok or not fontString then
+        debugPrint("GetCountdownFontString unavailable")
+        showAuraDebugWindow()
+        return
+    end
+    debugPrint("Testing first " .. key .. "/" .. kind .. " cooldown font only")
+    debugText("before", fontString)
+    local fontOK, fontPath, fontSize, flags = pcall(fontString.GetFont, fontString)
+    if fontOK and type(fontPath) == "string" then
+        local changed, err = pcall(fontString.SetFont, fontString, fontPath, 9, flags)
+        debugPrint("SetFont(9) " .. (changed and "OK" or ("FAILED: " .. tostring(err))))
+    else
+        debugPrint("Font information unavailable; no changes made")
+    end
+    local alignOK, alignErr = pcall(fontString.SetJustifyH, fontString, "CENTER")
+    debugPrint("SetJustifyH(CENTER) " .. (alignOK and "OK" or ("FAILED: " .. tostring(alignErr))))
+    debugText("after", fontString)
+    debugPrint("This probe changes appearance only; reload restores the original font.")
+    showAuraDebugWindow()
+end
+SLASH_BAZIAURAPROBE1 = "/baziauraprobe"
+SlashCmdList.BAZIAURAPROBE = function(msg)
+    local key, kind = (msg or ""):match("^(%S*)%s*(%S*)")
+    local ok, err = pcall(M.ProbeAuraCountdown, M, key, kind)
+    if not ok then
+        debugLines = {"Aura probe error: " .. tostring(err)}
+        showAuraDebugWindow()
+    end
+end
 SLASH_BAZIAURADEBUG1 = "/baziauradebug"
 SlashCmdList.BAZIAURADEBUG = function(msg)
     local key, kind = (msg or ""):match("^(%S*)%s*(%S*)")
