@@ -186,6 +186,7 @@ local function CreateSlider(parent, labelText, description, minValue, maxValue, 
     end
     RefreshProgress(value)
     valueText:SetText(string.format("%g", value))
+    slider.valueBox = valueBox
     return slider
 end
 
@@ -761,10 +762,16 @@ local function CreateUnitFramesPage()
                         own.petXPRotation = value
                         if addon.UnitFrames then addon.UnitFrames:Refresh() end
                     end, true)
-                for i, delta in ipairs({-1, 1}) do
-                    local btn = CreateFrame("Button", nil, panel)
-                    btn:SetSize(24, 24)
-                    btn:SetPoint("TOPLEFT", panel, "TOPLEFT", 245 + (i-1)*28, -830)
+                -- Reserve room after the numeric value for the step buttons.
+                local rotationRow = rotationSlider:GetParent()
+                rotationSlider:ClearAllPoints()
+                rotationSlider:SetPoint("RIGHT", rotationRow, "RIGHT", -111, 0)
+                rotationSlider.valueBox:ClearAllPoints()
+                rotationSlider.valueBox:SetPoint("RIGHT", rotationRow, "RIGHT", -71, 0)
+                for i, delta in ipairs({1, -1}) do
+                    local btn = CreateFrame("Button", nil, rotationRow)
+                    btn:SetSize(21, 24)
+                    btn:SetPoint("LEFT", rotationSlider.valueBox, "RIGHT", 5 + (i-1)*22, 0)
                     local bg = btn:CreateTexture(nil, "BACKGROUND")
                     bg:SetAllPoints()
                     bg:SetColorTexture(0.23, 0.12, 0.065, 1)
