@@ -551,7 +551,7 @@ local function CreateUnitFramesPage()
                 for label, button in pairs(sectionButtons) do
                     button.fill:SetColorTexture(label == selected and 0.36 or 0.25, label == selected and 0.20 or 0.13, label == selected and 0.28 or 0.07, 1)
                 end
-                root:SetHeight(selected == "Layout" and (key=="party" and 1180 or 610) or 480)
+                root:SetHeight(selected == "Layout" and (key=="party" and 1180 or 610) or (selected=="Buffs / Debuffs" and key=="party" and 820 or 480))
                 viewport:SetVerticalScroll(0)
             end
             for i, label in ipairs({"Layout","Indicators","Bar Text","Fonts","Buffs / Debuffs"}) do
@@ -740,8 +740,57 @@ local function CreateUnitFramesPage()
             panel=sections["Buffs / Debuffs"]
             CreateSection(panel,"BUFFS / DEBUFFS",-12)
             CreateDivider(panel,-45)
-            local note=CreateLabel(panel,"Secure aura support is not yet implemented for group frames.","GameFontHighlight")
-            note:SetPoint("TOPLEFT",panel,"TOPLEFT",18,-72)
+            if key=="party" then
+                local function auraSettings(kind,x)
+                    local label=CreateLabel(panel,string.upper(kind),"GameFontNormal")
+                    label:SetPoint("TOPLEFT",panel,"TOPLEFT",x,-65)
+                    local check=CreateFrame("CheckButton",nil,panel,"UICheckButtonTemplate")
+                    check:SetSize(25,25)
+                    check:SetPoint("TOPLEFT",panel,"TOPLEFT",x,-100)
+                    local text=CreateLabel(panel,"Enable "..kind,"GameFontHighlight")
+                    text:SetPoint("LEFT",check,"RIGHT",5,0)
+                    local function aura()
+                        local member=memberSettings()
+                        local field="aura_"..kind
+                        member[field]=member[field] or {}
+                        return member[field]
+                    end
+                    local function refresh()
+                        check:SetChecked(aura().enabled==true)
+                    end
+                    check:SetScript("OnClick",function(self)
+                        aura().enabled=self:GetChecked()==true
+                        groupRefresh()
+                    end)
+                    memberRefreshers[#memberRefreshers+1]=refresh
+                    page:HookScript("OnShow",refresh)
+                    local function auraSlider(title,field,default,min,max,y)
+                        local syncing=false
+                        local slider=CreateSlider(panel,title,title,min,max,1,tonumber(aura()[field]) or default,y,function(value)
+                            if syncing then return end
+                            aura()[field]=value
+                            groupRefresh()
+                        end,false)
+                        local function sync()
+                            syncing=true
+                            slider:SetValue(tonumber(aura()[field]) or default)
+                            syncing=false
+                        end
+                        memberRefreshers[#memberRefreshers+1]=sync
+                        page:HookScript("OnShow",sync)
+                    end
+                    auraSlider(string.upper(kind).." SIZE","size",24,12,48,kind=="buffs" and -155 or -440)
+                    auraSlider(string.upper(kind).." COUNT","count",12,1,40,kind=="buffs" and -220 or -505)
+                    auraSlider(string.upper(kind).." X","x",0,-250,250,kind=="buffs" and -285 or -570)
+                    auraSlider(string.upper(kind).." Y","y",kind=="buffs" and 32 or -58,-250,250,kind=="buffs" and -350 or -635)
+                end
+                auraSettings("buffs",18)
+                auraSettings("debuffs",18)
+                root:SetHeight(820)
+            else
+                local note=CreateLabel(panel,"Aura containers for this group type are not yet implemented.","GameFontHighlight")
+                note:SetPoint("TOPLEFT",panel,"TOPLEFT",18,-72)
+            end
             selectSection("Layout")
         else
             db.frames = db.frames or {}
