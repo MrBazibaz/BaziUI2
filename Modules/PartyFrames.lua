@@ -1167,6 +1167,7 @@ local function create(key, spec)
     f:SetScript("OnEvent", function(self, event, unit)
         if not unit or unit == self.unit or event == "PLAYER_TARGET_CHANGED" or event == "PLAYER_FOCUS_CHANGED" or event == "PLAYER_ENTERING_WORLD" or event == "UNIT_PET" or event == "GROUP_ROSTER_UPDATE" or event == "RAID_TARGET_UPDATE" then
             update(self)
+            updatePartyRolePortrait(self)
             if self.partyCast then updatePartyCast(self,false) end
         end
     end)
@@ -1214,6 +1215,46 @@ local samples={
     {name="Shadowstep",class="ROGUE",hp=100,power=35,icon="Ability_Rogue_SinisterCalling"},
     {name="Stormcaller",class="MAGE",hp=43,power=61,icon="Spell_Frost_FrostBolt02"},
 }
+-- Dungeon Finder's role artwork, not the tiny 64px portrait-role sprite.
+-- GetIconForRole is Blizzard's own role-button atlas selector on supported clients.
+-- If an atlas is unavailable, keep the normal character portrait rather than
+-- stretching the old low-resolution sprite.
+local function dungeonFinderRoleAtlas(role)
+    if not role or role=="NONE" then return nil end
+    local atlas
+    if type(GetIconForRole)=="function" then
+        local ok,value=pcall(GetIconForRole,role,false)
+        if ok and type(value)=="string" then atlas=value end
+    end
+    if not atlas then
+        local known={TANK="UI-LFG-RoleIcon-Tank",HEALER="UI-LFG-RoleIcon-Healer",DAMAGER="UI-LFG-RoleIcon-DPS"}
+        atlas=known[role]
+    end
+    if atlas and type(GetAtlasInfo)=="function" then
+        local ok,info=pcall(GetAtlasInfo,atlas)
+        if not ok or not info then return nil end
+    end
+    return atlas
+end
+local function showPartyRolePortrait(f,role)
+    if not f or not f.portrait then return false end
+    local atlas=dungeonFinderRoleAtlas(role)
+    if not atlas then return false end
+    local ok=pcall(f.portrait.SetAtlas,f.portrait,atlas,false)
+    if not ok then return false end
+    f.portrait:SetTexCoord(0,1,0,1)
+    if f.model then f.model:Hide() end
+    f.portrait:Show()
+    return true
+end
+local function updatePartyRolePortrait(f)
+    if not f or not UnitExists(f.unit) then return end
+    local own=unitSettings(cfg() or {},f.unit)
+    if own.rolePortrait==false then return end
+    local role=type(UnitGroupRolesAssigned)=="function" and UnitGroupRolesAssigned(f.unit)
+    if issecretvalue and issecretvalue(role) then return end
+    showPartyRolePortrait(f,role)
+end
 local function updateSample(f,index)
     local sample=samples[index]
     if not sample then return end
@@ -1245,11 +1286,12 @@ local function updateSample(f,index)
     elseif index==3 then f.power:SetStatusBarColor(.95,.82,.16)
     else f.power:SetStatusBarColor(.12,.34,.90) end
     if f.portrait then
-        local roles={ "Interface\\LFGFrame\\UI-LFG-ICON-PORTRAITROLES" }
-        f.portrait:SetTexture("Interface\\LFGFrame\\UI-LFG-ICON-PORTRAITROLES")
-        if index==1 then f.portrait:SetTexCoord(0,19/64,22/64,41/64)
-        elseif index==2 then f.portrait:SetTexCoord(20/64,39/64,1/64,20/64)
-        else f.portrait:SetTexCoord(20/64,39/64,22/64,41/64) end
+        local role=index==1 and "TANK" or (index==2 and "HEALER" or "DAMAGER")
+        if not showPartyRolePortrait(f,role) then
+            -- Safe fallback on clients without Dungeon Finder role atlases.
+            f.portrait:SetTexture("Interface\\Icons\\"..sample.icon)
+            f.portrait:SetTexCoord(0,1,0,1)
+        end
     end
     if f.model then f.model:Hide() end
     if f.portrait then f.portrait:Show() end
@@ -1284,6 +1326,7 @@ function M:Refresh()
             local preview=settings.showSolo and not IsInGroup()
             if exists then
                 update(f)
+                updatePartyRolePortrait(f)
             elseif preview then
                 updateSample(f,i)
             end
