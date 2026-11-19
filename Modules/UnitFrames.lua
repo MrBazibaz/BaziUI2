@@ -131,25 +131,8 @@ local function update(f)
     -- Keep one masked texture in both modes; optional zoom changes its crop.
     SetPortraitTexture(f.portrait, f.unit, true)
     f.portrait:SetTexCoord(0, 1, 0, 1)
-    local settings = cfg()
-    local own = settings and unitSettings(settings, f.unit)
-    if own and own.portrait3D then
-        local ok = pcall(function()
-            f.model:SetUnit(f.unit)
-            f.model:SetPortraitZoom(1)
-            f.model:SetCamDistanceScale(1)
-        end)
-        if ok then
-            f.model:Show()
-            f.portrait:Hide()
-        else
-            f.model:Hide()
-            f.portrait:Show()
-        end
-    else
-        f.model:Hide()
-        f.portrait:Show()
-    end
+    f.model:Hide()
+    f.portrait:Show()
     if f.level then f.level:SetText(UnitLevel(f.unit)) end
     -- Pets have no player class colour.
     local _, class = UnitClass(f.unit)
@@ -202,7 +185,9 @@ local function create(key, spec)
     local portraitBack = portraitLayer:CreateTexture(nil, "BACKGROUND")
     portraitBack:SetSize(55, 55)
     portraitBack:SetPoint("CENTER", portraitAnchor, "CENTER")
-    portraitBack:SetColorTexture(0.075, 0.055, 0.035, 1)
+    -- A muted royal-purple backing, visible through the dark pixels
+    -- of Blizzard's portrait when using additive texture blending.
+    portraitBack:SetColorTexture(0.12, 0.065, 0.19, 1)
     f.portraitBack = portraitBack
     local backMask = portraitLayer:CreateMaskTexture()
     backMask:SetTexture("Interface\\CHARACTERFRAME\\TempPortraitAlphaMask", "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
@@ -216,6 +201,10 @@ local function create(key, spec)
     mask:SetTexture("Interface\\CHARACTERFRAME\\TempPortraitAlphaMask", "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
     mask:SetAllPoints(portrait)
     portrait:AddMaskTexture(mask)
+    -- Blizzard portrait textures include a black background.
+    -- ADD lets the dark pixels reveal our purple backing, while the
+    -- character remains visible. This is intentionally a subtle trial.
+    portrait:SetBlendMode("ADD")
     f.portraitMask = mask
     portraitBack:ClearAllPoints()
     portraitBack:SetPoint("CENTER", portrait, "CENTER")
