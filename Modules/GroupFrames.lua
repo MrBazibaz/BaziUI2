@@ -10,6 +10,53 @@ local function config(kind)
     db.groups[kind] = db.groups[kind] or {}
     return db.groups[kind]
 end
+local function memberOptions(opt,index)
+    opt.members = opt.members or {}
+    opt.members[index] = opt.members[index] or {}
+    return opt.members[index]
+end
+local function effectiveOptions(opt,index)
+    local merged = {}
+    for k,v in pairs(opt) do merged[k]=v end
+    for k,v in pairs(memberOptions(opt,index)) do merged[k]=v end
+    return merged
+end
+local function clone(value)
+    if type(value) ~= "table" then return value end
+    local result = {}
+    for k,v in pairs(value) do result[k]=clone(v) end
+    return result
+end
+function M:CopyMember(kind,sourceKind,sourceIndex,targetIndex)
+    if safeCombat and safeCombat() then return false end
+    local db=addon.db and addon.db.profile and addon.db.profile.unitframes
+    if not db then return false end
+    local target=config(kind)
+    if not target then return false end
+    local source
+    if sourceKind=="player" or sourceKind=="target" or sourceKind=="focus" or sourceKind=="pet" or sourceKind=="targettarget" then
+        source=db.frames and db.frames[sourceKind]
+    else
+        local sourceGroup=config(sourceKind)
+        source=sourceGroup and effectiveOptions(sourceGroup,sourceIndex)
+    end
+    if not source then return false end
+    local keep=memberOptions(target,targetIndex)
+    local output=clone(source)
+    -- Copy visual settings only; preserve group geometry and unit identity.
+    for _,field in ipairs({"x","y","width","height","spacing","columns","growth","anchor","enabled","showSolo","members"}) do output[field]=nil end
+    for k,v in pairs(output) do keep[k]=v end
+    self:Refresh()
+    return true
+end
+function M:ApplyToAll(kind,sourceIndex)
+    local opt=config(kind)
+    if not opt then return false end
+    for i=1,(kind=="raid" and 40 or kind=="party" and 4 or 5) do
+        if i~=sourceIndex then self:CopyMember(kind,kind,sourceIndex,i) end
+    end
+    return true
+end
 local function safeCombat()
     return InCombatLockdown and InCombatLockdown()
 end
@@ -128,7 +175,7 @@ function M:Refresh()
                 for i=1,count do
                     local f = groups[kind][i]
                     if not f then f=createMember(kind,i);groups[kind][i]=f end
-                    layoutMember(f,kind,i,opt)
+                    layoutMember(f,kind,i,effectiveOptions(opt,i))
                     local preview = opt.showSolo and (kind=="boss" or not IsInGroup())
                     local exists = UnitExists(f.unitToken)
                     -- Secure unit frames are not reconfigured in combat.
