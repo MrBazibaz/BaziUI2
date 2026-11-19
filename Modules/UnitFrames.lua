@@ -74,7 +74,14 @@ function M:CopyLayout(source, destination)
     if not settings or not units[source] or not units[destination] or source == destination then return false end
     local from = unitSettings(settings, source)
     local to = unitSettings(settings, destination)
-    for _, name in ipairs(layoutKeys) do to[name] = from[name] end
+    for _, name in ipairs(layoutKeys) do
+        if type(from[name]) == "table" then
+            to[name] = {}
+            for k, v in pairs(from[name]) do to[name][k] = v end
+        else
+            to[name] = from[name]
+        end
+    end
     self:Refresh()
     return true
 end
