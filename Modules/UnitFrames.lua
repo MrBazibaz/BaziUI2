@@ -236,6 +236,18 @@ local function layout(f, settings)
         local extraWidth = math.max(100, width)
         f.petXP:SetWidth(extraWidth)
         f.petCast:SetWidth(extraWidth)
+        for _, spec in ipairs({{"petXP", "petXP", -5, 9}, {"petCast", "petCast", -20, 13}}) do
+            local bar = f[spec[1]]
+            bar:SetWidth(math.max(40, tonumber(settings[spec[2] .. "Width"]) or extraWidth))
+            bar:SetHeight(math.max(4, tonumber(settings[spec[2] .. "Height"]) or spec[4]))
+            bar:ClearAllPoints()
+            bar:SetPoint("TOPLEFT", f.power, "BOTTOMLEFT",
+                tonumber(settings[spec[2] .. "X"]) or 0,
+                spec[3] + (tonumber(settings[spec[2] .. "Y"]) or 0))
+            local label = spec[1] == "petXP" and bar.text or bar.label
+            label:SetFont((GameFontNormal and select(1, GameFontNormal:GetFont())) or "Fonts\\FRIZQT__.TTF",
+                math.max(7, tonumber(settings[spec[2] .. "FontSize"]) or 10), "OUTLINE")
+        end
     end
     f.health:ClearAllPoints()
     f.health:SetPoint("TOPLEFT", f, "TOPLEFT", side == "LEFT" and 53 or 9, -8)
@@ -360,6 +372,13 @@ updatePetExtras = function(f)
     local hasXP = xp ~= nil and xpMax ~= nil
     if hasXP and not (issecretvalue and (issecretvalue(xp) or issecretvalue(xpMax))) then
         hasXP = xpMax > 0
+    end
+    -- XP is relevant only while the pet can gain levels. Checkbox cannot override this.
+    local petLevel, playerLevel = UnitLevel("pet"), UnitLevel("player")
+    if not (issecretvalue and (issecretvalue(petLevel) or issecretvalue(playerLevel))) then
+        hasXP = hasXP and petLevel > 0 and playerLevel > petLevel
+    else
+        hasXP = false
     end
     f.petXP:SetShown(own.showPetXP ~= false and hasXP)
     if hasXP then
