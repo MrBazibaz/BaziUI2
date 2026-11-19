@@ -266,6 +266,7 @@ local function CreateUnitFramesPage()
     end)
 
     local copyControls = {}
+    local copyDropdowns = {}
     local copyHeader = CreateFrame("Frame", nil, headingPanel)
     copyHeader:SetPoint("TOPRIGHT", headingPanel, "TOPRIGHT", -16, -8)
     copyHeader:SetSize(360, 52)
@@ -282,6 +283,7 @@ local function CreateUnitFramesPage()
     tabBar:SetSize(108, 261)
     local function RefreshTabs()
         copyHeader:SetShown(activeTab ~= "General")
+        for _,dropdown in ipairs(copyDropdowns) do dropdown:Hide() end
         for name, controls in pairs(copyControls) do controls:SetShown(name == activeTab) end
         for name, button in pairs(tabButtons) do
             local selected = name == activeTab
@@ -439,15 +441,80 @@ local function CreateUnitFramesPage()
             end
             local sourceCursor=1
             local function refreshHeader()
-                memberText:SetText(key:sub(1,1):upper()..key:sub(2).." "..selectedMember.." / "..memberCount)
-                sourceText:SetText("From: "..sourceChoices[sourceCursor][1])
+                memberText:SetText(key:sub(1,1):upper()..key:sub(2).." "..selectedMember.." / "..memberCount.."  v")
+                sourceText:SetText("From: "..sourceChoices[sourceCursor][1].."  v")
             end
-            memberButton:SetScript("OnClick",function()
-                selectedMember=selectedMember%memberCount+1
+            -- Scrollable selection lists: never cycle through 40+ frames.
+            local function makeDropdown(trigger,items,onSelect)
+                local visible=math.min(9,#items)
+                local popup=CreateFrame("Frame",nil,copyHeader)
+                popup:SetSize(185,visible*26+8)
+                popup:SetPoint("TOPLEFT",trigger,"BOTTOMLEFT",0,-3)
+                popup:SetFrameStrata("FULLSCREEN_DIALOG")
+                popup:SetFrameLevel(trigger:GetFrameLevel()+25)
+                popup:EnableMouse(true)
+                local bg=popup:CreateTexture(nil,"BACKGROUND")
+                bg:SetAllPoints()
+                bg:SetColorTexture(.13,.075,.035,.98)
+                local border=CreateFrame("Frame",nil,popup,"BackdropTemplate")
+                border:SetAllPoints()
+                border:SetBackdrop({edgeFile="Interface\\Tooltips\\UI-Tooltip-Border",edgeSize=10})
+                border:SetBackdropBorderColor(.76,.56,.29,1)
+                local offset=1
+                local entries={}
+                local function redraw()
+                    for i,entry in ipairs(entries) do
+                        local item=items[offset+i-1]
+                        entry:SetShown(item~=nil)
+                        if item then entry.text:SetText(item.label) end
+                    end
+                end
+                for i=1,visible do
+                    local entry=CreateFrame("Button",nil,popup)
+                    entry:SetSize(173,25)
+                    entry:SetPoint("TOPLEFT",popup,"TOPLEFT",6,-4-(i-1)*26)
+                    local highlight=entry:CreateTexture(nil,"BACKGROUND")
+                    highlight:SetAllPoints()
+                    highlight:SetColorTexture(.32,.17,.09,.95)
+                    highlight:Hide()
+                    entry:SetScript("OnEnter",function() highlight:Show() end)
+                    entry:SetScript("OnLeave",function() highlight:Hide() end)
+                    entry.text=CreateLabel(entry,"","GameFontNormal")
+                    entry.text:SetPoint("LEFT",entry,"LEFT",7,0)
+                    entry:SetScript("OnClick",function()
+                        local item=items[offset+i-1]
+                        if item then onSelect(item);popup:Hide() end
+                    end)
+                    entries[i]=entry
+                end
+                popup:EnableMouseWheel(true)
+                popup:SetScript("OnMouseWheel",function(_,delta)
+                    offset=math.max(1,math.min(math.max(1,#items-visible+1),offset-delta))
+                    redraw()
+                end)
+                popup:Hide()
+                trigger:SetScript("OnClick",function()
+                    local open=not popup:IsShown()
+                    for _,other in ipairs(copyDropdowns) do other:Hide() end
+                    if open then offset=1;redraw();popup:Show() end
+                end)
+                copyDropdowns[#copyDropdowns+1]=popup
+                return popup
+            end
+            local memberItems={}
+            for i=1,memberCount do
+                memberItems[i]={label=key:sub(1,1):upper()..key:sub(2).." "..i,index=i}
+            end
+            local sourceItems={}
+            for i,choice in ipairs(sourceChoices) do
+                sourceItems[i]={label=choice[1],index=i}
+            end
+            local memberPopup=makeDropdown(memberButton,memberItems,function(item)
+                selectedMember=item.index
                 refreshHeader()
             end)
-            sourceButton:SetScript("OnClick",function()
-                sourceCursor=sourceCursor%#sourceChoices+1
+            local sourcePopup=makeDropdown(sourceButton,sourceItems,function(item)
+                sourceCursor=item.index
                 sourceKind,sourceIndex=sourceChoices[sourceCursor][2],sourceChoices[sourceCursor][3]
                 refreshHeader()
             end)
