@@ -190,17 +190,22 @@ local function layout(f, settings)
     f:SetHitRectInsets(-math.ceil(leftExtra), -math.ceil(rightExtra),
         -math.ceil(topExtra), -math.ceil(bottomExtra))
     if f.petXPRing then
-        -- Fewer, broader segments sit just outside the gold portrait rim.
-        -- Each segment retains a subdued background until XP fills it.
-        local radius = rimSize * 0.502
-        local thickness = math.max(4, rimSize * 0.064)
+        -- Start underneath the lower-left level badge and advance clockwise.
+        -- A continuous opaque dark track prevents the world showing between
+        -- the XP ticks; the purple foreground only marks earned progress.
+        local radius = rimSize * 0.505
+        local thickness = math.max(4, rimSize * 0.065)
+        local count = #f.petXPRing.segments
+        local arcWidth = radius * 2 * math.pi / count * 1.09
         for i, segment in ipairs(f.petXPRing.segments) do
-            local angle = (i - 1) * (2 * math.pi / #f.petXPRing.segments) - math.pi / 2
-            segment:ClearAllPoints()
-            segment:SetPoint("CENTER", f.portraitAnchor, "CENTER",
-                math.cos(angle) * radius, math.sin(angle) * radius)
-            segment:SetSize(math.max(5, radius * 2 * math.pi / #f.petXPRing.segments * 0.89), thickness)
-            segment:SetRotation(angle)
+            local angle = -3 * math.pi / 4 - (i - 1) * (2 * math.pi / count)
+            local x, y = math.cos(angle) * radius, math.sin(angle) * radius
+            for _, tile in ipairs({f.petXPRing.backgrounds[i], segment}) do
+                tile:ClearAllPoints()
+                tile:SetPoint("CENTER", f.portraitAnchor, "CENTER", x, y)
+                tile:SetSize(arcWidth, thickness)
+                tile:SetRotation(angle + math.pi / 2)
+            end
         end
     end
     f.rim:SetSize(rimSize, rimSize)
@@ -403,9 +408,7 @@ updatePetExtras = function(f)
             local fraction = xpMax > 0 and math.max(0, math.min(1, xp / xpMax)) or 0
             local count = #f.petXPRing.segments
             for i, segment in ipairs(f.petXPRing.segments) do
-                local active = i <= math.floor(fraction * count + 0.5)
-                segment:SetColorTexture(active and 0.79 or 0.23,
-                    active and 0.48 or 0.17, active and 0.97 or 0.30, active and 0.98 or 0.38)
+                segment:SetShown(i <= math.floor(fraction * count + 0.5))
             end
         end
     end
@@ -462,10 +465,13 @@ local function createPetExtras(f)
     ring:SetAllPoints(f.portraitAnchor)
     ring:EnableMouse(false)
     ring.segments = {}
-    for i = 1, 40 do
+    ring.backgrounds = {}
+    for i = 1, 25 do
+        local background = ring:CreateTexture(nil, "ARTWORK")
+        background:SetColorTexture(0.13, 0.09, 0.17, 1)
+        ring.backgrounds[i] = background
         local segment = ring:CreateTexture(nil, "OVERLAY")
-        segment:SetTexture("Interface\\Buttons\\WHITE8X8")
-        segment:SetColorTexture(0.23, 0.17, 0.30, 0.38)
+        segment:SetColorTexture(0.79, 0.48, 0.97, 1)
         ring.segments[i] = segment
     end
     f.petXPRing = ring
