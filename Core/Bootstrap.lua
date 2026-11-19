@@ -36,6 +36,11 @@ function addon:OnInitialize()
         self.Options:Initialize()
     end
 
+    if self.Minimap and self.Minimap.Initialize then
+        local ok, err = pcall(function() self.Minimap:Initialize() end)
+        if not ok then self:Print("Minimap initialization failed: " .. tostring(err)) end
+    end
+
     if self.ItemLevel and self.ItemLevel.Initialize then
         local ok, err = pcall(function() self.ItemLevel:Initialize() end)
         if not ok then self:Print("Item Level initialization failed: " .. tostring(err)) end
