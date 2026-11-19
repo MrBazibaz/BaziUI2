@@ -350,7 +350,7 @@ local function CreateUnitFramesPage()
         if name == "General" then
             CreateSection(panel, "VISIBLE UNIT FRAMES", -12)
             CreateDivider(panel, -45)
-            for i, item in ipairs({{"Player","player"},{"Target","target"},{"Focus","focus"},{"Pet","pet"},{"Hide original Blizzard frames (test)","hideBlizzard"}}) do
+            for i, item in ipairs({{"Player","player"},{"Target","target"},{"Focus","focus"},{"Pet","pet"}}) do
                 local check = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
                 check:SetSize(25,25)
                 check:SetPoint("TOPLEFT", panel, "TOPLEFT", 16, -60-(i-1)*36)
@@ -366,7 +366,7 @@ local function CreateUnitFramesPage()
             end
             local move = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
             move:SetSize(25,25)
-            move:SetPoint("TOPLEFT", panel, "TOPLEFT", 16, -248)
+            move:SetPoint("TOPLEFT", panel, "TOPLEFT", 16, -212)
             local moveLabel = CreateLabel(panel, "Move UnitFrames", "GameFontHighlight")
             moveLabel:SetPoint("LEFT", move, "RIGHT", 5, 0)
             move:SetScript("OnClick", function(self)
