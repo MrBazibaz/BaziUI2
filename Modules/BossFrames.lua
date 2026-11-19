@@ -1173,7 +1173,7 @@ local function create(key, spec)
     f.raidIcon = icon(0, 33, "Interface\\TargetingFrame\\UI-RaidTargetingIcons")
     f.roleIcon = icon(26, -23, "Interface\\LFGFrame\\UI-LFG-ICON-PORTRAITROLES")
     -- Native Blizzard boss portrait decoration, selected per classification.
-    f.classIcon = icon(7, 7, "Interface\\TargetingFrame\\UI-RaidTargetingIcons")
+    f.classIcon = icon(30, 9, "Interface\\TargetingFrame\\UI-RaidTargetingIcons")
     f.happinessIcon = icon(24, -3, "Interface\\PetPaperDollFrame\\UI-PetHappiness")
     -- Elite/rare decoration is above the portrait rim, but must stay below
     -- the level badge and every other indicator.
