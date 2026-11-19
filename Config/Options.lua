@@ -714,7 +714,7 @@ local function CreateUnitFramesPage()
                         {"Height", "HEIGHT", 4, 40, prefix == "petXP" and 9 or 13},
                         {"X", "X", -250, 250, 0},
                         {"Y", "Y", -250, 250, 0},
-                        {"FontSize", "FONT", 7, 28, 10},
+                        {"FontSize", "FONT", 0, 28, 10},
                     }) do
                         local field = prefix .. spec[1]
                         local x = 20 + (i-1) * 96
@@ -754,7 +754,7 @@ local function CreateUnitFramesPage()
                 -- Toggle a stationary castbar for layout work even when the pet cannot cast.
                 local castPreview = CreateFrame("Button", nil, panel)
                 castPreview:SetSize(170, 27)
-                castPreview:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -14, -540)
+                castPreview:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -14, -584)
                 local castPreviewText = styleButton(castPreview, "Preview castbar")
                 local castPreviewOn = false
                 local function stopCastPreview()
