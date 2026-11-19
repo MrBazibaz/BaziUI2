@@ -656,6 +656,7 @@ local function CreateUnitFramesPage()
                 setting("Name font size (0 hides)","nameFontSize",11,0,22,1,270,-320)
             end
             if key=="raid" then
+                setting("Vertical spacing","verticalSpacing",8,0,80,1,270,-255,true)
                 setting("Columns","columns",5,1,8,1,16,-385,true)
                 setting("Horizontal offset","x",-380,-700,700,10,270,-450,true)
                 setting("Vertical offset","y",-250,-500,500,10,16,-515,true)
