@@ -60,16 +60,16 @@ local function refreshHover()
     if not cfg then return end
     local over = cluster and cluster:IsMouseOver()
     local c = coords()
-    if c then c:SetAlpha((not cfg.hideCoordinates and (cfg.coords == "always" or (cfg.coords == "hover" and over))) and 1 or 0) end
+    if c then c:SetAlpha(((not cfg.hideCoordinates) and (cfg.coords == "always" or (cfg.coords == "hover" and over))) and 1 or 0) end
     local clock = _G.TimeManagerClockButton
     if clock and not cfg.hideClock then
-        clock:SetAlpha((cfg.clock == "always" or (cfg.clock == "hover" and over)) and 1 or 0)
+        clock:SetAlpha(((cfg.clock == "always") or (cfg.clock == "hover" and over)) and 1 or 0)
     end
     for _, key in ipairs({"fps","home","world"}) do
         local fs = stats[key]
         if fs then
             local m = mode(key == "fps" and "fps" or "latency")
-            fs:SetAlpha(m == "always" or (m == "hover" and over) and 1 or 0)
+            fs:SetAlpha(((m == "always") or (m == "hover" and over)) and 1 or 0)
         end
     end
 end
