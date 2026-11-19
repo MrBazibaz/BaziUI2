@@ -2971,7 +2971,7 @@ local function CreateVersionHistoryPage()
     local panel = CreatePanel(page, -10, 200)
     CreateSection(panel, "VERSION HISTORY", -14)
 
-    local current = CreateLabel(panel, "v0.1.4", "GameFontNormalLarge")
+    local current = CreateLabel(panel, "v" .. (addon.version or "0.2.1"), "GameFontNormalLarge")
     current:SetPoint("TOPLEFT", panel, "TOPLEFT", 22, -56)
     current:SetTextColor(1, 0.81, 0.45)
     local currentNotes = CreateLabel(panel,
