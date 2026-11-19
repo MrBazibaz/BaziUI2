@@ -124,13 +124,13 @@ local function applyPosition(f, settings, key)
     local col=(index-1)%columns
     local gap=tonumber(settings.spacing) or 8
     local rowGap=tonumber(settings.verticalSpacing) or gap
-    local width=tonumber(own.width) or tonumber(own.barWidth) or 162
+    local width=(tonumber(own.width) or tonumber(own.barWidth) or 162)*0.90
     -- Visible raid bar bounds: 8px top inset, HP, 1px separator, Power,
     -- and 2px bottom border. Account for the frame's effective scale.
     -- Do not use the old portrait-era +20px layout padding.
     local hpHeight=math.max(12,math.min(45,tonumber(own.hpHeight) or 23))
     local powerHeight=math.max(4,math.min(30,tonumber(own.powerHeight) or 9))
-    local height=(8+hpHeight+1+powerHeight+2)*(1.15*(tonumber(settings.scale) or 1))
+    -- Row coordinates are in UIParent units; raid frames themselves are scaled.\n    -- Remove the old top inset and padding so zero spacing visually joins rows.\n    local height=(hpHeight+powerHeight+1)/(1.15*(tonumber(settings.scale) or 1))
     -- Anchor determines growth direction while keeping the saved group origin.
     local anchor=settings.anchor or "TOPLEFT"
     local horizontal=(anchor=="TOPRIGHT" or anchor=="BOTTOMRIGHT") and -1 or 1
@@ -519,7 +519,7 @@ local function updateExtras(f, own)
 end
 
 local function layout(f, settings)
-    local width = math.max(100, math.min(400, tonumber(settings.width) or tonumber(settings.barWidth) or 162))
+    local width = math.max(80, math.min(400, (tonumber(settings.width) or tonumber(settings.barWidth) or 162)*0.90))
     local hpHeight = math.max(12, math.min(45, tonumber(settings.hpHeight) or 23))
     local powerHeight = math.max(4, math.min(30, tonumber(settings.powerHeight) or 9))
     f.portraitSide = settings.portraitSide or f.portraitSide
@@ -1439,7 +1439,7 @@ function M:Refresh()
             end
             f.health:ClearAllPoints()
             f.health:SetPoint("TOPLEFT",f,"TOPLEFT",4,-8)
-            f:SetWidth((tonumber(own.width) or tonumber(own.barWidth) or 162)+8)
+            f:SetWidth((tonumber(own.width) or tonumber(own.barWidth) or 162)*0.90+8)
             updateAuraPreview(f)
             updateLiveAuras(f)
             local exists=UnitExists(key)==true
