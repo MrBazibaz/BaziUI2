@@ -160,7 +160,7 @@ function M:Initialize()
     makeMenu()
     if map.RegisterForClicks then map:RegisterForClicks("AnyUp") end
     map:EnableMouse(true)
-    map:HookScript("OnMouseUp", function(_, button)
+    map:HookScript("OnMouseDown", function(_, button)
         local cfg = db()
         if button ~= "MiddleButton" or not cfg or not cfg.enabled or not cfg.microMenu then return end
         if InCombatLockdown and InCombatLockdown() then return end
