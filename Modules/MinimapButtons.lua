@@ -229,8 +229,7 @@ function M:Initialize()
     -- Blizzard map directly does not reliably receive middle clicks.
     local surface = CreateFrame("Frame", nil, map)
     surface:SetAllPoints(map)
-    surface:SetFrameStrata("HIGH")
-    surface:SetFrameLevel(map:GetFrameLevel() + 30)
+    surface:SetFrameLevel(map:GetFrameLevel() + 10)
     if surface.SetMouseMotionEnabled then surface:SetMouseMotionEnabled(false) end
     if surface.SetPropagateMouseMotion then surface:SetPropagateMouseMotion(true) end
     surface:EnableMouse(true)
