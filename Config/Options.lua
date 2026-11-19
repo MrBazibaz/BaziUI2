@@ -561,7 +561,7 @@ local function CreateUnitFramesPage()
                 for label, button in pairs(sectionButtons) do
                     button.fill:SetColorTexture(label == selected and 0.36 or 0.25, label == selected and 0.20 or 0.13, label == selected and 0.28 or 0.07, 1)
                 end
-                root:SetHeight((key=="party" or key=="boss") and (selected=="Layout" and 1350 or selected=="Indicators" and 1350 or selected=="Bar Text" and 820 or selected=="Buffs / Debuffs" and 1230 or 580) or (key=="raid" and selected=="Layout" and 1090 or 610))
+                root:SetHeight((key=="party" or key=="boss") and (selected=="Layout" and 1350 or selected=="Indicators" and 1350 or selected=="Bar Text" and 820 or selected=="Buffs / Debuffs" and 1230 or 580) or (key=="raid" and selected=="Layout" and 1350 or 610))
                 viewport:SetVerticalScroll(0)
             end
             for i, label in ipairs({"Layout","Indicators","Bar Text","Fonts","Buffs / Debuffs"}) do
@@ -725,30 +725,70 @@ local function CreateUnitFramesPage()
                 redrawAnchor()
                 -- Move the entire raid group, independently of per-member offsets.
                 local function groupCoordinate(label,field,y)
-                    local caption=CreateLabel(panel,label,"GameFontNormal")
-                    caption:SetPoint("TOPLEFT",panel,"TOPLEFT",16,y)
-                    caption:SetTextColor(1,.79,.42)
-                    local value=CreateLabel(panel,"","GameFontHighlight")
-                    value:SetPoint("LEFT",caption,"RIGHT",18,0)
-                    local function redraw() value:SetText(tostring(tonumber(opt[field]) or 0)) end
-                    for _,step in ipairs({-1,1}) do
-                        local button=CreateFrame("Button",nil,panel,"UIPanelButtonTemplate")
-                        button:SetSize(30,24)
-                        button:SetPoint("TOPLEFT",panel,"TOPLEFT",step==-1 and 270 or 308,y+5)
-                        button:SetText(step==-1 and "-" or "+")
-                        button:SetScript("OnClick",function()
-                            if InCombatLockdown and InCombatLockdown() then return end
-                            opt[field]=(tonumber(opt[field]) or 0)+step
-                            redraw()
-                            refreshGroup()
-                        end)
+                    local title=CreateLabel(panel,label,"GameFontNormal")
+                    title:SetPoint("TOPLEFT",panel,"TOPLEFT",16,y)
+                    title:SetTextColor(1,.79,.42)
+                    local edit=CreateFrame("EditBox",nil,panel,"InputBoxTemplate")
+                    edit:SetSize(76,24)
+                    edit:SetPoint("TOPLEFT",panel,"TOPLEFT",16,y-22)
+                    edit:SetAutoFocus(false)
+                    edit:SetMaxLetters(9)
+                    edit:SetScript("OnEditFocusGained",function(self) self:HighlightText() end)
+                    local function current() return tonumber(opt[field]) or 0 end
+                    local function redraw()
+                        if not edit:HasFocus() then edit:SetText(tostring(current())) end
+                    end
+                    local function apply(value)
+                        if InCombatLockdown and InCombatLockdown() then redraw();return end
+                        if value==nil then redraw();return end
+                        opt[field]=math.floor(value)
+                        edit:ClearFocus()
+                        redraw()
+                        refreshGroup()
+                    end
+                    edit:SetScript("OnEnterPressed",function(self) apply(tonumber(self:GetText())) end)
+                    edit:SetScript("OnEscapePressed",function(self) self:ClearFocus();redraw() end)
+                    edit:SetScript("OnEditFocusLost",redraw)
+                    for i,delta in ipairs({1,-1}) do
+                        local button=CreateFrame("Button",nil,panel)
+                        button:SetSize(22,13)
+                        button:SetPoint("TOPLEFT",edit,"TOPRIGHT",4,-(i-1)*13)
+                        local bg=button:CreateTexture(nil,"BACKGROUND")
+                        bg:SetAllPoints()
+                        bg:SetColorTexture(.23,.12,.065,1)
+                        local buttonText=CreateLabel(button,delta==1 and "+" or "-","GameFontNormalSmall")
+                        buttonText:SetPoint("CENTER")
+                        buttonText:SetTextColor(1,.79,.42)
+                        button:SetScript("OnClick",function() apply(current()+delta) end)
                     end
                     memberRefreshers[#memberRefreshers+1]=redraw
                     redraw()
                 end
                 groupCoordinate("RAID GROUP X","x",-755)
                 groupCoordinate("RAID GROUP Y","y",-805)
-                panel:SetHeight(1010)
+                panel:SetHeight(1250)
+                -- Explicit scroll control for Raid Layout, including when child controls capture the wheel.
+                local function scrollRaid(delta)
+                    local limit=math.max(0,root:GetHeight()-viewport:GetHeight())
+                    viewport:SetVerticalScroll(math.max(0,math.min(limit,viewport:GetVerticalScroll()-delta*48)))
+                end
+                panel:EnableMouseWheel(true)
+                panel:SetScript("OnMouseWheel",function(_,delta) scrollRaid(delta) end)
+                local scrollUp=CreateFrame("Button",nil,page,"UIPanelButtonTemplate")
+                scrollUp:SetSize(26,25)
+                scrollUp:SetPoint("TOPRIGHT",main,"TOPRIGHT",-15,-52)
+                scrollUp:SetText("▲")
+                scrollUp:SetScript("OnClick",function() scrollRaid(1) end)
+                local scrollDown=CreateFrame("Button",nil,page,"UIPanelButtonTemplate")
+                scrollDown:SetSize(26,25)
+                scrollDown:SetPoint("BOTTOMRIGHT",main,"BOTTOMRIGHT",-15,20)
+                scrollDown:SetText("▼")
+                scrollDown:SetScript("OnClick",function() scrollRaid(-1) end)
+                page:HookScript("OnShow",function()
+                    local shown=activeTab=="Raid"
+                    scrollUp:SetShown(shown)
+                    scrollDown:SetShown(shown)
+                end)
             end
             local function groupRefresh()
                 refreshGroup()
