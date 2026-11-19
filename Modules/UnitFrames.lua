@@ -127,8 +127,12 @@ local function updateExtras(f, own)
     else f.roleIcon:SetTexCoord(20/64, 39/64, 22/64, 41/64) end
     -- Pet happiness is only exposed on clients with the classic hunter-pet API.
     local happiness
-    if unit == "pet" and type(GetPetHappiness) == "function" then
-        happiness = readable(GetPetHappiness())
+    if unit == "pet" then
+        if C_PetInfo and type(C_PetInfo.GetPetHappiness) == "function" then
+            happiness = readable(C_PetInfo.GetPetHappiness())
+        elseif type(GetPetHappiness) == "function" then
+            happiness = readable(GetPetHappiness())
+        end
     end
     f.happinessIcon:SetShown(unit == "pet" and own.showHappiness ~= false and
         (previewIndicators or type(happiness) == "number"))
@@ -436,10 +440,15 @@ local function create(key, spec)
     f.leaderIcon = icon(-25, 25, "Interface\\GroupFrame\\UI-Group-LeaderIcon")
     f.raidIcon = icon(0, 33, "Interface\\TargetingFrame\\UI-RaidTargetingIcons")
     f.roleIcon = icon(26, -23, "Interface\\LFGFrame\\UI-LFG-ICON-PORTRAITROLES")
-    -- Use Blizzard's original elite dragon artwork instead of the skull marker.
+    -- Standalone Blizzard dragon atlas, not the composite target frame texture.
     f.classIcon = icon(-26, -23, "Interface\\TargetingFrame\\UI-TargetingFrame-Elite")
-    -- Crop the horizontal frame-strip section of Blizzard's composite artwork.
-    f.classIcon:SetTexCoord(0.25, 1, 0, 1)
+    if C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo("worldquest-questmarker-dragon") then
+        f.classIcon:SetAtlas("worldquest-questmarker-dragon", false)
+    else
+        -- No standalone dragon atlas on this client: avoid drawing the bar strip.
+        f.classIcon:SetTexture("Interface\\TargetingFrame\\UI-RaidTargetingIcons")
+        SetRaidTargetIconTexture(f.classIcon, 8)
+    end
     f.happinessIcon = icon(24, -3, "Interface\\PetPaperDollFrame\\UI-PetHappiness")
     -- Indicators are layered above the portrait rim and badge.
     local indicatorLayer = CreateFrame("Frame", nil, portraitLayer)
