@@ -1151,8 +1151,57 @@ local function debugSafe(value)
     end
     return tostring(value):sub(1, 45)
 end
+local debugLines = {}
+local debugWindow
+local function showAuraDebugWindow()
+    if not debugWindow then
+        local panel = CreateFrame("Frame", "BaziAuraDebugWindow", UIParent, "BackdropTemplate")
+        panel:SetSize(640, 410)
+        panel:SetPoint("CENTER")
+        panel:SetFrameStrata("DIALOG")
+        panel:SetClampedToScreen(true)
+        panel:SetMovable(true)
+        panel:EnableMouse(true)
+        panel:RegisterForDrag("LeftButton")
+        panel:SetScript("OnDragStart", panel.StartMoving)
+        panel:SetScript("OnDragStop", panel.StopMovingOrSizing)
+        panel:SetBackdrop({bgFile="Interface\\\\DialogFrame\\\\UI-DialogBox-Background",
+            edgeFile="Interface\\\\Tooltips\\\\UI-Tooltip-Border", edgeSize=14,
+            insets={left=4,right=4,top=4,bottom=4}})
+        local heading = panel:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+        heading:SetPoint("TOPLEFT", 18, -15)
+        heading:SetText("Bazi Aura Diagnostics")
+        local close = CreateFrame("Button", nil, panel, "UIPanelCloseButton")
+        close:SetPoint("TOPRIGHT", 0, 0)
+        local note = panel:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        note:SetPoint("TOPLEFT", 18, -42)
+        note:SetText("Click text, Ctrl+A, Ctrl+C to copy. Protected values are not read.")
+        local scroll = CreateFrame("ScrollFrame", nil, panel, "UIPanelScrollFrameTemplate")
+        scroll:SetPoint("TOPLEFT", 18, -68)
+        scroll:SetPoint("BOTTOMRIGHT", -36, 18)
+        local edit = CreateFrame("EditBox", nil, scroll)
+        edit:SetMultiLine(true)
+        edit:SetAutoFocus(false)
+        edit:SetFontObject(ChatFontNormal)
+        edit:SetWidth(570)
+        edit:SetHeight(320)
+        edit:SetTextInsets(3, 3, 3, 3)
+        edit:SetScript("OnEscapePressed", function() panel:Hide() end)
+        edit:SetScript("OnTextChanged", function(self)
+            local h = self:GetStringHeight()
+            if type(h) == "number" then self:SetHeight(math.max(320, h + 20)) end
+        end)
+        scroll:SetScrollChild(edit)
+        panel.edit = edit
+        debugWindow = panel
+    end
+    debugWindow.edit:SetText(table.concat(debugLines, "\\n"))
+    debugWindow:Show()
+    debugWindow.edit:SetFocus()
+    debugWindow.edit:HighlightText()
+end
 local function debugPrint(message)
-    if DEFAULT_CHAT_FRAME then DEFAULT_CHAT_FRAME:AddMessage("|cffcba65bBazi Aura Debug:|r " .. message) end
+    debugLines[#debugLines + 1] = "Bazi Aura Debug: " .. message
 end
 local function debugText(label, fontString)
     if not fontString then debugPrint(label .. " missing"); return end
@@ -1233,7 +1282,10 @@ end
 SLASH_BAZIAURADEBUG1 = "/baziauradebug"
 SlashCmdList.BAZIAURADEBUG = function(msg)
     local key, kind = (msg or ""):match("^(%S*)%s*(%S*)")
-    M:DebugAuras(key, kind)
+    debugLines = {}
+    local ok, err = pcall(M.DebugAuras, M, key, kind)
+    if not ok then debugPrint("Diagnostic error: " .. tostring(err)) end
+    showAuraDebugWindow()
 end
 function M:Initialize()
     if self.initialized then return end
