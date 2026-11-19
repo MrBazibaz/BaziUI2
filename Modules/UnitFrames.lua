@@ -21,12 +21,13 @@ local function update(f)
     end
     local health, maximum = UnitHealth(f.unit), UnitHealthMax(f.unit)
     local power, powerMax = UnitPower(f.unit), UnitPowerMax(f.unit)
-    f.health:SetMinMaxValues(0, math.max(1, maximum))
+    f.health:SetMinMaxValues(0, maximum)
     f.health:SetValue(health)
-    f.power:SetMinMaxValues(0, math.max(1, powerMax))
+    f.power:SetMinMaxValues(0, powerMax)
     f.power:SetValue(power)
     f.name:SetText(UnitName(f.unit) or "")
-    f.value:SetText(maximum > 0 and math.floor(health * 100 / maximum + 0.5) .. "%" or "")
+    -- UnitHealth can be a secret number in Forever. Do not compare or calculate it in Lua.
+    f.value:SetText("")
     SetPortraitTexture(f.portrait, f.unit)
     local _, class = UnitClass(f.unit)
     local color = class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
