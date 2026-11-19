@@ -332,7 +332,7 @@ local function CreateUnitFramesPage()
         viewport:SetPoint("BOTTOMRIGHT", main, "BOTTOMRIGHT", -10, 10)
         viewport:EnableMouseWheel(true)
         local panel = CreateFrame("Frame", nil, viewport)
-        panel:SetHeight(name == "General" and 300 or 1350)
+        panel:SetHeight(name == "General" and 300 or 1640)
         panel:SetWidth(500)
         viewport:SetScrollChild(panel)
         viewport:SetScript("OnSizeChanged", function(self) panel:SetWidth(math.max(1, self:GetWidth())) end)
@@ -563,6 +563,7 @@ local function CreateUnitFramesPage()
             optionCheck("showRole", "Group / raid role", 230, -720)
             optionCheck("showClassification", "Elite / rare", 20, -756)
 
+            optionCheck("showName", "Show name", 230, -756)
             local barTitle = CreateLabel(panel, "BAR TEXT", "GameFontNormalLarge")
             barTitle:SetPoint("TOPLEFT", panel, "TOPLEFT", 20, -807)
             barTitle:SetTextColor(1, 0.79, 0.42)
@@ -590,12 +591,83 @@ local function CreateUnitFramesPage()
             local hint = CreateLabel(panel, "Variables: {current}  {max}  {percent}   |   Blank = hidden", "GameFontHighlightSmall")
             hint:SetPoint("TOPLEFT", panel, "TOPLEFT", 20, -927)
             hint:SetTextColor(0.90, 0.75, 0.55)
+            -- Separate text offsets for HP and Power, with one-pixel nudges.
+            local function offsetEditor(field, caption, x, y)
+                local title = CreateLabel(panel, caption, "GameFontNormal")
+                title:SetPoint("TOPLEFT", panel, "TOPLEFT", x, y)
+                title:SetTextColor(1, 0.79, 0.42)
+                local edit = CreateFrame("EditBox", nil, panel, "InputBoxTemplate")
+                edit:SetSize(76, 24)
+                edit:SetPoint("TOPLEFT", panel, "TOPLEFT", x, y - 22)
+                edit:SetAutoFocus(false)
+                edit:SetScript("OnEditFocusGained", function(self) self:HighlightText() end)
+                local function apply(value)
+                    own[field] = math.max(-300, math.min(300, math.floor(value)))
+                    edit:SetText(tostring(own[field]))
+                    if addon.UnitFrames then addon.UnitFrames:Refresh() end
+                end
+                edit:SetScript("OnEnterPressed", function(self)
+                    local value = tonumber(self:GetText())
+                    if value then apply(value) end
+                    self:ClearFocus()
+                end)
+                edit:SetScript("OnEscapePressed", function(self)
+                    self:ClearFocus()
+                    self:SetText(tostring(own[field] or 0))
+                end)
+                for i, delta in ipairs({1, -1}) do
+                    local button = CreateFrame("Button", nil, panel)
+                    button:SetSize(22, 13)
+                    button:SetPoint("TOPLEFT", edit, "TOPRIGHT", 4, -(i-1)*13)
+                    local bg = button:CreateTexture(nil, "BACKGROUND")
+                    bg:SetAllPoints()
+                    bg:SetColorTexture(0.23, 0.12, 0.065, 1)
+                    local label = CreateLabel(button, delta == 1 and "+" or "-", "GameFontNormalSmall")
+                    label:SetPoint("CENTER")
+                    label:SetTextColor(1, 0.79, 0.42)
+                    button:SetScript("OnClick", function() apply((own[field] or 0) + delta) end)
+                end
+                refreshers[#refreshers+1] = function()
+                    if not edit:HasFocus() then edit:SetText(tostring(own[field] or 0)) end
+                end
+            end
+            offsetEditor("hpTextX", "HP TEXT X", 20, -972)
+            offsetEditor("hpTextY", "HP TEXT Y", 180, -972)
+            offsetEditor("powerTextX", "POWER TEXT X", 20, -1040)
+            offsetEditor("powerTextY", "POWER TEXT Y", 180, -1040)
+            local function colorSelect(field, caption, x, y)
+                local label = CreateLabel(panel, caption, "GameFontNormal")
+                label:SetPoint("TOPLEFT", panel, "TOPLEFT", x, y)
+                label:SetTextColor(1, 0.79, 0.42)
+                local button = CreateFrame("Button", nil, panel)
+                button:SetSize(135, 27)
+                button:SetPoint("TOPLEFT", panel, "TOPLEFT", x, y - 22)
+                local bg = button:CreateTexture(nil, "BACKGROUND")
+                bg:SetAllPoints()
+                bg:SetColorTexture(0.23, 0.12, 0.065, 1)
+                local text = CreateLabel(button, "", "GameFontNormal")
+                text:SetPoint("CENTER")
+                text:SetTextColor(1, 0.79, 0.42)
+                local colors = {"gold", "white", "class"}
+                local function refresh() text:SetText((own[field] or "gold"):upper() .. "  v") end
+                button:SetScript("OnClick", function()
+                    local current = own[field] or "gold"
+                    local index = 1
+                    for i, color in ipairs(colors) do if color == current then index = i; break end end
+                    own[field] = colors[index % #colors + 1]
+                    refresh()
+                    if addon.UnitFrames then addon.UnitFrames:Refresh() end
+                end)
+                refreshers[#refreshers+1] = refresh
+            end
+            colorSelect("hpFontColor", "HP FONT COLOR", 20, -1115)
+            colorSelect("powerFontColor", "POWER FONT COLOR", 200, -1115)
             local fontTitle = CreateLabel(panel, "FONT", "GameFontNormalLarge")
-            fontTitle:SetPoint("TOPLEFT", panel, "TOPLEFT", 20, -964)
+            fontTitle:SetPoint("TOPLEFT", panel, "TOPLEFT", 20, -1200)
             fontTitle:SetTextColor(1, 0.79, 0.42)
             local fontChoice = CreateFrame("Button", nil, panel)
             fontChoice:SetSize(145, 27)
-            fontChoice:SetPoint("TOPLEFT", panel, "TOPLEFT", 20, -1000)
+            fontChoice:SetPoint("TOPLEFT", panel, "TOPLEFT", 20, -1236)
             local fontBg = fontChoice:CreateTexture(nil, "BACKGROUND")
             fontBg:SetAllPoints()
             fontBg:SetColorTexture(0.23, 0.12, 0.065, 1)
@@ -611,7 +683,7 @@ local function CreateUnitFramesPage()
                 fontLabel:SetText(own.fontFace == "arial" and "Arial Narrow" or "Friz Quadrata")
             end
             local fontSlider = CreateSlider(panel, "FONT SIZE", "Name, HP and Power text", 8, 28, 1,
-                own.fontSize or 12, -1040, function(v)
+                own.fontSize or 12, -1276, function(v)
                     own.fontSize = v
                     if addon.UnitFrames then addon.UnitFrames:Refresh() end
                 end, false)
@@ -623,7 +695,7 @@ local function CreateUnitFramesPage()
             }) do
                 local field = spec[1]
                 local slider = CreateSlider(panel, spec[2], "Independent text size", 8, 28, 1,
-                    own[field] or own.fontSize or 12, -1100 - (i-1)*57, function(v)
+                    own[field] or own.fontSize or 12, -1336 - (i-1)*57, function(v)
                         own[field] = v
                         if addon.UnitFrames then addon.UnitFrames:Refresh() end
                     end, false)
