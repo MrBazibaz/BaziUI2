@@ -544,7 +544,7 @@ local function layout(f, settings)
     -- Preserve the original portrait dimensions, regardless of role scale.
     f.portrait:SetSize(innerSize,innerSize)
     f.portrait:ClearAllPoints()
-    f.portrait:SetPoint("CENTER",f.portraitAnchor,"CENTER",0,0)
+    f.portrait:SetPoint("CENTER",f.portraitAnchor,"CENTER",2,-1)
     if f.roleArt then
         local raw=tonumber(settings.rolePortraitScale) or 150
         local percent=raw<=5 and raw*100 or raw
