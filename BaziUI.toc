@@ -15,6 +15,7 @@ Modules\IlvlForeverPlayerTooltip.lua
 Modules\TooltipPresentation.lua
 Modules\TooltipContents.lua
 Modules\TooltipFonts.lua
+Modules\ChatLinkHover.lua
 Modules\Minimap.lua
 Modules\MinimapInfo.lua
 Modules\MinimapButtons.lua
