@@ -1320,6 +1320,46 @@ function M:ProbeAuraCountdown(key, kind)
     debugPrint("No protected cooldown times were read or modified.")
     showAuraDebugWindow()
 end
+-- Diagnostic only: hide the native countdown FontString on initialized buttons.
+-- A reload restores the original appearance.
+function M:ProbeAuraHideCountdown(key, kind)
+    debugLines = {}
+    key = units[key] and key or "target"
+    kind = kind == "debuffs" and "debuffs" or "buffs"
+    local frame = frames[key]
+    local entry = frame and frame.liveAuras and frame.liveAuras[kind]
+    if not entry or not entry.texts then
+        debugPrint("No aura buttons for " .. key .. "/" .. kind)
+        showAuraDebugWindow()
+        return
+    end
+    local changed, failed, missing = 0, 0, 0
+    for _, item in ipairs(entry.texts) do
+        local ok, fontString = pcall(function()
+            return item.cooldown and item.cooldown:GetCountdownFontString()
+        end)
+        if not ok or not fontString then
+            missing = missing + 1
+        else
+            local applied = pcall(fontString.SetAlpha, fontString, 0)
+            if applied then changed = changed + 1 else failed = failed + 1 end
+        end
+    end
+    debugPrint("Hide countdown probe: " .. key .. "/" .. kind)
+    debugPrint("Hidden=" .. changed .. " failed=" .. failed .. " missing=" .. missing)
+    debugPrint("Check whether the visible duration labels disappear.")
+    debugPrint("Use /reload to restore; no protected time values were read.")
+    showAuraDebugWindow()
+end
+SLASH_BAZIAURAHIDE1 = "/baziaurahide"
+SlashCmdList.BAZIAURAHIDE = function(msg)
+    local key, kind = (msg or ""):match("^(%S*)%s*(%S*)")
+    local ok, err = pcall(M.ProbeAuraHideCountdown, M, key, kind)
+    if not ok then
+        debugLines = {"Aura hide probe error: " .. tostring(err)}
+        showAuraDebugWindow()
+    end
+end
 SLASH_BAZIAURAPROBE1 = "/baziauraprobe"
 SlashCmdList.BAZIAURAPROBE = function(msg)
     local key, kind = (msg or ""):match("^(%S*)%s*(%S*)")
