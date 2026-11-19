@@ -48,7 +48,7 @@ function M:SetMoveMode(value)
     return true
 end
 function M:IsMoveMode() return moving end
-local layoutKeys = {"barWidth", "hpHeight", "powerHeight", "portraitSize", "portraitX", "portraitY", "showPvP", "showLeader", "showRaidMarker", "showRole", "showClassification", "hpText", "powerText", "fontSize", "nameFontSize", "hpFontSize", "powerFontSize", "fontFace"}
+local layoutKeys = {"barWidth", "hpHeight", "powerHeight", "portraitSize", "portraitX", "portraitY", "showPvP", "showLeader", "showRaidMarker", "showRole", "showClassification", "hpText", "powerText", "fontSize", "nameFontSize", "hpFontSize", "powerFontSize", "fontFace", "showName", "hpTextX", "hpTextY", "powerTextX", "powerTextY", "hpFontColor", "powerFontColor"}
 local function unitSettings(settings, key)
     settings.frames = settings.frames or {}
     local own = settings.frames[key]
@@ -72,20 +72,29 @@ function M:CopyLayout(source, destination)
     return true
 end
 
-local function safeValue(v)
-    if issecretvalue and issecretvalue(v) then return nil end
-    if type(v) == "number" then return v end
-end
-local function formatBar(unit, template, health)
-    if not template or template == "" then return "" end
-    local current = safeValue(health and UnitHealth(unit) or UnitPower(unit))
-    local maximum = safeValue(health and UnitHealthMax(unit) or UnitPowerMax(unit))
-    local values = {
-        current = current and tostring(math.floor(current)) or "?",
-        max = maximum and tostring(math.floor(maximum)) or "?",
-        percent = current and maximum and maximum > 0 and tostring(math.floor(current / maximum * 100 + 0.5)) .. "%" or "?",
-    }
-    return (template:gsub("{([%a]+)}", function(tag) return values[tag] or "{" .. tag .. "}" end))
+-- Pass secret unit values directly to Blizzard's FontString formatter.
+-- Never do Lua arithmetic or string concatenation with secret numbers.
+local function setBarText(fontString, unit, template, health)
+    if not template or template == "" then fontString:SetText(""); return end
+    local current = health and UnitHealth(unit) or UnitPower(unit)
+    local maximum = health and UnitHealthMax(unit) or UnitPowerMax(unit)
+    local percent
+    if health and UnitHealthPercent then
+        percent = UnitHealthPercent(unit)
+    elseif not health and UnitPowerPercent then
+        percent = UnitPowerPercent(unit)
+    end
+    local args = {}
+    local fmt = template:gsub("{([%a]+)}", function(tag)
+        if tag == "current" then args[#args + 1] = current; return "%s" end
+        if tag == "max" then args[#args + 1] = maximum; return "%s" end
+        if tag == "percent" then
+            args[#args + 1] = percent or "?"; return "%s"
+        end
+        return "{" .. tag .. "}"
+    end)
+    -- SetFormattedText is implemented by WoW and accepts secret numeric arguments.
+    fontString:SetFormattedText(fmt, unpack(args))
 end
 local function updateExtras(f, own)
     local unit = f.unit
@@ -149,6 +158,23 @@ local function layout(f, settings)
     f.name:SetFont(font, tonumber(settings.nameFontSize) or size, "OUTLINE")
     f.value:SetFont(font, tonumber(settings.hpFontSize) or size, "OUTLINE")
     f.powerText:SetFont(font, tonumber(settings.powerFontSize) or size, "OUTLINE")
+    f.name:SetShown(settings.showName ~= false)
+    f.value:ClearAllPoints()
+    f.value:SetPoint("RIGHT", f.health, "RIGHT", (tonumber(settings.hpTextX) or 0) - 4, tonumber(settings.hpTextY) or 0)
+    f.powerText:ClearAllPoints()
+    f.powerText:SetPoint("RIGHT", f.power, "RIGHT", (tonumber(settings.powerTextX) or 0) - 4, tonumber(settings.powerTextY) or 0)
+    local function tint(fontString, mode)
+        if mode == "gold" then fontString:SetTextColor(1, 0.80, 0.38)
+        elseif mode == "white" then fontString:SetTextColor(1, 1, 1)
+        elseif mode == "class" then
+            local _, class = UnitClass(f.unit)
+            local c = class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
+            if c then fontString:SetTextColor(c.r, c.g, c.b)
+            else fontString:SetTextColor(1, 0.80, 0.38) end
+        else fontString:SetTextColor(1, 0.80, 0.38) end
+    end
+    tint(f.value, settings.hpFontColor)
+    tint(f.powerText, settings.powerFontColor)
     f.barBorder:ClearAllPoints()
     f.barBorder:SetPoint("TOPLEFT", f.health, "TOPLEFT", -2, 2)
     f.barBorder:SetPoint("BOTTOMRIGHT", f.power, "BOTTOMRIGHT", 2, -2)
@@ -167,8 +193,8 @@ local function update(f)
     f.name:SetText(UnitName(f.unit) or "")
     -- UnitHealth can be a secret number in Forever. Do not compare or calculate it in Lua.
     local own = unitSettings(cfg() or {}, f.unit)
-    f.value:SetText(formatBar(f.unit, own.hpText or "", true))
-    f.powerText:SetText(formatBar(f.unit, own.powerText or "", false))
+    setBarText(f.value, f.unit, own.hpText or "", true)
+    setBarText(f.powerText, f.unit, own.powerText or "", false)
     updateExtras(f, own)
     -- FlareUI's so-called "3d" mode is a Blizzard-rendered static portrait.
     -- Keep one masked texture in both modes; optional zoom changes its crop.
