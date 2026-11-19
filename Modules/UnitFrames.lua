@@ -293,10 +293,10 @@ local function layout(f, settings)
             bar:SetHeight(math.max(4, tonumber(settings[spec[2] .. "Height"]) or spec[4]))
             bar:ClearAllPoints()
             if spec[1] == "petCast" then
-                -- Castbar sits above the pet's health and power bars by default.
-                bar:SetPoint("BOTTOMLEFT", f.health, "TOPLEFT",
+                -- Replace the HP bar in-place while casting; power stays below.
+                bar:SetPoint("TOPLEFT", f.health, "TOPLEFT",
                     tonumber(settings.petCastX) or 0,
-                    5 + (tonumber(settings.petCastY) or 0))
+                    tonumber(settings.petCastY) or 0)
             else
                 bar:SetPoint("TOPLEFT", f.power, "BOTTOMLEFT",
                     tonumber(settings[spec[2] .. "X"]) or 0,
@@ -474,7 +474,13 @@ updatePetExtras = function(f)
         channel = true
     end
     local casting = name ~= nil and startTime ~= nil and endTime ~= nil
-    f.petCast:SetShown(own.showPetCast ~= false and (casting or previewPetCast))
+    local showCast = own.showPetCast ~= false and (casting or previewPetCast)
+    f.petCast:SetShown(showCast)
+    -- The castbar occupies the health slot rather than adding a new row.
+    -- Keep HP data updating while its textures/text are temporarily hidden.
+    f.health:SetShown(not showCast)
+    f.hpBackground:SetShown(not showCast)
+    f.value:SetShown(not showCast)
     if previewPetCast and not casting then
         f.petCast.startTime = nil
         f.petCast.endTime = nil
@@ -587,6 +593,8 @@ local function createPetExtras(f)
         self:SetValue(math.max(0, math.min(1, progress)))
     end)
     f.petCast = cast
+    -- Draw above the shared bar border while remaining below the portrait.
+    cast:SetFrameLevel(f.barBorder:GetFrameLevel() + 1)
     xp:Hide()
     cast:Hide()
 end
