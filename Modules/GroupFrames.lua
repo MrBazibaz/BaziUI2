@@ -14,13 +14,13 @@ local function safeCombat()
     return InCombatLockdown and InCombatLockdown()
 end
 local function createMember(kind, index)
-    local unit = kind == "party" and ("party" .. index) or ("raid" .. index)
+    local unit = kind .. index
     local frame = CreateFrame("Button", "BaziUI_" .. kind .. index, UIParent, "SecureUnitButtonTemplate")
     frame:SetAttribute("unit", unit)
     frame:SetAttribute("type1", "target")
     frame:SetAttribute("type2", "togglemenu")
     frame:RegisterForClicks("AnyUp")
-    frame:SetSize(kind == "party" and 190 or 110, kind == "party" and 48 or 30)
+    frame:SetSize(kind ~= "raid" and 190 or 110, kind ~= "raid" and 48 or 30)
     local border = CreateFrame("Frame", nil, frame, "BackdropTemplate")
     border:SetAllPoints()
     border:SetBackdrop({edgeFile="Interface\\Tooltips\\UI-Tooltip-Border",edgeSize=10})
@@ -34,7 +34,7 @@ local function createMember(kind, index)
     local name = frame:CreateFontString(nil,"OVERLAY","GameFontNormalSmall")
     name:SetJustifyH("CENTER")
     local portrait
-    if kind == "party" then
+    if kind ~= "raid" then
         portrait = frame:CreateTexture(nil,"ARTWORK")
         portrait:SetSize(42,42)
     end
@@ -69,7 +69,9 @@ local function layoutMember(f, kind, index, opt)
     f.label:SetShown((tonumber(opt.fontSize) or 11)>0)
     local gap = tonumber(opt.spacing) or 8
     f:ClearAllPoints()
-    if kind=="party" then
+    if kind=="boss" then
+        f:SetPoint("TOPLEFT",UIParent,"CENTER",tonumber(opt.x) or 300,(tonumber(opt.y) or 180)-(index-1)*(height+gap))
+    elseif kind=="party" then
         local total = width*4+gap*3
         f:SetPoint("TOPLEFT",UIParent,"TOP",-(total/2)+(index-1)*(width+gap),tonumber(opt.y) or -45)
     else
@@ -103,17 +105,17 @@ local function updateMember(f, preview)
 end
 function M:Refresh()
     if safeCombat() then return end
-    for _,kind in ipairs({"party","raid"}) do
+    for _,kind in ipairs({"party","raid","boss"}) do
         local opt = config(kind)
         if opt then
             groups[kind] = groups[kind] or {}
-            local count = kind=="party" and 4 or 40
+            local count = kind=="party" and 4 or (kind=="boss" and 5 or 40)
             if opt.enabled then
                 for i=1,count do
                     local f = groups[kind][i]
                     if not f then f=createMember(kind,i);groups[kind][i]=f end
                     layoutMember(f,kind,i,opt)
-                    local preview = opt.showSolo and not IsInGroup()
+                    local preview = opt.showSolo and (kind=="boss" or not IsInGroup())
                     local exists = UnitExists(f.unitToken)
                     -- Secure unit frames are not reconfigured in combat.
                     f:SetShown(preview or exists == true)
