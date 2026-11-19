@@ -206,7 +206,7 @@ local function layout(f, settings)
         local badgeY = -innerSize * 0.5 + 3
         local badgeAngle = math.atan2(badgeY, badgeX)
         local gapHalf = math.rad(36)
-        local sweep = 2 * math.pi - 2 * gapHalf
+        local sweep = 2 * math.pi - math.rad(36) -- extend end toward badge; start stays fixed
         local step = sweep / math.max(1, count - 1)
         -- Start at the upper edge of the level badge opening. Clockwise
         -- movement uses decreasing polar angles, ending below the badge.
