@@ -200,9 +200,9 @@ local function headerLayout()
         width = math.max(width, math.ceil(ticker:GetUnboundedStringWidth() or 0) + 8)
     end
     tracking:ClearAllPoints()
-    tracking:SetPoint("TOPLEFT", MM.Border, "TOPLEFT", HEADER_SIDE, -7)
+    tracking:SetPoint("TOPLEFT", MM.Border, "TOPLEFT", HEADER_SIDE, -4)
     calendar:ClearAllPoints()
-    calendar:SetPoint("TOPRIGHT", MM.Border, "TOPRIGHT", -HEADER_SIDE, -7)
+    calendar:SetPoint("TOPRIGHT", MM.Border, "TOPRIGHT", -HEADER_SIDE, -4)
     local surround = MM.HeaderSurround
     surround:ClearAllPoints()
     surround:SetPoint("TOPLEFT", tracking, "TOPLEFT", -2, 1)
