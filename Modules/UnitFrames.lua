@@ -17,8 +17,8 @@ local frames = {}
 local movers = {}
 local moving = false
 local previewIndicators = false
-local indicatorNames = {"pvpIcon", "leaderIcon", "raidIcon", "roleIcon", "classIcon"}
-local indicatorFields = {"pvp", "leader", "raid", "role", "classification"}
+local indicatorNames = {"pvpIcon", "leaderIcon", "raidIcon", "roleIcon", "classIcon", "happinessIcon"}
+local indicatorFields = {"pvp", "leader", "raid", "role", "classification", "happiness"}
 function M:SetIndicatorPreview(enabled)
     previewIndicators = enabled == true
     self:Refresh()
@@ -55,7 +55,7 @@ function M:SetMoveMode(value)
     return true
 end
 function M:IsMoveMode() return moving end
-local layoutKeys = {"indicatorSize", "indicatorX", "indicatorY","barWidth", "hpHeight", "powerHeight", "portraitSize", "portraitX", "portraitY", "flipPortrait", "showPvP", "showLeader", "showRaidMarker", "showRole", "showClassification", "hpText", "powerText", "fontSize", "nameFontSize", "hpFontSize", "powerFontSize", "fontFace", "showName", "hpTextX", "hpTextY", "powerTextX", "powerTextY", "hpFontColor", "powerFontColor", "hpTextAnchor", "powerTextAnchor", "levelFontSize", "levelTextX", "levelTextY"}
+local layoutKeys = {"indicatorSize", "indicatorX", "indicatorY","barWidth", "hpHeight", "powerHeight", "portraitSize", "portraitX", "portraitY", "flipPortrait", "showPvP", "showLeader", "showRaidMarker", "showRole", "showClassification", "showHappiness", "hpText", "powerText", "fontSize", "nameFontSize", "hpFontSize", "powerFontSize", "fontFace", "showName", "hpTextX", "hpTextY", "powerTextX", "powerTextY", "hpFontColor", "powerFontColor", "hpTextAnchor", "powerTextAnchor", "levelFontSize", "levelTextX", "levelTextY"}
 local function unitSettings(settings, key)
     settings.frames = settings.frames or {}
     local own = settings.frames[key]
@@ -125,6 +125,19 @@ local function updateExtras(f, own)
     if role == "TANK" then f.roleIcon:SetTexCoord(0, 19/64, 22/64, 41/64)
     elseif role == "HEALER" then f.roleIcon:SetTexCoord(20/64, 39/64, 1/64, 20/64)
     else f.roleIcon:SetTexCoord(20/64, 39/64, 22/64, 41/64) end
+    -- Pet happiness is only exposed on clients with the classic hunter-pet API.
+    local happiness
+    if unit == "pet" and type(GetPetHappiness) == "function" then
+        happiness = readable(GetPetHappiness())
+    end
+    f.happinessIcon:SetShown(unit == "pet" and own.showHappiness ~= false and
+        (previewIndicators or type(happiness) == "number"))
+    if type(happiness) == "number" then
+        local index = math.max(1, math.min(3, happiness)) - 1
+        f.happinessIcon:SetTexCoord(index * 0.1875, (index + 1) * 0.1875, 0, 1)
+    else
+        f.happinessIcon:SetTexCoord(0.375, 0.5625, 0, 1)
+    end
     local classification = UnitClassification and readable(UnitClassification(unit))
     f.classIcon:SetShown(own.showClassification ~= false and
         (previewIndicators or classification == "elite" or classification == "rare" or classification == "rareelite" or classification == "worldboss"))
@@ -162,7 +175,7 @@ local function layout(f, settings)
         local icon = f[name]
         if icon then
             local field = indicatorFields[i]
-            local size = math.max(10, math.min(48, tonumber(settings.indicatorSize and settings.indicatorSize[field]) or 17))
+            local size = math.max(10, math.min(field == "classification" and 120 or 48, tonumber(settings.indicatorSize and settings.indicatorSize[field]) or (field == "classification" and 64 or 17)))
             local x = (icon.baseX or 0) + (tonumber(settings.indicatorX and settings.indicatorX[field]) or 0)
             local y = (icon.baseY or 0) + (tonumber(settings.indicatorY and settings.indicatorY[field]) or 0)
             icon:SetSize(size, size)
@@ -425,6 +438,9 @@ local function create(key, spec)
     f.roleIcon = icon(26, -23, "Interface\\LFGFrame\\UI-LFG-ICON-PORTRAITROLES")
     -- Use Blizzard's original elite dragon artwork instead of the skull marker.
     f.classIcon = icon(-26, -23, "Interface\\TargetingFrame\\UI-TargetingFrame-Elite")
+    -- Crop the horizontal frame-strip section of Blizzard's composite artwork.
+    f.classIcon:SetTexCoord(0.25, 1, 0, 1)
+    f.happinessIcon = icon(24, -3, "Interface\\PetPaperDollFrame\\UI-PetHappiness")
     -- Indicators are layered above the portrait rim and badge.
     local indicatorLayer = CreateFrame("Frame", nil, portraitLayer)
     indicatorLayer:SetAllPoints(portraitLayer)
@@ -445,6 +461,7 @@ local function create(key, spec)
     f:RegisterEvent("PLAYER_TARGET_CHANGED")
     f:RegisterEvent("PLAYER_FOCUS_CHANGED")
     f:RegisterEvent("UNIT_PET")
+    f:RegisterEvent("UNIT_HAPPINESS")
     f:RegisterEvent("PLAYER_ENTERING_WORLD")
     f:SetScript("OnEvent", function(self, event, unit)
         if not unit or unit == self.unit or event == "PLAYER_TARGET_CHANGED" or event == "PLAYER_FOCUS_CHANGED" or event == "PLAYER_ENTERING_WORLD" or event == "UNIT_PET" or event == "GROUP_ROSTER_UPDATE" or event == "RAID_TARGET_UPDATE" then
