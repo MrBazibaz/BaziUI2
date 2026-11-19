@@ -339,7 +339,7 @@ local function CreateUnitFramesPage()
         viewport:SetPoint("BOTTOMRIGHT", main, "BOTTOMRIGHT", -10, 10)
         viewport:EnableMouseWheel(true)
         local panel = CreateFrame("Frame", nil, viewport)
-        panel:SetHeight(name == "General" and 330 or 490)
+        panel:SetHeight(name == "General" and 440 or 490)
         panel:SetWidth(500)
         viewport:SetScrollChild(panel)
         viewport:SetScript("OnSizeChanged", function(self) panel:SetWidth(math.max(1, self:GetWidth())) end)
@@ -365,6 +365,26 @@ local function CreateUnitFramesPage()
                 page:HookScript("OnShow", function() check:SetChecked(db[key] == true) end)
                 check:SetChecked(db[key] == true)
             end
+            db.groups = db.groups or {}
+            local function groupCheck(kind, caption, x, y, field)
+                db.groups[kind] = db.groups[kind] or {}
+                local opt = db.groups[kind]
+                local check = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
+                check:SetSize(25,25)
+                check:SetPoint("TOPLEFT",panel,"TOPLEFT",x,y)
+                local label = CreateLabel(panel,caption,"GameFontHighlight")
+                label:SetPoint("LEFT",check,"RIGHT",4,0)
+                check:SetChecked(opt[field] == true)
+                check:SetScript("OnClick",function(self)
+                    opt[field] = self:GetChecked() == true
+                    if addon.GroupFrames then addon.GroupFrames:Refresh() end
+                end)
+                page:HookScript("OnShow",function() check:SetChecked(opt[field] == true) end)
+            end
+            groupCheck("party","Enable Party",16,-305,"enabled")
+            groupCheck("party","Show Party when solo",235,-305,"showSolo")
+            groupCheck("raid","Enable Raid",16,-341,"enabled")
+            groupCheck("raid","Show Raid when solo",235,-341,"showSolo")
             local move = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
             move:SetSize(25,25)
             move:SetPoint("TOPLEFT", panel, "TOPLEFT", 16, -252)
