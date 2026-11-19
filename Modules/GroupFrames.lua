@@ -299,6 +299,51 @@ local function layoutGroupAuras(f,kind,index,preview)
         end
     end
 end
+-- Visual-only solo samples. Never reassign secure unit attributes or fabricate live auras.
+local partySamples={
+    {name="Ironshield",role="TANK",class="WARRIOR",hp=92,power=45,resource="RAGE",icon="Ability_Warrior_DefensiveStance",buffs={"Spell_Holy_DevotionAura","Ability_Warrior_BattleShout"},debuffs={}},
+    {name="Lightweaver",role="HEALER",class="PRIEST",hp=68,power=82,resource="MANA",icon="Spell_Holy_GreaterHeal",buffs={"Spell_Holy_PowerWordShield","Spell_Holy_Renew"},debuffs={"Spell_Shadow_ShadowWordPain"}},
+    {name="Shadowstep",role="DAMAGER",class="ROGUE",hp=100,power=35,resource="ENERGY",icon="Ability_Rogue_SinisterCalling",buffs={"Ability_Rogue_SliceDice"},debuffs={}},
+    {name="Stormcaller",role="DAMAGER",class="MAGE",hp=43,power=61,resource="MANA",icon="Spell_Frost_FrostBolt02",buffs={"Spell_Holy_MagicalSentry"},debuffs={"Spell_Fire_Fireball02"}},
+}
+local function sampleFor(f)
+    return partySamples[tonumber(f.unitToken:match("%d+")) or 1] or partySamples[1]
+end
+local function previewAuras(f,kind,index,enabled)
+    if kind~="party" then return end
+    if not f.sampleAuras then
+        f.sampleAuras={}
+        for _,auraKind in ipairs({"buffs","debuffs"}) do
+            local tiles={}
+            for i=1,5 do
+                local icon=f:CreateTexture(nil,"OVERLAY")
+                icon:SetTexCoord(.08,.92,.08,.92)
+                icon:Hide()
+                tiles[i]=icon
+            end
+            f.sampleAuras[auraKind]=tiles
+        end
+    end
+    local sample=partySamples[index]
+    local settings=effectiveOptions(config(kind),index)
+    for _,auraKind in ipairs({"buffs","debuffs"}) do
+        local opt=settings["aura_"..auraKind] or {}
+        local tiles=f.sampleAuras[auraKind]
+        local icons=sample[auraKind]
+        local size=math.max(12,math.min(48,tonumber(opt.size) or 24))
+        local gap=math.max(0,math.min(20,tonumber(opt.spacing) or 2))
+        for i,tile in ipairs(tiles) do
+            local visible=enabled and opt.enabled~=false and i<=math.min(tonumber(opt.count) or 12,#icons)
+            if visible then
+                tile:SetTexture("Interface\\Icons\\"..icons[i])
+                tile:SetSize(size,size)
+                tile:ClearAllPoints()
+                tile:SetPoint("TOPLEFT",f,"TOPLEFT",(tonumber(opt.x) or 0)+(i-1)*(size+gap),(tonumber(opt.y) or (auraKind=="buffs" and 32 or -58)))
+            end
+            tile:SetShown(visible)
+        end
+    end
+end
 local function updatePartyIndicators(f,preview)
     if not f.indicators then return end
     local unit=f.unitToken
@@ -307,36 +352,51 @@ local function updatePartyIndicators(f,preview)
         if issecretvalue and issecretvalue(value) then return nil end
         return value
     end
+    local sample=preview and sampleFor(f)
     local marker=not preview and GetRaidTargetIndex and safe(GetRaidTargetIndex(unit))
     f.indicators.raid:SetShown(opt.showRaidMarker~=false and (preview or type(marker)=="number"))
     if type(marker)=="number" and SetRaidTargetIconTexture then
         SetRaidTargetIconTexture(f.indicators.raid,marker)
     end
-    f.indicators.pvp:SetShown(opt.showPvP~=false and (preview or safe(UnitIsPVP(unit))==true))
-    f.indicators.leader:SetShown(opt.showLeader~=false and (preview or (UnitIsGroupLeader and safe(UnitIsGroupLeader(unit))==true)))
-    local role=not preview and UnitGroupRolesAssigned and safe(UnitGroupRolesAssigned(unit))
-    f.indicators.role:SetShown(opt.showRole~=false and (preview or role=="TANK" or role=="HEALER" or role=="DAMAGER"))
+    f.indicators.pvp:SetShown(opt.showPvP~=false and not preview and safe(UnitIsPVP(unit))==true)
+    f.indicators.leader:SetShown(opt.showLeader~=false and ((preview and tonumber(unit:match("%d+"))==1) or (not preview and UnitIsGroupLeader and safe(UnitIsGroupLeader(unit))==true)))
+    local role=preview and sample.role or (UnitGroupRolesAssigned and safe(UnitGroupRolesAssigned(unit)))
+    f.indicators.role:SetShown(opt.showRole~=false and (role=="TANK" or role=="HEALER" or role=="DAMAGER"))
+    if preview then
+        local coords={TANK={0,.25,.25,.5},HEALER={.25,.5,0,.25},DAMAGER={.25,.5,.25,.5}}
+        local c=coords[role]
+        if c then f.indicators.role:SetTexCoord(c[1],c[2],c[3],c[4]) end
+    end
     if f.classificationIcon then
         local classification=not preview and UnitClassification and safe(UnitClassification(unit))
         local special=classification=="elite" or classification=="rare" or classification=="rareelite" or classification=="worldboss"
-        f.classificationIcon:SetShown(opt.showClassification~=false and (preview or special))
+        f.classificationIcon:SetShown(opt.showClassification~=false and special)
     end
 end
 local function updateMember(f, preview)
     updatePartyIndicators(f,preview)
     if preview then
+        local sample=sampleFor(f)
         f.hp:SetMinMaxValues(0,100)
-        f.hp:SetValue(75)
+        f.hp:SetValue(sample.hp)
         f.power:SetMinMaxValues(0,100)
-        f.power:SetValue(60)
-        f.label:SetText("Preview " .. f.unitToken)
+        f.power:SetValue(sample.power)
+        f.label:SetText(sample.name)
+        if RAID_CLASS_COLORS and RAID_CLASS_COLORS[sample.class] then
+            local c=RAID_CLASS_COLORS[sample.class]
+            f.label:SetTextColor(c.r,c.g,c.b)
+        else f.label:SetTextColor(1,.82,0) end
         if f.levelText then f.levelText:SetText("60") end
-        f.hpText:SetText("75%")
-        f.powerText:SetText("60%")
-        if f.portrait then f.portrait:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark") end
+        local opt=effectiveOptions(config("party"),tonumber(f.unitToken:match("%d+")) or 1)
+        f.hpText:SetText(sample.hp.."%")
+        f.powerText:SetText(sample.power.."%")
+        f.power:SetStatusBarColor(sample.resource=="RAGE" and .85 or .2,sample.resource=="ENERGY" and .8 or .4,sample.resource=="MANA" and .9 or .2)
+        if f.portrait then f.portrait:SetTexture("Interface\\Icons\\"..sample.icon) end
         return
     end
     if not UnitExists(f.unitToken) then return end
+    f.label:SetTextColor(1,.82,0)
+    f.power:SetStatusBarColor(.29,.43,.70)
     f.hp:SetMinMaxValues(0,UnitHealthMax(f.unitToken))
     f.hp:SetValue(UnitHealth(f.unitToken))
     f.power:SetMinMaxValues(0,UnitPowerMax(f.unitToken))
@@ -377,7 +437,10 @@ function M:Refresh()
                     -- Secure unit frames are not reconfigured in combat.
                     f:SetShown(preview or exists == true)
                     if preview or exists == true then updateMember(f,preview) end
-                    if kind=="party" then layoutGroupAuras(f,kind,i,preview) end
+                    if kind=="party" then
+                        layoutGroupAuras(f,kind,i,preview)
+                        previewAuras(f,kind,i,preview)
+                    end
                 end
             else
                 for _,f in ipairs(groups[kind]) do f:Hide() end
