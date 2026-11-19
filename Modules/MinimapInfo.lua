@@ -87,6 +87,13 @@ end
 function M:Apply()
     local cfg = db()
     if not cfg or not cfg.enabled then return end
+    -- Existing Bazi UI profiles had a dormant coords="off" placeholder,
+    -- even while Blizzard coordinates were visible. Preserve that behavior
+    -- on the first real Map Info initialization.
+    if not cfg.infoInitialized then
+        if cfg.coords == "off" then cfg.coords = "always" end
+        cfg.infoInitialized = true
+    end
     if C_CVar and C_CVar.SetCVar then
         pcall(C_CVar.SetCVar, "minimapShowPlayerCoords", (cfg.coords == "off" or cfg.hideCoordinates) and "0" or "1")
     end
