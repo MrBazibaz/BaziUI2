@@ -46,6 +46,19 @@ function M:CopyMember(kind,sourceKind,sourceIndex,targetIndex)
     if not source then return false end
     local keep=memberOptions(target,targetIndex)
     local output=clone(source)
+    -- Translate the original UnitFrames schema into the separate group renderer.
+    -- Never modify the original source tables.
+    if sourceKind=="player" or sourceKind=="target" or sourceKind=="focus" or sourceKind=="pet" or sourceKind=="targettarget" then
+        output.width = tonumber(source.barWidth) or tonumber(source.width) or 190
+        output.height = math.max(22,(tonumber(source.hpHeight) or 23)+(tonumber(source.powerHeight) or 9)+12)
+        output.fontSize = tonumber(source.nameFontSize) or tonumber(source.fontSize) or 11
+        output.portraitSide = (source.flipPortrait == true) and
+            ((sourceKind=="player" or sourceKind=="pet") and "RIGHT" or "LEFT") or
+            ((sourceKind=="player" or sourceKind=="pet") and "LEFT" or "RIGHT")
+        output.showPortrait = kind ~= "raid"
+        output.showHealthPercent = source.hpText == "percent"
+        output.showPowerPercent = source.powerText == "percent"
+    end
     -- Copy visual settings only; preserve group geometry and unit identity.
     for _,field in ipairs({"x","y","spacing","columns","growth","anchor","enabled","showSolo","members"}) do output[field]=nil end
     for k,v in pairs(output) do keep[k]=v end
