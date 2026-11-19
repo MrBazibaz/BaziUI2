@@ -630,17 +630,6 @@ local function CreateUnitFramesPage()
                         opt.enabled = self:GetChecked() == true
                         if addon.UnitFrames then addon.UnitFrames:Refresh() end
                     end)
-                    if key == "target" and kind == "debuffs" then
-                        local mine = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
-                        mine:SetSize(24, 24)
-                        mine:SetPoint("TOPLEFT", panel, "TOPLEFT", 20, top - 178)
-                        local mineLabel = CreateLabel(panel, "Show only my debuffs (requires /reload)", "GameFontHighlight")
-                        mineLabel:SetPoint("LEFT", mine, "RIGHT", 4, 0)
-                        mine:SetChecked(opt.onlyMine == true)
-                        mine:SetScript("OnClick", function(self)
-                            opt.onlyMine = self:GetChecked() == true
-                        end)
-                    end
                     local fields = {
                         {"size", "SIZE", 12, 48, 24}, {"count", "COUNT", 0, 40, 12},
                         {"perRow", "PER ROW", 1, 20, 6}, {"spacing", "GAP", 0, 20, 2},
@@ -684,6 +673,17 @@ local function CreateUnitFramesPage()
                             self:SetText(tostring(opt[spec[1]]))
                             self:ClearFocus()
                             if addon.UnitFrames then addon.UnitFrames:Refresh() end
+                        end)
+                    end
+                    if key == "target" and kind == "debuffs" then
+                        local mine = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
+                        mine:SetSize(24, 24)
+                        mine:SetPoint("TOPLEFT", panel, "TOPLEFT", 20, top - 222)
+                        local mineLabel = CreateLabel(panel, "Show only my debuffs (requires /reload)", "GameFontHighlight")
+                        mineLabel:SetPoint("LEFT", mine, "RIGHT", 4, 0)
+                        mine:SetChecked(opt.onlyMine == true)
+                        mine:SetScript("OnClick", function(self)
+                            opt.onlyMine = self:GetChecked() == true
                         end)
                     end
                     local function direction(field, x)
