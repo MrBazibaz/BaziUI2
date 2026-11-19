@@ -248,8 +248,8 @@ local function CreateUnitFramesPage()
     page:SetAllPoints(contentFrame)
     pages.UnitFrames = page
     local db = addon.db.profile.unitframes
-    local activeTab = "Player"
-    local tabButtons, tabPanels = {}, {}
+    local activeTab = "General"
+    local tabButtons, tabPanels = {}, {}\n    local syncControls = {}
 
     local headingPanel = CreatePanel(page, -8, 76)
     CreateSection(headingPanel, "UNIT FRAMES", -12)
@@ -273,7 +273,7 @@ local function CreateUnitFramesPage()
     local tabBar = CreateFrame("Frame", nil, page)
     tabBar:SetPoint("TOPLEFT", main, "TOPRIGHT", 25, 0)
     tabBar:SetFrameStrata("FULLSCREEN_DIALOG")
-    tabBar:SetSize(108, 116)
+    tabBar:SetSize(108, 145)
     local function RefreshTabs()
         for name, button in pairs(tabButtons) do
             local selected = name == activeTab
@@ -288,9 +288,9 @@ local function CreateUnitFramesPage()
                     selected and 0.63 or 0.37, selected and 0.30 or 0.20, 0.95)
             end
         end
-        for name, panel in pairs(tabPanels) do panel:SetShown(name == activeTab) end
+        for name, panel in pairs(tabPanels) do panel:SetShown(name == activeTab) end\n        if syncControls[activeTab] then syncControls[activeTab]() end
     end
-    for i, name in ipairs({"Player", "Target", "Focus", "Pet"}) do
+    for i, name in ipairs({"General", "Player", "Target", "Focus", "Pet"}) do
         local button = CreateFrame("Button", nil, tabBar)
         button:SetSize(108, 29)
         button:SetPoint("TOPLEFT", tabBar, "TOPLEFT", 0, -(i-1)*29)
@@ -323,14 +323,14 @@ local function CreateUnitFramesPage()
         tabButtons[name] = button
     end
 
-    for _, entry in ipairs({{"Player","player"},{"Target","target"},{"Focus","focus"},{"Pet","pet"}}) do
+    for _, entry in ipairs({{"General",nil},{"Player","player"},{"Target","target"},{"Focus","focus"},{"Pet","pet"}}) do
         local name, key = entry[1], entry[2]
         local viewport = CreateFrame("ScrollFrame", nil, main)
         viewport:SetPoint("TOPLEFT", main, "TOPLEFT", 10, -12)
         viewport:SetPoint("BOTTOMRIGHT", main, "BOTTOMRIGHT", -10, 10)
         viewport:EnableMouseWheel(true)
         local panel = CreateFrame("Frame", nil, viewport)
-        panel:SetHeight(name == "Player" and 600 or 160)
+        panel:SetHeight(name == "General" and 300 or 650)
         panel:SetWidth(500)
         viewport:SetScrollChild(panel)
         viewport:SetScript("OnSizeChanged", function(self) panel:SetWidth(math.max(1, self:GetWidth())) end)
@@ -339,47 +339,80 @@ local function CreateUnitFramesPage()
             self:SetVerticalScroll(math.max(0, math.min(limit, self:GetVerticalScroll() - delta*36)))
         end)
         tabPanels[name] = viewport
-        local check = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
-        check:SetSize(25, 25)
-        check:SetPoint("TOPLEFT", panel, "TOPLEFT", 16, -10)
-        local caption = CreateLabel(panel, "Enable " .. name .. " frame", "GameFontHighlight")
-        caption:SetPoint("LEFT", check, "RIGHT", 5, 0)
-        check:SetScript("OnClick", function(self)
-            db[key] = not not self:GetChecked()
-            if addon.UnitFrames then addon.UnitFrames:Refresh() end
-        end)
-        page:HookScript("OnShow", function() check:SetChecked(db[key] == true) end)
-        if name == "Player" then
-            local hide = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
-            hide:SetSize(25, 25)
-            hide:SetPoint("TOPLEFT", panel, "TOPLEFT", 16, -44)
-            local hideText = CreateLabel(panel, "Hide original Blizzard frames (test)", "GameFontHighlight")
-            hideText:SetPoint("LEFT", hide, "RIGHT", 5, 0)
-            hide:SetScript("OnClick", function(self)
-                db.hideBlizzard = not not self:GetChecked()
-                if addon.UnitFrames then addon.UnitFrames:Refresh() end
-            end)
-            page:HookScript("OnShow", function() hide:SetChecked(db.hideBlizzard == true) end)
+        if name == "General" then
+            CreateSection(panel, "VISIBLE UNIT FRAMES", -12)
+            CreateDivider(panel, -45)
+            for i, item in ipairs({{"Player","player"},{"Target","target"},{"Focus","focus"},{"Pet","pet"},{"Hide original Blizzard frames (test)","hideBlizzard"}}) do
+                local check = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
+                check:SetSize(25,25)
+                check:SetPoint("TOPLEFT", panel, "TOPLEFT", 16, -60-(i-1)*36)
+                local label = CreateLabel(panel, item[1], "GameFontHighlight")
+                label:SetPoint("LEFT", check, "RIGHT", 5, 0)
+                local key = item[2]
+                check:SetScript("OnClick", function(self)
+                    db[key] = not not self:GetChecked()
+                    if addon.UnitFrames then addon.UnitFrames:Refresh() end
+                end)
+                page:HookScript("OnShow", function() check:SetChecked(db[key] == true) end)
+                check:SetChecked(db[key] == true)
+            end
+        else
+            db.frames = db.frames or {}
+            local own = db.frames[key] or {}
+            db.frames[key] = own
+            local refreshers = {}
             local settings = {
-                {"barWidth", "HP / MANA WIDTH", "Width of health and resource bars", 100, 400},
-                {"hpHeight", "HP HEIGHT", "Health bar height", 12, 45},
-                {"powerHeight", "MANA / POWER HEIGHT", "Resource bar height", 4, 30},
-                {"portraitSize", "PORTRAIT SIZE", "Portrait and ring size", 36, 90},
-                {"portraitX", "PORTRAIT X", "Horizontal portrait offset", -80, 80},
-                {"portraitY", "PORTRAIT Y", "Vertical portrait offset", -80, 80},
+                {"barWidth","HP / MANA WIDTH","Width of health and resource bars",100,400},
+                {"hpHeight","HP HEIGHT","Health bar height",12,45},
+                {"powerHeight","MANA / POWER HEIGHT","Resource bar height",4,30},
+                {"portraitSize","PORTRAIT SIZE","Portrait and ring size",36,90},
+                {"portraitX","PORTRAIT X","Horizontal portrait offset",-80,80},
+                {"portraitY","PORTRAIT Y","Vertical portrait offset",-80,80},
             }
             for i, setting in ipairs(settings) do
                 local settingKey, title, hint, low, high = unpack(setting)
-                local slider = CreateSlider(panel, title, hint, low, high, 1,
-                    db[settingKey] or 0, -84 - (i-1)*57, function(value)
-                        db[settingKey] = value
+                local initial = own[settingKey]
+                if initial == nil then initial = db[settingKey] or 0 end
+                local slider = CreateSlider(panel, title, hint, low, high, 1, initial,
+                    -14-(i-1)*57, function(value)
+                        own[settingKey] = value
                         if addon.UnitFrames then addon.UnitFrames:Refresh() end
                     end, false)
-                page:HookScript("OnShow", function() slider:SetValue(db[settingKey] or 0) end)
+                refreshers[#refreshers+1] = function()
+                    local value = own[settingKey]
+                    if value == nil then value = db[settingKey] or 0 end
+                    slider:SetValue(value)
+                end
             end
-        else
-            local note = CreateLabel(panel, "Detailed " .. name .. " settings will be added after Player is verified.", "GameFontHighlightSmall")
-            note:SetPoint("TOPLEFT", panel, "TOPLEFT", 18, -52)
+            syncControls[name] = function()
+                for _, refresh in ipairs(refreshers) do refresh() end
+            end
+            local choices = {}
+            for _, candidate in ipairs({"Player","Target","Focus","Pet"}) do
+                if candidate ~= name then choices[#choices+1] = candidate end
+            end
+            local source = choices[1]
+            local selector = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
+            selector:SetSize(140,25)
+            selector:SetPoint("TOPLEFT", panel, "TOPLEFT", 20, -370)
+            selector:SetText("From: " .. source)
+            selector:SetScript("OnClick", function()
+                for i, candidate in ipairs(choices) do
+                    if candidate == source then source = choices[i % #choices + 1]; break end
+                end
+                selector:SetText("From: " .. source)
+            end)
+            local copy = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
+            copy:SetSize(125,25)
+            copy:SetPoint("LEFT", selector, "RIGHT", 12, 0)
+            copy:SetText("Copy settings")
+            copy:SetScript("OnClick", function()
+                if addon.UnitFrames and addon.UnitFrames:CopyLayout(string.lower(source), key) then
+                    syncControls[name]()
+                end
+            end)
+            local note = CreateLabel(panel, "Copy appearance only; frame position stays unchanged.", "GameFontHighlightSmall")
+            note:SetPoint("TOPLEFT", panel, "TOPLEFT", 20, -408)
         end
     end
     page:HookScript("OnShow", function()
