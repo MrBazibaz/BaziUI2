@@ -541,7 +541,12 @@ local function layout(f, settings)
     f.rimMask:SetSize(rimSize, rimSize)
     f.rimMask:ClearAllPoints()
     f.rimMask:SetPoint("CENTER", f.rim, "CENTER")
-    f.portrait:SetSize(innerSize, innerSize)
+    -- The role atlas has generous transparent padding. Adjust its visible
+    -- artwork independently of the circular portrait mask and gold ring.
+    local roleScale=math.max(.6,math.min(2.5,tonumber(settings.rolePortraitScale) or 1.32))
+    f.portrait:SetSize(innerSize*roleScale,innerSize*roleScale)
+    f.portrait:ClearAllPoints()
+    f.portrait:SetPoint("CENTER",f.portraitAnchor,"CENTER",tonumber(settings.roleX) or 0,tonumber(settings.roleY) or 0)
     f.portraitBack:SetSize(backSize, backSize)
     -- The model is a genuine 3D render surface, not a masked texture.
     -- Keep its viewport within the ring while we investigate clipping.

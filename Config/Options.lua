@@ -551,7 +551,7 @@ local function CreateUnitFramesPage()
                 for label, button in pairs(sectionButtons) do
                     button.fill:SetColorTexture(label == selected and 0.36 or 0.25, label == selected and 0.20 or 0.13, label == selected and 0.28 or 0.07, 1)
                 end
-                root:SetHeight(key=="party" and (selected=="Layout" and 1190 or selected=="Indicators" and 1180 or selected=="Bar Text" and 820 or selected=="Buffs / Debuffs" and 1230 or 580) or 610)
+                root:SetHeight(key=="party" and (selected=="Layout" and 1350 or selected=="Indicators" and 1350 or selected=="Bar Text" and 820 or selected=="Buffs / Debuffs" and 1230 or 580) or 610)
                 viewport:SetVerticalScroll(0)
             end
             for i, label in ipairs({"Layout","Indicators","Bar Text","Fonts","Buffs / Debuffs"}) do
@@ -799,6 +799,9 @@ local function CreateUnitFramesPage()
                     partyDropdown(canvas,label,field,{{"LEFT","Left"},{"CENTER","Center"},{"RIGHT","Right"},{"HIDDEN","Hidden"}},x,y,190,"CENTER")
                 end
                 partyDropdown(sections.Layout,"PORTRAIT SIDE","portraitSide",{{"LEFT","Left"},{"RIGHT","Right"}},16,-730,190,selectedMember<=2 and "LEFT" or "RIGHT")
+                coordinate(sections.Indicators,"ROLE PORTRAIT X","roleX",16,-910)
+                coordinate(sections.Indicators,"ROLE PORTRAIT Y","roleY",260,-910)
+                partyDropdown(sections.Indicators,"ROLE PORTRAIT SCALE","rolePortraitScale",{{0.8,"80%"},{1,"100%"},{1.15,"115%"},{1.32,"132%"},{1.5,"150%"},{1.7,"170%"}},16,-995,190,1.32)
                 coordinate(sections.Layout,"FRAME X","offsetX",16,-670)
                 coordinate(sections.Layout,"FRAME Y","offsetY",260,-670)
                 coordinate(sections["Bar Text"],"NAME X","nameX",16,-470)
@@ -827,6 +830,7 @@ local function CreateUnitFramesPage()
                 end)
                 memberRefreshers[#memberRefreshers+1]=syncCast
                 syncCast()
+                -- Castbar positioning is separate from cast spell text positioning.
                 coordinate(canvas,"CASTBAR X","partyCastX",16,-860)
                 coordinate(canvas,"CASTBAR Y","partyCastY",260,-860)
                 coordinate(canvas,"CASTBAR WIDTH","partyCastWidth",16,-950,190)
@@ -836,7 +840,7 @@ local function CreateUnitFramesPage()
                 groupSlider(sections.Fonts,"CASTBAR TEXT SIZE","Cast spell name font size","partyCastFontSize",0,24,10,-425)
             end
             panel=sections.Indicators
-            if key=="party" then panel:SetHeight(1100) end
+            if key=="party" then panel:SetHeight(1250) end
             CreateSection(panel,"INDICATORS",-12)
             CreateDivider(panel,-45)
             local function groupToggle(canvas,label,field,y)
