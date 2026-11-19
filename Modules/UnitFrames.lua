@@ -12,6 +12,7 @@ local units = {
     target = {unit="target", x=260, y=-180},
     focus = {unit="focus", x=260, y=-250},
     pet = {unit="pet", x=-260, y=-250},
+    targettarget = {unit="targettarget", x=420, y=-250},
 }
 local frames = {}
 local movers = {}
@@ -1119,7 +1120,7 @@ function M:Refresh()
             update(f)
             applyPosition(f, settings, key)
             if settings.enabled ~= false and settings[key] then
-                if key == "focus" or key == "target" or key == "pet" then
+                if key == "focus" or key == "target" or key == "pet" or key == "targettarget" then
                     if not f.visibilityRegistered and RegisterStateDriver then
                         RegisterStateDriver(f, "visibility", "[@" .. key .. ",exists] show; hide")
                         f.visibilityRegistered = true
