@@ -35,6 +35,12 @@ local function update(entry)
     if not cfg then return end
     if InCombatLockdown and InCombatLockdown() then return end
     frame:SetScale(clamp(cfg.scale or 1))
+    if cfg.position and cfg.position.x and cfg.position.y and not entry.positionApplied then
+        frame:ClearAllPoints()
+        frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", cfg.position.x, cfg.position.y)
+        entry.positionApplied = true
+    end
+    if entry.move then entry.move:SetShown(cfg.enabled and cfg.draggable ~= false and frame:IsShown()) end
     if entry.left then entry.left:SetShown(cfg.enabled and cfg.draggable ~= false and frame:IsShown()) end
     if entry.right then entry.right:SetShown(cfg.enabled and cfg.draggable ~= false and frame:IsShown()) end
 end
@@ -63,7 +69,7 @@ local function install(key, name)
         grip:SetScript("OnMouseDown", function(self, button)
             if button ~= "LeftButton" or (InCombatLockdown and InCombatLockdown()) then return end
             local cfg = settings(key)
-            if not cfg or not cfg.enabled or cfg.draggable == false then return end
+            if not cfg or not cfg.enabled then return end
             self.dragging = true
             self.startX, self.startY = GetCursorPosition()
             self.startScale = clamp(cfg.scale or 1)
@@ -96,6 +102,37 @@ local function install(key, name)
         return grip
     end
     entry.left, entry.right = handle("LEFT"), handle("RIGHT")
+    -- Header overlay is a move handle. Leave room for Blizzard close/buttons
+    -- on the right; resizing remains independent of the Drag setting.
+    local move = CreateFrame("Button", nil, frame)
+    move:SetHeight(20)
+    move:SetPoint("TOPLEFT", frame, "TOPLEFT", 55, -4)
+    move:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -65, -4)
+    move:SetFrameLevel(frame:GetFrameLevel() + 18)
+    move:RegisterForDrag("LeftButton")
+    move:SetScript("OnDragStart", function()
+        local cfg = settings(key)
+        if not cfg or not cfg.enabled or cfg.draggable == false then return end
+        if InCombatLockdown and InCombatLockdown() then return end
+        if frame.IsProtected and frame:IsProtected() then return end
+        frame:SetMovable(true)
+        frame:StartMoving()
+    end)
+    move:SetScript("OnDragStop", function()
+        frame:StopMovingOrSizing()
+        local cfg = settings(key)
+        if cfg and cfg.enabled then
+            local left, top = frame:GetLeft(), frame:GetTop()
+            if left and top then
+                local scale = frame:GetEffectiveScale() / UIParent:GetEffectiveScale()
+                cfg.position = {x = left * scale, y = top * scale}
+                entry.positionApplied = true
+            end
+        end
+    end)
+    move:Hide()
+    entry.move = move
+
     frame:HookScript("OnShow", function() update(entry) end)
     frame:HookScript("OnSizeChanged", function() update(entry) end)
     update(entry)
