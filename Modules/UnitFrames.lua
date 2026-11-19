@@ -293,7 +293,7 @@ local function layout(f, settings)
             bar:SetHeight(math.max(4, tonumber(settings[spec[2] .. "Height"]) or spec[4]))
             bar:ClearAllPoints()
             if spec[1] == "petCast" then
-                -- Replace the HP bar in-place while casting; power stays below.
+                -- Freely positioned overlay relative to the health bar; no underlying bars are hidden.
                 bar:SetPoint("TOPLEFT", f.health, "TOPLEFT",
                     tonumber(settings.petCastX) or 0,
                     tonumber(settings.petCastY) or 0)
@@ -476,11 +476,6 @@ updatePetExtras = function(f)
     local casting = name ~= nil and startTime ~= nil and endTime ~= nil
     local showCast = own.showPetCast ~= false and (casting or previewPetCast)
     f.petCast:SetShown(showCast)
-    -- The castbar occupies the health slot rather than adding a new row.
-    -- Keep HP data updating while its textures/text are temporarily hidden.
-    f.health:SetShown(not showCast)
-    f.hpBackground:SetShown(not showCast)
-    f.value:SetShown(not showCast)
     if previewPetCast and not casting then
         f.petCast.startTime = nil
         f.petCast.endTime = nil
@@ -532,7 +527,7 @@ local function createPetExtras(f)
     ring.backgrounds = {}
     for i = 1, 36 do
         local background = ring:CreateTexture(nil, "ARTWORK")
-        background:SetColorTexture(0.12, 0.045, 0.13, 0.22)
+        background:SetColorTexture(0, 0, 0, 0)
         ring.backgrounds[i] = background
         local segment = ring:CreateTexture(nil, "OVERLAY")
         segment:SetColorTexture(0.73, 0.14, 0.80, 1)
