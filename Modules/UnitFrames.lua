@@ -457,7 +457,8 @@ local function create(key, spec)
     f.leaderIcon = icon(-25, 25, "Interface\\GroupFrame\\UI-Group-LeaderIcon")
     f.raidIcon = icon(0, 33, "Interface\\TargetingFrame\\UI-RaidTargetingIcons")
     f.roleIcon = icon(26, -23, "Interface\\LFGFrame\\UI-LFG-ICON-PORTRAITROLES")
-    -- Native Blizzard boss portrait decoration, selected per classification.\n    f.classIcon = icon(-26, -23, "Interface\\TargetingFrame\\UI-RaidTargetingIcons")
+    -- Native Blizzard boss portrait decoration, selected per classification.
+    f.classIcon = icon(-26, -23, "Interface\\TargetingFrame\\UI-RaidTargetingIcons")
     f.happinessIcon = icon(24, -3, "Interface\\PetPaperDollFrame\\UI-PetHappiness")
     -- Indicators are layered above the portrait rim and badge.
     local indicatorLayer = CreateFrame("Frame", nil, portraitLayer)
