@@ -630,19 +630,6 @@ local function CreateUnitFramesPage()
                     memberRefreshers[#memberRefreshers+1]=redraw
                     redraw()
                 end
-                local portraitButton=CreateFrame("Button",nil,panel,"UIPanelButtonTemplate")
-                portraitButton:SetSize(195,25)
-                portraitButton:SetPoint("TOPLEFT",panel,"TOPLEFT",16,-730)
-                local function refreshPortrait()
-                    portraitButton:SetText("Portrait: "..tostring(memberValue("portraitSide",selectedMember<=2 and "LEFT" or "RIGHT")))
-                end
-                portraitButton:SetScript("OnClick",function()
-                    memberSettings().portraitSide=memberValue("portraitSide",selectedMember<=2 and "LEFT" or "RIGHT")=="LEFT" and "RIGHT" or "LEFT"
-                    refreshPortrait()
-                    if addon.GroupFrames then addon.GroupFrames:Refresh() end
-                end)
-                memberRefreshers[#memberRefreshers+1]=refreshPortrait
-                refreshPortrait()
             end
             if key=="party" then
                 -- One full-width row per control, matching Player's layout.
@@ -811,17 +798,18 @@ local function CreateUnitFramesPage()
                 local function anchorButton(canvas,label,field,x,y)
                     partyDropdown(canvas,label,field,{{"LEFT","Left"},{"CENTER","Center"},{"RIGHT","Right"},{"HIDDEN","Hidden"}},x,y,190,"CENTER")
                 end
+                partyDropdown(sections.Layout,"PORTRAIT SIDE","portraitSide",{{"LEFT","Left"},{"RIGHT","Right"}},16,-730,190,selectedMember<=2 and "LEFT" or "RIGHT")
                 coordinate(sections.Layout,"FRAME X","offsetX",16,-670)
                 coordinate(sections.Layout,"FRAME Y","offsetY",260,-670)
-                coordinate(sections["Bar Text"],"NAME X","nameX",16,-350)
-                coordinate(sections["Bar Text"],"NAME Y","nameY",260,-350)
-                coordinate(sections["Bar Text"],"HP TEXT X","hpTextX",16,-440)
-                coordinate(sections["Bar Text"],"HP TEXT Y","hpTextY",260,-440)
-                coordinate(sections["Bar Text"],"POWER TEXT X","powerTextX",16,-530)
-                coordinate(sections["Bar Text"],"POWER TEXT Y","powerTextY",260,-530)
-                anchorButton(sections["Bar Text"],"Name anchor","nameAnchor",20,-250)
-                anchorButton(sections["Bar Text"],"HP anchor","hpTextAnchor",270,-250)
-                anchorButton(sections["Bar Text"],"Power anchor","powerTextAnchor",20,-290)
+                coordinate(sections["Bar Text"],"NAME X","nameX",16,-470)
+                coordinate(sections["Bar Text"],"NAME Y","nameY",260,-470)
+                coordinate(sections["Bar Text"],"HP TEXT X","hpTextX",16,-560)
+                coordinate(sections["Bar Text"],"HP TEXT Y","hpTextY",260,-560)
+                coordinate(sections["Bar Text"],"POWER TEXT X","powerTextX",16,-650)
+                coordinate(sections["Bar Text"],"POWER TEXT Y","powerTextY",260,-650)
+                anchorButton(sections["Bar Text"],"Name anchor","nameAnchor",20,-310)
+                anchorButton(sections["Bar Text"],"HP anchor","hpTextAnchor",270,-310)
+                anchorButton(sections["Bar Text"],"Power anchor","powerTextAnchor",20,-385)
                 for i,item in ipairs({{"PVP","pvp"},{"LEADER","leader"},{"RAID","raid"},{"ROLE","role"},{"CLASSIFICATION","classification"}}) do
                     coordinate(sections.Indicators,item[1].." X",item[2].."X",16,-430-(i-1)*90)
                     coordinate(sections.Indicators,item[1].." Y",item[2].."Y",260,-430-(i-1)*90)
@@ -843,6 +831,9 @@ local function CreateUnitFramesPage()
                 coordinate(canvas,"CASTBAR Y","partyCastY",260,-860)
                 coordinate(canvas,"CASTBAR WIDTH","partyCastWidth",16,-950,190)
                 coordinate(canvas,"CASTBAR HEIGHT","partyCastHeight",260,-950,13)
+                coordinate(canvas,"CAST TEXT X","partyCastTextX",16,-1040)
+                coordinate(canvas,"CAST TEXT Y","partyCastTextY",260,-1040)
+                groupSlider(sections.Fonts,"CASTBAR TEXT SIZE","Cast spell name font size","partyCastFontSize",0,24,10,-425)
             end
             panel=sections.Indicators
             if key=="party" then panel:SetHeight(1100) end
@@ -872,7 +863,7 @@ local function CreateUnitFramesPage()
             CreateSection(panel,"BAR TEXT",-12)
             CreateDivider(panel,-45)
             if key=="party" then
-                groupToggle(panel,"Show names","showName",-175)
+                groupToggle(panel,"Show names","showName",-245)
                 local function textMode(label,field,y)
                     partyDropdown(panel,label.." TEXT",field,{
                         {"","Hidden"},
@@ -883,7 +874,7 @@ local function CreateUnitFramesPage()
                     },20,y,220,"{current} / {max}")
                 end
                 textMode("Health","hpText",-75)
-                textMode("Power","powerText",-125)
+                textMode("Power","powerText",-155)
             else
                 groupToggle(panel,"Show health percentage","showHealthPercent",-75)
                 groupToggle(panel,"Show power percentage","showPowerPercent",-115)

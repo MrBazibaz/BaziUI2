@@ -541,7 +541,7 @@ local function layout(f, settings)
     f.rimMask:SetSize(rimSize, rimSize)
     f.rimMask:ClearAllPoints()
     f.rimMask:SetPoint("CENTER", f.rim, "CENTER")
-    f.portrait:SetSize(innerSize * (settings.showRole == false and 1 or 1.12), innerSize * (settings.showRole == false and 1 or 1.12))
+    f.portrait:SetSize(innerSize, innerSize)
     f.portraitBack:SetSize(backSize, backSize)
     -- The model is a genuine 3D render surface, not a masked texture.
     -- Keep its viewport within the ring while we investigate clipping.
@@ -621,6 +621,8 @@ local function layout(f, settings)
         cast:SetSize(math.max(40,tonumber(settings.partyCastWidth) or width),math.max(4,tonumber(settings.partyCastHeight) or 13))
         local font=(GameFontNormal and select(1,GameFontNormal:GetFont())) or "Fonts\\FRIZQT__.TTF"
         local size=tonumber(settings.partyCastFontSize) or 10
+        cast.label:ClearAllPoints()
+        cast.label:SetPoint("CENTER",cast,"CENTER",tonumber(settings.partyCastTextX) or 0,tonumber(settings.partyCastTextY) or 0)
         cast.label:SetShown(size>0)
         if size>0 then cast.label:SetFont(font,math.max(7,size),"OUTLINE") end
     end
