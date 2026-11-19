@@ -82,7 +82,7 @@ local function create(key, spec)
     local side = (key == "player" or key == "pet") and "LEFT" or "RIGHT"
     local border = CreateFrame("Frame", nil, f, "BackdropTemplate")
     border:SetAllPoints(bg)
-    border:SetBackdrop({edgeFile="Interface\\Tooltips\\UI-Tooltip-Border", edgeSize=16})
+    border:SetBackdrop({edgeFile="Interface\\DialogFrame\\UI-DialogBox-Border", edgeSize=24})
     border:SetFrameLevel(f:GetFrameLevel() + 5)
     border:SetBackdropBorderColor(0.38, 0.30, 0.19, 1)
     local portraitLayer = CreateFrame("Frame", nil, f)
@@ -107,7 +107,7 @@ local function create(key, spec)
     f.portrait = portrait
     -- 3D portrait trial; retain the masked 2D texture as fallback.
     local model = CreateFrame("PlayerModel", nil, portraitLayer)
-    -- Keep the model inside the inner opening of the ring. A PlayerModel is not\n    -- maskable like a Texture; avoid claiming the 2D portrait mask clips it.\n    model:SetSize(40, 40)
+    -- Keep the model disabled: PlayerModel can render beyond its viewport on Forever.\n    model:SetSize(40, 40)
     model:SetPoint("CENTER", portrait, "CENTER", 0, 0)
     model:SetFrameLevel(portraitLayer:GetFrameLevel() + 1)
     model:Hide()
