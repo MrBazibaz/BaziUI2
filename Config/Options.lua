@@ -339,11 +339,15 @@ local function CreateMinimapPage()
             end
         end
         for name, panel in pairs(tabPanels) do panel:SetShown(name == activeTab) end
-        -- Compact tabs fit their contents; long tabs retain the scroll area.
-        local heights = {General = 430, ["Map Info"] = 352, Buttons = 265, Visibility = 430, Fonts = 600}
-        local compact = heights[activeTab]
-        main:SetPoint("BOTTOM", page, compact and "TOP" or "BOTTOM",
-            0, compact and -compact or 0)
+        -- Keep the content panel inside the resizable window on every tab.
+        -- The scroll viewport handles smaller window sizes.
+        main:ClearAllPoints()
+        main:SetPoint("TOPLEFT", page, "TOPLEFT", 12, -100)
+        main:SetPoint("TOPRIGHT", page, "TOPRIGHT", -12, -100)
+        main:SetPoint("BOTTOM", page, "BOTTOM", 0, 0)
+        for name, viewport in pairs(tabPanels) do
+            if name == activeTab then viewport:SetVerticalScroll(0) end
+        end
     end
 
     for i, name in ipairs({"General", "Map Info", "Buttons", "Visibility", "Fonts"}) do
@@ -388,7 +392,7 @@ local function CreateMinimapPage()
         if viewport.SetClipsChildren then viewport:SetClipsChildren(true) end
         viewport:EnableMouseWheel(true)
         local panel = CreateFrame("Frame", nil, viewport)
-        panel:SetHeight(name == "Fonts" and 600 or 430)
+        panel:SetHeight(({General = 410, ["Map Info"] = 320, Buttons = 220, Visibility = 250, Fonts = 440})[name] or 400)
         panel:SetWidth(math.max(1, viewport:GetWidth()))
         viewport:SetScrollChild(panel)
         viewport:SetScript("OnSizeChanged", function(self)
@@ -558,7 +562,13 @@ local function CreateMinimapPage()
         -- A per-group proxy table lets Select use the same controls as General.
         -- The selection is copied into the real font configuration immediately.
         local function fontSelect(label, offset, field, choices)
-            local row = SimpleRow(fonts, label, offset)
+            local row = CreateFrame("Frame", nil, fonts)
+            row:SetPoint("TOPLEFT", fonts, "TOPLEFT", 0, offset)
+            row:SetPoint("TOPRIGHT", fonts, "TOPRIGHT", 0, offset)
+            row:SetHeight(28)
+            local rowLabel = CreateLabel(row, label, "GameFontNormal")
+            rowLabel:SetPoint("LEFT", row, "LEFT", 14, 0)
+            rowLabel:SetTextColor(1, 0.78, 0.39)
             local b = CreateFrame("Button", nil, row)
             b:SetSize(156, 24)
             b:SetPoint("RIGHT", row, "RIGHT", -14, 0)
@@ -598,14 +608,14 @@ local function CreateMinimapPage()
             b:SetScript("OnClick", function() menu:SetShown(not menu:IsShown()) end)
             refresh()
         end
-        fontSelect("FONT", y-24, "font", fontChoices)
-        fontSelect("OUTLINE", y-61, "outline", outlineChoices)
-        CreateSlider(fonts, "SIZE", "Text size", 8, 30, 1, cfg.size, y-99, function(value)
+        fontSelect("FONT", y-20, "font", fontChoices)
+        fontSelect("OUTLINE", y-49, "outline", outlineChoices)
+        CreateSlider(fonts, "SIZE", "Text size", 8, 30, 1, cfg.size, y-79, function(value)
             cfg.size = value
             if addon.MinimapInfo then addon.MinimapInfo:ApplyFonts() end
         end)
         local shadow = CreateFrame("CheckButton", nil, fonts, "UICheckButtonTemplate")
-        shadow:SetPoint("TOPLEFT", fonts, "TOPLEFT", 14, y-155)
+        shadow:SetPoint("TOPLEFT", fonts, "TOPLEFT", 14, y-130)
         shadow:SetChecked(cfg.shadow)
         local label = CreateLabel(fonts, "Shadow", "GameFontNormal")
         label:SetPoint("LEFT", shadow, "RIGHT", 6, 0)
@@ -616,9 +626,9 @@ local function CreateMinimapPage()
         end)
     end
     FontGroup("ZONE TEXT", -10, "zoneFont")
-    FontGroup("CLOCK", -195, "clockFont")
-    FontGroup("INFO TEXT", -380, "infoFont")
-    fonts:SetHeight(580)
+    FontGroup("CLOCK", -157, "clockFont")
+    FontGroup("INFO TEXT", -304, "infoFont")
+    fonts:SetHeight(440)
     RefreshTabs()
     return page
 end
