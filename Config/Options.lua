@@ -430,6 +430,7 @@ local function CreateMinimapPage()
         check:SetScript("OnClick", function(self)
             db[key] = not not self:GetChecked()
             if addon.Minimap then addon.Minimap:Apply() end
+            if addon.MinimapInfo then addon.MinimapInfo:Apply() end
         end)
     end
     local function Select(parent, title, y, key, values)
