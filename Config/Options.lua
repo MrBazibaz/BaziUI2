@@ -332,7 +332,7 @@ local function CreateUnitFramesPage()
         viewport:SetPoint("BOTTOMRIGHT", main, "BOTTOMRIGHT", -10, 10)
         viewport:EnableMouseWheel(true)
         local panel = CreateFrame("Frame", nil, viewport)
-        panel:SetHeight(name == "General" and 300 or 1840)
+        panel:SetHeight(name == "General" and 300 or 590)
         panel:SetWidth(500)
         viewport:SetScrollChild(panel)
         viewport:SetScript("OnSizeChanged", function(self) panel:SetWidth(math.max(1, self:GetWidth())) end)
@@ -375,6 +375,42 @@ local function CreateUnitFramesPage()
             local own = db.frames[key] or {}
             db.frames[key] = own
             local refreshers = {}
+            -- Compact subnavigation: each category has its own canvas.
+            local rootPanel = panel
+            local groups = {}
+            for _, category in ipairs({"Layout", "Indicators", "Bar Text", "Fonts"}) do
+                local canvas = CreateFrame("Frame", nil, rootPanel)
+                canvas:SetPoint("TOPLEFT", rootPanel, "TOPLEFT", 0, -49)
+                canvas:SetPoint("TOPRIGHT", rootPanel, "TOPRIGHT", 0, -49)
+                canvas:SetHeight(520)
+                canvas:Hide()
+                groups[category] = canvas
+            end
+            local activeGroup = "Layout"
+            local groupButtons = {}
+            local function selectGroup(category)
+                activeGroup = category
+                for label, canvas in pairs(groups) do canvas:SetShown(label == category) end
+                for label, button in pairs(groupButtons) do
+                    button.fill:SetColorTexture(label == category and 0.35 or 0.22,
+                        label == category and 0.18 or 0.12,
+                        label == category and 0.26 or 0.07, 1)
+                end
+                viewport:SetVerticalScroll(0)
+            end
+            for i, category in ipairs({"Layout", "Indicators", "Bar Text", "Fonts"}) do
+                local button = CreateFrame("Button", nil, rootPanel)
+                button:SetSize(112, 30)
+                button:SetPoint("TOPLEFT", rootPanel, "TOPLEFT", 12 + (i-1)*119, -5)
+                button.fill = button:CreateTexture(nil, "BACKGROUND")
+                button.fill:SetAllPoints()
+                local text = CreateLabel(button, category, "GameFontNormal")
+                text:SetPoint("CENTER")
+                text:SetTextColor(1, 0.81, 0.46)
+                button:SetScript("OnClick", function() selectGroup(category) end)
+                groupButtons[category] = button
+            end
+            panel = groups.Layout
             local settings = {
                 {"barWidth","HP / MANA WIDTH","Width of health and resource bars",100,400},
                 {"hpHeight","HP HEIGHT","Health bar height",12,45},
@@ -388,7 +424,7 @@ local function CreateUnitFramesPage()
                 local initial = own[settingKey]
                 if initial == nil then initial = db[settingKey] or 0 end
                 local slider = CreateSlider(panel, title, hint, low, high, 1, initial,
-                    -14-(i-1)*57, function(value)
+                    -12-(i-1)*53, function(value)
                         own[settingKey] = value
                         if addon.UnitFrames then addon.UnitFrames:Refresh() end
                     end, false)
@@ -404,11 +440,11 @@ local function CreateUnitFramesPage()
             -- Center-relative pixel coordinates, independent for each unit.
             local function coordField(axis, offset)
                 local title = CreateLabel(panel, "FRAME " .. string.upper(axis), "GameFontNormal")
-                title:SetPoint("TOPLEFT", panel, "TOPLEFT", offset, -493)
+                title:SetPoint("TOPLEFT", panel, "TOPLEFT", offset, -415)
                 title:SetTextColor(1, 0.79, 0.42)
                 local edit = CreateFrame("EditBox", nil, panel, "InputBoxTemplate")
                 edit:SetSize(82, 26)
-                edit:SetPoint("TOPLEFT", panel, "TOPLEFT", offset, -514)
+                edit:SetPoint("TOPLEFT", panel, "TOPLEFT", offset, -436)
                 edit:SetAutoFocus(false)
                 edit:SetNumeric(false)
                 edit:SetScript("OnEditFocusGained", function(self) self:HighlightText() end)
@@ -510,7 +546,7 @@ local function CreateUnitFramesPage()
             local source = choices[1]
             local selector = CreateFrame("Button", nil, panel)
             selector:SetSize(155, 28)
-            selector:SetPoint("TOPLEFT", panel, "TOPLEFT", 20, -365)
+            selector:SetPoint("TOPLEFT", panel, "TOPLEFT", 20, -338)
             local selectorText = styleButton(selector, "From: " .. source .. "  v")
             local dropdown = CreateFrame("Frame", nil, panel)
             dropdown:SetSize(155, #choices * 27)
@@ -541,6 +577,7 @@ local function CreateUnitFramesPage()
                 end
             end)
 
+            panel = groups.Indicators
             -- Independent per-unit indicators, text templates and fonts.
             local function optionCheck(field, caption, x, y)
                 local check = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
@@ -555,17 +592,18 @@ local function CreateUnitFramesPage()
                 refreshers[#refreshers+1] = function() check:SetChecked(own[field] ~= false) end
             end
             local indicators = CreateLabel(panel, "INDICATORS", "GameFontNormalLarge")
-            indicators:SetPoint("TOPLEFT", panel, "TOPLEFT", 20, -650)
+            indicators:SetPoint("TOPLEFT", panel, "TOPLEFT", 20, -16)
             indicators:SetTextColor(1, 0.79, 0.42)
-            optionCheck("showPvP", "PvP flag", 20, -684)
-            optionCheck("showLeader", "Group leader", 230, -684)
-            optionCheck("showRaidMarker", "Raid marker", 20, -720)
-            optionCheck("showRole", "Group / raid role", 230, -720)
-            optionCheck("showClassification", "Elite / rare", 20, -756)
+            optionCheck("showPvP", "PvP flag", 20, -58)
+            optionCheck("showLeader", "Group leader", 230, -58)
+            optionCheck("showRaidMarker", "Raid marker", 20, -98)
+            optionCheck("showRole", "Group / raid role", 230, -98)
+            optionCheck("showClassification", "Elite / rare", 20, -138)
 
-            optionCheck("showName", "Show name", 230, -756)
+            optionCheck("showName", "Show name", 230, -138)
+            panel = groups["Bar Text"]
             local barTitle = CreateLabel(panel, "BAR TEXT", "GameFontNormalLarge")
-            barTitle:SetPoint("TOPLEFT", panel, "TOPLEFT", 20, -807)
+            barTitle:SetPoint("TOPLEFT", panel, "TOPLEFT", 20, -15)
             barTitle:SetTextColor(1, 0.79, 0.42)
             local function textField(field, caption, y)
                 local label = CreateLabel(panel, caption, "GameFontNormal")
@@ -586,10 +624,10 @@ local function CreateUnitFramesPage()
                     if not edit:HasFocus() then edit:SetText(own[field] or "") end
                 end
             end
-            textField("hpText", "HP text", -844)
-            textField("powerText", "Mana / Power text", -886)
+            textField("hpText", "HP text", -55)
+            textField("powerText", "Mana / Power text", -97)
             local hint = CreateLabel(panel, "Variables: {current}  {max}  {percent}   |   Blank = hidden", "GameFontHighlightSmall")
-            hint:SetPoint("TOPLEFT", panel, "TOPLEFT", 20, -927)
+            hint:SetPoint("TOPLEFT", panel, "TOPLEFT", 20, -138)
             hint:SetTextColor(0.90, 0.75, 0.55)
             -- Separate text offsets for HP and Power, with one-pixel nudges.
             local function offsetEditor(field, caption, x, y)
@@ -631,10 +669,10 @@ local function CreateUnitFramesPage()
                     if not edit:HasFocus() then edit:SetText(tostring(own[field] or 0)) end
                 end
             end
-            offsetEditor("hpTextX", "HP TEXT X", 20, -972)
-            offsetEditor("hpTextY", "HP TEXT Y", 180, -972)
-            offsetEditor("powerTextX", "POWER TEXT X", 20, -1040)
-            offsetEditor("powerTextY", "POWER TEXT Y", 180, -1040)
+            offsetEditor("hpTextX", "HP TEXT X", 20, -180)
+            offsetEditor("hpTextY", "HP TEXT Y", 180, -180)
+            offsetEditor("powerTextX", "POWER TEXT X", 20, -250)
+            offsetEditor("powerTextY", "POWER TEXT Y", 180, -250)
             -- Styled dropdown shared by font, colors and bar text anchors.
             local function unitDropdown(field, caption, choices, x, y, width)
                 local label = CreateLabel(panel, caption, "GameFontNormal")
@@ -684,16 +722,17 @@ local function CreateUnitFramesPage()
                 button:SetScript("OnClick", function() menu:SetShown(not menu:IsShown()) end)
                 refreshers[#refreshers+1] = function() menu:Hide(); refresh() end
             end
-            unitDropdown("hpTextAnchor", "HP TEXT ANCHOR", {{"RIGHT","Right"},{"CENTER","Center"},{"LEFT","Left"}}, 355, -972, 130)
-            unitDropdown("powerTextAnchor", "POWER TEXT ANCHOR", {{"RIGHT","Right"},{"CENTER","Center"},{"LEFT","Left"}}, 355, -1040, 130)
-            unitDropdown("hpFontColor", "HP FONT COLOR", {{"gold","Gold"},{"white","White"},{"class","Class Color"}}, 20, -1115, 150)
-            unitDropdown("powerFontColor", "POWER FONT COLOR", {{"gold","Gold"},{"white","White"},{"class","Class Color"}}, 200, -1115, 150)
+            unitDropdown("hpTextAnchor", "HP TEXT ANCHOR", {{"RIGHT","Right"},{"CENTER","Center"},{"LEFT","Left"}}, 355, -180, 130)
+            unitDropdown("powerTextAnchor", "POWER TEXT ANCHOR", {{"RIGHT","Right"},{"CENTER","Center"},{"LEFT","Left"}}, 355, -250, 130)
+            unitDropdown("hpFontColor", "HP FONT COLOR", {{"gold","Gold"},{"white","White"},{"class","Class Color"}}, 20, -335, 150)
+            unitDropdown("powerFontColor", "POWER FONT COLOR", {{"gold","Gold"},{"white","White"},{"class","Class Color"}}, 200, -335, 150)
+            panel = groups.Fonts
             local fontTitle = CreateLabel(panel, "FONT", "GameFontNormalLarge")
-            fontTitle:SetPoint("TOPLEFT", panel, "TOPLEFT", 20, -1200)
+            fontTitle:SetPoint("TOPLEFT", panel, "TOPLEFT", 20, -15)
             fontTitle:SetTextColor(1, 0.79, 0.42)
-            unitDropdown("fontFace", "FONT FAMILY", {{"general","General (Default)"},{"friz","Friz Quadrata"},{"arial","Arial Narrow"}}, 20, -1230, 190)
+            unitDropdown("fontFace", "FONT FAMILY", {{"general","General (Default)"},{"friz","Friz Quadrata"},{"arial","Arial Narrow"}}, 20, -48, 190)
             local fontSlider = CreateSlider(panel, "FONT SIZE", "Name, HP and Power text", 8, 28, 1,
-                own.fontSize or 12, -1276, function(v)
+                own.fontSize or 12, -96, function(v)
                     own.fontSize = v
                     if addon.UnitFrames then addon.UnitFrames:Refresh() end
                 end, false)
@@ -705,7 +744,7 @@ local function CreateUnitFramesPage()
             }) do
                 local field = spec[1]
                 local slider = CreateSlider(panel, spec[2], "Independent text size", 8, 28, 1,
-                    own[field] or own.fontSize or 12, -1336 - (i-1)*57, function(v)
+                    own[field] or own.fontSize or 12, -156 - (i-1)*57, function(v)
                         own[field] = v
                         if addon.UnitFrames then addon.UnitFrames:Refresh() end
                     end, false)
@@ -715,17 +754,20 @@ local function CreateUnitFramesPage()
             end
 
             local levelSlider = CreateSlider(panel, "LEVEL TEXT SIZE", "Level number only; badge ring stays fixed", 8, 28, 1,
-                own.levelFontSize or 12, -1510, function(v)
+                own.levelFontSize or 12, -335, function(v)
                     own.levelFontSize = v
                     if addon.UnitFrames then addon.UnitFrames:Refresh() end
                 end, false)
             refreshers[#refreshers+1] = function() levelSlider:SetValue(own.levelFontSize or 12) end
-            offsetEditor("levelTextX", "LEVEL TEXT X", 20, -1590)
-            offsetEditor("levelTextY", "LEVEL TEXT Y", 180, -1590)
+            offsetEditor("levelTextX", "LEVEL TEXT X", 20, -415)
+            offsetEditor("levelTextY", "LEVEL TEXT Y", 180, -415)
 
+            panel = groups.Layout
             local note = CreateLabel(panel, "Copies appearance only. Frame position is preserved.", "GameFontHighlightSmall")
             note:SetTextColor(0.91, 0.78, 0.61, 1)
-            note:SetPoint("TOPLEFT", panel, "TOPLEFT", 20, -405)
+            note:SetPoint("TOPLEFT", panel, "TOPLEFT", 20, -380)
+            panel = rootPanel
+            selectGroup("Layout")
         end
     end
     page:HookScript("OnShow", function()
