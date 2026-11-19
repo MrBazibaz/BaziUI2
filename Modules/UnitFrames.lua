@@ -21,6 +21,8 @@ local function layout(f, settings)
     local side = f.portraitSide
     local portraitSize = math.max(36, math.min(90, tonumber(settings.portraitSize) or 48))
     f.portrait:SetSize(portraitSize, portraitSize)
+    f.portrait:ClearAllPoints()
+    f.portrait:SetPoint(side, f, side, (side == "LEFT" and -5 or 5) + (tonumber(settings.portraitX) or 0), tonumber(settings.portraitY) or 0)
     f.portraitBack:SetSize(portraitSize + 7, portraitSize + 7)
     f.rim:SetSize(portraitSize * 62 / 48, portraitSize * 62 / 48)
     f.levelDisc:SetSize(portraitSize / 2, portraitSize / 2)
@@ -133,6 +135,8 @@ local function create(key, spec)
     mask:SetTexture("Interface\\CHARACTERFRAME\\TempPortraitAlphaMask", "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
     mask:SetAllPoints(portrait)
     portrait:AddMaskTexture(mask)
+    portraitBack:ClearAllPoints()
+    portraitBack:SetPoint("CENTER", portrait, "CENTER")
     f.portrait = portrait
     -- 3D portrait trial; retain the masked 2D texture as fallback.
     local model = CreateFrame("PlayerModel", nil, portraitLayer)
@@ -243,12 +247,12 @@ function M:Refresh()
     local settings = cfg()
     if not settings then return end
     for key, spec in pairs(units) do
-        if settings[key] then create(key, spec) end
-        syncOriginal(key, settings)
+        if settings.enabled ~= false and settings[key] then create(key, spec) end
+        syncOriginal(key, settings.enabled == false and {hideBlizzard=false} or settings)
         local f = frames[key]
         if f and not (InCombatLockdown and InCombatLockdown()) then
             layout(f, settings)
-            if settings[key] then
+            if settings.enabled ~= false and settings[key] then
                 if key == "focus" or key == "target" or key == "pet" then
                     if not f.visibilityRegistered and RegisterStateDriver then
                         RegisterStateDriver(f, "visibility", "[@" .. key .. ",exists] show; hide")
