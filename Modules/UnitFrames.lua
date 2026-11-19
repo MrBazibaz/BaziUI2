@@ -179,10 +179,16 @@ local function layout(f, settings)
     local backSize = rimSize * 0.94
     f.portraitAnchor:ClearAllPoints()
     f.portraitAnchor:SetPoint(side, f, side, centreX, centreY)
-    -- Portraits extend beyond the secure button bounds. Include them in its
-    -- click region so right-click can open the native unit context menu.
-    local hitExtension = math.ceil(rimSize + math.abs(centreX) + 8)
-    f:SetHitRectInsets(-hitExtension, -hitExtension, -hitExtension, -hitExtension)
+    -- Extend the secure click region ONLY where the portrait protrudes.
+    -- Expanding all four sides made huge invisible targeting rectangles.
+    local frameHeight = math.max(48, hpHeight + powerHeight + 16)
+    local halfRim = rimSize / 2
+    local leftExtra = side == "LEFT" and math.max(0, halfRim - centreX) or 0
+    local rightExtra = side == "RIGHT" and math.max(0, halfRim + centreX) or 0
+    local topExtra = math.max(0, halfRim + centreY - frameHeight / 2)
+    local bottomExtra = math.max(0, halfRim - centreY - frameHeight / 2)
+    f:SetHitRectInsets(-math.ceil(leftExtra), -math.ceil(rightExtra),
+        -math.ceil(topExtra), -math.ceil(bottomExtra))
     f.rim:SetSize(rimSize, rimSize)
     -- Restore the last clean circular ring crop; asymmetric mask exposed
     -- a rectangular section of Blizzard's atlas behind the portrait.
