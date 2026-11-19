@@ -859,7 +859,13 @@ local function CreateTooltipPage()
         row:SetHeight(description and 55 or 42)
         local fill = row:CreateTexture(nil, "BACKGROUND")
         fill:SetAllPoints()
-        fill:SetColorTexture(0.25, 0.125, 0.055, 0.90)
+        -- Font categories already have a single framed background.
+        -- Avoid opaque per-control rows that visually cut through the border.
+        if parent == fonts then
+            fill:SetColorTexture(0.25, 0.125, 0.055, 0)
+        else
+            fill:SetColorTexture(0.25, 0.125, 0.055, 0.90)
+        end
         local label = CreateLabel(row, text, "GameFontNormal")
         label:SetPoint("TOPLEFT", row, "TOPLEFT", 14, description and -10 or -12)
         label:SetTextColor(1, 0.78, 0.39)
