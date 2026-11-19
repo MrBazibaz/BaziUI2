@@ -12,7 +12,7 @@ local defaults = {
             enabled = false, style = "round", autoZoom = 0,
             ignoreIndoorZoom = false,
             iconScale = 1.5, mapScale = 1.0,
-            microMenu = false, finderEye = false,
+            microMenu = false, finderEye = false, showMinimapButton = true,
             coords = "off", fps = "off", latency = "off", clock = "always",
             hideAddonButtons = false, hideCalendar = false,
             hideTracking = false, hideZone = false, hideClock = false,
