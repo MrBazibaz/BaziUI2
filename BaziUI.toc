@@ -14,5 +14,6 @@ Modules\IlvlForeverPlayerTooltip.lua
 Modules\TooltipPresentation.lua
 Modules\TooltipContents.lua
 Modules\TooltipFonts.lua
+Modules\Minimap.lua
 Config\Options.lua
 Core\Commands.lua
