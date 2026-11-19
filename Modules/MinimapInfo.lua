@@ -10,7 +10,7 @@ local function db() return addon.db and addon.db.profile and addon.db.profile.mi
 local function mode(key)
     local cfg = db()
     local value = cfg and cfg[key]
-    return value == "always" or value == "hover" and value or "off"
+    return (value == "always" or value == "hover") and value or "off"
 end
 local function coords()
     return cluster and cluster.MinimapContainer and cluster.MinimapContainer.PlayerCoords
