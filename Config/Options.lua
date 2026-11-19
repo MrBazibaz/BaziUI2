@@ -724,6 +724,10 @@ local function CreateUnitFramesPage()
             end
             groupToggle(panel,"Show names","showName",-75)
             groupToggle(panel,"Show power bar","showPower",-115)
+            groupToggle(panel,"PvP indicator","showPvP",-155)
+            groupToggle(panel,"Group leader indicator","showLeader",-195)
+            groupToggle(panel,"Raid target marker","showRaidMarker",-235)
+            groupToggle(panel,"Role indicator","showRole",-275)
             panel=sections["Bar Text"]
             CreateSection(panel,"BAR TEXT",-12)
             CreateDivider(panel,-45)
