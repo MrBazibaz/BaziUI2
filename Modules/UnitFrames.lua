@@ -1351,6 +1351,59 @@ function M:ProbeAuraHideCountdown(key, kind)
     debugPrint("Use /reload to restore; no protected time values were read.")
     showAuraDebugWindow()
 end
+-- Read-only audit of aura text registration and nested font regions.
+function M:AuditAuraText(key, kind)
+    debugLines = {}
+    key = units[key] and key or "target"
+    kind = kind == "debuffs" and "debuffs" or "buffs"
+    local frame = frames[key]
+    local entry = frame and frame.liveAuras and frame.liveAuras[kind]
+    local item = entry and entry.texts and entry.texts[1]
+    if not item then
+        debugPrint("No initialized aura button for " .. key .. "/" .. kind)
+        showAuraDebugWindow()
+        return
+    end
+    local button = item.button
+    debugPrint("Aura text audit: " .. key .. "/" .. kind)
+    for _, name in ipairs({"SetDurationText", "SetAuraDurationText", "SetDurationCooldown", "GetDurationText", "GetAuraDurationText"}) do
+        debugPrint(name .. "=" .. type(button[name]))
+    end
+    local function scan(frameObject, prefix, depth)
+        if depth > 2 then return end
+        local ok, regions = pcall(function() return {frameObject:GetRegions()} end)
+        if ok then
+            for i, region in ipairs(regions) do
+                if region.GetObjectType and region:GetObjectType() == "FontString" then
+                    debugText(prefix .. " region " .. i, region)
+                    debugPrint(prefix .. " region " .. i .. " isNative=" .. tostring(region == item.duration))
+                end
+            end
+        end
+        local childOK, children = pcall(function() return {frameObject:GetChildren()} end)
+        if childOK then
+            debugPrint(prefix .. " children=" .. #children)
+            for i = 1, math.min(12, #children) do
+                local child = children[i]
+                local typeOK, childType = pcall(child.GetObjectType, child)
+                debugPrint(prefix .. " child " .. i .. " type=" .. (typeOK and debugSafe(childType) or "<error>"))
+                scan(child, prefix .. "." .. i, depth + 1)
+            end
+        end
+    end
+    scan(button, "button", 0)
+    debugPrint("Audit is read-only; no protected duration values are inspected.")
+    showAuraDebugWindow()
+end
+SLASH_BAZIAURAAUDIT1 = "/baziauraaudit"
+SlashCmdList.BAZIAURAAUDIT = function(msg)
+    local key, kind = (msg or ""):match("^(%S*)%s*(%S*)")
+    local ok, err = pcall(M.AuditAuraText, M, key, kind)
+    if not ok then
+        debugLines = {"Aura audit error: " .. tostring(err)}
+        showAuraDebugWindow()
+    end
+end
 SLASH_BAZIAURAHIDE1 = "/baziaurahide"
 SlashCmdList.BAZIAURAHIDE = function(msg)
     local key, kind = (msg or ""):match("^(%S*)%s*(%S*)")
