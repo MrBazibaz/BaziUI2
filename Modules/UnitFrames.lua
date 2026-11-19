@@ -221,7 +221,7 @@ local function createLiveAuras(f)
                     elementSpacing=gap, lineSpacing=gap, groupSpacing=gap, groupLineSpacing=gap },
             }
             local added = pcall(container.AddAuraGroup, container, kind,
-                kind == "buffs" and "HELPFUL" or "HARMFUL", options)
+                kind == "buffs" and "HELPFUL" or (f.unit == "target" and opt.onlyMine and "HARMFUL|PLAYER" or "HARMFUL"), options)
             if added then
                 pcall(container.SetUnit, container, f.unit)
                 f.liveAuras[kind] = entry
