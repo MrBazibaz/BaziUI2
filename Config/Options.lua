@@ -279,7 +279,7 @@ local function CreateUnitFramesPage()
     local tabBar = CreateFrame("Frame", nil, page)
     tabBar:SetPoint("TOPLEFT", main, "TOPRIGHT", 25, 0)
     tabBar:SetFrameStrata("FULLSCREEN_DIALOG")
-    tabBar:SetSize(108, 174)
+    tabBar:SetSize(108, 232)
     local function RefreshTabs()
         copyHeader:SetShown(activeTab ~= "General")
         for name, controls in pairs(copyControls) do controls:SetShown(name == activeTab) end
@@ -299,7 +299,7 @@ local function CreateUnitFramesPage()
         for name, panel in pairs(tabPanels) do panel:SetShown(name == activeTab) end
         if syncControls[activeTab] then syncControls[activeTab]() end
     end
-    for i, name in ipairs({"General", "Player", "Target", "Focus", "Pet", "Target of Target"}) do
+    for i, name in ipairs({"General", "Player", "Target", "Focus", "Pet", "Target of Target", "Party", "Raid"}) do
         local button = CreateFrame("Button", nil, tabBar)
         button:SetSize(108, 29)
         button:SetPoint("TOPLEFT", tabBar, "TOPLEFT", 0, -(i-1)*29)
@@ -332,7 +332,7 @@ local function CreateUnitFramesPage()
         tabButtons[name] = button
     end
 
-    for _, entry in ipairs({{"General",nil},{"Player","player"},{"Target","target"},{"Focus","focus"},{"Pet","pet"},{"Target of Target","targettarget"}}) do
+    for _, entry in ipairs({{"General",nil},{"Player","player"},{"Target","target"},{"Focus","focus"},{"Pet","pet"},{"Target of Target","targettarget"},{"Party","party"},{"Raid","raid"}}) do
         local name, key = entry[1], entry[2]
         local viewport = CreateFrame("ScrollFrame", nil, main)
         viewport:SetPoint("TOPLEFT", main, "TOPLEFT", 10, -12)
@@ -397,6 +397,88 @@ local function CreateUnitFramesPage()
                 end
             end)
             page:HookScript("OnShow", function() move:SetChecked(addon.UnitFrames:IsMoveMode()) end)
+        elseif key == "party" or key == "raid" then
+            db.groups = db.groups or {}
+            db.groups[key] = db.groups[key] or {}
+            local opt = db.groups[key]
+            CreateSection(panel, key == "party" and "PARTY LAYOUT" or "RAID LAYOUT", -12)
+            CreateDivider(panel,-45)
+            local function toggle(label, field, x, y)
+                local check = CreateFrame("CheckButton",nil,panel,"UICheckButtonTemplate")
+                check:SetSize(25,25)
+                check:SetPoint("TOPLEFT",panel,"TOPLEFT",x,y)
+                local caption = CreateLabel(panel,label,"GameFontHighlight")
+                caption:SetPoint("LEFT",check,"RIGHT",5,0)
+                check:SetChecked(opt[field] == true)
+                check:SetScript("OnClick",function(self)
+                    opt[field] = self:GetChecked() == true
+                    if addon.GroupFrames then addon.GroupFrames:Refresh() end
+                end)
+                page:HookScript("OnShow",function() check:SetChecked(opt[field] == true) end)
+            end
+            toggle("Enable "..(key=="party" and "Party" or "Raid"),"enabled",16,-62)
+            toggle("Show when solo","showSolo",235,-62)
+            local function setting(label,field,default,min,max,step,x,y)
+                local caption=CreateLabel(panel,label,"GameFontHighlight")
+                caption:SetPoint("TOPLEFT",panel,"TOPLEFT",x,y)
+                local slider=CreateFrame("Slider",nil,panel,"OptionsSliderTemplate")
+                slider:SetPoint("TOPLEFT",panel,"TOPLEFT",x,y-24)
+                slider:SetSize(192,18)
+                slider:SetMinMaxValues(min,max)
+                slider:SetValueStep(step)
+                slider:SetObeyStepOnDrag(true)
+                slider.Low:SetText(tostring(min))
+                slider.High:SetText(tostring(max))
+                local value=CreateLabel(panel,"","GameFontHighlightSmall")
+                value:SetPoint("LEFT",slider,"RIGHT",8,0)
+                local function sync()
+                    slider:SetValue(tonumber(opt[field]) or default)
+                end
+                slider:SetScript("OnValueChanged",function(self,v)
+                    v=math.floor(v/step+0.5)*step
+                    opt[field]=v
+                    value:SetText(tostring(v))
+                    if addon.GroupFrames then addon.GroupFrames:Refresh() end
+                end)
+                sync()
+                page:HookScript("OnShow",sync)
+            end
+            setting("Frame width","width",key=="party" and 190 or 110,80,360,5,16,-125)
+            setting("Frame height","height",key=="party" and 48 or 30,22,90,1,270,-125)
+            setting("Spacing","spacing",8,0,40,1,16,-215)
+            setting("Name font size (0 hides)","fontSize",11,0,22,1,270,-215)
+            if key=="raid" then
+                setting("Columns","columns",5,1,8,1,16,-305)
+                setting("Horizontal offset","x",-380,-700,700,10,270,-305)
+                setting("Vertical offset","y",-250,-500,500,10,16,-395)
+                local growth=CreateFrame("Button",nil,panel,"UIPanelButtonTemplate")
+                growth:SetSize(195,25)
+                growth:SetPoint("TOPLEFT",panel,"TOPLEFT",270,-395)
+                local function updateGrowth() growth:SetText("Growth: "..(opt.growth=="up" and "Up" or "Down")) end
+                growth:SetScript("OnClick",function()
+                    opt.growth=opt.growth=="up" and "down" or "up"
+                    updateGrowth()
+                    if addon.GroupFrames then addon.GroupFrames:Refresh() end
+                end)
+                updateGrowth()
+                local anchorButton=CreateFrame("Button",nil,panel,"UIPanelButtonTemplate")
+                anchorButton:SetSize(195,25)
+                anchorButton:SetPoint("TOPLEFT",panel,"TOPLEFT",270,-435)
+                local anchors={"TOPLEFT","TOPRIGHT","BOTTOMLEFT","BOTTOMRIGHT"}
+                local function updateAnchor() anchorButton:SetText("Anchor: "..(opt.anchor or "TOPLEFT")) end
+                anchorButton:SetScript("OnClick",function()
+                    local current=opt.anchor or "TOPLEFT"
+                    local index=1
+                    for i,v in ipairs(anchors) do if v==current then index=i break end end
+                    opt.anchor=anchors[index%#anchors+1]
+                    updateAnchor()
+                    if addon.GroupFrames then addon.GroupFrames:Refresh() end
+                end)
+                updateAnchor()
+                panel:SetHeight(530)
+            else
+                setting("Vertical offset","y",-45,-500,0,5,16,-305)
+            end
         else
             db.frames = db.frames or {}
             local own = db.frames[key] or {}
