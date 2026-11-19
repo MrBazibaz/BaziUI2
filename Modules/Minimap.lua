@@ -159,6 +159,35 @@ local function headerLayout()
         if zone.StateTexture then park(zone.StateTexture) end
         if zone.AddTexture then plate(zone.AddTexture, header) end
     end
+    -- One continuous, thin bronze border behind the entire top row.
+    -- It includes the tracking and calendar cells, not only the central label.
+    if not MM.HeaderSurround then
+        local surround = CreateFrame("Frame", nil, cluster)
+        surround:SetHeight(HEADER_HEIGHT + 2)
+        surround:SetFrameStrata(map:GetFrameStrata())
+        surround:SetFrameLevel(map:GetFrameLevel() + 7)
+        local backing = surround:CreateTexture(nil, "BACKGROUND")
+        backing:SetAllPoints()
+        backing:SetColorTexture(0.15, 0.075, 0.035, 0.87)
+        local function edge(side, r, g, b, a)
+            local t = surround:CreateTexture(nil, "ARTWORK")
+            t:SetColorTexture(r, g, b, a)
+            if side == "TOP" then
+                t:SetPoint("TOPLEFT"); t:SetPoint("TOPRIGHT"); t:SetHeight(1)
+            elseif side == "BOTTOM" then
+                t:SetPoint("BOTTOMLEFT"); t:SetPoint("BOTTOMRIGHT"); t:SetHeight(1)
+            elseif side == "LEFT" then
+                t:SetPoint("TOPLEFT"); t:SetPoint("BOTTOMLEFT"); t:SetWidth(1)
+            else
+                t:SetPoint("TOPRIGHT"); t:SetPoint("BOTTOMRIGHT"); t:SetWidth(1)
+            end
+        end
+        edge("TOP", 0.82, 0.64, 0.35, 0.96)
+        edge("BOTTOM", 0.62, 0.42, 0.21, 0.96)
+        edge("LEFT", 0.73, 0.53, 0.28, 0.96)
+        edge("RIGHT", 0.73, 0.53, 0.28, 0.96)
+        MM.HeaderSurround = surround
+    end
     local header, tracking, calendar = MM.Header, cluster.Tracking, _G.GameTimeFrame
     local topLevel = map:GetFrameLevel() + 9
     for _, widget in ipairs({tracking, calendar, cluster.ZoneTextButton}) do
@@ -184,6 +213,10 @@ local function headerLayout()
     tracking:SetPoint("TOPLEFT", MM.Border, "TOPLEFT", HEADER_SIDE, -7)
     calendar:ClearAllPoints()
     calendar:SetPoint("TOPRIGHT", MM.Border, "TOPRIGHT", -HEADER_SIDE, -7)
+    local surround = MM.HeaderSurround
+    surround:ClearAllPoints()
+    surround:SetPoint("TOPLEFT", tracking, "TOPLEFT", -2, 1)
+    surround:SetPoint("BOTTOMRIGHT", calendar, "BOTTOMRIGHT", 2, -1)
     header:ClearAllPoints()
     header:SetPoint("LEFT", tracking, "RIGHT", HEADER_GAP, 0)
     header:SetPoint("RIGHT", calendar, "LEFT", -HEADER_GAP, 0)
@@ -208,7 +241,9 @@ local function headerLayout()
             ticker:SetPoint("RIGHT", clock, "RIGHT", -PLATE_INSET, 0)
         end
     end
-    header:SetShown(not (cfg.hideTracking and cfg.hideZone and cfg.hideCalendar and cfg.hideClock))
+    local showHeader = not (cfg.hideTracking and cfg.hideZone and cfg.hideCalendar and cfg.hideClock)
+    header:SetShown(showHeader)
+    MM.HeaderSurround:SetShown(showHeader)
     tracking:SetShown(not cfg.hideTracking)
     zone:SetShown(not cfg.hideZone)
     calendar:SetShown(not cfg.hideCalendar)
