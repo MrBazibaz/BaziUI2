@@ -332,7 +332,7 @@ local function CreateUnitFramesPage()
         viewport:SetPoint("BOTTOMRIGHT", main, "BOTTOMRIGHT", -10, 10)
         viewport:EnableMouseWheel(true)
         local panel = CreateFrame("Frame", nil, viewport)
-        panel:SetHeight(name == "General" and 300 or 650)
+        panel:SetHeight(name == "General" and 300 or 1150)
         panel:SetWidth(500)
         viewport:SetScrollChild(panel)
         viewport:SetScript("OnSizeChanged", function(self) panel:SetWidth(math.max(1, self:GetWidth())) end)
@@ -540,6 +540,83 @@ local function CreateUnitFramesPage()
                     syncControls[name]()
                 end
             end)
+
+            -- Independent per-unit indicators, text templates and fonts.
+            local function optionCheck(field, caption, x, y)
+                local check = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
+                check:SetSize(24, 24)
+                check:SetPoint("TOPLEFT", panel, "TOPLEFT", x, y)
+                local label = CreateLabel(panel, caption, "GameFontHighlight")
+                label:SetPoint("LEFT", check, "RIGHT", 4, 0)
+                check:SetScript("OnClick", function(self)
+                    own[field] = self:GetChecked() == true
+                    if addon.UnitFrames then addon.UnitFrames:Refresh() end
+                end)
+                refreshers[#refreshers+1] = function() check:SetChecked(own[field] ~= false) end
+            end
+            local indicators = CreateLabel(panel, "INDICATORS", "GameFontNormalLarge")
+            indicators:SetPoint("TOPLEFT", panel, "TOPLEFT", 20, -650)
+            indicators:SetTextColor(1, 0.79, 0.42)
+            optionCheck("showPvP", "PvP flag", 20, -684)
+            optionCheck("showLeader", "Group leader", 230, -684)
+            optionCheck("showRaidMarker", "Raid marker", 20, -720)
+            optionCheck("showRole", "Group / raid role", 230, -720)
+            optionCheck("showClassification", "Elite / rare", 20, -756)
+
+            local barTitle = CreateLabel(panel, "BAR TEXT", "GameFontNormalLarge")
+            barTitle:SetPoint("TOPLEFT", panel, "TOPLEFT", 20, -807)
+            barTitle:SetTextColor(1, 0.79, 0.42)
+            local function textField(field, caption, y)
+                local label = CreateLabel(panel, caption, "GameFontNormal")
+                label:SetPoint("TOPLEFT", panel, "TOPLEFT", 20, y)
+                label:SetTextColor(1, 0.79, 0.42)
+                local edit = CreateFrame("EditBox", nil, panel, "InputBoxTemplate")
+                edit:SetSize(280, 26)
+                edit:SetPoint("TOPLEFT", panel, "TOPLEFT", 160, y + 4)
+                edit:SetAutoFocus(false)
+                edit:SetScript("OnEditFocusGained", function(self) self:HighlightText() end)
+                edit:SetScript("OnEnterPressed", function(self)
+                    own[field] = self:GetText()
+                    self:ClearFocus()
+                    if addon.UnitFrames then addon.UnitFrames:Refresh() end
+                end)
+                edit:SetScript("OnEscapePressed", function(self) self:ClearFocus(); self:SetText(own[field] or "") end)
+                refreshers[#refreshers+1] = function()
+                    if not edit:HasFocus() then edit:SetText(own[field] or "") end
+                end
+            end
+            textField("hpText", "HP text", -844)
+            textField("powerText", "Mana / Power text", -886)
+            local hint = CreateLabel(panel, "Variables: {current}  {max}  {percent}   |   Blank = hidden", "GameFontHighlightSmall")
+            hint:SetPoint("TOPLEFT", panel, "TOPLEFT", 20, -927)
+            hint:SetTextColor(0.90, 0.75, 0.55)
+            local fontTitle = CreateLabel(panel, "FONT", "GameFontNormalLarge")
+            fontTitle:SetPoint("TOPLEFT", panel, "TOPLEFT", 20, -964)
+            fontTitle:SetTextColor(1, 0.79, 0.42)
+            local fontChoice = CreateFrame("Button", nil, panel)
+            fontChoice:SetSize(145, 27)
+            fontChoice:SetPoint("TOPLEFT", panel, "TOPLEFT", 20, -1000)
+            local fontBg = fontChoice:CreateTexture(nil, "BACKGROUND")
+            fontBg:SetAllPoints()
+            fontBg:SetColorTexture(0.23, 0.12, 0.065, 1)
+            local fontLabel = CreateLabel(fontChoice, "", "GameFontNormal")
+            fontLabel:SetPoint("CENTER")
+            fontLabel:SetTextColor(1, 0.79, 0.42)
+            fontChoice:SetScript("OnClick", function()
+                own.fontFace = own.fontFace == "arial" and "friz" or "arial"
+                fontLabel:SetText(own.fontFace == "arial" and "Arial Narrow" or "Friz Quadrata")
+                if addon.UnitFrames then addon.UnitFrames:Refresh() end
+            end)
+            refreshers[#refreshers+1] = function()
+                fontLabel:SetText(own.fontFace == "arial" and "Arial Narrow" or "Friz Quadrata")
+            end
+            local fontSlider = CreateSlider(panel, "FONT SIZE", "Name, HP and Power text", 8, 28, 1,
+                own.fontSize or 12, -1040, function(v)
+                    own.fontSize = v
+                    if addon.UnitFrames then addon.UnitFrames:Refresh() end
+                end, false)
+            refreshers[#refreshers+1] = function() fontSlider:SetValue(own.fontSize or 12) end
+
             local note = CreateLabel(panel, "Copies appearance only. Frame position is preserved.", "GameFontHighlightSmall")
             note:SetTextColor(0.91, 0.78, 0.61, 1)
             note:SetPoint("TOPLEFT", panel, "TOPLEFT", 20, -405)
