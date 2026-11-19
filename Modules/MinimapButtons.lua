@@ -129,6 +129,16 @@ local function makeMenu()
         end)
     end
     menu:Hide()
+    menu:SetClampedToScreen(true)
+    menu:EnableMouse(true)
+    table.insert(UISpecialFrames, "BaziUIMinimapMicroMenu")
+    menu:RegisterEvent("PLAYER_REGEN_DISABLED")
+    menu:SetScript("OnShow", function(self) self:RegisterEvent("GLOBAL_MOUSE_DOWN") end)
+    menu:SetScript("OnHide", function(self) self:UnregisterEvent("GLOBAL_MOUSE_DOWN") end)
+    menu:SetScript("OnEvent", function(self, event)
+        if event == "GLOBAL_MOUSE_DOWN" and self:IsMouseOver() then return end
+        self:Hide()
+    end)
     M.Menu = menu
 end
 -- Keep third-party addon buttons above the bronze frame and apply the
@@ -236,7 +246,9 @@ function M:Initialize()
         if InCombatLockdown and InCombatLockdown() then return end
         if M.Menu:IsShown() then M.Menu:Hide(); return end
         M.Menu:ClearAllPoints()
-        M.Menu:SetPoint("TOPLEFT", map, "TOPRIGHT", 8, 0)
+        local x, y = GetCursorPosition()
+        local scale = M.Menu:GetEffectiveScale()
+        M.Menu:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", x / scale, y / scale)
         M.Menu:Show()
     end)
     if M.Launcher then
