@@ -112,6 +112,12 @@ end
 -- If the client returns an inaccessible value, leave the native text visible.
 local function updateSplitDuration(texts, opt)
     local source = texts.duration
+    if texts.kind == "buffs" then
+        source:SetAlpha(0)
+        texts.number:SetText("")
+        texts.unit:SetText("")
+        return
+    end
     local ok, raw = pcall(source.GetText, source)
     if not ok or type(raw) ~= "string" or (issecretvalue and issecretvalue(raw))
         or (canaccessvalue and not canaccessvalue(raw)) then
@@ -158,7 +164,7 @@ local function addAuraBorder(parent)
     border:SetBackdropBorderColor(0.48, 0.34, 0.18, 0.95)
     return border
 end
-local function initializeAuraButton(button, size, opt, entry)
+local function initializeAuraButton(button, size, opt, entry, kind)
     button:SetSize(size, size)
     local icon = button:CreateTexture(nil, "ARTWORK")
     icon:SetAllPoints()
@@ -182,7 +188,7 @@ local function initializeAuraButton(button, size, opt, entry)
     number:SetPoint("CENTER", button, "CENTER", 0, 4)
     local unit = button:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     unit:SetPoint("TOP", number, "BOTTOM", 0, 1)
-    local texts = {button=button, duration=duration, count=count, number=number, unit=unit, cooldown=cooldown}
+    local texts = {button=button, duration=duration, count=count, number=number, unit=unit, cooldown=cooldown, kind=kind}
     entry.texts[#entry.texts + 1] = texts
     local elapsedTotal = 0
     button:HookScript("OnUpdate", function(_, elapsed)
@@ -210,7 +216,7 @@ local function createLiveAuras(f)
             local entry = {frame=container, size=size, gap=gap, count=count, texts={}}
             local options = {
                 maxFrameCount = count, candidateFilters = {},
-                initializeFrame = function(button) initializeAuraButton(button, size, opt, entry) end,
+                initializeFrame = function(button) initializeAuraButton(button, size, opt, entry, kind) end,
                 layout = { elementWidth=size, elementHeight=size,
                     elementSpacing=gap, lineSpacing=gap, groupSpacing=gap, groupLineSpacing=gap },
             }
