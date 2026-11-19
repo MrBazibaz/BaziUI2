@@ -408,8 +408,8 @@ local function CreateUnitFramesPage()
             end
             for i, category in ipairs((name == "Target" and {"Layout", "Indicators", "Bar Text", "Fonts", "Buffs / Debuffs"} or {"Layout", "Indicators", "Bar Text", "Fonts"})) do
                 local button = CreateFrame("Button", nil, rootPanel)
-                button:SetSize(name == "Target" and 100 or 112, 30)
-                button:SetPoint("TOPLEFT", rootPanel, "TOPLEFT", 12 + (i-1)*(name == "Target" and 102 or 119), -5)
+                button:SetSize(name == "Target" and 94 or 112, 30)
+                button:SetPoint("TOPLEFT", rootPanel, "TOPLEFT", 12 + (i-1)*(name == "Target" and 96 or 119), -5)
                 button.fill = button:CreateTexture(nil, "BACKGROUND")
                 button.fill:SetAllPoints()
                 local text = CreateLabel(button, category, "GameFontNormal")
