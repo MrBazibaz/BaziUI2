@@ -507,19 +507,107 @@ local function CreateMinimapPage()
         label:SetWidth(350)
         label:SetJustifyH("LEFT")
     end
-    Planned(mapInfo, "MAP INFO",
-        "Coordinates, FPS, latency and clock visibility will use FlareUI's original update and hover logic.")
-    Planned(buttons, "BUTTONS",
-        "Micro menu, movable group finder icon and minimap-button hover visibility are next.")
+    local modes = {{"off", "Never"}, {"hover", "On Mouseover"}, {"always", "Always"}}
+    Select(mapInfo, "COORDINATES", -4, "coords", modes)
+    Select(mapInfo, "FPS", -49, "fps", modes)
+    Select(mapInfo, "LATENCY", -94, "latency", modes)
+    Select(mapInfo, "CLOCK", -139, "clock", modes)
+    local mapHint = CreateLabel(mapInfo,
+        "Coordinates stay below the map. FPS and latency appear at its lower-right edge.",
+        "GameFontHighlightSmall")
+    mapHint:SetPoint("TOPLEFT", mapInfo, "TOPLEFT", 14, -200)
+    mapHint:SetWidth(340)
+    mapHint:SetJustifyH("LEFT")
+    mapHint:SetTextColor(0.66, 0.63, 0.59, 1)
+    Toggle(buttons, "MIDDLE CLICK MICRO MENU", -4, "microMenu")
+    Toggle(buttons, "GROUP FINDER ICON", -49, "finderEye")
+    Toggle(buttons, "HIDE ADDON BUTTONS UNTIL HOVER", -94, "hideAddonButtons")
+    local buttonsHint = CreateLabel(buttons,
+        "These button behaviors are being ported from FlareUI and are not active yet.",
+        "GameFontHighlightSmall")
+    buttonsHint:SetPoint("TOPLEFT", buttons, "TOPLEFT", 14, -153)
+    buttonsHint:SetWidth(345)
+    buttonsHint:SetJustifyH("LEFT")
+    buttonsHint:SetTextColor(0.66, 0.63, 0.59, 1)
     Toggle(visibility, "HIDE DAY / NIGHT", -4, "hideDayNight")
     Toggle(visibility, "HIDE TRACKING", -49, "hideTracking")
     Toggle(visibility, "HIDE ZONE LOCATION", -94, "hideZone")
     Toggle(visibility, "HIDE CLOCK", -139, "hideClock")
     Toggle(visibility, "HIDE CALENDAR", -184, "hideCalendar")
-    Planned(visibility, "MORE CONTROLS",
-        "Coordinates and search visibility will be added separately.")
-    Planned(fonts, "FONTS",
-        "Zone, clock and information text will inherit Global or use an individual font.")
+    Toggle(visibility, "HIDE COORDINATES", -229, "hideCoordinates")
+    Toggle(visibility, "HIDE SEARCH / TRACKING BUTTON", -274, "hideSearch")
+    local fontChoices = {{"GLOBAL", "Global"}, {"FRIZQT", "Friz Quadrata"},
+        {"ARIAL", "Arial Narrow"}, {"MORPHEUS", "Morpheus"}}
+    local outlineChoices = {{"NONE", "None"}, {"OUTLINE", "Outline"},
+        {"THICKOUTLINE", "Thick"}}
+    local function FontGroup(title, y, key)
+        local cfg = db[key]
+        local heading = CreateLabel(fonts, title, "GameFontNormalLarge")
+        heading:SetPoint("TOPLEFT", fonts, "TOPLEFT", 14, y)
+        heading:SetTextColor(1, 0.79, 0.42)
+        -- A per-group proxy table lets Select use the same controls as General.
+        -- The selection is copied into the real font configuration immediately.
+        local function fontSelect(label, offset, field, choices)
+            local row = SimpleRow(fonts, label, offset)
+            local b = CreateFrame("Button", nil, row)
+            b:SetSize(156, 24)
+            b:SetPoint("RIGHT", row, "RIGHT", -14, 0)
+            local bg = b:CreateTexture(nil, "BACKGROUND")
+            bg:SetAllPoints()
+            bg:SetColorTexture(0.12, 0.07, 0.045, 1)
+            local txt = CreateLabel(b, "", "GameFontNormal")
+            txt:SetPoint("CENTER")
+            local menu = CreateFrame("Frame", nil, b)
+            menu:SetFrameStrata("FULLSCREEN_DIALOG")
+            menu:SetFrameLevel(b:GetFrameLevel() + 20)
+            menu:SetPoint("TOPRIGHT", b, "BOTTOMRIGHT", 0, -2)
+            menu:SetSize(156, #choices * 24 + 4)
+            local fill = menu:CreateTexture(nil, "BACKGROUND")
+            fill:SetAllPoints()
+            fill:SetColorTexture(0.12, 0.07, 0.045, 1)
+            local function refresh()
+                for _, choice in ipairs(choices) do
+                    if cfg[field] == choice[1] then txt:SetText(choice[2]); break end
+                end
+            end
+            for i, choice in ipairs(choices) do
+                local item = CreateFrame("Button", nil, menu)
+                item:SetPoint("TOPLEFT", menu, "TOPLEFT", 2, -2-(i-1)*24)
+                item:SetPoint("TOPRIGHT", menu, "TOPRIGHT", -2, -2-(i-1)*24)
+                item:SetHeight(24)
+                local label = CreateLabel(item, choice[2], "GameFontHighlightSmall")
+                label:SetPoint("LEFT", 8, 0)
+                item:SetScript("OnClick", function()
+                    cfg[field] = choice[1]
+                    refresh()
+                    menu:Hide()
+                    if addon.MinimapInfo then addon.MinimapInfo:ApplyFonts() end
+                end)
+            end
+            menu:Hide()
+            b:SetScript("OnClick", function() menu:SetShown(not menu:IsShown()) end)
+            refresh()
+        end
+        fontSelect("FONT", y-29, "font", fontChoices)
+        fontSelect("OUTLINE", y-74, "outline", outlineChoices)
+        CreateSlider(fonts, "SIZE", "Text size", 8, 30, 1, cfg.size, y-119, function(value)
+            cfg.size = value
+            if addon.MinimapInfo then addon.MinimapInfo:ApplyFonts() end
+        end)
+        local shadow = CreateFrame("CheckButton", nil, fonts, "UICheckButtonTemplate")
+        shadow:SetPoint("TOPLEFT", fonts, "TOPLEFT", 14, y-190)
+        shadow:SetChecked(cfg.shadow)
+        local label = CreateLabel(fonts, "Shadow", "GameFontHighlight")
+        label:SetPoint("LEFT", shadow, "RIGHT", 6, 0)
+        shadow:SetScript("OnClick", function(self)
+            cfg.shadow = not not self:GetChecked()
+            if addon.MinimapInfo then addon.MinimapInfo:ApplyFonts() end
+        end)
+    end
+    FontGroup("ZONE TEXT", -10, "zoneFont")
+    FontGroup("CLOCK", -265, "clockFont")
+    FontGroup("INFO TEXT", -520, "infoFont")
+    fonts:SetHeight(820)
     RefreshTabs()
     return page
 end
