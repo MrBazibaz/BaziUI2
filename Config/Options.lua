@@ -634,7 +634,7 @@ local function CreateUnitFramesPage()
                         {"size", "SIZE", 12, 48, 24}, {"count", "COUNT", 0, 40, 12},
                         {"perRow", "PER ROW", 1, 20, 6}, {"spacing", "GAP", 0, 20, 2},
                         {"x", "X", -250, 250, 0}, {"y", "Y", -250, 250, kind == "buffs" and 32 or -58},
-                        {"durationFontSize", "TIMER FONT", 0, 24, 10}, {"stackFontSize", "STACK FONT", 0, 24, 11},
+                        {"durationFontSize", "NUMBER FONT", 0, 24, 12}, {"unitFontSize", "UNIT FONT", 0, 24, 7}, {"stackFontSize", "STACK FONT", 0, 24, 11},
                     }
                     for i, spec in ipairs(fields) do
                         local x = 20 + ((i-1) % 3) * 165
