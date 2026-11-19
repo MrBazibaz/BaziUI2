@@ -426,6 +426,38 @@ local function CreateUnitFramesPage()
                     self:ClearFocus()
                     self:SetText(tostring(own[axis] or 0))
                 end
+                -- Pixel nudges, placed immediately to the right of each coordinate field.
+                local function nudgeButton(delta, yOffset, glyph)
+                    local button = CreateFrame("Button", nil, panel)
+                    button:SetSize(20, 13)
+                    button:SetPoint("TOPLEFT", edit, "TOPRIGHT", 5, -yOffset)
+                    local background = button:CreateTexture(nil, "BACKGROUND")
+                    background:SetAllPoints()
+                    background:SetColorTexture(0.20, 0.10, 0.055, 0.98)
+                    local label = button:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+                    label:SetPoint("CENTER", button, "CENTER", 0, 0)
+                    label:SetText(glyph)
+                    label:SetTextColor(1, 0.78, 0.36)
+                    button:SetScript("OnEnter", function()
+                        background:SetColorTexture(0.35, 0.19, 0.10, 1)
+                    end)
+                    button:SetScript("OnLeave", function()
+                        background:SetColorTexture(0.20, 0.10, 0.055, 0.98)
+                    end)
+                    button:SetScript("OnClick", function()
+                        if not addon.UnitFrames then return end
+                        local defaults = {player={-260,-180}, target={260,-180}, focus={260,-250}, pet={-260,-250}}
+                        local x = own.x or defaults[key][1]
+                        local y = own.y or defaults[key][2]
+                        if axis == "x" then x = x + delta else y = y + delta end
+                        if addon.UnitFrames:SetPosition(key, x, y) then
+                            edit:SetText(tostring(own[axis]))
+                            edit:ClearFocus()
+                        end
+                    end)
+                end
+                nudgeButton(1, 0, "+")
+                nudgeButton(-1, 13, "-")
                 edit:SetScript("OnEnterPressed", commit)
                 edit:SetScript("OnEscapePressed", function(self)
                     self:ClearFocus()
