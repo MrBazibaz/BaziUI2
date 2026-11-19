@@ -406,6 +406,43 @@ local function CreateMinimapPage()
             local limit = math.max(0, panel:GetHeight() - self:GetHeight())
             self:SetVerticalScroll(math.max(0, math.min(limit, self:GetVerticalScroll() - delta * 36)))
         end)
+        if name == "Fonts" then
+            local bar = CreateFrame("Slider", nil, main)
+            bar:SetOrientation("VERTICAL")
+            bar:SetWidth(12)
+            bar:SetPoint("TOPRIGHT", main, "TOPRIGHT", -2, -12)
+            bar:SetPoint("BOTTOMRIGHT", main, "BOTTOMRIGHT", -2, 12)
+            bar:SetMinMaxValues(0, 1)
+            bar:SetValueStep(1)
+            local track = bar:CreateTexture(nil, "BACKGROUND")
+            track:SetAllPoints()
+            track:SetColorTexture(0.12, 0.07, 0.04, 0.9)
+            local thumb = bar:CreateTexture(nil, "OVERLAY")
+            thumb:SetSize(12, 28)
+            thumb:SetColorTexture(0.75, 0.53, 0.27, 1)
+            bar:SetThumbTexture(thumb)
+            viewport:SetPoint("BOTTOMRIGHT", main, "BOTTOMRIGHT", -19, 10)
+            local syncing = false
+            local function RefreshScroll()
+                local limit = math.max(0, panel:GetHeight() - viewport:GetHeight())
+                bar:SetMinMaxValues(0, math.max(1, limit))
+                bar:SetShown(limit > 1)
+                if not syncing then
+                    syncing = true
+                    bar:SetValue(math.min(limit, viewport:GetVerticalScroll()))
+                    syncing = false
+                end
+            end
+            bar:SetScript("OnValueChanged", function(_, value)
+                if syncing then return end
+                syncing = true
+                viewport:SetVerticalScroll(value)
+                syncing = false
+            end)
+            viewport:HookScript("OnVerticalScroll", RefreshScroll)
+            viewport:HookScript("OnSizeChanged", RefreshScroll)
+            viewport:HookScript("OnShow", RefreshScroll)
+        end
         tabPanels[name] = viewport
         return panel
     end
