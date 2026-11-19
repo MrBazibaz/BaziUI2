@@ -498,7 +498,7 @@ local function create(key, spec)
     layout(f, unitSettings(cfg() or {}, key))
     update(f)
 end
--- Reversible, opt-in suppression of Blizzard's original frames.
+-- Reversible suppression of Blizzard frames whenever their Bazi replacements are enabled.
 -- Do not unregister events or reparent protected frames.
 local originals = {
     player = "PlayerFrame",
@@ -512,7 +512,7 @@ local function syncOriginal(key, settings)
     local frame = name and _G[name]
     if not frame or (InCombatLockdown and InCombatLockdown()) then return end
     local state = originalState[key]
-    local hide = settings.hideBlizzard == true and settings[key] == true
+    local hide = settings.enabled ~= false and settings[key] == true
     if hide then
         if not state then
             state = {alpha = frame:GetAlpha(), mouse = frame:IsMouseEnabled()}
@@ -531,7 +531,7 @@ function M:Refresh()
     if not settings then return end
     for key, spec in pairs(units) do
         if settings.enabled ~= false and settings[key] then create(key, spec) end
-        syncOriginal(key, settings.enabled == false and {hideBlizzard=false} or settings)
+        syncOriginal(key, settings)
         local f = frames[key]
         if f and not (InCombatLockdown and InCombatLockdown()) then
             layout(f, unitSettings(settings, key))
