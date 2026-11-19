@@ -469,7 +469,7 @@ local function updateExtras(f, own)
     end
     if C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo(atlas) then
         f.classIcon:SetAtlas(atlas, false)
-        f.classIcon:SetTexCoord(0, 1, 0, 1)
+        f.classIcon:SetTexCoord(f.portraitSide == "RIGHT" and 1 or 0, f.portraitSide == "RIGHT" and 0 or 1, 0, 1)
     end
 end
 
@@ -595,7 +595,7 @@ local function layout(f, settings)
                 -- scale the entire offset about the portrait's centre.
                 local referenceFactor = 60 / 48
                 local relativeScale = portraitSize / 60
-                drawX = ((icon.baseX or 0) * referenceFactor + (tonumber(settings.indicatorX and settings.indicatorX[field]) or tonumber(settings[field.."X"]) or 0)) * relativeScale
+                drawX = ((side == "RIGHT" and -(icon.baseX or 0) or (icon.baseX or 0)) * referenceFactor + (tonumber(settings.indicatorX and settings.indicatorX[field]) or tonumber(settings[field.."X"]) or 0)) * relativeScale
                 drawY = ((icon.baseY or 0) * referenceFactor + (tonumber(settings.indicatorY and settings.indicatorY[field]) or tonumber(settings[field.."Y"]) or 0)) * relativeScale
             end
             icon:SetSize(drawSize, drawSize)
