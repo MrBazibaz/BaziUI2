@@ -14,7 +14,7 @@ local units = {
     pet = {unit="pet", x=-260, y=-250},
 }
 local frames = {}
-local layoutKeys = {"barWidth", "hpHeight", "powerHeight", "portraitSize", "portraitX", "portraitY"}
+local layoutKeys = {"barWidth", "hpHeight", "powerHeight", "portraitSize", "portraitX", "portraitY", "portrait3D"}
 local function unitSettings(settings, key)
     settings.frames = settings.frames or {}
     local own = settings.frames[key]
@@ -48,10 +48,10 @@ local function layout(f, settings)
     f.portrait:SetPoint(side, f, side, (side == "LEFT" and -5 or 5) + (tonumber(settings.portraitX) or 0), tonumber(settings.portraitY) or 0)
     f.portraitBack:SetSize(portraitSize + 7, portraitSize + 7)
     f.rim:SetSize(portraitSize * 62 / 48, portraitSize * 62 / 48)
-    f.rimMask:SetSize(portraitSize * 66 / 48, portraitSize * 66 / 48)
+    f.rimMask:SetSize(portraitSize * 62 / 48, portraitSize * 62 / 48)
     f.rimMask:ClearAllPoints()
-    f.rimMask:SetPoint("CENTER", f.rim, "CENTER", side == "LEFT" and -portraitSize * 2 / 48 or portraitSize * 2 / 48, 0)
-    f.levelDisc:SetSize(portraitSize / 2, portraitSize / 2)
+    f.rimMask:SetPoint("CENTER", f.rim, "CENTER")
+    f.model:SetSize(portraitSize, portraitSize)\n    f.levelDisc:SetSize(portraitSize / 2, portraitSize / 2)
     f.levelDisc:ClearAllPoints()
     f.levelDisc:SetPoint("BOTTOM", f.portrait, "BOTTOM", side == "LEFT" and -portraitSize * 17 / 48 or portraitSize * 17 / 48, -portraitSize * 9 / 48)
     f:SetSize(width + 62, math.max(48, hpHeight + powerHeight + 16))
@@ -80,12 +80,9 @@ local function update(f)
     -- UnitHealth can be a secret number in Forever. Do not compare or calculate it in Lua.
     f.value:SetText("")
     SetPortraitTexture(f.portrait, f.unit)
-    if f.model then
-        -- Safety: PlayerModel may render outside its viewport on Forever.
-        -- Keep the masked 2D portrait until a reliably clipped 3D implementation exists.
-        f.model:Hide()
-        f.portrait:Show()
-    elseif false then
+    local settings = cfg()
+    local own = settings and unitSettings(settings, f.unit)
+    if own and own.portrait3D then
         local ok = pcall(function()
             f.model:SetUnit(f.unit)
             f.model:SetPortraitZoom(1)
@@ -98,6 +95,9 @@ local function update(f)
             f.model:Hide()
             f.portrait:Show()
         end
+    else
+        f.model:Hide()
+        f.portrait:Show()
     end
     if f.level then f.level:SetText(UnitLevel(f.unit)) end
     -- Pets have no player class colour.
@@ -167,7 +167,7 @@ local function create(key, spec)
     -- 3D portrait trial; retain the masked 2D texture as fallback.
     local model = CreateFrame("PlayerModel", nil, portraitLayer)
     -- Keep the model disabled: PlayerModel can render beyond its viewport on Forever.
-    model:SetSize(40, 40)
+    model:SetSize(48, 48)
     model:SetPoint("CENTER", portrait, "CENTER", 0, 0)
     model:SetFrameLevel(portraitLayer:GetFrameLevel() + 1)
     model:Hide()
@@ -180,11 +180,11 @@ local function create(key, spec)
     rim:SetTexCoord(252.78/384, 375/384, 1.67/134, 123.89/134)
     local rimMask = portraitLayer:CreateMaskTexture()
     rimMask:SetTexture("Interface\\CHARACTERFRAME\\TempPortraitAlphaMask", "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
-    rimMask:SetSize(66, 66)
-    rimMask:SetPoint("CENTER", rim, "CENTER", side == "LEFT" and -2 or 2, 0)
+    rimMask:SetSize(62, 62)
+    rimMask:SetPoint("CENTER", rim, "CENTER")
     rim:AddMaskTexture(rimMask)
     f.rimMask = rimMask
-    if side == "LEFT" then rim:SetTexCoord(375/384, 252.78/384, 1.67/134, 123.89/134) end
+    -- Do not mirror cropped atlas UVs; mirroring exposes the straight crop edge.
     local badgeLayer = CreateFrame("Frame", nil, portraitLayer)
     badgeLayer:SetAllPoints(portraitLayer)
     badgeLayer:SetFrameLevel(portraitLayer:GetFrameLevel() + 2)
