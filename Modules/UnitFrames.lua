@@ -196,7 +196,7 @@ local function layout(f, settings)
         -- tick depth modest so the XP track hugs the rim instead of floating.
         -- The XP marks sit INSIDE the bronze rim's annulus, not outside it.
         -- Their radial thickness scales with the portrait ring itself.
-        local tickHeight = math.max(5, rimSize * 0.085)
+        local tickHeight = rimSize * 0.085
         local radius = rimSize * 0.445
         local count = #f.petXPRing.segments
         -- Calculate the badge position from its actual anchor rather than
@@ -217,7 +217,7 @@ local function layout(f, settings)
         local rotation = math.max(-180, math.min(180, tonumber(settings.petXPRotation) or 0))
         local startAngle = badgeAngle - gapHalf - math.rad(5) - math.rad(rotation)
         local tickWidth = math.min(rimSize * 0.048, radius * step * 0.78)
-        tickWidth = math.max(2, tickWidth)
+        -- Do not impose a pixel minimum: it made ticks disproportionately large at portrait size 36.
         for i, segment in ipairs(f.petXPRing.segments) do
             local angle = startAngle - (i - 1) * step
             local x, y = math.cos(angle) * radius, math.sin(angle) * radius
