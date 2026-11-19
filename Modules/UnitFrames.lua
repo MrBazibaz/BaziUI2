@@ -319,7 +319,8 @@ function M:Refresh()
         syncOriginal(key, settings.enabled == false and {hideBlizzard=false} or settings)
         local f = frames[key]
         if f and not (InCombatLockdown and InCombatLockdown()) then
-            layout(f, unitSettings(settings, key))\n            applyPosition(f, settings, key)
+            layout(f, unitSettings(settings, key))
+            applyPosition(f, settings, key)
             if settings.enabled ~= false and settings[key] then
                 if key == "focus" or key == "target" or key == "pet" then
                     if not f.visibilityRegistered and RegisterStateDriver then
@@ -347,8 +348,6 @@ function M:Refresh()
             if f then mover:SetSize(f:GetWidth() * f:GetEffectiveScale() / UIParent:GetEffectiveScale(), f:GetHeight() * f:GetEffectiveScale() / UIParent:GetEffectiveScale()) end
             mover:SetShown(moving and settings.enabled ~= false and settings[key] == true)
         end
-        if false then
-        end
     end
 end
 function M:Initialize()
@@ -358,6 +357,8 @@ function M:Initialize()
     events:RegisterEvent("PLAYER_REGEN_ENABLED")
     events:RegisterEvent("PLAYER_ENTERING_WORLD")
     events:RegisterEvent("ADDON_LOADED")
-    events:SetScript("OnEvent", function(eventFrame, event)\n        if event == "PLAYER_REGEN_ENABLED" then M:Refresh() else M:Refresh() end\n    end)
+    events:SetScript("OnEvent", function(eventFrame, event)
+        if event == "PLAYER_REGEN_ENABLED" then M:Refresh() else M:Refresh() end
+    end)
     self:Refresh()
 end
