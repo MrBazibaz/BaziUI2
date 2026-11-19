@@ -30,12 +30,19 @@ local function update(f)
     f.value:SetText("")
     SetPortraitTexture(f.portrait, f.unit)
     if f.level then f.level:SetText(UnitLevel(f.unit)) end
-    local _, class = UnitClass(f.unit)
+    -- Pets inherit the player's class colour; neutral units use muted green.
+    -- A restrained tint keeps the flat bars from looking fluorescent.
+    local classUnit = f.unit == "pet" and "player" or f.unit
+    local _, class = UnitClass(classUnit)
     local color = class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
-    if color then f.health:SetStatusBarColor(color.r, color.g, color.b) else f.health:SetStatusBarColor(0.28, 0.68, 0.30) end
+    if color then
+        f.health:SetStatusBarColor(color.r * 0.72, color.g * 0.72, color.b * 0.72)
+    else
+        f.health:SetStatusBarColor(0.24, 0.47, 0.26)
+    end
     local kind = UnitPowerType(f.unit)
     local c = PowerBarColor and PowerBarColor[kind]
-    if c then f.power:SetStatusBarColor(c.r, c.g, c.b) else f.power:SetStatusBarColor(0.1, 0.45, 0.9) end
+    if c then f.power:SetStatusBarColor(c.r * 0.72, c.g * 0.72, c.b * 0.72) else f.power:SetStatusBarColor(0.10, 0.30, 0.58) end
 end
 local function create(key, spec)
     if frames[key] or (InCombatLockdown and InCombatLockdown()) then return end
@@ -44,7 +51,7 @@ local function create(key, spec)
     f:RegisterForClicks("AnyUp")
     f:SetAttribute("type1", "target")
     f:SetAttribute("type2", "togglemenu")
-    f:SetSize(224, 44)
+    f:SetSize(224, 48)
     f:SetPoint("CENTER", UIParent, "CENTER", spec.x, spec.y)
     f:SetFrameStrata("MEDIUM")
     f.unit = spec.unit
@@ -95,7 +102,7 @@ local function create(key, spec)
     pp:SetStatusBarTexture("Interface\\Buttons\\WHITE8X8")
     pp:SetPoint("TOPLEFT", hp, "BOTTOMLEFT", 0, -1)
     pp:SetPoint("TOPRIGHT", hp, "BOTTOMRIGHT", 0, -1)
-    pp:SetHeight(7)
+    pp:SetHeight(11)
     f.power = pp
     local name = hp:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     name:SetPoint("LEFT", hp, "LEFT", 4, 0)
@@ -176,7 +183,7 @@ function M:Refresh()
                 end
                 f:Hide()
             end
-            if settings.scale then f:SetScale(settings.scale) end
+            f:SetScale(1.15 * (settings.scale or 1))
         end
     end
 end
