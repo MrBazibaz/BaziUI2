@@ -30,20 +30,24 @@ local function makeLauncher()
     if M.Launcher or not map then return end
     local parent = cluster or map
     local b = CreateFrame("Button", "BaziUIMinimapButton", parent)
-    b:SetSize(24, 24)
+    b:SetSize(32, 32)
     b:SetFrameStrata("HIGH")
     b:SetFrameLevel(map:GetFrameLevel() + 16)
-    -- The Bazi emblem already includes its own round gold ring.
-    -- Render the complete asset instead of stacking a second, offset ring.
+    -- Standard minimap-button proportions: 32px button, 25px emblem,
+    -- and Blizzard's round tracking border (rather than a square highlight).
     local emblem = b:CreateTexture(nil, "ARTWORK")
-    emblem:SetAllPoints(b)
+    emblem:SetSize(25, 25)
+    emblem:SetPoint("CENTER", b, "CENTER", 0, 0)
     emblem:SetTexture("Interface\\AddOns\\BaziUI\\Assets\\Icons\\BaziUI_Emblem_64.png")
-    -- Circular hover glow, constrained to the emblem rather than a square texture.
+    local border = b:CreateTexture(nil, "OVERLAY")
+    border:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder")
+    border:SetSize(52, 52)
+    border:SetPoint("CENTER", b, "CENTER", 0, 0)
     local glow = b:CreateTexture(nil, "HIGHLIGHT")
     glow:SetTexture("Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight")
     glow:SetBlendMode("ADD")
+    glow:SetSize(32, 32)
     glow:SetPoint("CENTER", b, "CENTER", 0, 0)
-    glow:SetSize(26, 26)
     b:SetScript("OnClick", toggleOptions)
     b:RegisterForDrag("LeftButton")
     b:SetMovable(true)
