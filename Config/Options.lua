@@ -316,19 +316,26 @@ local function CreateUnitFramesPage()
     end)
     page:HookScript("OnShow", refresh)
     refresh()
-    -- Adjustable dimensions shared by Player, Target, Focus and Pet.
+    -- Live sliders and editable values for all four unit frame dimensions.
     local dimensionControls = {
-        {"barWidth", "HP / Mana width", 100, 400, -355},
-        {"hpHeight", "HP height", 12, 45, -389},
-        {"powerHeight", "Mana / Power height", 4, 30, -423},
+        {"barWidth", "HP / Mana width", 100, 400, -352},
+        {"hpHeight", "HP height", 12, 45, -390},
+        {"powerHeight", "Mana / Power height", 4, 30, -428},
+        {"portraitSize", "Portrait size", 36, 90, -466},
     }
     for _, item in ipairs(dimensionControls) do
         local key, title, minimum, maximum, y = unpack(item)
         local caption = CreateLabel(panel, title, "GameFontNormal")
         caption:SetPoint("TOPLEFT", panel, "TOPLEFT", 22, y)
+        local slider = CreateFrame("Slider", nil, panel, "OptionsSliderTemplate")
+        slider:SetPoint("TOPLEFT", panel, "TOPLEFT", 212, y + 4)
+        slider:SetSize(110, 16)
+        slider:SetMinMaxValues(minimum, maximum)
+        slider:SetValueStep(1)
+        if slider.SetObeyStepOnDrag then slider:SetObeyStepOnDrag(true) end
         local field = CreateFrame("EditBox", nil, panel)
-        field:SetSize(62, 23)
-        field:SetPoint("LEFT", caption, "RIGHT", 12, 0)
+        field:SetSize(58, 23)
+        field:SetPoint("LEFT", slider, "RIGHT", 15, 0)
         field:SetAutoFocus(false)
         field:SetNumeric(true)
         field:SetMaxLetters(3)
@@ -338,19 +345,41 @@ local function CreateUnitFramesPage()
         local backing = field:CreateTexture(nil, "BACKGROUND")
         backing:SetAllPoints()
         backing:SetColorTexture(0.11, 0.065, 0.04, 0.95)
+        local syncing = false
         local function sync()
-            field:SetText(tostring(addon.db.profile.unitframes[key]))
+            local value = addon.db.profile.unitframes[key] or minimum
+            syncing = true
+            slider:SetValue(value)
+            field:SetText(tostring(value))
+            syncing = false
         end
+        local function apply(value)
+            value = math.floor(math.max(minimum, math.min(maximum, value)) + 0.5)
+            addon.db.profile.unitframes[key] = value
+            field:SetText(tostring(value))
+            if addon.UnitFrames then addon.UnitFrames:Refresh() end
+        end
+        slider:SetScript("OnValueChanged", function(_, value)
+            if not syncing then apply(value) end
+        end)
         field:SetScript("OnEnterPressed", function(self)
             local number = tonumber(self:GetText())
             if number then
-                addon.db.profile.unitframes[key] = math.floor(math.max(minimum, math.min(maximum, number)))
-                if addon.UnitFrames then addon.UnitFrames:Refresh() end
+                apply(number)
+                sync()
             end
             self:ClearFocus()
-            sync()
         end)
         field:SetScript("OnEscapePressed", function(self) self:ClearFocus(); sync() end)
+        field:SetScript("OnMouseDown", function(self, button)
+            if button ~= "LeftButton" then return end
+            local now = GetTime()
+            if self.lastClick and now - self.lastClick < 0.35 then
+                self:SetFocus()
+                self:HighlightText()
+            end
+            self.lastClick = now
+        end)
         page:HookScript("OnShow", sync)
         sync()
     end
