@@ -48,7 +48,7 @@ function M:SetMoveMode(value)
     return true
 end
 function M:IsMoveMode() return moving end
-local layoutKeys = {"barWidth", "hpHeight", "powerHeight", "portraitSize", "portraitX", "portraitY", "portraitBackground"}
+local layoutKeys = {"barWidth", "hpHeight", "powerHeight", "portraitSize", "portraitX", "portraitY"}
 local function unitSettings(settings, key)
     settings.frames = settings.frames or {}
     local own = settings.frames[key]
@@ -135,8 +135,6 @@ local function update(f)
     f.portrait:Show()
     if f.level then f.level:SetText(UnitLevel(f.unit)) end
     -- Pets have no player class colour.
-    local settings = cfg()
-    local own = settings and unitSettings(settings, f.unit)
     local _, class = UnitClass(f.unit)
     if f.unit == "pet" then class = nil end
     local color = class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
@@ -144,18 +142,6 @@ local function update(f)
         f.health:SetStatusBarColor(color.r * 0.53, color.g * 0.53, color.b * 0.53)
     else
         f.health:SetStatusBarColor(0.40, 0.37, 0.29)
-    end
-    -- The portrait uses additive blending: black source pixels reveal this tint.
-    -- Class colors are deliberately darkened to avoid merging with the HP bar.
-    local mode = own and own.portraitBackground or "class"
-    if mode == "purple" then
-        f.portraitBack:SetColorTexture(0.12, 0.065, 0.19, 1)
-    elseif mode == "dark" then
-        f.portraitBack:SetColorTexture(0.055, 0.045, 0.04, 1)
-    elseif color then
-        f.portraitBack:SetColorTexture(color.r * 0.28, color.g * 0.28, color.b * 0.28, 1)
-    else
-        f.portraitBack:SetColorTexture(0.12, 0.065, 0.19, 1)
     end
     local kind = UnitPowerType(f.unit)
     local c = PowerBarColor and PowerBarColor[kind]
@@ -199,9 +185,8 @@ local function create(key, spec)
     local portraitBack = portraitLayer:CreateTexture(nil, "BACKGROUND")
     portraitBack:SetSize(55, 55)
     portraitBack:SetPoint("CENTER", portraitAnchor, "CENTER")
-    -- A muted royal-purple backing, visible through the dark pixels
-    -- of Blizzard's portrait when using additive texture blending.
-    portraitBack:SetColorTexture(0.12, 0.065, 0.19, 1)
+    -- Original dark backing from before the purple/class-color experiments.
+    portraitBack:SetColorTexture(0.075, 0.055, 0.035, 1)
     f.portraitBack = portraitBack
     local backMask = portraitLayer:CreateMaskTexture()
     backMask:SetTexture("Interface\\CHARACTERFRAME\\TempPortraitAlphaMask", "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
@@ -215,10 +200,6 @@ local function create(key, spec)
     mask:SetTexture("Interface\\CHARACTERFRAME\\TempPortraitAlphaMask", "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
     mask:SetAllPoints(portrait)
     portrait:AddMaskTexture(mask)
-    -- Blizzard portrait textures include a black background.
-    -- ADD lets the dark pixels reveal our purple backing, while the
-    -- character remains visible. This is intentionally a subtle trial.
-    portrait:SetBlendMode("ADD")
     f.portraitMask = mask
     portraitBack:ClearAllPoints()
     portraitBack:SetPoint("CENTER", portrait, "CENTER")
