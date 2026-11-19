@@ -48,7 +48,7 @@ function M:SetMoveMode(value)
     return true
 end
 function M:IsMoveMode() return moving end
-local layoutKeys = {"barWidth", "hpHeight", "powerHeight", "portraitSize", "portraitX", "portraitY"}
+local layoutKeys = {"barWidth", "hpHeight", "powerHeight", "portraitSize", "portraitX", "portraitY", "showPvP", "showLeader", "showRaidMarker", "showRole", "showClassification", "hpText", "powerText", "fontSize", "fontFace"}
 local function unitSettings(settings, key)
     settings.frames = settings.frames or {}
     local own = settings.frames[key]
@@ -71,6 +71,41 @@ function M:CopyLayout(source, destination)
     self:Refresh()
     return true
 end
+
+local function safeValue(v)
+    if issecretvalue and issecretvalue(v) then return nil end
+    if type(v) == "number" then return v end
+end
+local function formatBar(unit, template, health)
+    if not template or template == "" then return "" end
+    local current = safeValue(health and UnitHealth(unit) or UnitPower(unit))
+    local maximum = safeValue(health and UnitHealthMax(unit) or UnitPowerMax(unit))
+    local values = {
+        current = current and tostring(math.floor(current)) or "?",
+        max = maximum and tostring(math.floor(maximum)) or "?",
+        percent = current and maximum and maximum > 0 and tostring(math.floor(current / maximum * 100 + 0.5)) .. "%" or "?",
+    }
+    return (template:gsub("{([%a]+)}", function(tag) return values[tag] or "{" .. tag .. "}" end))
+end
+local function updateExtras(f, own)
+    local unit = f.unit
+    local function readable(v) return not (issecretvalue and issecretvalue(v)) and v end
+    f.pvpIcon:SetShown(own.showPvP ~= false and (readable(UnitIsPVP(unit)) == true or readable(UnitIsPVPFreeForAll(unit)) == true))
+    f.leaderIcon:SetShown(own.showLeader ~= false and UnitIsGroupLeader and readable(UnitIsGroupLeader(unit)) == true)
+    local marker = GetRaidTargetIndex(unit)
+    if issecretvalue and issecretvalue(marker) then marker = nil end
+    f.raidIcon:SetShown(own.showRaidMarker ~= false and type(marker) == "number")
+    if type(marker) == "number" then SetRaidTargetIconTexture(f.raidIcon, marker) end
+    local role = UnitGroupRolesAssigned and readable(UnitGroupRolesAssigned(unit))
+    f.roleIcon:SetShown(own.showRole ~= false and (role == "TANK" or role == "HEALER" or role == "DAMAGER"))
+    if role == "TANK" then f.roleIcon:SetTexCoord(0, 19/64, 22/64, 41/64)
+    elseif role == "HEALER" then f.roleIcon:SetTexCoord(20/64, 39/64, 1/64, 20/64)
+    else f.roleIcon:SetTexCoord(20/64, 39/64, 22/64, 41/64) end
+    local classification = UnitClassification and readable(UnitClassification(unit))
+    f.classIcon:SetShown(own.showClassification ~= false and
+        (classification == "elite" or classification == "rare" or classification == "rareelite" or classification == "worldboss"))
+end
+
 local function layout(f, settings)
     local width = math.max(100, math.min(400, tonumber(settings.barWidth) or 162))
     local hpHeight = math.max(12, math.min(45, tonumber(settings.hpHeight) or 23))
@@ -109,6 +144,11 @@ local function layout(f, settings)
     f.power:ClearAllPoints()
     f.power:SetPoint("TOPLEFT", f.health, "BOTTOMLEFT", 0, -1)
     f.power:SetSize(width, powerHeight)
+    local font = settings.fontFace == "arial" and "Fonts\ARIALN.TTF" or "Fonts\FRIZQT__.TTF"
+    local size = math.max(8, math.min(28, tonumber(settings.fontSize) or 12))
+    f.name:SetFont(font, size, "OUTLINE")
+    f.value:SetFont(font, size, "OUTLINE")
+    f.powerText:SetFont(font, size, "OUTLINE")
     f.barBorder:ClearAllPoints()
     f.barBorder:SetPoint("TOPLEFT", f.health, "TOPLEFT", -2, 2)
     f.barBorder:SetPoint("BOTTOMRIGHT", f.power, "BOTTOMRIGHT", 2, -2)
@@ -126,7 +166,10 @@ local function update(f)
     f.power:SetValue(power)
     f.name:SetText(UnitName(f.unit) or "")
     -- UnitHealth can be a secret number in Forever. Do not compare or calculate it in Lua.
-    f.value:SetText("")
+    local own = unitSettings(cfg() or {}, f.unit)
+    f.value:SetText(formatBar(f.unit, own.hpText or "", true))
+    f.powerText:SetText(formatBar(f.unit, own.powerText or "", false))
+    updateExtras(f, own)
     -- FlareUI's so-called "3d" mode is a Blizzard-rendered static portrait.
     -- Keep one masked texture in both modes; optional zoom changes its crop.
     SetPortraitTexture(f.portrait, f.unit, true)
@@ -262,6 +305,24 @@ local function create(key, spec)
     local value = hp:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     value:SetPoint("RIGHT", hp, "RIGHT", -4, 0)
     f.value = value
+    local powerText = pp:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    powerText:SetPoint("RIGHT", pp, "RIGHT", -4, 0)
+    f.powerText = powerText
+    local function icon(x, y, texture)
+        local t = portraitLayer:CreateTexture(nil, "OVERLAY")
+        t:SetSize(17, 17)
+        t:SetPoint("CENTER", portraitAnchor, "CENTER", x, y)
+        t:SetTexture(texture)
+        return t
+    end
+    f.pvpIcon = icon(25, 25, "Interface\TargetingFrame\UI-PVP-FFA")
+    f.leaderIcon = icon(-25, 25, "Interface\GroupFrame\UI-Group-LeaderIcon")
+    f.raidIcon = icon(0, 33, "Interface\TargetingFrame\UI-RaidTargetingIcons")
+    f.roleIcon = icon(26, -23, "Interface\LFGFrame\UI-LFG-ICON-PORTRAITROLES")
+    f.classIcon = icon(-26, -23, "Interface\TargetingFrame\UI-TargetingFrame-Skull")
+    f:RegisterEvent("UNIT_FLAGS")
+    f:RegisterEvent("GROUP_ROSTER_UPDATE")
+    f:RegisterEvent("RAID_TARGET_UPDATE")
     f:RegisterEvent("UNIT_HEALTH")
     f:RegisterEvent("UNIT_MAXHEALTH")
     f:RegisterEvent("UNIT_POWER_UPDATE")
@@ -274,7 +335,7 @@ local function create(key, spec)
     f:RegisterEvent("UNIT_PET")
     f:RegisterEvent("PLAYER_ENTERING_WORLD")
     f:SetScript("OnEvent", function(self, event, unit)
-        if not unit or unit == self.unit or event == "PLAYER_TARGET_CHANGED" or event == "PLAYER_FOCUS_CHANGED" or event == "PLAYER_ENTERING_WORLD" or event == "UNIT_PET" then
+        if not unit or unit == self.unit or event == "PLAYER_TARGET_CHANGED" or event == "PLAYER_FOCUS_CHANGED" or event == "PLAYER_ENTERING_WORLD" or event == "UNIT_PET" or event == "GROUP_ROSTER_UPDATE" or event == "RAID_TARGET_UPDATE" then
             update(self)
         end
     end)
@@ -345,6 +406,7 @@ function M:Refresh()
         local f = frames[key]
         if f and not (InCombatLockdown and InCombatLockdown()) then
             layout(f, unitSettings(settings, key))
+            update(f)
             applyPosition(f, settings, key)
             if settings.enabled ~= false and settings[key] then
                 if key == "focus" or key == "target" or key == "pet" then
