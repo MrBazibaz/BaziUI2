@@ -205,8 +205,10 @@ local function headerLayout()
     calendar:SetPoint("TOPRIGHT", MM.Border, "TOPRIGHT", -HEADER_SIDE, -4)
     local surround = MM.HeaderSurround
     surround:ClearAllPoints()
-    surround:SetPoint("TOPLEFT", tracking, "TOPLEFT", -2, 1)
-    surround:SetPoint("BOTTOMRIGHT", calendar, "BOTTOMRIGHT", 2, -1)
+    -- The central plate belongs only to zone/clock. The two side buttons
+    -- have independent plates, so hiding either hides its border as well.
+    surround:SetPoint("TOPLEFT", header, "TOPLEFT", -2, 1)
+    surround:SetPoint("BOTTOMRIGHT", header, "BOTTOMRIGHT", 2, -1)
     header:ClearAllPoints()
     header:SetPoint("LEFT", tracking, "RIGHT", HEADER_GAP, 0)
     header:SetPoint("RIGHT", calendar, "LEFT", -HEADER_GAP, 0)
@@ -231,7 +233,19 @@ local function headerLayout()
             ticker:SetPoint("RIGHT", clock, "RIGHT", -PLATE_INSET, 0)
         end
     end
-    local showHeader = not (cfg.hideTracking and cfg.hideZone and cfg.hideCalendar and cfg.hideClock)
+    if not MM.TrackingPlate then
+        MM.TrackingPlate = tracking:CreateTexture(nil, "BACKGROUND", nil, -1)
+        MM.TrackingPlate:SetAllPoints(tracking)
+        plate(MM.TrackingPlate, tracking)
+    end
+    if not MM.CalendarPlate then
+        MM.CalendarPlate = calendar:CreateTexture(nil, "BACKGROUND", nil, -1)
+        MM.CalendarPlate:SetAllPoints(calendar)
+        plate(MM.CalendarPlate, calendar)
+    end
+    MM.TrackingPlate:SetShown(not cfg.hideTracking)
+    MM.CalendarPlate:SetShown(not cfg.hideCalendar)
+    local showHeader = not (cfg.hideZone and cfg.hideClock)
     header:SetShown(showHeader)
     MM.HeaderSurround:SetShown(showHeader)
     tracking:SetShown(not cfg.hideTracking)
