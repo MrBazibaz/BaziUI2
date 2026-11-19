@@ -10,6 +10,7 @@ local defaults = {
         qol = { characterItemLevel = false, muteErrorSpeech = false, muteFailedSpellSounds = false },
         minimap = {
             enabled = false, style = "round", autoZoom = 0,
+            ignoreIndoorZoom = false,
             iconScale = 1.5, mapScale = 1.0,
             microMenu = false, finderEye = false,
             coords = "off", fps = "off", latency = "off", clock = "always",
