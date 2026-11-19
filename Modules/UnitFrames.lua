@@ -177,7 +177,7 @@ local function layout(f, settings)
     local rimSize = portraitSize * 62 / 48
     -- FlareUI UnitFramesRing.lua: portrait is 86% of ring diameter; backing 94%.
     local innerSize = rimSize * 0.86
-    local backSize = rimSize * 0.94
+    local backSize = innerSize -- keep dark portrait backing inside the same circular crop as the portrait
     f.portraitAnchor:ClearAllPoints()
     f.portraitAnchor:SetPoint(side, f, side, centreX, centreY)
     -- Extend the secure click region ONLY where the portrait protrudes.
