@@ -100,6 +100,107 @@ local function createArt()
     map:HookScript("OnHide", function() holder:Hide() end)
     holder:SetShown(map:IsShown())
 end
+-- FlareUI's header approach: reuse Forever's own zone, tracking, calendar
+-- and clock widgets; only their anchors and the shared plate are changed.
+local HEADER_HEIGHT, HEADER_GAP, HEADER_SIDE = 19, 2, 9
+local CLOCK_WIDTH, PLATE_INSET = 40, 6
+local placingSun = false
+local function placeSun()
+    local cfg = db()
+    local sun = cluster and cluster.DielFrame
+    if not square or not MM.Border or not sun or placingSun then return end
+    placingSun = true
+    local container = cluster.MinimapContainer or cluster
+    if sun:GetParent() ~= container then sun:SetParent(container) end
+    sun:SetScale(0.9)
+    sun:ClearAllPoints()
+    -- In the top-right corner, clear of the header row's calendar button.
+    sun:SetPoint("TOPRIGHT", MM.Border, "TOPRIGHT", 9, 10)
+    sun:SetShown(not cfg.hideDayNight)
+    placingSun = false
+end
+local function fitButtonArt(button)
+    if not button then return end
+    for _, key in ipairs({"StateTexture", "AddTexture"}) do
+        local texture = button[key]
+        if texture then texture:ClearAllPoints(); texture:SetAllPoints(button) end
+    end
+end
+local function plate(texture, parent)
+    if not texture then return end
+    texture:SetAtlas("ui-hud-minimap-header-button")
+    texture:ClearAllPoints()
+    texture:SetAllPoints(parent)
+    if texture.SetTextureSliceMargins then
+        texture:SetTextureSliceMargins(6, 6, 6, 6)
+        if Enum and Enum.UITextureSliceMode then
+            texture:SetTextureSliceMode(Enum.UITextureSliceMode.Stretched)
+        end
+    end
+end
+local function headerLayout()
+    if not square or not MM.Border or not cluster or not cluster.ZoneTextButton
+        or not cluster.Tracking or not _G.GameTimeFrame then return end
+    local cfg = db()
+    if not MM.Header then
+        local header = CreateFrame("Frame", nil, cluster)
+        header:SetHeight(HEADER_HEIGHT)
+        local art = header:CreateTexture(nil, "BACKGROUND")
+        plate(art, header)
+        MM.Header = header
+        local zone = cluster.ZoneTextButton
+        if zone.StateTexture then park(zone.StateTexture) end
+        if zone.AddTexture then plate(zone.AddTexture, header) end
+    end
+    local header, tracking, calendar = MM.Header, cluster.Tracking, _G.GameTimeFrame
+    tracking:SetSize(HEADER_HEIGHT, HEADER_HEIGHT)
+    if tracking.Background then tracking.Background:Hide() end
+    if tracking.Button then
+        tracking.Button:ClearAllPoints()
+        tracking.Button:SetAllPoints(tracking)
+        fitButtonArt(tracking.Button)
+    end
+    calendar:SetSize(HEADER_HEIGHT, HEADER_HEIGHT)
+    fitButtonArt(calendar)
+    local clock = _G.TimeManagerClockButton
+    local ticker = _G.TimeManagerClockTicker
+    local width = CLOCK_WIDTH
+    if ticker and ticker.GetUnboundedStringWidth then
+        width = math.max(width, math.ceil(ticker:GetUnboundedStringWidth() or 0) + 8)
+    end
+    tracking:ClearAllPoints()
+    tracking:SetPoint("TOPLEFT", MM.Border, "TOPLEFT", HEADER_SIDE, -7)
+    calendar:ClearAllPoints()
+    calendar:SetPoint("TOPRIGHT", MM.Border, "TOPRIGHT", -HEADER_SIDE, -7)
+    header:ClearAllPoints()
+    header:SetPoint("LEFT", tracking, "RIGHT", HEADER_GAP, 0)
+    header:SetPoint("RIGHT", calendar, "LEFT", -HEADER_GAP, 0)
+    local zone = cluster.ZoneTextButton
+    zone:ClearAllPoints()
+    zone:SetPoint("TOPLEFT", header, "TOPLEFT", HEADER_GAP, 0)
+    zone:SetPoint("BOTTOMRIGHT", header, "BOTTOMRIGHT", -width, 0)
+    if _G.MinimapZoneText then
+        local label = _G.MinimapZoneText
+        label:ClearAllPoints()
+        label:SetPoint("TOPLEFT", zone, "TOPLEFT", PLATE_INSET, 0)
+        label:SetPoint("BOTTOMRIGHT", zone, "BOTTOMRIGHT", 0, 0)
+        label:SetJustifyH("LEFT")
+        label:SetWordWrap(false)
+    end
+    if clock then
+        clock:ClearAllPoints()
+        clock:SetPoint("TOPRIGHT", header, "TOPRIGHT", 0, 0)
+        clock:SetSize(width, HEADER_HEIGHT)
+        if ticker then
+            ticker:ClearAllPoints()
+            ticker:SetPoint("RIGHT", clock, "RIGHT", -PLATE_INSET, 0)
+        end
+    end
+    tracking:SetShown(not cfg.hideTracking)
+    zone:SetShown(not cfg.hideZone)
+    calendar:SetShown(not cfg.hideCalendar)
+    if clock then clock:SetShown(not cfg.hideClock) end
+end
 local function layout()
     if applying or not square or not map or not cluster then return end
     if InCombatLockdown and InCombatLockdown() and map.IsProtected and map:IsProtected() then
@@ -114,6 +215,8 @@ local function layout()
     map:ClearAllPoints()
     map:SetPoint("CENTER", cluster, "CENTER")
     setSquareMask()
+    headerLayout()
+    placeSun()
     applying = false
 end
 local function queueLayout()
@@ -145,6 +248,9 @@ function MM:Initialize()
     square = cfg.style == "square"
     if square then
         layout()
+        if EventUtil and EventUtil.ContinueOnAddOnLoaded then
+            EventUtil.ContinueOnAddOnLoaded("Blizzard_TimeManager", queueLayout)
+        end
         if cluster and hooksecurefunc then
             hooksecurefunc(cluster, "SetSize", queueLayout)
             if cluster.UpdateMinimapConfig then
@@ -157,4 +263,5 @@ end
 function MM:Apply()
     -- Shape changes are applied on reload to avoid leaving Blizzard's artwork detached.
     -- Do not re-parent textures when the round style is active.
+    if square then headerLayout(); placeSun() end
 end
