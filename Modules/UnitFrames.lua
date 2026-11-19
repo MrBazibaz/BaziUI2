@@ -29,19 +29,33 @@ local function update(f)
     -- UnitHealth can be a secret number in Forever. Do not compare or calculate it in Lua.
     f.value:SetText("")
     SetPortraitTexture(f.portrait, f.unit)
+    if f.model then
+        local ok = pcall(function()
+            f.model:SetUnit(f.unit)
+            f.model:SetPortraitZoom(1)
+            f.model:SetCamDistanceScale(1)
+        end)
+        if ok then
+            f.model:Show()
+            f.portrait:Hide()
+        else
+            f.model:Hide()
+            f.portrait:Show()
+        end
+    end
     if f.level then f.level:SetText(UnitLevel(f.unit)) end
     -- Pets have no player class colour.
     local _, class = UnitClass(f.unit)
     if f.unit == "pet" then class = nil end
     local color = class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
     if color then
-        f.health:SetStatusBarColor(color.r * 0.72, color.g * 0.72, color.b * 0.72)
+        f.health:SetStatusBarColor(color.r * 0.53, color.g * 0.53, color.b * 0.53)
     else
         f.health:SetStatusBarColor(0.40, 0.37, 0.29)
     end
     local kind = UnitPowerType(f.unit)
     local c = PowerBarColor and PowerBarColor[kind]
-    if c then f.power:SetStatusBarColor(c.r * 0.72, c.g * 0.72, c.b * 0.72) else f.power:SetStatusBarColor(0.10, 0.30, 0.58) end
+    if c then f.power:SetStatusBarColor(c.r * 0.56, c.g * 0.56, c.b * 0.56) else f.power:SetStatusBarColor(0.10, 0.30, 0.58) end
 end
 local function create(key, spec)
     if frames[key] or (InCombatLockdown and InCombatLockdown()) then return end
@@ -55,8 +69,8 @@ local function create(key, spec)
     f:SetFrameStrata("MEDIUM")
     f.unit = spec.unit
     local bg = f:CreateTexture(nil, "BACKGROUND")
-    bg:SetPoint("TOPLEFT", f, "TOPLEFT", (key == "player" or key == "pet") and 29 or 4, -4)
-    bg:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", (key == "player" or key == "pet") and -4 or -29, 4)
+    bg:SetPoint("TOPLEFT", f, "TOPLEFT", (key == "player" or key == "pet") and 49 or 4, -4)
+    bg:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", (key == "player" or key == "pet") and -4 or -49, 4)
     bg:SetColorTexture(0.10, 0.065, 0.035, 0.95)
     -- FlareUI-style composition: compact bronze plate, circular portrait on the outer side.
     -- Uses Blizzard's own ring atlas and portrait mask, not FlareUI's excluded artwork.
@@ -76,6 +90,13 @@ local function create(key, spec)
     mask:SetAllPoints(portrait)
     portrait:AddMaskTexture(mask)
     f.portrait = portrait
+    -- 3D portrait trial; retain the masked 2D texture as fallback.
+    local model = CreateFrame("PlayerModel", nil, portraitLayer)
+    model:SetSize(43, 43)
+    model:SetPoint("CENTER", portrait, "CENTER", 0, 0)
+    model:SetFrameLevel(portraitLayer:GetFrameLevel() + 1)
+    model:Hide()
+    f.model = model
     local rim = portraitLayer:CreateTexture(nil, "OVERLAY")
     rim:SetSize(62,62)
     rim:SetPoint("CENTER", portrait, "CENTER")
@@ -99,8 +120,8 @@ local function create(key, spec)
     f.level = level
     local hp = CreateFrame("StatusBar", nil, f)
     hp:SetStatusBarTexture("Interface\\Buttons\\WHITE8X8")
-    hp:SetPoint("TOPLEFT", f, "TOPLEFT", side == "LEFT" and 29 or 6, -5)
-    hp:SetPoint("TOPRIGHT", f, "TOPRIGHT", side == "LEFT" and -6 or -29, -5)
+    hp:SetPoint("TOPLEFT", f, "TOPLEFT", side == "LEFT" and 49 or 6, -5)
+    hp:SetPoint("TOPRIGHT", f, "TOPRIGHT", side == "LEFT" and -6 or -49, -5)
     hp:SetHeight(26)
     f.health = hp
     local pp = CreateFrame("StatusBar", nil, f)
@@ -109,7 +130,7 @@ local function create(key, spec)
     pp:SetPoint("TOPRIGHT", hp, "BOTTOMRIGHT", 0, -1)
     pp:SetHeight(11)
     f.power = pp
-    local divider = f:CreateTexture(nil, "OVERLAY")
+    local divider = border:CreateTexture(nil, "OVERLAY")
     divider:SetColorTexture(0.22, 0.16, 0.10, 1)
     divider:SetHeight(2)
     divider:SetPoint("BOTTOMLEFT", hp, "BOTTOMLEFT", 0, -1)
