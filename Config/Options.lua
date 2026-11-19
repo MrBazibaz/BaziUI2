@@ -561,7 +561,7 @@ local function CreateUnitFramesPage()
                 for label, button in pairs(sectionButtons) do
                     button.fill:SetColorTexture(label == selected and 0.36 or 0.25, label == selected and 0.20 or 0.13, label == selected and 0.28 or 0.07, 1)
                 end
-                root:SetHeight((key=="party" or key=="boss") and (selected=="Layout" and 1350 or selected=="Indicators" and 1350 or selected=="Bar Text" and 820 or selected=="Buffs / Debuffs" and 1230 or 580) or (key=="raid" and selected=="Layout" and 820 or 610))
+                root:SetHeight((key=="party" or key=="boss") and (selected=="Layout" and 1350 or selected=="Indicators" and 1350 or selected=="Bar Text" and 820 or selected=="Buffs / Debuffs" and 1230 or 580) or (key=="raid" and selected=="Layout" and 1090 or 610))
                 viewport:SetVerticalScroll(0)
             end
             for i, label in ipairs({"Layout","Indicators","Bar Text","Fonts","Buffs / Debuffs"}) do
@@ -723,7 +723,32 @@ local function CreateUnitFramesPage()
                 page:HookScript("OnShow",redrawAnchor)
                 menu:Hide()
                 redrawAnchor()
-                panel:SetHeight(820)
+                -- Move the entire raid group, independently of per-member offsets.
+                local function groupCoordinate(label,field,y)
+                    local caption=CreateLabel(panel,label,"GameFontNormal")
+                    caption:SetPoint("TOPLEFT",panel,"TOPLEFT",16,y)
+                    caption:SetTextColor(1,.79,.42)
+                    local value=CreateLabel(panel,"","GameFontHighlight")
+                    value:SetPoint("LEFT",caption,"RIGHT",18,0)
+                    local function redraw() value:SetText(tostring(tonumber(opt[field]) or 0)) end
+                    for _,step in ipairs({-1,1}) do
+                        local button=CreateFrame("Button",nil,panel,"UIPanelButtonTemplate")
+                        button:SetSize(30,24)
+                        button:SetPoint("TOPLEFT",panel,"TOPLEFT",step==-1 and 270 or 308,y+5)
+                        button:SetText(step==-1 and "-" or "+")
+                        button:SetScript("OnClick",function()
+                            if InCombatLockdown and InCombatLockdown() then return end
+                            opt[field]=(tonumber(opt[field]) or 0)+step
+                            redraw()
+                            refreshGroup()
+                        end)
+                    end
+                    memberRefreshers[#memberRefreshers+1]=redraw
+                    redraw()
+                end
+                groupCoordinate("RAID GROUP X","x",-755)
+                groupCoordinate("RAID GROUP Y","y",-805)
+                panel:SetHeight(1010)
             end
             local function groupRefresh()
                 refreshGroup()
