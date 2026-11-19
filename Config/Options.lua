@@ -340,10 +340,11 @@ local function CreateMinimapPage()
             end
         end
         for name, panel in pairs(tabPanels) do panel:SetShown(name == activeTab) end
-        -- General has only a few controls; other tabs keep their full-height panel.
-        main:SetPoint("BOTTOM", page,
-            activeTab == "General" and "TOP" or "BOTTOM", 0,
-            activeTab == "General" and -430 or 0)
+        -- Compact tabs fit their contents; long tabs retain the scroll area.
+        local heights = {General = 430, ["Map Info"] = 390, Buttons = 400}
+        local compact = heights[activeTab]
+        main:SetPoint("BOTTOM", page, compact and "TOP" or "BOTTOM",
+            0, compact and -compact or 0)
     end
 
     for i, name in ipairs({"General", "Map Info", "Buttons", "Visibility", "Fonts"}) do
@@ -431,6 +432,7 @@ local function CreateMinimapPage()
             db[key] = not not self:GetChecked()
             if addon.Minimap then addon.Minimap:Apply() end
             if addon.MinimapInfo then addon.MinimapInfo:Apply() end
+            if addon.MinimapButtons then addon.MinimapButtons:Apply() end
         end)
     end
     local function Select(parent, title, y, key, values)
@@ -533,10 +535,11 @@ local function CreateMinimapPage()
     Toggle(buttons, "MIDDLE CLICK MICRO MENU", -4, "microMenu")
     Toggle(buttons, "GROUP FINDER ICON", -49, "finderEye")
     Toggle(buttons, "HIDE ADDON BUTTONS UNTIL HOVER", -94, "hideAddonButtons")
+    Toggle(buttons, "SHOW BAZI UI MINIMAP BUTTON", -139, "showMinimapButton")
     local buttonsHint = CreateLabel(buttons,
-        "These button behaviors are being ported from FlareUI and are not active yet.",
+        "Group Finder and addon-button hover controls are still being implemented.",
         "GameFontHighlightSmall")
-    buttonsHint:SetPoint("TOPLEFT", buttons, "TOPLEFT", 14, -153)
+    buttonsHint:SetPoint("TOPLEFT", buttons, "TOPLEFT", 14, -200)
     buttonsHint:SetWidth(345)
     buttonsHint:SetJustifyH("LEFT")
     buttonsHint:SetTextColor(0.66, 0.63, 0.59, 1)
