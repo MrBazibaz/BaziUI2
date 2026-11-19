@@ -196,16 +196,16 @@ local function layout(f, settings)
         -- tick depth modest so the XP track hugs the rim instead of floating.
         -- The XP marks sit INSIDE the bronze rim's annulus, not outside it.
         -- Their radial thickness scales with the portrait ring itself.
-        local tickWidth = math.max(3, rimSize * 0.052)
-        local tickHeight = math.max(5, rimSize * 0.09)
+        local tickWidth = math.max(2, rimSize * 0.029)
+        local tickHeight = math.max(5, rimSize * 0.085)
         local radius = rimSize * 0.445
         local count = #f.petXPRing.segments
         -- Leave a 50-degree opening around the level badge. Fill the remaining
         -- 310 degrees clockwise, beginning immediately after that opening.
         -- The badge is bottom-left on left portraits, bottom-right on right ones.
         local badgeAngle = (side == "LEFT") and 225 or 315
-        local startAngle = math.rad(badgeAngle - 25)
-        local sweep = math.rad(310)
+        local startAngle = math.rad(badgeAngle - 32)
+        local sweep = math.rad(296)
         for i, segment in ipairs(f.petXPRing.segments) do
             local angle = startAngle - (i - 1) * (sweep / math.max(1, count - 1))
             local x, y = math.cos(angle) * radius, math.sin(angle) * radius
@@ -479,7 +479,7 @@ local function createPetExtras(f)
     ring:EnableMouse(false)
     ring.segments = {}
     ring.backgrounds = {}
-    for i = 1, 48 do
+    for i = 1, 36 do
         local background = ring:CreateTexture(nil, "ARTWORK")
         background:SetColorTexture(0.12, 0.075, 0.17, 1)
         ring.backgrounds[i] = background
