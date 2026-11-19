@@ -74,11 +74,14 @@ local function applyPosition(f, settings, key)
         local member=settings.members and settings.members[i] or {}
         total=total+(tonumber(member.width) or tonumber(member.barWidth) or 162)+62
     end
-    total=total+spacing*3
+    for i=1,3 do
+        local member=settings.members and settings.members[i] or {}
+        total=total+(tonumber(member.spacing) or spacing)
+    end
     local offset=0
     for i=1,index-1 do
         local member=settings.members and settings.members[i] or {}
-        offset=offset+(tonumber(member.width) or tonumber(member.barWidth) or 162)+62+spacing
+        offset=offset+(tonumber(member.width) or tonumber(member.barWidth) or 162)+62+(tonumber(member.spacing) or spacing)
     end
     f:SetPoint("TOPLEFT",UIParent,"TOP", -total/2+offset+(tonumber(own.offsetX) or 0), -45+(tonumber(own.offsetY) or 0))
 end

@@ -551,7 +551,7 @@ local function CreateUnitFramesPage()
                 for label, button in pairs(sectionButtons) do
                     button.fill:SetColorTexture(label == selected and 0.36 or 0.25, label == selected and 0.20 or 0.13, label == selected and 0.28 or 0.07, 1)
                 end
-                root:SetHeight(selected == "Layout" and (key=="party" and 1180 or 610) or (selected=="Buffs / Debuffs" and key=="party" and 930 or 480))
+                root:SetHeight(selected == "Layout" and (key=="party" and 1060 or 610) or (selected=="Buffs / Debuffs" and key=="party" and 1230 or 480))
                 viewport:SetVerticalScroll(0)
             end
             for i, label in ipairs({"Layout","Indicators","Bar Text","Fonts","Buffs / Debuffs"}) do
@@ -630,11 +630,11 @@ local function CreateUnitFramesPage()
                     memberRefreshers[#memberRefreshers+1]=redraw
                     redraw()
                 end
-                nudge("FRAME X","offsetX",16,-580)
-                nudge("FRAME Y","offsetY",260,-580)
+                nudge("FRAME X","offsetX",16,-510)
+                nudge("FRAME Y","offsetY",260,-510)
                 local portraitButton=CreateFrame("Button",nil,panel,"UIPanelButtonTemplate")
                 portraitButton:SetSize(195,25)
-                portraitButton:SetPoint("TOPLEFT",panel,"TOPLEFT",16,-620)
+                portraitButton:SetPoint("TOPLEFT",panel,"TOPLEFT",16,-560)
                 local function refreshPortrait()
                     portraitButton:SetText("Portrait: "..tostring(memberValue("portraitSide",selectedMember<=2 and "LEFT" or "RIGHT")))
                 end
@@ -647,16 +647,16 @@ local function CreateUnitFramesPage()
                 refreshPortrait()
             end
             if key=="party" then
-                setting("HP bar height","hpHeight",23,12,45,1,16,-665)
-                setting("Power bar height","powerHeight",9,4,30,1,16,-740)
-                setting("Portrait size","portraitSize",48,24,90,1,16,-815)
-                setting("Portrait X","portraitX",0,-40,40,1,16,-890)
-                setting("Portrait Y","portraitY",0,-40,40,1,16,-965)
+                setting("HP bar height","hpHeight",23,12,45,1,270,-190)
+                setting("Power bar height","powerHeight",9,4,30,1,270,-260)
+                setting("Portrait size","portraitSize",48,24,90,1,16,-660)
+                setting("Portrait X","portraitX",0,-40,40,1,16,-730)
+                setting("Portrait Y","portraitY",0,-40,40,1,16,-800)
             end
             setting("Frame width","width",key~="raid" and 190 or 110,80,360,5,16,-125)
-            setting("Frame height","height",key~="raid" and 48 or 30,22,90,1,270,-190)
-            setting("Spacing","spacing",8,0,40,1,16,-255,true)
-            setting("Name font size (0 hides)","nameFontSize",11,0,22,1,270,-320)
+            if key~="party" then setting("Frame height","height",key~="raid" and 48 or 30,22,90,1,270,-190) end
+            setting("Spacing","spacing",8,0,40,1,16,-255,key~="party")
+            if key~="party" then setting("Name font size (0 hides)","nameFontSize",11,0,22,1,270,-320) end
             if key=="raid" then
                 setting("Columns","columns",5,1,8,1,16,-385,true)
                 setting("Horizontal offset","x",-380,-700,700,10,270,-450,true)
@@ -728,8 +728,8 @@ local function CreateUnitFramesPage()
                     memberRefreshers[#memberRefreshers+1]=redraw
                     redraw()
                 end
-                memberNudge(sections.Layout,"NAME X","nameX",16,-1030)
-                memberNudge(sections.Layout,"NAME Y","nameY",260,-1030)
+                memberNudge(sections.Layout,"NAME X","nameX",16,-885)
+                memberNudge(sections.Layout,"NAME Y","nameY",260,-885)
                 memberNudge(sections["Bar Text"],"HP TEXT X","hpTextX",16,-200)
                 memberNudge(sections["Bar Text"],"HP TEXT Y","hpTextY",260,-200)
                 memberNudge(sections["Bar Text"],"POWER TEXT X","powerTextX",16,-250)
@@ -740,6 +740,7 @@ local function CreateUnitFramesPage()
                 end
             end
             panel=sections.Indicators
+            if key=="party" then panel:SetHeight(850) end
             CreateSection(panel,"INDICATORS",-12)
             CreateDivider(panel,-45)
             local function groupToggle(canvas,label,field,y)
@@ -798,9 +799,10 @@ local function CreateUnitFramesPage()
             CreateDivider(panel,-45)
             if key~="party" then groupSlider(panel,"NAME FONT SIZE","Size of the unit name (0 hides it)","fontSize",0,22,11,-65) end
             if key=="party" then
-                groupSlider(panel,"HP FONT SIZE","HP value text","hpFontSize",0,24,12,-140)
-                groupSlider(panel,"POWER FONT SIZE","Power value text","powerFontSize",0,24,11,-215)
-                groupSlider(panel,"LEVEL FONT SIZE","Size of the level label","levelFontSize",0,22,11,-290)
+                groupSlider(panel,"NAME FONT SIZE","Name text (0 hides)","nameFontSize",0,22,11,-65)
+                groupSlider(panel,"HP FONT SIZE","HP value text","hpFontSize",0,24,12,-155)
+                groupSlider(panel,"POWER FONT SIZE","Power value text","powerFontSize",0,24,11,-245)
+                groupSlider(panel,"LEVEL FONT SIZE","Size of the level label","levelFontSize",0,22,11,-335)
             end
             panel=sections["Buffs / Debuffs"]
             CreateSection(panel,"BUFFS / DEBUFFS",-12)
@@ -851,7 +853,8 @@ local function CreateUnitFramesPage()
                 end
                 auraSettings("buffs",18)
                 auraSettings("debuffs",18)
-                root:SetHeight(930)
+                panel:SetHeight(1160)
+                root:SetHeight(1230)
             else
                 local note=CreateLabel(panel,"Aura containers for this group type are not yet implemented.","GameFontHighlight")
                 note:SetPoint("TOPLEFT",panel,"TOPLEFT",18,-72)
