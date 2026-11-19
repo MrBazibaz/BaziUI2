@@ -398,7 +398,7 @@ local function CreateUnitFramesPage()
                 end
             end)
             page:HookScript("OnShow", function() move:SetChecked(addon.UnitFrames:IsMoveMode()) end)
-        elseif key == "party" or key == "raid" or key == "boss" then
+        elseif (key == "party" or key == "boss") or key == "raid" or key == "boss" then
             db.groups = db.groups or {}
             db.groups[key] = db.groups[key] or {}
             local opt = db.groups[key]
@@ -419,7 +419,7 @@ local function CreateUnitFramesPage()
                 for _,refresh in ipairs(memberRefreshers) do refresh() end
             end
             local sourceKind, sourceIndex = "player", 1
-            local memberCount = key=="raid" and 40 or (key=="party" and 4 or 5)
+            local memberCount = key=="raid" and 40 or ((key=="party" or key=="boss") and 4 or 5)
             local function headerButton(parent,label,x,width)
                 local button=CreateFrame("Button",nil,parent)
                 button:SetSize(width,28)
@@ -551,7 +551,7 @@ local function CreateUnitFramesPage()
                 for label, button in pairs(sectionButtons) do
                     button.fill:SetColorTexture(label == selected and 0.36 or 0.25, label == selected and 0.20 or 0.13, label == selected and 0.28 or 0.07, 1)
                 end
-                root:SetHeight(key=="party" and (selected=="Layout" and 1350 or selected=="Indicators" and 1350 or selected=="Bar Text" and 820 or selected=="Buffs / Debuffs" and 1230 or 580) or 610)
+                root:SetHeight((key=="party" or key=="boss") and (selected=="Layout" and 1350 or selected=="Indicators" and 1350 or selected=="Bar Text" and 820 or selected=="Buffs / Debuffs" and 1230 or 580) or 610)
                 viewport:SetVerticalScroll(0)
             end
             for i, label in ipairs({"Layout","Indicators","Bar Text","Fonts","Buffs / Debuffs"}) do
@@ -609,7 +609,7 @@ local function CreateUnitFramesPage()
                 memberRefreshers[#memberRefreshers+1]=refresh
                 page:HookScript("OnShow",refresh)
             end
-            if key=="party" then
+            if (key=="party" or key=="boss") then
                 local function nudge(label,field,x,y)
                     local caption=CreateLabel(panel,label,"GameFontNormal")
                     caption:SetPoint("TOPLEFT",panel,"TOPLEFT",x,y)
@@ -631,7 +631,7 @@ local function CreateUnitFramesPage()
                     redraw()
                 end
             end
-            if key=="party" then
+            if (key=="party" or key=="boss") then
                 -- One full-width row per control, matching Player's layout.
                 setting("HP / Mana Width","width",190,80,360,5,16,-125)
                 setting("HP Height","hpHeight",23,12,45,1,16,-205)
@@ -696,7 +696,7 @@ local function CreateUnitFramesPage()
                 page:HookScript("OnShow",refresh)
             end
             local partyDropdown
-            if key=="party" then
+            if (key=="party" or key=="boss") then
                 -- Same compact edit field and stacked +/- controls as Player.
                 local function coordinate(canvas,label,field,x,y,default)
                     local title=CreateLabel(canvas,label,"GameFontNormal")
@@ -845,7 +845,7 @@ local function CreateUnitFramesPage()
                 groupSlider(sections.Fonts,"CASTBAR TEXT SIZE","Cast spell name font size","partyCastFontSize",0,24,10,-425)
             end
             panel=sections.Indicators
-            if key=="party" then panel:SetHeight(1250) end
+            if (key=="party" or key=="boss") then panel:SetHeight(1250) end
             CreateSection(panel,"INDICATORS",-12)
             CreateDivider(panel,-45)
             local function groupToggle(canvas,label,field,y)
@@ -860,8 +860,8 @@ local function CreateUnitFramesPage()
                 memberRefreshers[#memberRefreshers+1]=refresh
                 page:HookScript("OnShow",refresh)
             end
-            if key~="party" then groupToggle(panel,"Show names","showName",-75) end
-            if key~="party" then groupToggle(panel,"Show power bar","showPower",-115) end
+            if (key~="party" and key~="boss") then groupToggle(panel,"Show names","showName",-75) end
+            if (key~="party" and key~="boss") then groupToggle(panel,"Show power bar","showPower",-115) end
             groupToggle(panel,"PvP indicator","showPvP",-155)
             groupToggle(panel,"Group leader indicator","showLeader",-195)
             groupToggle(panel,"Raid target marker","showRaidMarker",-235)
@@ -871,7 +871,7 @@ local function CreateUnitFramesPage()
             panel=sections["Bar Text"]
             CreateSection(panel,"BAR TEXT",-12)
             CreateDivider(panel,-45)
-            if key=="party" then
+            if (key=="party" or key=="boss") then
                 groupToggle(panel,"Show names","showName",-245)
                 local function textMode(label,field,y)
                     partyDropdown(panel,label.." TEXT",field,{
@@ -891,8 +891,8 @@ local function CreateUnitFramesPage()
             panel=sections.Fonts
             CreateSection(panel,"FONTS",-12)
             CreateDivider(panel,-45)
-            if key~="party" then groupSlider(panel,"NAME FONT SIZE","Size of the unit name (0 hides it)","fontSize",0,22,11,-65) end
-            if key=="party" then
+            if (key~="party" and key~="boss") then groupSlider(panel,"NAME FONT SIZE","Size of the unit name (0 hides it)","fontSize",0,22,11,-65) end
+            if (key=="party" or key=="boss") then
                 groupSlider(panel,"NAME FONT SIZE","Name text (0 hides)","nameFontSize",0,22,11,-65)
                 groupSlider(panel,"HP FONT SIZE","HP value text","hpFontSize",0,24,12,-155)
                 groupSlider(panel,"POWER FONT SIZE","Power value text","powerFontSize",0,24,11,-245)
@@ -901,7 +901,7 @@ local function CreateUnitFramesPage()
             panel=sections["Buffs / Debuffs"]
             CreateSection(panel,"BUFFS / DEBUFFS",-12)
             CreateDivider(panel,-45)
-            if key=="party" then
+            if (key=="party" or key=="boss") then
                 local function auraSettings(kind,x)
                     local label=CreateLabel(panel,string.upper(kind),"GameFontNormal")
                     label:SetPoint("TOPLEFT",panel,"TOPLEFT",x,kind=="buffs" and -65 or -460)
