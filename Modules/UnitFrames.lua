@@ -208,10 +208,9 @@ local function layout(f, settings)
         local gapHalf = math.rad(36)
         local sweep = 2 * math.pi - 2 * gapHalf
         local step = sweep / math.max(1, count - 1)
-        -- At the bottom edge of the badge opening the XP starts; the track
-        -- travels CLOCKWISE (decreasing polar angle in WoW UI coordinates)
-        -- and finishes at the other badge edge.
-        local startAngle = badgeAngle + gapHalf
+        -- Start at the upper edge of the level badge opening. Clockwise
+        -- movement uses decreasing polar angles, ending below the badge.
+        local startAngle = badgeAngle - gapHalf
         local tickWidth = math.min(rimSize * 0.048, radius * step * 0.78)
         tickWidth = math.max(2, tickWidth)
         for i, segment in ipairs(f.petXPRing.segments) do
