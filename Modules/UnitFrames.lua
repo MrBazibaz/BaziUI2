@@ -469,12 +469,19 @@ local function create(key, spec)
     -- Native Blizzard boss portrait decoration, selected per classification.
     f.classIcon = icon(-26, -23, "Interface\\TargetingFrame\\UI-RaidTargetingIcons")
     f.happinessIcon = icon(24, -3, "Interface\\PetPaperDollFrame\\UI-PetHappiness")
-    -- Indicators are layered above the portrait rim and badge.
+    -- Elite/rare decoration is above the portrait rim, but must stay below
+    -- the level badge and every other indicator.
+    local dragonLayer = CreateFrame("Frame", nil, portraitLayer)
+    dragonLayer:SetAllPoints(portraitLayer)
+    dragonLayer:SetFrameLevel(portraitLayer:GetFrameLevel() + 1)
+    f.classIcon:SetParent(dragonLayer)
     local indicatorLayer = CreateFrame("Frame", nil, portraitLayer)
     indicatorLayer:SetAllPoints(portraitLayer)
     indicatorLayer:SetFrameLevel(badgeLayer:GetFrameLevel() + 2)
     for _, iconName in ipairs(indicatorNames) do
-        f[iconName]:SetParent(indicatorLayer)
+        if iconName ~= "classIcon" then
+            f[iconName]:SetParent(indicatorLayer)
+        end
     end
     f:RegisterEvent("UNIT_FLAGS")
     f:RegisterEvent("GROUP_ROSTER_UPDATE")
