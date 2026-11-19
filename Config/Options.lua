@@ -441,6 +441,25 @@ local function CreateUnitFramesPage()
                     slider:SetValue(value)
                 end
             end
+            if key == "pet" then
+                for index, entry in ipairs({
+                    {"showPetXP", "Show pet XP bar"},
+                    {"showPetCast", "Show pet castbar"},
+                }) do
+                    local checkbox = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
+                    checkbox:SetSize(23, 23)
+                    checkbox:SetPoint("TOPLEFT", panel, "TOPLEFT", 16 + (index - 1) * 225, -355)
+                    local caption = CreateLabel(panel, entry[2], "GameFontHighlight")
+                    caption:SetPoint("LEFT", checkbox, "RIGHT", 4, 0)
+                    checkbox:SetScript("OnClick", function(self)
+                        own[entry[1]] = self:GetChecked() == true
+                        if addon.UnitFrames then addon.UnitFrames:Refresh() end
+                    end)
+                    refreshers[#refreshers + 1] = function()
+                        checkbox:SetChecked(own[entry[1]] ~= false)
+                    end
+                end
+            end
             local flip = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
             flip:SetSize(25, 25)
             flip:SetPoint("TOPLEFT", panel, "TOPLEFT", 16, -330)
