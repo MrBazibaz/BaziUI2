@@ -247,7 +247,7 @@ local function CreateQoLPage()
     local page = CreateFrame("Frame", nil, contentFrame)
     page:SetAllPoints(contentFrame)
     pages["Quality of Life"] = page
-    local panel = CreatePanel(page, -12, 180)
+    local panel = CreatePanel(page, -12, 340)
     CreateSection(panel, "QUALITY OF LIFE", -14)
     CreateDivider(panel, -48)
     local toggle = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
@@ -265,6 +265,27 @@ local function CreateQoLPage()
         addon.db.profile.qol.characterItemLevel = not not self:GetChecked()
         if addon.ItemLevel then addon.ItemLevel:RefreshCharacter() end
     end)
+    local function SoundCheck(title, descriptionText, key, y)
+        local check = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
+        check:SetSize(25, 25)
+        check:SetPoint("TOPLEFT", panel, "TOPLEFT", 18, y)
+        check:SetChecked(addon.db.profile.qol[key])
+        local caption = CreateLabel(panel, title, "GameFontHighlight")
+        caption:SetPoint("LEFT", check, "RIGHT", 6, 0)
+        local hint = CreateLabel(panel, descriptionText, "GameFontHighlightSmall")
+        hint:SetPoint("TOPLEFT", check, "BOTTOMLEFT", 4, -5)
+        hint:SetTextColor(0.84, 0.73, 0.59)
+        check:SetScript("OnClick", function(self)
+            addon.db.profile.qol[key] = not not self:GetChecked()
+            if addon.QoLSounds then addon.QoLSounds:Apply() end
+        end)
+    end
+    SoundCheck("Mute Character Error Speech",
+        "Silence character voice errors, such as not enough mana.",
+        "muteErrorSpeech", -153)
+    SoundCheck("Mute Failed Spell Sounds",
+        "Mute the five spell-fizzle sounds from BaziQoL.",
+        "muteFailedSpellSounds", -233)
     return page
 end
 
@@ -454,10 +475,22 @@ local function CreateMinimapPage()
         {{"round", "Round"}, {"square", "Square"}})
     Select(general, "AUTO ZOOM OUT", -49, "autoZoom",
         {{0, "Off"}, {5, "5 seconds"}, {10, "10 seconds"}, {30, "30 seconds"}})
+    CreateSlider(general, "MINIMAP ICON SCALE",
+        "Scale player and tracking icons (1.0 - 2.5).",
+        1.0, 2.5, 0.1, db.iconScale, -106, function(value)
+            db.iconScale = value
+            if addon.Minimap then addon.Minimap:Apply() end
+        end)
+    CreateSlider(general, "MINIMAP WINDOW SCALE",
+        "Resize the entire minimap and its frame (0.7 - 1.5).",
+        0.7, 1.5, 0.05, db.mapScale, -169, function(value)
+            db.mapScale = value
+            if addon.Minimap then addon.Minimap:Apply() end
+        end)
     local note = CreateLabel(general,
         "Map shape and Enable Minimap require /reload to restore Blizzard's map safely.",
         "GameFontHighlightSmall")
-    note:SetPoint("TOPLEFT", general, "TOPLEFT", 12, -110)
+    note:SetPoint("TOPLEFT", general, "TOPLEFT", 12, -245)
     note:SetWidth(340)
     note:SetJustifyH("LEFT")
     local function Planned(parent, title, description)
