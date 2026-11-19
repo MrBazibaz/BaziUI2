@@ -21,6 +21,7 @@ local defaults = {
             clockFont = {font = "GLOBAL", outline = "NONE", size = 12, shadow = true},
             infoFont = {font = "GLOBAL", outline = "NONE", size = 11, shadow = true},
         },
+        unitframes = {player=false, target=false, focus=false, pet=false, scale=1},
         tooltip = {
             enabled = true, anchor = "corner", x = -30, y = 130,
             scale = 1, opacity = 1, healthBar = "below",
