@@ -1439,6 +1439,11 @@ function M:Refresh()
                 updateSample(f,i)
             end
             updatePartyCast(f,preview and not exists)
+            -- Preview/live updates may show portrait textures again.
+            -- Raid intentionally has no portrait, ring, level disc or portrait decorations.
+            for _,region in ipairs({f.portrait,f.portraitBack,f.rim,f.model,f.roleArt,f.levelDisc,f.level,f.classIcon,f.pvpIcon,f.leaderIcon,f.roleIcon,f.happinessIcon}) do
+                if region then region:Hide() end
+            end
             if f.liveAuras then
                 for _,kind in ipairs({"buffs","debuffs"}) do
                     local entry=f.liveAuras[kind]
