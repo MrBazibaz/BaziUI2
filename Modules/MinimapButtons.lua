@@ -207,19 +207,6 @@ function M:Apply()
         end
         M.Launcher:SetShown(show)
     end
-    if M.MouseSurface then
-        local active = cfg.enabled and cfg.microMenu
-        M.MouseSurface:EnableMouse(active)
-        if M.MouseSurface.SetMouseClickEnabled then M.MouseSurface:SetMouseClickEnabled(active) end
-        -- FlareUI UpdateMapMouse: pass through every button except enabled middle click.
-        if M.MouseSurface.SetPassThroughButtons and not (InCombatLockdown and InCombatLockdown()) then
-            if active then
-                M.MouseSurface:SetPassThroughButtons("Button4", "Button5", "LeftButton", "RightButton")
-            else
-                M.MouseSurface:SetPassThroughButtons("Button4", "Button5", "LeftButton", "RightButton", "MiddleButton")
-            end
-        end
-    end
     if M.Menu and not cfg.microMenu then M.Menu:Hide() end
 end
 function M:Initialize()
@@ -227,53 +214,19 @@ function M:Initialize()
     self.initialized = true
     makeLauncher()
     makeMenu()
-    -- FlareUI Modules/Minimap.lua: CreateMapSurface / UpdateMapMouse.
-    -- Use the game's minimap frame, not our artwork or an independent click hook.
-    local target = _G.MinimapFrame or map
-    local surface = CreateFrame("Frame", nil, target)
-    surface:SetAllPoints(target)
-    surface:SetFrameLevel(target:GetFrameLevel() + 10)
-    surface:EnableMouse(true)
-    if surface.SetMouseClickEnabled then surface:SetMouseClickEnabled(true) end
-    if surface.SetMouseMotionEnabled then surface:SetMouseMotionEnabled(true) end
-    if surface.SetPropagateMouseMotion then surface:SetPropagateMouseMotion(true) end
-    surface:SetScript("OnMouseUp", function(_, button)
+    -- Restore the original Bazi UI direct minimap handler (fb0ce0168).
+    -- Do not place an invisible mouse-catching frame over the minimap.
+    map:EnableMouse(true)
+    if map.RegisterForClicks then map:RegisterForClicks("AnyUp") end
+    map:HookScript("OnMouseUp", function(_, button)
         local cfg = db()
-        if button == "MiddleButton" then
-            addon:Print("Middle click received; enabled=" .. tostring(cfg and cfg.enabled) .. ", microMenu=" .. tostring(cfg and cfg.microMenu))
-            if cfg and cfg.enabled and cfg.microMenu then
-                if InCombatLockdown() then return end
-                if M.Menu:IsShown() then M.Menu:Hide(); return end
-                local x, y = GetCursorPosition()
-                local scale = M.Menu:GetEffectiveScale()
-                M.Menu:ClearAllPoints()
-                M.Menu:SetPoint("TOPRIGHT", UIParent, "BOTTOMLEFT", x / scale, y / scale)
-                M.Menu:Show()
-                addon:Print("Micro menu shown=" .. tostring(M.Menu:IsShown()))
-            end
-            return
-        end
+        if button ~= "MiddleButton" or not cfg or not cfg.enabled or not cfg.microMenu then return end
+        if InCombatLockdown and InCombatLockdown() then return end
+        if M.Menu:IsShown() then M.Menu:Hide(); return end
+        M.Menu:ClearAllPoints()
+        M.Menu:SetPoint("TOPLEFT", map, "TOPRIGHT", 8, 0)
+        M.Menu:Show()
     end)
-    -- Diagnostic: determine which actual minimap layer receives middle clicks.
-    -- HookScript preserves Blizzard's existing map behavior.
-    local function traceMapClick(self, button)
-        if button == "MiddleButton" then
-            addon:Print("Minimap click reached " .. tostring(self:GetName() or "unnamed frame"))
-        end
-    end
-    map:HookScript("OnMouseDown", traceMapClick)
-    map:HookScript("OnMouseUp", traceMapClick)
-    if target ~= map then
-        target:HookScript("OnMouseDown", traceMapClick)
-        target:HookScript("OnMouseUp", traceMapClick)
-    end
-    surface:HookScript("OnMouseDown", traceMapClick)
-    M.MouseSurface = surface
-    local events = CreateFrame("Frame")
-    events:RegisterEvent("PLAYER_ENTERING_WORLD")
-    events:RegisterEvent("ZONE_CHANGED_NEW_AREA")
-    events:RegisterEvent("PLAYER_REGEN_ENABLED")
-    events:SetScript("OnEvent", function() M:Apply() end)
     if M.Launcher then
         M.Launcher:HookScript("OnEnter", function() M:Apply() end)
         M.Launcher:HookScript("OnLeave", function() M:Apply() end)
