@@ -108,6 +108,40 @@ local function styleAuraText(text, opt, field, fallback)
     text:SetFont(font, size, "OUTLINE")
     text:SetTextColor(1, 0.94, 0.72, 1)
 end
+-- Format Blizzard's already-rendered duration text, not protected aura data.
+-- If the client returns an inaccessible value, leave the native text visible.
+local function updateSplitDuration(texts, opt)
+    local source = texts.duration
+    local ok, raw = pcall(source.GetText, source)
+    if not ok or type(raw) ~= "string" or (issecretvalue and issecretvalue(raw))
+        or (canaccessvalue and not canaccessvalue(raw)) then
+        source:SetAlpha(1)
+        texts.number:SetText("")
+        texts.unit:SetText("")
+        return
+    end
+    local value, suffix = raw:match("^%s*(%d+)%s*([smhdSMHD]?)%s*$")
+    if not value then
+        source:SetAlpha(1)
+        texts.number:SetText("")
+        texts.unit:SetText("")
+        return
+    end
+    local numberSize = math.max(0, math.min(24, tonumber(opt.durationFontSize) or 12))
+    local unitSize = math.max(0, math.min(24, tonumber(opt.unitFontSize) or 7))
+    source:SetAlpha(0)
+    texts.number:SetText(numberSize > 0 and value or "")
+    texts.unit:SetText(unitSize > 0 and suffix:lower() ~= "s" and suffix:lower() or "")
+    styleAuraText(texts.number, opt, "durationFontSize", 12)
+    styleAuraText(texts.unit, opt, "unitFontSize", 7)
+    if texts.unit:GetText() == "" then
+        texts.number:ClearAllPoints()
+        texts.number:SetPoint("CENTER", texts.button, "CENTER", 0, 0)
+    else
+        texts.number:ClearAllPoints()
+        texts.number:SetPoint("CENTER", texts.button, "CENTER", 0, 4)
+    end
+end
 local function addAuraBorder(parent)
     -- Thin inset frame, using the built-in nine-slice tooltip border.
     -- Unlike UI-Quickslot2 this does not draw a giant square over the icon.
@@ -144,7 +178,19 @@ local function initializeAuraButton(button, size, opt, entry)
     if button.SetDurationText then pcall(button.SetDurationText, button, duration)
     elseif button.SetAuraDurationText then pcall(button.SetAuraDurationText, button, duration) end
     pcall(button.SetDurationCooldown, button, cooldown)
-    entry.texts[#entry.texts + 1] = {duration=duration, count=count}
+    local number = button:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    number:SetPoint("CENTER", button, "CENTER", 0, 4)
+    local unit = button:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    unit:SetPoint("TOP", number, "BOTTOM", 0, 1)
+    local texts = {button=button, duration=duration, count=count, number=number, unit=unit}
+    entry.texts[#entry.texts + 1] = texts
+    local elapsedTotal = 0
+    button:HookScript("OnUpdate", function(_, elapsed)
+        elapsedTotal = elapsedTotal + elapsed
+        if elapsedTotal < 0.15 then return end
+        elapsedTotal = 0
+        updateSplitDuration(texts, opt)
+    end)
 end
 
 local function createLiveAuras(f)
@@ -186,7 +232,8 @@ local function updateLiveAuras(f)
             local c = entry.frame
             local opt = own["aura_" .. kind] or {}
             for _, texts in ipairs(entry.texts) do
-                styleAuraText(texts.duration, opt, "durationFontSize", 10)
+                styleAuraText(texts.duration, opt, "durationFontSize", 12)
+                updateSplitDuration(texts, opt)
                 styleAuraText(texts.count, opt, "stackFontSize", 11)
             end
             local enabled = opt.enabled
