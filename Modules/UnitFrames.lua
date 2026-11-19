@@ -423,7 +423,7 @@ local function create(key, spec)
     f.leaderIcon = icon(-25, 25, "Interface\\GroupFrame\\UI-Group-LeaderIcon")
     f.raidIcon = icon(0, 33, "Interface\\TargetingFrame\\UI-RaidTargetingIcons")
     f.roleIcon = icon(26, -23, "Interface\\LFGFrame\\UI-LFG-ICON-PORTRAITROLES")
-    f.classIcon = icon(-26, -23, "Interface\\TargetingFrame\\UI-TargetingFrame-Skull")
+    -- Use Blizzard\'s original elite dragon artwork instead of the skull marker.\n    f.classIcon = icon(-26, -23, "Interface\\TargetingFrame\\UI-TargetingFrame-Elite")
     -- Indicators are layered above the portrait rim and badge.
     local indicatorLayer = CreateFrame("Frame", nil, portraitLayer)
     indicatorLayer:SetAllPoints(portraitLayer)
