@@ -85,6 +85,7 @@ function M:CopyMember(kind,sourceKind,sourceIndex,targetIndex)
     keep.offsetX,keep.offsetY=offsetX,offsetY
     self:Refresh()
     if kind=="party" and addon.PartyFrames then addon.PartyFrames:Refresh() end
+    if kind=="raid" and addon.RaidFrames then addon.RaidFrames:Refresh() end
     if kind=="boss" and addon.BossFrames then addon.BossFrames:Refresh() end
     return true
 end
@@ -106,6 +107,7 @@ function M:ApplyToAll(kind,sourceIndex)
     end
     self:Refresh()
     if kind=="party" and addon.PartyFrames then addon.PartyFrames:Refresh() end
+    if kind=="raid" and addon.RaidFrames then addon.RaidFrames:Refresh() end
     return true
 end
 local function createMember(kind, index)
@@ -441,7 +443,10 @@ end
 function M:Refresh()
     if addon.PartyFrames then addon.PartyFrames:Refresh() end
     if safeCombat() then return end
-    for _,kind in ipairs({"raid"}) do
+    -- Legacy raid frames are retired; the dedicated RaidFrames renderer owns raid units.
+    for _,f in ipairs(groups.raid or {}) do f:Hide() end
+    if addon.RaidFrames then addon.RaidFrames:Refresh() end
+    for _,kind in ipairs({}) do
         local opt = config(kind)
         if opt then
             groups[kind] = groups[kind] or {}
@@ -473,6 +478,7 @@ function M:Initialize()
     self.initialized=true
     if addon.PartyFrames then addon.PartyFrames:Initialize() end
     if addon.BossFrames then addon.BossFrames:Initialize() end
+    if addon.RaidFrames then addon.RaidFrames:Initialize() end
     local events=CreateFrame("Frame")
     for _,event in ipairs({"PLAYER_ENTERING_WORLD","GROUP_ROSTER_UPDATE","PLAYER_REGEN_ENABLED","UNIT_HEALTH","UNIT_MAXHEALTH","UNIT_POWER_UPDATE","UNIT_MAXPOWER","UNIT_NAME_UPDATE","UNIT_AURA","RAID_TARGET_UPDATE","PLAYER_ROLES_ASSIGNED","UNIT_FLAGS"}) do
         events:RegisterEvent(event)
