@@ -137,15 +137,17 @@ local function create(key, spec)
     f.level = level
     local hp = CreateFrame("StatusBar", nil, f)
     hp:SetStatusBarTexture("Interface\\Buttons\\WHITE8X8")
-    hp:SetPoint("TOPLEFT", f, "TOPLEFT", side == "LEFT" and 49 or 6, -5)
-    hp:SetPoint("TOPRIGHT", f, "TOPRIGHT", side == "LEFT" and -6 or -49, -5)
-    hp:SetHeight(26)
+    -- Inset the actual bar fills inside the thin tooltip-style border.
+    -- Moving the border alone leaves square statusbar corners exposed.
+    hp:SetPoint("TOPLEFT", f, "TOPLEFT", side == "LEFT" and 53 or 9, -8)
+    hp:SetPoint("TOPRIGHT", f, "TOPRIGHT", side == "LEFT" and -9 or -53, -8)
+    hp:SetHeight(23)
     f.health = hp
     local pp = CreateFrame("StatusBar", nil, f)
     pp:SetStatusBarTexture("Interface\\Buttons\\WHITE8X8")
     pp:SetPoint("TOPLEFT", hp, "BOTTOMLEFT", 0, -1)
     pp:SetPoint("TOPRIGHT", hp, "BOTTOMRIGHT", 0, -1)
-    pp:SetHeight(11)
+    pp:SetHeight(9)
     f.power = pp
     local divider = border:CreateTexture(nil, "OVERLAY")
     divider:SetColorTexture(0.22, 0.16, 0.10, 1)
