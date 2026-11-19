@@ -1,7 +1,7 @@
 ## Interface: 16001
 ## Title: Bazi UI
 ## Notes: A clean, modular World of Warcraft UI.
-## IconTexture: Interface\\AddOns\\BaziUI\\Assets\\Icons\\BaziUI_Emblem_64.png
+## IconTexture: Interface\AddOns\BaziUI\Assets\Icons\BaziUI_Emblem_64
 ## Author: Bazi
 ## Version: 0.1.3
 ## SavedVariables: BaziUIDB
