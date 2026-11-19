@@ -312,6 +312,12 @@ function MM:Initialize()
     end
     if hooksecurefunc then hooksecurefunc(map, "SetZoom", onZoom) end
     applyScales()
+    -- Blizzard's Edit Mode can reapply its own icon scale after login.
+    -- Reassert the saved setting once the UI has settled.
+    if C_Timer and C_Timer.After then
+        C_Timer.After(1, applyScales)
+        C_Timer.After(3, applyScales)
+    end
 end
 function MM:Apply()
     -- Shape changes are applied on reload to avoid leaving Blizzard's artwork detached.
