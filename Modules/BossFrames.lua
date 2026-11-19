@@ -1369,8 +1369,17 @@ local function updateSample(f,index)
     end
     if f.model then f.model:Hide() end
     if f.portrait then f.portrait:SetShown(not (f.roleArt and f.roleArt:IsShown())) end
-    for _,field in ipairs({"pvpIcon","leaderIcon","raidIcon","roleIcon","classIcon","happinessIcon"}) do
+    -- Preview Boss markers are intentional: do not hide them at the end.
+    for _,field in ipairs({"pvpIcon","leaderIcon","roleIcon","happinessIcon"}) do
         if f[field] then f[field]:Hide() end
+    end
+    if f.raidIcon then
+        f.raidIcon:SetShown(own.showRaidMarker~=false and index==4)
+        if index==4 and SetRaidTargetIconTexture then SetRaidTargetIconTexture(f.raidIcon,1) end
+    end
+    if f.classIcon then
+        f.classIcon:SetShown(own.showClassification~=false)
+        f.classIcon:SetSize(tonumber(own.classificationSize) or 64,tonumber(own.classificationSize) or 64)
     end
     -- No miniature role overlay: Show Role controls the portrait itself.
 end
