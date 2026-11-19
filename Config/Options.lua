@@ -358,6 +358,18 @@ local function CreateUnitFramesPage()
                 page:HookScript("OnShow", function() check:SetChecked(db[key] == true) end)
                 check:SetChecked(db[key] == true)
             end
+            local move = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
+            move:SetSize(25,25)
+            move:SetPoint("TOPLEFT", panel, "TOPLEFT", 16, -248)
+            local moveLabel = CreateLabel(panel, "Move UnitFrames", "GameFontHighlight")
+            moveLabel:SetPoint("LEFT", move, "RIGHT", 5, 0)
+            move:SetScript("OnClick", function(self)
+                if not addon.UnitFrames:SetMoveMode(self:GetChecked()) then
+                    self:SetChecked(addon.UnitFrames:IsMoveMode())
+                    addon:Print("Cannot move unit frames during combat.")
+                end
+            end)
+            page:HookScript("OnShow", function() move:SetChecked(addon.UnitFrames:IsMoveMode()) end)
         else
             db.frames = db.frames or {}
             local own = db.frames[key] or {}
@@ -388,6 +400,52 @@ local function CreateUnitFramesPage()
             end
             syncControls[name] = function()
                 for _, refresh in ipairs(refreshers) do refresh() end
+            end
+            -- Center-relative pixel coordinates, independent for each unit.
+            local function coordField(axis, offset)
+                local title = CreateLabel(panel, "FRAME " .. string.upper(axis), "GameFontNormal")
+                title:SetPoint("TOPLEFT", panel, "TOPLEFT", offset, -493)
+                title:SetTextColor(1, 0.79, 0.42)
+                local edit = CreateFrame("EditBox", nil, panel, "InputBoxTemplate")
+                edit:SetSize(82, 26)
+                edit:SetPoint("TOPLEFT", panel, "TOPLEFT", offset, -514)
+                edit:SetAutoFocus(false)
+                edit:SetNumeric(false)
+                edit:SetScript("OnEditFocusGained", function(self) self:HighlightText() end)
+                local function commit(self)
+                    local value = tonumber(self:GetText())
+                    if value and addon.UnitFrames then
+                        local x = own.x
+                        local y = own.y
+                        local defaults = {player={-260,-180}, target={260,-180}, focus={260,-250}, pet={-260,-250}}
+                        x = x or defaults[key][1]
+                        y = y or defaults[key][2]
+                        if axis == "x" then x = value else y = value end
+                        addon.UnitFrames:SetPosition(key, x, y)
+                    end
+                    self:ClearFocus()
+                    self:SetText(tostring(own[axis] or 0))
+                end
+                edit:SetScript("OnEnterPressed", commit)
+                edit:SetScript("OnEscapePressed", function(self)
+                    self:ClearFocus()
+                    self:SetText(tostring(own[axis] or 0))
+                end)
+                edit:SetScript("OnEditFocusLost", function(self)
+                    self:SetText(tostring(own[axis] or 0))
+                end)
+                refreshers[#refreshers+1] = function()
+                    if not edit:HasFocus() then edit:SetText(tostring(own[axis] or 0)) end
+                end
+                return edit
+            end
+            local xField = coordField("x", 20)
+            local yField = coordField("y", 140)
+            local previousSync = syncControls[name]
+            syncControls[name] = function()
+                previousSync()
+                xField:SetText(tostring(own.x or ({player=-260,target=260,focus=260,pet=-260})[key]))
+                yField:SetText(tostring(own.y or ({player=-180,target=-180,focus=-250,pet=-250})[key]))
             end
             local portraitToggle = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
             portraitToggle:SetSize(25, 25)
