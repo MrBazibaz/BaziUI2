@@ -16,6 +16,7 @@ Modules\TooltipContents.lua
 Modules\TooltipFonts.lua
 Modules\Minimap.lua
 Modules\MinimapInfo.lua
+Modules\MinimapButtons.lua
 Modules\QoLSounds.lua
 Config\Options.lua
 Core\Commands.lua
