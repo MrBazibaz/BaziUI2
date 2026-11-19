@@ -286,63 +286,171 @@ local function CreateQoLPage()
     SoundCheck("Mute Failed Spell Sounds",
         "Silence the sound played when a spell or ability fails.",
         "muteFailedSpellSounds", -233)
-    -- Resize Options opens a dedicated panel, leaving existing QoL controls intact.
-    local resizeButton = CreateFrame("Button", nil, panel)
-    resizeButton:SetSize(200, 32)
-    resizeButton:SetPoint("TOPLEFT", panel, "TOPLEFT", 22, -300)
-    local resizeFill = resizeButton:CreateTexture(nil, "BACKGROUND")
-    resizeFill:SetAllPoints()
-    resizeFill:SetColorTexture(0.32, 0.17, 0.25, 0.95)
-    local resizeText = CreateLabel(resizeButton, "Resize Options", "GameFontNormal")
-    resizeText:SetPoint("CENTER")
-    resizeText:SetTextColor(1, 0.83, 0.53)
-    local popup = CreateFrame("Frame", nil, page)
-    popup:SetAllPoints(page)
-    popup:SetFrameLevel(page:GetFrameLevel() + 10)
-    local popupPanel = CreatePanel(popup, -12, 395)
-    CreateSection(popupPanel, "RESIZE OPTIONS", -16)
-    local back = CreateFrame("Button", nil, popupPanel)
-    back:SetSize(80, 28)
-    back:SetPoint("TOPRIGHT", popupPanel, "TOPRIGHT", -15, -12)
-    local backText = CreateLabel(back, "Back", "GameFontNormal")
-    backText:SetPoint("CENTER")
-    back:SetScript("OnClick", function() popup:Hide(); panel:Show() end)
-    local hint = CreateLabel(popupPanel,
-        "Enable a window to drag its bottom corners. Uncheck to lock its saved size.",
-        "GameFontHighlightSmall")
-    hint:SetPoint("TOPLEFT", popupPanel, "TOPLEFT", 22, -57)
-    hint:SetTextColor(0.9, 0.77, 0.60)
+    -- Same right-side tabs used by Minimap and Tooltip.
     local resize = addon.WindowResize
-    for i, window in ipairs(resize and resize.windows or {}) do
-        local check = CreateFrame("CheckButton", nil, popupPanel, "UICheckButtonTemplate")
-        check:SetSize(25, 25)
-        check:SetPoint("TOPLEFT", popupPanel, "TOPLEFT", 18, -84 - (i - 1) * 58)
-        local cfg = resize:GetSetting(window.key)
-        check:SetChecked(cfg and cfg.enabled)
-        local caption = CreateLabel(popupPanel, window.label, "GameFontHighlight")
-        caption:SetPoint("LEFT", check, "RIGHT", 7, 0)
-        local scaleText = CreateLabel(popupPanel,
-            string.format("Saved scale: %d%%", math.floor(((cfg and cfg.scale) or 1) * 100 + 0.5)),
-            "GameFontHighlightSmall")
-        scaleText:SetPoint("TOPLEFT", check, "BOTTOMLEFT", 35, -2)
-        scaleText:SetTextColor(0.84, 0.73, 0.59)
+    local resizePanel = CreatePanel(page, -12, 420)
+    resizePanel:Hide()
+    resizePanel:ClearAllPoints()
+    resizePanel:SetPoint("TOPLEFT", page, "TOPLEFT", 12, -12)
+    resizePanel:SetPoint("TOPRIGHT", page, "TOPRIGHT", -12, -12)
+    resizePanel:SetPoint("BOTTOM", page, "BOTTOM", 0, 0)
+    CreateSection(resizePanel, "RESIZE OPTIONS", -14)
+    local help = CreateLabel(resizePanel, "Enable scaling, set a size, and choose whether corners can be dragged.", "GameFontNormalSmall")
+    help:SetPoint("TOPLEFT", resizePanel, "TOPLEFT", 22, -47)
+    help:SetTextColor(0.89, 0.73, 0.52)
+    local tabBar = CreateFrame("Frame", nil, page)
+    tabBar:SetPoint("TOPLEFT", resizePanel, "TOPRIGHT", 25, 0)
+    tabBar:SetSize(108, 58)
+    tabBar:SetFrameStrata("FULLSCREEN_DIALOG")
+    local tabs = {}
+    local active = "General"
+    local function selectTab(name)
+        active = name
+        panel:SetShown(name == "General")
+        resizePanel:SetShown(name == "Resize Options")
+        for key, button in pairs(tabs) do
+            local selected = key == name
+            button.fill:SetColorTexture(selected and 0.34 or 0.23, selected and 0.17 or 0.12,
+                selected and 0.25 or 0.07, 0.98)
+            button.text:SetTextColor(1, selected and 0.85 or 0.8, 0.55)
+        end
+    end
+    for i, name in ipairs({"General", "Resize Options"}) do
+        local tab = CreateFrame("Button", nil, tabBar)
+        tab:SetSize(108, 29)
+        tab:SetPoint("TOPLEFT", tabBar, "TOPLEFT", 0, -(i-1)*29)
+        tab.fill = tab:CreateTexture(nil, "BACKGROUND")
+        tab.fill:SetAllPoints()
+        tab.text = CreateLabel(tab, name, "GameFontNormal")
+        tab.text:SetPoint("CENTER")
+        local edge = tab:CreateTexture(nil, "OVERLAY")
+        edge:SetColorTexture(0.7, 0.49, 0.28, 0.9)
+        edge:SetPoint("TOPLEFT"); edge:SetPoint("TOPRIGHT"); edge:SetHeight(1)
+        tab:SetScript("OnClick", function() selectTab(name) end)
+        tabs[name] = tab
+    end
+    local viewport = CreateFrame("ScrollFrame", nil, resizePanel)
+    viewport:SetPoint("TOPLEFT", resizePanel, "TOPLEFT", 12, -75)
+    viewport:SetPoint("BOTTOMRIGHT", resizePanel, "BOTTOMRIGHT", -30, 12)
+    viewport:EnableMouseWheel(true)
+    local content = CreateFrame("Frame", nil, viewport)
+    content:SetWidth(700)
+    content:SetHeight(#resize.windows * 57 + 10)
+    viewport:SetScrollChild(content)
+    viewport:SetScript("OnSizeChanged", function(self)
+        content:SetWidth(math.max(200, self:GetWidth()))
+    end)
+    local scrollbar = CreateFrame("Slider", nil, resizePanel)
+    scrollbar:SetOrientation("VERTICAL")
+    scrollbar:SetWidth(14)
+    scrollbar:SetPoint("TOPRIGHT", resizePanel, "TOPRIGHT", -10, -75)
+    scrollbar:SetPoint("BOTTOMRIGHT", resizePanel, "BOTTOMRIGHT", -10, 12)
+    local track = scrollbar:CreateTexture(nil, "BACKGROUND")
+    track:SetAllPoints()
+    track:SetColorTexture(0.12, 0.07, 0.04, 0.9)
+    local thumb = scrollbar:CreateTexture(nil, "OVERLAY")
+    thumb:SetSize(14, 38)
+    thumb:SetTexture(ASSET .. "Sliders\\Slider_Gem.png")
+    scrollbar:SetThumbTexture(thumb)
+    local sync = false
+    local function refreshScroll()
+        local limit = math.max(0, content:GetHeight() - viewport:GetHeight())
+        scrollbar:SetMinMaxValues(0, math.max(1, limit))
+        scrollbar:SetShown(limit > 1)
+        if not sync then
+            sync = true
+            scrollbar:SetValue(math.min(limit, viewport:GetVerticalScroll()))
+            sync = false
+        end
+    end
+    scrollbar:SetScript("OnValueChanged", function(_, value)
+        if sync then return end
+        sync = true
+        viewport:SetVerticalScroll(value)
+        sync = false
+    end)
+    viewport:SetScript("OnMouseWheel", function(self, delta)
+        local limit = math.max(0, content:GetHeight() - self:GetHeight())
+        self:SetVerticalScroll(math.max(0, math.min(limit, self:GetVerticalScroll() - delta * 45)))
+        refreshScroll()
+    end)
+    viewport:HookScript("OnVerticalScroll", refreshScroll)
+    viewport:HookScript("OnSizeChanged", refreshScroll)
+    resizePanel:HookScript("OnShow", function() resize:Refresh(); refreshScroll() end)
+    for i, window in ipairs(resize.windows) do
+        local key = window.key
+        local cfg = resize:GetSetting(key)
+        local row = CreateFrame("Frame", nil, content)
+        row:SetPoint("TOPLEFT", content, "TOPLEFT", 6, -6 - (i-1)*57)
+        row:SetPoint("TOPRIGHT", content, "TOPRIGHT", -6, -6 - (i-1)*57)
+        row:SetHeight(51)
+        local fill = row:CreateTexture(nil, "BACKGROUND")
+        fill:SetAllPoints()
+        fill:SetColorTexture(0.25, 0.125, 0.055, 0.65)
+        local check = CreateFrame("CheckButton", nil, row, "UICheckButtonTemplate")
+        check:SetSize(24,24)
+        check:SetPoint("LEFT", row, "LEFT", 8, 0)
+        check:SetChecked(cfg.enabled)
+        local label = CreateLabel(row, window.label, "GameFontNormal")
+        label:SetPoint("LEFT", check, "RIGHT", 5, 0)
+        label:SetTextColor(1, 0.8, 0.47)
+        local drag = CreateFrame("CheckButton", nil, row, "UICheckButtonTemplate")
+        drag:SetSize(23,23)
+        drag:SetPoint("RIGHT", row, "RIGHT", -111, 0)
+        drag:SetChecked(cfg.draggable ~= false)
+        local dragLabel = CreateLabel(row, "Drag", "GameFontNormalSmall")
+        dragLabel:SetPoint("RIGHT", drag, "LEFT", -4, 0)
+        dragLabel:SetTextColor(0.96, 0.78, 0.53)
+        local valueBox = CreateFrame("EditBox", nil, row)
+        valueBox:SetSize(48, 24)
+        valueBox:SetPoint("RIGHT", row, "RIGHT", -27, 0)
+        valueBox:SetAutoFocus(false)
+        valueBox:SetNumeric(true)
+        valueBox:SetMaxLetters(3)
+        valueBox:SetFontObject("GameFontNormal")
+        valueBox:SetTextColor(1, 0.81, 0.45)
+        valueBox:SetJustifyH("CENTER")
+        local bg = valueBox:CreateTexture(nil, "BACKGROUND")
+        bg:SetAllPoints()
+        bg:SetColorTexture(0.11, 0.065, 0.04, 0.95)
+        local percent = CreateLabel(row, "%", "GameFontNormal")
+        percent:SetPoint("LEFT", valueBox, "RIGHT", 3, 0)
+        percent:SetTextColor(0.95, 0.77, 0.47)
+        local function updateText()
+            local setting = resize:GetSetting(key)
+            if setting and not valueBox:HasFocus() then
+                valueBox:SetText(tostring(math.floor((setting.scale or 1)*100+0.5)))
+            end
+        end
         check:SetScript("OnClick", function(self)
-            local setting = resize:GetSetting(window.key)
-            if not setting then return end
+            local setting = resize:GetSetting(key)
             setting.enabled = not not self:GetChecked()
             resize:Refresh()
         end)
-        popup:HookScript("OnShow", function()
-            local setting = resize:GetSetting(window.key)
-            if setting then
-                check:SetChecked(setting.enabled)
-                scaleText:SetText(string.format("Saved scale: %d%%", math.floor((setting.scale or 1) * 100 + 0.5)))
-            end
+        drag:SetScript("OnClick", function(self)
+            local setting = resize:GetSetting(key)
+            setting.draggable = not not self:GetChecked()
+            resize:Refresh()
         end)
+        local function commit()
+            local value = tonumber(valueBox:GetText())
+            if value then resize:SetScale(key, value) end
+            valueBox:ClearFocus()
+            updateText()
+        end
+        valueBox:SetScript("OnEnterPressed", commit)
+        valueBox:SetScript("OnEscapePressed", function(self) self:ClearFocus(); updateText() end)
+        valueBox:SetScript("OnEditFocusLost", updateText)
+        resizePanel:HookScript("OnShow", function()
+            local setting = resize:GetSetting(key)
+            check:SetChecked(setting.enabled)
+            drag:SetChecked(setting.draggable ~= false)
+            updateText()
+        end)
+        updateText()
     end
-    popup:Hide()
-    resizeButton:SetScript("OnClick", function() panel:Hide(); popup:Show() end)
-    page:HookScript("OnHide", function() popup:Hide(); panel:Show() end)
+    selectTab("General")
+    page:HookScript("OnShow", function() selectTab("General") end)
     return page
 end
 
