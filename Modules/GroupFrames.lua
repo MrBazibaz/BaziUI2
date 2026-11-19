@@ -38,6 +38,12 @@ local function createMember(kind, index)
         portrait = frame:CreateTexture(nil,"ARTWORK")
         portrait:SetSize(42,42)
     end
+    local hpText = frame:CreateFontString(nil,"OVERLAY","GameFontNormalSmall")
+    hpText:SetPoint("RIGHT",hp,"RIGHT",-3,0)
+    frame.hpText = hpText
+    local powerText = frame:CreateFontString(nil,"OVERLAY","GameFontNormalSmall")
+    powerText:SetPoint("RIGHT",power,"RIGHT",-3,0)
+    frame.powerText = powerText
     frame.unitToken = unit
     frame.hp,frame.power,frame.label,frame.portrait = hp,power,name,portrait
     frame:Hide()
@@ -66,7 +72,10 @@ local function layoutMember(f, kind, index, opt)
     f.label:SetPoint("CENTER",f.hp,"CENTER")
     local font,size,flags = f.label:GetFont()
     if font then f.label:SetFont(font,math.max(0,tonumber(opt.fontSize) or 11),flags) end
-    f.label:SetShown((tonumber(opt.fontSize) or 11)>0)
+    f.hpText:SetShown(opt.showHealthPercent == true)
+    f.powerText:SetShown(opt.showPowerPercent == true and opt.showPower ~= false)
+    f.label:SetShown(opt.showName ~= false and (tonumber(opt.fontSize) or 11)>0)
+    f.power:SetShown(opt.showPower ~= false)
     local gap = tonumber(opt.spacing) or 8
     f:ClearAllPoints()
     if kind=="boss" then
@@ -92,6 +101,8 @@ local function updateMember(f, preview)
         f.power:SetMinMaxValues(0,100)
         f.power:SetValue(60)
         f.label:SetText("Preview " .. f.unitToken)
+        f.hpText:SetText("75%")
+        f.powerText:SetText("60%")
         if f.portrait then f.portrait:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark") end
         return
     end
@@ -101,6 +112,9 @@ local function updateMember(f, preview)
     f.power:SetMinMaxValues(0,UnitPowerMax(f.unitToken))
     f.power:SetValue(UnitPower(f.unitToken))
     f.label:SetText(UnitName(f.unitToken) or "")
+    -- Health and power values can be protected in Forever; do not perform Lua arithmetic on them.
+    f.hpText:SetText("")
+    f.powerText:SetText("")
     if f.portrait then SetPortraitTexture(f.portrait,f.unitToken) end
 end
 function M:Refresh()
