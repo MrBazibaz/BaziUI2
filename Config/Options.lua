@@ -80,8 +80,7 @@ local function CreateSlider(parent, labelText, description, minValue, maxValue, 
     hint:SetTextColor(0.91, 0.78, 0.61, 1)
     local valueText
     local valueBox
-    if labelText == "WINDOW SCALE" or labelText == "FONT SIZE"
-        or labelText == "MINIMAP ICON SCALE" or labelText == "MINIMAP WINDOW SCALE" then
+    if true then -- All numeric sliders support direct keyboard entry.
         valueBox = CreateFrame("EditBox", nil, row)
         valueBox:SetSize(36, 19)
         valueBox:SetPoint("RIGHT", row, "RIGHT", -13, 0)
@@ -341,7 +340,7 @@ local function CreateMinimapPage()
         end
         for name, panel in pairs(tabPanels) do panel:SetShown(name == activeTab) end
         -- Compact tabs fit their contents; long tabs retain the scroll area.
-        local heights = {General = 430, ["Map Info"] = 352, Buttons = 265, Visibility = 315}
+        local heights = {General = 430, ["Map Info"] = 352, Buttons = 265, Visibility = 430, Fonts = 600}
         local compact = heights[activeTab]
         main:SetPoint("BOTTOM", page, compact and "TOP" or "BOTTOM",
             0, compact and -compact or 0)
@@ -389,7 +388,7 @@ local function CreateMinimapPage()
         if viewport.SetClipsChildren then viewport:SetClipsChildren(true) end
         viewport:EnableMouseWheel(true)
         local panel = CreateFrame("Frame", nil, viewport)
-        panel:SetHeight(600)
+        panel:SetHeight(name == "Fonts" and 600 or 430)
         panel:SetWidth(math.max(1, viewport:GetWidth()))
         viewport:SetScrollChild(panel)
         viewport:SetScript("OnSizeChanged", function(self)
@@ -599,26 +598,27 @@ local function CreateMinimapPage()
             b:SetScript("OnClick", function() menu:SetShown(not menu:IsShown()) end)
             refresh()
         end
-        fontSelect("FONT", y-29, "font", fontChoices)
-        fontSelect("OUTLINE", y-74, "outline", outlineChoices)
-        CreateSlider(fonts, "SIZE", "Text size", 8, 30, 1, cfg.size, y-119, function(value)
+        fontSelect("FONT", y-24, "font", fontChoices)
+        fontSelect("OUTLINE", y-61, "outline", outlineChoices)
+        CreateSlider(fonts, "SIZE", "Text size", 8, 30, 1, cfg.size, y-99, function(value)
             cfg.size = value
             if addon.MinimapInfo then addon.MinimapInfo:ApplyFonts() end
         end)
         local shadow = CreateFrame("CheckButton", nil, fonts, "UICheckButtonTemplate")
-        shadow:SetPoint("TOPLEFT", fonts, "TOPLEFT", 14, y-190)
+        shadow:SetPoint("TOPLEFT", fonts, "TOPLEFT", 14, y-155)
         shadow:SetChecked(cfg.shadow)
-        local label = CreateLabel(fonts, "Shadow", "GameFontHighlight")
+        local label = CreateLabel(fonts, "Shadow", "GameFontNormal")
         label:SetPoint("LEFT", shadow, "RIGHT", 6, 0)
+        label:SetTextColor(1, 0.79, 0.42)
         shadow:SetScript("OnClick", function(self)
             cfg.shadow = not not self:GetChecked()
             if addon.MinimapInfo then addon.MinimapInfo:ApplyFonts() end
         end)
     end
     FontGroup("ZONE TEXT", -10, "zoneFont")
-    FontGroup("CLOCK", -265, "clockFont")
-    FontGroup("INFO TEXT", -520, "infoFont")
-    fonts:SetHeight(820)
+    FontGroup("CLOCK", -195, "clockFont")
+    FontGroup("INFO TEXT", -380, "infoFont")
+    fonts:SetHeight(580)
     RefreshTabs()
     return page
 end
