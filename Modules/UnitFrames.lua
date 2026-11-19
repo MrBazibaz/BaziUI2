@@ -208,14 +208,48 @@ local function update(f)
     f.model:Hide()
     f.portrait:Show()
     if f.level then f.level:SetText(UnitLevel(f.unit)) end
-    -- Pets have no player class colour.
+    -- Smooth health coloring through Blizzard's native color curves.
+    -- UnitHealthPercent accepts a curve without exposing protected HP numbers to Lua.
     local _, class = UnitClass(f.unit)
     if f.unit == "pet" then class = nil end
-    local color = class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
-    if color then
-        f.health:SetStatusBarColor(color.r * 0.53, color.g * 0.53, color.b * 0.53)
+    local classColor = class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
+    local cr, cg, cb = 0.40, 0.37, 0.29
+    if classColor then
+        cr, cg, cb = classColor.r * 0.53, classColor.g * 0.53, classColor.b * 0.53
+    end
+    if C_CurveUtil and C_CurveUtil.CreateColorCurve and Enum and Enum.LuaCurveType and CreateColor and UnitHealthPercent then
+        if not f.healthCurve or f.healthCurveClass ~= class then
+            local curve = C_CurveUtil.CreateColorCurve()
+            curve:SetType(Enum.LuaCurveType.Linear)
+            curve:AddPoint(0, CreateColor(0.80, 0.08, 0.06))
+            curve:AddPoint(0.30, CreateColor(0.95, 0.36, 0.07))
+            curve:AddPoint(0.55, CreateColor(0.98, 0.78, 0.12))
+            curve:AddPoint(0.79, CreateColor(0.98, 0.78, 0.12))
+            curve:AddPoint(0.80, CreateColor(cr, cg, cb))
+            curve:AddPoint(1, CreateColor(cr, cg, cb))
+            f.healthCurve = curve
+            f.healthCurveClass = class
+        end
+        local color = UnitHealthPercent(f.unit, false, f.healthCurve)
+        f.health:GetStatusBarTexture():SetVertexColor(color:GetRGB())
+    elseif not (issecretvalue and (issecretvalue(health) or issecretvalue(maximum))) then
+        local ratio = maximum > 0 and math.max(0, math.min(1, health / maximum)) or 0
+        local points = {
+            {0, 0.80, 0.08, 0.06}, {0.30, 0.95, 0.36, 0.07},
+            {0.55, 0.98, 0.78, 0.12}, {0.79, 0.98, 0.78, 0.12},
+            {0.80, cr, cg, cb}, {1, cr, cg, cb},
+        }
+        for i = 2, #points do
+            local hi, lo = points[i], points[i-1]
+            if ratio <= hi[1] then
+                local t = (ratio - lo[1]) / (hi[1] - lo[1])
+                f.health:SetStatusBarColor(lo[2]+(hi[2]-lo[2])*t, lo[3]+(hi[3]-lo[3])*t, lo[4]+(hi[4]-lo[4])*t)
+                break
+            end
+        end
     else
-        f.health:SetStatusBarColor(0.40, 0.37, 0.29)
+        -- Older clients without ColorCurve cannot safely inspect secret HP.
+        f.health:SetStatusBarColor(cr, cg, cb)
     end
     local kind = UnitPowerType(f.unit)
     local c = PowerBarColor and PowerBarColor[kind]
@@ -318,12 +352,20 @@ local function create(key, spec)
     hp:SetPoint("TOPRIGHT", f, "TOPRIGHT", side == "LEFT" and -9 or -53, -8)
     hp:SetHeight(23)
     f.health = hp
+    local hpBackground = hp:CreateTexture(nil, "BACKGROUND")
+    hpBackground:SetAllPoints(hp)
+    hpBackground:SetColorTexture(0.085, 0.065, 0.045, 1)
+    f.hpBackground = hpBackground
     local pp = CreateFrame("StatusBar", nil, f)
     pp:SetStatusBarTexture("Interface\\Buttons\\WHITE8X8")
     pp:SetPoint("TOPLEFT", hp, "BOTTOMLEFT", 0, -1)
     pp:SetPoint("TOPRIGHT", hp, "BOTTOMRIGHT", 0, -1)
     pp:SetHeight(9)
     f.power = pp
+    local powerBackground = pp:CreateTexture(nil, "BACKGROUND")
+    powerBackground:SetAllPoints(pp)
+    powerBackground:SetColorTexture(0.065, 0.055, 0.075, 1)
+    f.powerBackground = powerBackground
     local divider = border:CreateTexture(nil, "OVERLAY")
     divider:SetColorTexture(0.22, 0.16, 0.10, 1)
     divider:SetHeight(2)
