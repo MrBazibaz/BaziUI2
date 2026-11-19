@@ -385,7 +385,7 @@ local function CreateUnitFramesPage()
             -- Compact subnavigation: each category has its own canvas.
             local rootPanel = panel
             local groups = {}
-            for _, category in ipairs((name == "Target" and {"Layout", "Indicators", "Bar Text", "Fonts", "Buffs / Debuffs"} or {"Layout", "Indicators", "Bar Text", "Fonts"})) do
+            for _, category in ipairs({"Layout", "Indicators", "Bar Text", "Fonts", "Buffs / Debuffs"}) do
                 local canvas = CreateFrame("Frame", nil, rootPanel)
                 canvas:SetPoint("TOPLEFT", rootPanel, "TOPLEFT", 0, -49)
                 canvas:SetPoint("TOPRIGHT", rootPanel, "TOPRIGHT", 0, -49)
@@ -406,10 +406,10 @@ local function CreateUnitFramesPage()
                 rootPanel:SetHeight(category == "Indicators" and (name == "Pet" and 950 or 610) or (category == "Buffs / Debuffs" and 750 or (category == "Layout" and 540 or 490)))
                 viewport:SetVerticalScroll(0)
             end
-            for i, category in ipairs((name == "Target" and {"Layout", "Indicators", "Bar Text", "Fonts", "Buffs / Debuffs"} or {"Layout", "Indicators", "Bar Text", "Fonts"})) do
+            for i, category in ipairs({"Layout", "Indicators", "Bar Text", "Fonts", "Buffs / Debuffs"}) do
                 local button = CreateFrame("Button", nil, rootPanel)
-                button:SetSize(name == "Target" and 94 or 112, 30)
-                button:SetPoint("TOPLEFT", rootPanel, "TOPLEFT", 12 + (i-1)*(name == "Target" and 96 or 119), -5)
+                button:SetSize(94, 30)
+                button:SetPoint("TOPLEFT", rootPanel, "TOPLEFT", 12 + (i-1)*(96), -5)
                 button.fill = button:CreateTexture(nil, "BACKGROUND")
                 button.fill:SetAllPoints()
                 local text = CreateLabel(button, category, "GameFontNormal")
@@ -603,7 +603,7 @@ local function CreateUnitFramesPage()
                 end
             end)
 
-            if name == "Target" then
+            do
                 panel = groups["Buffs / Debuffs"]
                 -- Target-only aura layout previews. They never modify real auras.
                 local function auraPreviewControls(kind, top)
@@ -615,10 +615,21 @@ local function CreateUnitFramesPage()
                     local label = CreateLabel(panel, "Preview " .. kind, "GameFontHighlight")
                     label:SetPoint("LEFT", check, "RIGHT", 4, 0)
                     check:SetScript("OnClick", function(self)
-                        if addon.UnitFrames then addon.UnitFrames:SetTargetAuraPreview(kind, self:GetChecked() == true) end
+                        if addon.UnitFrames then addon.UnitFrames:SetAuraPreview(key, kind, self:GetChecked() == true) end
                     end)
                     local opt = own["aura_" .. kind] or {}
+                    if opt.enabled == nil then opt.enabled = name ~= "Player" end
                     own["aura_" .. kind] = opt
+                    local enable = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
+                    enable:SetSize(24,24)
+                    enable:SetPoint("TOPLEFT", panel, "TOPLEFT", 235, top - 24)
+                    local enableLabel = CreateLabel(panel, "Enable " .. kind, "GameFontHighlight")
+                    enableLabel:SetPoint("LEFT", enable, "RIGHT", 4, 0)
+                    enable:SetChecked(opt.enabled)
+                    enable:SetScript("OnClick", function(self)
+                        opt.enabled = self:GetChecked() == true
+                        if addon.UnitFrames then addon.UnitFrames:Refresh() end
+                    end)
                     local fields = {
                         {"size", "SIZE", 12, 48, 24}, {"count", "COUNT", 0, 40, 12},
                         {"perRow", "PER ROW", 1, 20, 6}, {"spacing", "GAP", 0, 20, 2},
@@ -667,7 +678,7 @@ local function CreateUnitFramesPage()
                     direction("vertical", 235)
                     viewport:HookScript("OnHide", function()
                         check:SetChecked(false)
-                        if addon.UnitFrames then addon.UnitFrames:SetTargetAuraPreview(kind, false) end
+                        if addon.UnitFrames then addon.UnitFrames:SetAuraPreview(key, kind, false) end
                     end)
                 end
                 auraPreviewControls("buffs", -20)
