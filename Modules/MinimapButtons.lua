@@ -17,7 +17,6 @@ local entries = {
     {"Guild", "GuildMicroButton", "Interface\\Icons\\INV_Banner_03"},
     {"Group Finder", "LFDMicroButton", "Interface\\Icons\\INV_Misc_GroupLooking"},
     {"Collections", "CollectionsMicroButton", "Interface\\Icons\\INV_Misc_Pet_01"},
-    {"Adventure Guide", "EJMicroButton", "Interface\\Icons\\INV_Misc_Book_11"},
     {"Game Menu", "MainMenuMicroButton", "Interface\\Icons\\INV_Misc_Gear_01"},
 }
 local function toggleOptions()
@@ -78,9 +77,10 @@ local function makeMenu()
     menu:SetBackdropBorderColor(0.8,0.61,0.32,1)
     local rows, width = 0, 0
     for _, entry in ipairs(entries) do
-        if _G[entry[2]] then
+        if _G[entry[2]] or entry[1] == "Game Menu" then
             rows = rows + 1
-            local button = CreateFrame("Button", nil, menu, "SecureActionButtonTemplate")
+            local gameMenu = entry[1] == "Game Menu"
+            local button = CreateFrame("Button", nil, menu, gameMenu and nil or "SecureActionButtonTemplate")
             button:SetHeight(22)
             button:SetPoint("TOPLEFT", menu, "TOPLEFT", 8, -8-(rows-1)*22)
             button:SetPoint("TOPRIGHT", menu, "TOPRIGHT", -8, -8-(rows-1)*22)
@@ -92,9 +92,22 @@ local function makeMenu()
             label:SetPoint("LEFT",icon,"RIGHT",6,0)
             label:SetText(entry[1])
             width = math.max(width,label:GetStringWidth()+28)
-            button:RegisterForClicks("AnyUp","AnyDown")
-            button:SetAttribute("type","macro")
-            button:SetAttribute("macrotext","/click "..entry[2])
+            if gameMenu then
+                button:RegisterForClicks("LeftButtonUp")
+                button:SetScript("OnClick", function()
+                    if InCombatLockdown and InCombatLockdown() then return end
+                    menu:Hide()
+                    if ToggleGameMenu then
+                        ToggleGameMenu()
+                    elseif GameMenuFrame then
+                        if GameMenuFrame:IsShown() then GameMenuFrame:Hide() else GameMenuFrame:Show() end
+                    end
+                end)
+            else
+                button:RegisterForClicks("AnyUp","AnyDown")
+                button:SetAttribute("type","macro")
+                button:SetAttribute("macrotext","/click "..entry[2])
+            end
             local highlight = button:CreateTexture(nil,"HIGHLIGHT")
             highlight:SetAllPoints()
             highlight:SetColorTexture(1,1,1,0.08)
