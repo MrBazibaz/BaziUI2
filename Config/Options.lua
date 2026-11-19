@@ -551,7 +551,7 @@ local function CreateUnitFramesPage()
                 for label, button in pairs(sectionButtons) do
                     button.fill:SetColorTexture(label == selected and 0.36 or 0.25, label == selected and 0.20 or 0.13, label == selected and 0.28 or 0.07, 1)
                 end
-                root:SetHeight(selected == "Layout" and (key=="party" and 740 or 610) or 480)
+                root:SetHeight(selected == "Layout" and (key=="party" and 1180 or 610) or 480)
                 viewport:SetVerticalScroll(0)
             end
             for i, label in ipairs({"Layout","Indicators","Bar Text","Fonts","Buffs / Debuffs"}) do
@@ -645,6 +645,13 @@ local function CreateUnitFramesPage()
                 end)
                 memberRefreshers[#memberRefreshers+1]=refreshPortrait
                 refreshPortrait()
+            end
+            if key=="party" then
+                setting("HP bar height","hpHeight",23,12,45,1,16,-665)
+                setting("Power bar height","powerHeight",9,4,30,1,16,-740)
+                setting("Portrait size","portraitSize",48,24,90,1,16,-815)
+                setting("Portrait X","portraitX",0,-40,40,1,16,-890)
+                setting("Portrait Y","portraitY",0,-40,40,1,16,-965)
             end
             setting("Frame width","width",key~="raid" and 190 or 110,80,360,5,16,-125)
             setting("Frame height","height",key~="raid" and 48 or 30,22,90,1,270,-190)
