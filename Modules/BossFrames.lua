@@ -1261,6 +1261,7 @@ local samples={
     {name="Lightweaver",class="PRIEST",hp=68,power=82,icon="Spell_Holy_GreaterHeal"},
     {name="Shadowstep",class="ROGUE",hp=100,power=35,icon="Ability_Rogue_SinisterCalling"},
     {name="Stormcaller",class="MAGE",hp=43,power=61,icon="Spell_Frost_FrostBolt02"},
+    {name="Dreadlord",class="WARRIOR",hp=81,power=52,icon="Ability_Warrior_DefensiveStance"},
 }
 -- Dungeon Finder's role artwork, not the tiny 64px portrait-role sprite.
 -- GetIconForRole is Blizzard's own role-button atlas selector on supported clients.
