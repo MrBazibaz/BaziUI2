@@ -10,15 +10,15 @@ local function db()
     return addon.db and addon.db.profile and addon.db.profile.minimap
 end
 local entries = {
-    {"Character", "CharacterMicroButton"},
-    {"Spellbook", "SpellbookMicroButton"},
-    {"Talents", "TalentMicroButton"},
-    {"Quests", "QuestLogMicroButton"},
-    {"Guild", "GuildMicroButton"},
-    {"Group Finder", "LFDMicroButton"},
-    {"Collections", "CollectionsMicroButton"},
-    {"Adventure Guide", "EJMicroButton"},
-    {"Game Menu", "MainMenuMicroButton"},
+    {"Character", "CharacterMicroButton", "Interface\\Icons\\INV_Shirt_01"},
+    {"Spellbook", "SpellbookMicroButton", "Interface\\Icons\\INV_Misc_Book_09"},
+    {"Talents", "TalentMicroButton", "Interface\\Icons\\Ability_Marksmanship"},
+    {"Quests", "QuestLogMicroButton", "Interface\\Icons\\INV_Misc_Note_01"},
+    {"Guild", "GuildMicroButton", "Interface\\Icons\\INV_Banner_03"},
+    {"Group Finder", "LFDMicroButton", "Interface\\Icons\\INV_Misc_GroupLooking"},
+    {"Collections", "CollectionsMicroButton", "Interface\\Icons\\INV_Misc_Pet_01"},
+    {"Adventure Guide", "EJMicroButton", "Interface\\Icons\\INV_Misc_Book_11"},
+    {"Game Menu", "MainMenuMicroButton", "Interface\\Icons\\INV_Misc_Gear_01"},
 }
 local function toggleOptions()
     local frame = _G.BaziUIOptionsFrame
@@ -35,19 +35,32 @@ local function makeLauncher()
     b:SetSize(28, 28)
     b:SetFrameStrata("HIGH")
     b:SetFrameLevel(map:GetFrameLevel() + 16)
-    local rim = b:CreateTexture(nil, "BACKGROUND")
-    rim:SetAllPoints()
-    rim:SetColorTexture(0.58, 0.39, 0.17, 0.96)
-    local inset = b:CreateTexture(nil, "ARTWORK")
-    inset:SetPoint("TOPLEFT", 2, -2)
-    inset:SetPoint("BOTTOMRIGHT", -2, 2)
-    inset:SetColorTexture(0.24, 0.10, 0.27, 0.98)
-    local glyph = b:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-    glyph:SetPoint("CENTER", 0, 0)
-    glyph:SetText("B")
-    glyph:SetTextColor(1, 0.82, 0.40)
+    -- Round Blizzard minimap-style ring and a purple crystal icon.
+    local ring = b:CreateTexture(nil, "BACKGROUND")
+    ring:SetAllPoints()
+    ring:SetTexture("Interface\\\\Minimap\\\\MiniMap-TrackingBorder")
+    local crystal = b:CreateTexture(nil, "ARTWORK")
+    crystal:SetPoint("CENTER", 0, 0)
+    crystal:SetSize(19, 19)
+    crystal:SetTexture("Interface\\\\Icons\\\\INV_Misc_Gem_Amethyst_02")
+    crystal:SetTexCoord(0.09, 0.91, 0.09, 0.91)
     b:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
     b:SetScript("OnClick", toggleOptions)
+    b:RegisterForDrag("LeftButton")
+    b:SetMovable(true)
+    b:SetScript("OnDragStart", function(self)
+        if InCombatLockdown and InCombatLockdown() then return end
+        self:StartMoving()
+    end)
+    b:SetScript("OnDragStop", function(self)
+        self:StopMovingOrSizing()
+        local cfg = db()
+        if cfg then
+            local anchor = addon.Minimap and addon.Minimap.Border or map
+            cfg.launcherX = self:GetLeft() - anchor:GetLeft()
+            cfg.launcherY = self:GetTop() - anchor:GetBottom()
+        end
+    end)
     b:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_LEFT")
         GameTooltip:SetText("Bazi UI")
@@ -62,22 +75,33 @@ local function makeMenu()
     local parent = UIParent
     local menu = CreateFrame("Frame", "BaziUIMinimapMicroMenu", parent)
     menu:SetFrameStrata("DIALOG")
-    menu:SetSize(150, #entries * 25 + 12)
+    menu:SetSize(196, #entries * 31 + 12)
     local back = menu:CreateTexture(nil, "BACKGROUND")
     back:SetAllPoints()
     back:SetColorTexture(0.14, 0.075, 0.035, 0.97)
     local border = menu:CreateTexture(nil, "BORDER")
     border:SetPoint("TOPLEFT", 1, -1)
     border:SetPoint("TOPRIGHT", -1, -1)
-    border:SetHeight(1)
+    border:SetHeight(2)
     border:SetColorTexture(0.80, 0.61, 0.32)
     for i, entry in ipairs(entries) do
         local item = CreateFrame("Button", nil, menu)
-        item:SetPoint("TOPLEFT", 6, -6 - (i-1)*25)
-        item:SetPoint("TOPRIGHT", -6, -6 - (i-1)*25)
-        item:SetHeight(24)
+        item:SetPoint("TOPLEFT", 6, -6 - (i-1)*31)
+        item:SetPoint("TOPRIGHT", -6, -6 - (i-1)*31)
+        item:SetHeight(30)
         local label = item:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-        label:SetPoint("LEFT", 6, 0)
+        local icon = item:CreateTexture(nil, "ARTWORK")
+        icon:SetSize(24, 24)
+        icon:SetPoint("LEFT", 4, 0)
+        local source = _G[entry[2]]
+        local normal = source and source.GetNormalTexture and source:GetNormalTexture()
+        local texture = normal and normal.GetTexture and normal:GetTexture()
+        if type(texture) == "string" or type(texture) == "number" then
+            icon:SetTexture(texture)
+        else
+            icon:SetTexture(entry[3])
+        end
+        label:SetPoint("LEFT", icon, "RIGHT", 10, 0)
         label:SetText(entry[1])
         label:SetTextColor(1, 0.80, 0.44)
         local highlight = item:CreateTexture(nil, "HIGHLIGHT")
@@ -105,8 +129,18 @@ function M:Apply()
     if M.Launcher then
         M.Launcher:ClearAllPoints()
         local anchor = addon.Minimap and addon.Minimap.Border or map
-        M.Launcher:SetPoint("BOTTOMLEFT", anchor, "BOTTOMLEFT", -11, -8)
-        M.Launcher:SetShown(cfg.enabled and cfg.showMinimapButton ~= false)
+        if cfg.launcherX and cfg.launcherY then
+            M.Launcher:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", cfg.launcherX, cfg.launcherY)
+        else
+            M.Launcher:SetPoint("BOTTOMLEFT", anchor, "BOTTOMLEFT", -11, -8)
+        end
+        local show = cfg.enabled and cfg.showMinimapButton ~= false
+        if show and cfg.hideAddonButtons then
+            show = (map.IsMouseOver and map:IsMouseOver())
+                or (anchor.IsMouseOver and anchor:IsMouseOver())
+                or M.Launcher:IsMouseOver()
+        end
+        M.Launcher:SetShown(show)
     end
     if M.Menu and not cfg.microMenu then M.Menu:Hide() end
 end
@@ -123,6 +157,12 @@ function M:Initialize()
         M.Menu:SetPoint("TOPLEFT", map, "TOPRIGHT", 8, 0)
         M.Menu:Show()
     end)
+    map:HookScript("OnEnter", function() M:Apply() end)
+    map:HookScript("OnLeave", function() M:Apply() end)
+    if addon.Minimap and addon.Minimap.Border then
+        addon.Minimap.Border:HookScript("OnEnter", function() M:Apply() end)
+        addon.Minimap.Border:HookScript("OnLeave", function() M:Apply() end)
+    end
     self:Apply()
 end
 local frame = CreateFrame("Frame")
