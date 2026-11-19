@@ -88,7 +88,8 @@ local function create(key, spec)
     f:SetSize(224, 48)
     f:SetPoint("CENTER", UIParent, "CENTER", spec.x, spec.y)
     f:SetFrameStrata("MEDIUM")
-    f.unit = spec.unit\n    f.portraitSide = (key == "player" or key == "pet") and "LEFT" or "RIGHT"
+    f.unit = spec.unit
+    f.portraitSide = (key == "player" or key == "pet") and "LEFT" or "RIGHT"
     local bg = f:CreateTexture(nil, "BACKGROUND")
     bg:SetPoint("TOPLEFT", f, "TOPLEFT", (key == "player" or key == "pet") and 49 or 4, -4)
     bg:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", (key == "player" or key == "pet") and -4 or -49, 4)
@@ -100,7 +101,8 @@ local function create(key, spec)
     -- Use the same Blizzard tooltip border texture, but at a slimmer edge size.
     -- Keep the existing bar geometry and portrait layering unchanged.
     local border = CreateFrame("Frame", nil, f, "BackdropTemplate")
-    border:SetAllPoints(bg)\n    f.barBorder = border
+    border:SetAllPoints(bg)
+    f.barBorder = border
     border:SetFrameLevel(f:GetFrameLevel() + 5)
     border:SetBackdrop({edgeFile="Interface\\Tooltips\\UI-Tooltip-Border", edgeSize=12})
     border:SetBackdropBorderColor(0.90, 0.72, 0.42, 1)
@@ -126,7 +128,8 @@ local function create(key, spec)
     f.portrait = portrait
     -- 3D portrait trial; retain the masked 2D texture as fallback.
     local model = CreateFrame("PlayerModel", nil, portraitLayer)
-    -- Keep the model disabled: PlayerModel can render beyond its viewport on Forever.\n    model:SetSize(40, 40)
+    -- Keep the model disabled: PlayerModel can render beyond its viewport on Forever.
+    model:SetSize(40, 40)
     model:SetPoint("CENTER", portrait, "CENTER", 0, 0)
     model:SetFrameLevel(portraitLayer:GetFrameLevel() + 1)
     model:Hide()
@@ -232,7 +235,8 @@ function M:Refresh()
         if settings[key] then create(key, spec) end
         syncOriginal(key, settings)
         local f = frames[key]
-        if f and not (InCombatLockdown and InCombatLockdown()) then\n            layout(f, settings)
+        if f and not (InCombatLockdown and InCombatLockdown()) then
+            layout(f, settings)
             if settings[key] then
                 if key == "focus" or key == "target" or key == "pet" then
                     if not f.visibilityRegistered and RegisterStateDriver then
