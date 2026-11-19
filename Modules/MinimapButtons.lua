@@ -215,66 +215,68 @@ function M:Initialize()
     self.initialized = true
     makeLauncher()
     makeMenu()
-    -- FlareUI/Modules/Minimap.lua: CreateMapSurface / UpdateMapMouse.
-    -- The Forever click target is MinimapFrame, not the Minimap texture widget.
-    local target = _G.MinimapFrame
-    if target then
-        local surface = CreateFrame("Frame", nil, target)
-        surface:SetAllPoints(target)
-        surface:SetFrameLevel(target:GetFrameLevel() + 10)
+    -- Direct port of FlareUI/Modules/Minimap.lua:
+    -- UpdateMapMouse, CreateMapSurface, ToggleMenu (menu UI remains Bazi's).
+    local surface
+    local function InBattleground()
+        local inInstance, kind = IsInInstance()
+        return inInstance and kind == "pvp" or false
+    end
+    local function ToggleMenu()
+        local cfg = db()
+        if not (cfg and cfg.microMenu) then return end
+        if InCombatLockdown() then
+            if UIErrorsFrame then UIErrorsFrame:AddMessage(ERR_NOT_IN_COMBAT or "Can't do that in combat", 1, 0.25, 0.25) end
+            return
+        end
+        local menu = M.Menu
+        if not menu then return end
+        if menu:IsShown() then menu:Hide() return end
+        local x, y = GetCursorPosition()
+        local scale = menu:GetEffectiveScale()
+        menu:ClearAllPoints()
+        menu:SetPoint("TOPRIGHT", UIParent, "BOTTOMLEFT", x / scale, y / scale)
+        menu:Show()
+    end
+    local function UpdateMapMouse()
+        if not surface then return end
+        local cfg = db()
+        local menu = cfg and cfg.microMenu and true or false
+        local ownPings = false -- Bazi UI leaves Blizzard's map ping handling untouched.
+        surface:EnableMouse(menu or ownPings)
+        if surface.SetPassThroughButtons and not InCombatLockdown() then
+            local through = { "Button4", "Button5" }
+            if not ownPings then through[#through + 1] = "LeftButton"; through[#through + 1] = "RightButton" end
+            if not menu then through[#through + 1] = "MiddleButton" end
+            surface:SetPassThroughButtons(unpack(through))
+        end
+    end
+    local function CreateMapSurface()
+        if not _G.MinimapFrame then
+            addon:Print("Micro Menu: MinimapFrame not found.")
+            return
+        end
+        surface = CreateFrame("Frame", nil, MinimapFrame)
+        surface:SetAllPoints(MinimapFrame)
+        surface:SetFrameLevel(MinimapFrame:GetFrameLevel() + 10)
         if surface.SetMouseMotionEnabled then surface:SetMouseMotionEnabled(false) end
         if surface.SetPropagateMouseMotion then surface:SetPropagateMouseMotion(true) end
         surface:SetScript("OnMouseUp", function(_, button)
             local cfg = db()
-            if button ~= "MiddleButton" or not cfg or not cfg.microMenu then return end
-            if InCombatLockdown() then return end
-            if M.Menu:IsShown() then M.Menu:Hide(); return end
-            local x, y = GetCursorPosition()
-            local scale = M.Menu:GetEffectiveScale()
-            M.Menu:ClearAllPoints()
-            M.Menu:SetPoint("TOPRIGHT", UIParent, "BOTTOMLEFT", x / scale, y / scale)
-            M.Menu:Show()
-        end)
-        M.MouseSurface = surface
-        local function updateMouse()
-            local cfg = db()
-            if not cfg then return end
-            local active = cfg.enabled and cfg.microMenu
-            surface:EnableMouse(active)
-            if surface.SetPassThroughButtons and not InCombatLockdown() then
-                if active then
-                    surface:SetPassThroughButtons("Button4", "Button5", "LeftButton", "RightButton")
-                else
-                    surface:SetPassThroughButtons("Button4", "Button5", "LeftButton", "RightButton", "MiddleButton")
-                end
+            if button == "MiddleButton" then
+                if cfg and cfg.microMenu then ToggleMenu() end
+                return
             end
-        end
-        M.UpdateMapMouse = updateMouse
+        end)
+        UpdateMapMouse()
         local events = CreateFrame("Frame")
         events:RegisterEvent("PLAYER_ENTERING_WORLD")
         events:RegisterEvent("ZONE_CHANGED_NEW_AREA")
         events:RegisterEvent("PLAYER_REGEN_ENABLED")
-        events:SetScript("OnEvent", updateMouse)
-    else
-        addon:Print("Micro Menu: MinimapFrame not found.")
+        events:SetScript("OnEvent", UpdateMapMouse)
     end
-    -- Fallback: GLOBAL_MOUSE_DOWN is delivered even if Blizzard's map or
-    -- another overlay consumes the click before our surface sees OnMouseUp.
-    local globalClick = CreateFrame("Frame")
-    globalClick:RegisterEvent("GLOBAL_MOUSE_DOWN")
-    globalClick:SetScript("OnEvent", function(_, _, button)
-        if button ~= "MiddleButton" then return end
-        local cfg = db()
-        if not cfg or not cfg.enabled or not cfg.microMenu then return end
-        if InCombatLockdown and InCombatLockdown() then return end
-        if not (map:IsMouseOver() or (_G.MinimapFrame and _G.MinimapFrame:IsMouseOver())) then return end
-        if M.Menu:IsShown() then M.Menu:Hide(); return end
-        local x, y = GetCursorPosition()
-        local scale = M.Menu:GetEffectiveScale()
-        M.Menu:ClearAllPoints()
-        M.Menu:SetPoint("TOPRIGHT", UIParent, "BOTTOMLEFT", x / scale, y / scale)
-        M.Menu:Show()
-    end)
+    M.UpdateMapMouse = UpdateMapMouse
+    CreateMapSurface()
     if M.Launcher then
         M.Launcher:HookScript("OnEnter", function() M:Apply() end)
         M.Launcher:HookScript("OnLeave", function() M:Apply() end)
