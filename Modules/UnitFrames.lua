@@ -48,7 +48,7 @@ function M:SetMoveMode(value)
     return true
 end
 function M:IsMoveMode() return moving end
-local layoutKeys = {"barWidth", "hpHeight", "powerHeight", "portraitSize", "portraitX", "portraitY", "showPvP", "showLeader", "showRaidMarker", "showRole", "showClassification", "hpText", "powerText", "fontSize", "nameFontSize", "hpFontSize", "powerFontSize", "fontFace", "showName", "hpTextX", "hpTextY", "powerTextX", "powerTextY", "hpFontColor", "powerFontColor", "hpTextAnchor", "powerTextAnchor"}
+local layoutKeys = {"barWidth", "hpHeight", "powerHeight", "portraitSize", "portraitX", "portraitY", "showPvP", "showLeader", "showRaidMarker", "showRole", "showClassification", "hpText", "powerText", "fontSize", "nameFontSize", "hpFontSize", "powerFontSize", "fontFace", "showName", "hpTextX", "hpTextY", "powerTextX", "powerTextY", "hpFontColor", "powerFontColor", "hpTextAnchor", "powerTextAnchor", "levelFontSize", "levelTextX", "levelTextY"}
 local function unitSettings(settings, key)
     settings.frames = settings.frames or {}
     local own = settings.frames[key]
@@ -155,6 +155,9 @@ local function layout(f, settings)
     f.power:SetSize(width, powerHeight)
     local font = settings.fontFace == "arial" and "Fonts\\ARIALN.TTF" or settings.fontFace == "friz" and "Fonts\\FRIZQT__.TTF" or (GameFontNormal and select(1, GameFontNormal:GetFont())) or "Fonts\\FRIZQT__.TTF"
     local size = math.max(8, math.min(28, tonumber(settings.fontSize) or 12))
+    f.level:SetFont(font, math.max(8, math.min(28, tonumber(settings.levelFontSize) or 12)), "OUTLINE")
+    f.level:ClearAllPoints()
+    f.level:SetPoint("CENTER", f.levelDisc, "CENTER", tonumber(settings.levelTextX) or 0, tonumber(settings.levelTextY) or 0)
     f.name:SetFont(font, tonumber(settings.nameFontSize) or size, "OUTLINE")
     f.value:SetFont(font, tonumber(settings.hpFontSize) or size, "OUTLINE")
     f.powerText:SetFont(font, tonumber(settings.powerFontSize) or size, "OUTLINE")
