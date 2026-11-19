@@ -168,50 +168,14 @@ local function headerLayout()
         surround:SetFrameLevel(map:GetFrameLevel() + 7)
         local backing = surround:CreateTexture(nil, "BACKGROUND")
         backing:SetAllPoints()
-        backing:SetColorTexture(0.15, 0.075, 0.035, 0.87)
-        -- Blizzard NineSlice has rounded corners. Reuse the same frame
-        -- layout as the minimap rather than drawing four square lines.
-        if NineSliceUtil and NineSliceUtil.GetLayout and NineSliceUtil.ApplyLayout then
-            local source = NineSliceUtil.GetLayout("ButtonFrameTemplateNoPortrait")
-            if source then
-                local layout = {}
-                for key, value in pairs(source) do
-                    if type(value) == "table" then
-                        local copy = {}
-                        for k, v in pairs(value) do copy[k] = v end
-                        layout[key] = copy
-                    else
-                        layout[key] = value
-                    end
-                end
-                NineSliceUtil.ApplyLayout(surround, layout)
-                -- The stock NineSlice vertical edges and corners have a
-                -- minimum height intended for full windows. On a 21px
-                -- minimap header they protrude far above the map.
-                -- Keep its good-looking top/bottom edges, but replace
-                -- the six incompatible pieces with short inset sides.
-                for _, key in ipairs({"TopEdge", "BottomEdge"}) do
-                    if surround[key] then surround[key]:SetAlpha(0.82) end
-                end
-                for _, key in ipairs({"LeftEdge", "RightEdge",
-                    "TopLeftCorner", "TopRightCorner",
-                    "BottomLeftCorner", "BottomRightCorner"}) do
-                    if surround[key] then surround[key]:Hide() end
-                end
-                for _, side in ipairs({"LEFT", "RIGHT"}) do
-                    local line = surround:CreateTexture(nil, "ARTWORK")
-                    line:SetColorTexture(0.70, 0.51, 0.28, 0.82)
-                    line:SetWidth(1)
-                    if side == "LEFT" then
-                        line:SetPoint("TOPLEFT", surround, "TOPLEFT", 1, -3)
-                        line:SetPoint("BOTTOMLEFT", surround, "BOTTOMLEFT", 1, 3)
-                    else
-                        line:SetPoint("TOPRIGHT", surround, "TOPRIGHT", -1, -3)
-                        line:SetPoint("BOTTOMRIGHT", surround, "BOTTOMRIGHT", -1, 3)
-                    end
-                end
-            end
-        end
+        backing:SetColorTexture(0.15, 0.075, 0.035, 0.76)
+        -- FlareUI's actual minimap header uses Forever's own sliced
+        -- ui-hud-minimap-header-button atlas, NOT a full-window NineSlice.
+        -- NineSlice's top/bottom edges have a minimum width and create
+        -- dangling bars on a 21px header. Use one sliced plate instead.
+        local art = surround:CreateTexture(nil, "ARTWORK")
+        plate(art, surround)
+        MM.HeaderSurroundArt = art
         MM.HeaderSurround = surround
     end
     local header, tracking, calendar = MM.Header, cluster.Tracking, _G.GameTimeFrame
