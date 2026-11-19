@@ -264,6 +264,7 @@ local function CreateUnitFramesPage()
         if addon.UnitFrames then addon.UnitFrames:Refresh() end
     end)
 
+    local copyControls = {}
     local copyHeader = CreateFrame("Frame", nil, headingPanel)
     copyHeader:SetPoint("TOPRIGHT", headingPanel, "TOPRIGHT", -16, -8)
     copyHeader:SetSize(360, 52)
@@ -280,6 +281,7 @@ local function CreateUnitFramesPage()
     tabBar:SetSize(108, 145)
     local function RefreshTabs()
         copyHeader:SetShown(activeTab ~= "General")
+        for name, controls in pairs(copyControls) do controls:SetShown(name == activeTab) end
         for name, button in pairs(tabButtons) do
             local selected = name == activeTab
             button.fill:SetColorTexture(selected and 0.34 or 0.23,
@@ -386,7 +388,7 @@ local function CreateUnitFramesPage()
                 local canvas = CreateFrame("Frame", nil, rootPanel)
                 canvas:SetPoint("TOPLEFT", rootPanel, "TOPLEFT", 0, -49)
                 canvas:SetPoint("TOPRIGHT", rootPanel, "TOPRIGHT", 0, -49)
-                canvas:SetHeight(520)
+                canvas:SetHeight(category == "Indicators" and 590 or 520)
                 canvas:Hide()
                 groups[category] = canvas
             end
@@ -400,6 +402,7 @@ local function CreateUnitFramesPage()
                         label == category and 0.18 or 0.12,
                         label == category and 0.26 or 0.07, 1)
                 end
+                rootPanel:SetHeight(category == "Indicators" and 610 or 590)
                 viewport:SetVerticalScroll(0)
             end
             for i, category in ipairs({"Layout", "Indicators", "Bar Text", "Fonts"}) do
@@ -548,14 +551,17 @@ local function CreateUnitFramesPage()
                 return label
             end
             local source = choices[1]
-            local selector = CreateFrame("Button", nil, panel)
+            local copyGroup = CreateFrame("Frame", nil, copyHeader)
+            copyGroup:SetAllPoints(copyHeader)
+            copyControls[name] = copyGroup
+            local selector = CreateFrame("Button", nil, copyGroup)
             selector:SetSize(172, 28)
-            selector:SetParent(copyHeader)
+            selector:SetParent(copyGroup)
             selector:ClearAllPoints()
-            selector:SetPoint("TOPLEFT", copyHeader, "TOPLEFT", 0, -3)
+            selector:SetPoint("TOPLEFT", copyGroup, "TOPLEFT", 0, -3)
             local selectorText = styleButton(selector, "From: " .. source .. "  v")
             local dropdown = CreateFrame("Frame", nil, panel)
-            dropdown:SetParent(copyHeader)
+            dropdown:SetParent(copyGroup)
             dropdown:SetSize(172, #choices * 27)
             dropdown:SetPoint("TOPLEFT", selector, "BOTTOMLEFT", 0, -2)
             dropdown:SetFrameStrata("DIALOG")
@@ -574,7 +580,7 @@ local function CreateUnitFramesPage()
             end
             selector:SetScript("OnClick", function() dropdown:SetShown(not dropdown:IsShown()) end)
             local copy = CreateFrame("Button", nil, panel)
-            copy:SetParent(copyHeader)
+            copy:SetParent(copyGroup)
             copy:ClearAllPoints()
             copy:SetSize(166, 28)
             copy:SetPoint("LEFT", selector, "RIGHT", 10, 0)
@@ -851,9 +857,9 @@ local function CreateUnitFramesPage()
             offsetEditor("levelTextY", "LEVEL TEXT Y", 180, -415)
 
             panel = groups.Layout
-            local note = CreateLabel(copyHeader, "Copies appearance only; position is preserved.", "GameFontHighlightSmall")
+            local note = CreateLabel(copyGroup, "Copies appearance only; position is preserved.", "GameFontHighlightSmall")
             note:SetTextColor(0.91, 0.78, 0.61, 1)
-            note:SetPoint("TOPLEFT", copyHeader, "TOPLEFT", 0, -35)
+            note:SetPoint("TOPLEFT", copyGroup, "TOPLEFT", 0, -35)
             panel = rootPanel
             selectGroup("Layout")
         end
