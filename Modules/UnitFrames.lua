@@ -180,6 +180,7 @@ local function updateLiveAuras(f)
             end
             -- Group count is fixed at creation. Hide zero-count groups without deleting them.
             local active = enabled and count > 0 and cfg() and cfg().enabled ~= false and cfg()[f.unit]
+                and not (auraPreview[f.unit] and auraPreview[f.unit][kind])
             pcall(c.SetEnabled, c, active == true)
             c:SetShown(active == true)
             if active and c.UpdateAllAuras then pcall(c.UpdateAllAuras, c) end
@@ -214,7 +215,10 @@ local function updateAuraPreview(f)
         local perRow = math.max(1, math.min(20, tonumber(opt.perRow) or 6))
         local spacing = math.max(0, math.min(20, tonumber(opt.spacing) or 2))
         group:ClearAllPoints()
-        group:SetPoint("TOPLEFT", f, "TOPLEFT", tonumber(opt.x) or 0, tonumber(opt.y) or (kind == "buffs" and 32 or -58))
+        local horizontalLeft = opt.horizontal == "left"
+        local verticalUp = opt.vertical == "up"
+        local anchor = (verticalUp and "BOTTOM" or "TOP") .. (horizontalLeft and "RIGHT" or "LEFT")
+        group:SetPoint(anchor, f, "TOPLEFT", tonumber(opt.x) or 0, tonumber(opt.y) or (kind == "buffs" and 32 or -58))
         group:SetShown(auraPreview[f.unit] and auraPreview[f.unit][kind] == true)
         for i, tile in ipairs(group.tiles) do
             tile:SetShown(auraPreview[f.unit] and auraPreview[f.unit][kind] == true and i <= math.min(count, #group.tiles))
@@ -223,7 +227,7 @@ local function updateAuraPreview(f)
             local col, row = (i-1) % perRow, math.floor((i-1)/perRow)
             local dx = col * (size + spacing) * (opt.horizontal == "left" and -1 or 1)
             local dy = row * (size + spacing) * (opt.vertical == "up" and 1 or -1)
-            tile:SetPoint("TOPLEFT", group, "TOPLEFT", dx, dy)
+            tile:SetPoint(anchor, group, anchor, dx, dy)
         end
     end
 end
