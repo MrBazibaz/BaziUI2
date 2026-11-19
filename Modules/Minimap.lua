@@ -278,6 +278,18 @@ local function onZoom(_, level)
         end)
     end
 end
+local function applyScales()
+    local cfg = db()
+    if not cfg or not cfg.enabled or not map then return end
+    if map.SetIconScale then
+        local value = tonumber(cfg.iconScale) or 1.5
+        pcall(map.SetIconScale, map, math.max(1, math.min(2.5, value)))
+    end
+    if cluster and cluster.SetScale then
+        local value = tonumber(cfg.mapScale) or 1
+        cluster:SetScale(math.max(0.7, math.min(1.5, value)))
+    end
+end
 function MM:Initialize()
     if self.initialized then return end
     self.initialized = true
@@ -297,9 +309,11 @@ function MM:Initialize()
         end
     end
     if hooksecurefunc then hooksecurefunc(map, "SetZoom", onZoom) end
+    applyScales()
 end
 function MM:Apply()
     -- Shape changes are applied on reload to avoid leaving Blizzard's artwork detached.
     -- Do not re-parent textures when the round style is active.
     if square then headerLayout(); placeSun() end
+    applyScales()
 end
