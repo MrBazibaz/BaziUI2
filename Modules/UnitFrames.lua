@@ -111,8 +111,8 @@ local function addAuraBorder(parent)
     -- Thin inset frame, using the built-in nine-slice tooltip border.
     -- Unlike UI-Quickslot2 this does not draw a giant square over the icon.
     local border = CreateFrame("Frame", nil, parent, "BackdropTemplate")
-    border:SetPoint("TOPLEFT", parent, "TOPLEFT", 0, 0)
-    border:SetPoint("BOTTOMRIGHT", parent, "BOTTOMRIGHT", 0, 0)
+    border:SetPoint("TOPLEFT", parent, "TOPLEFT", -1.5, 1.5)
+    border:SetPoint("BOTTOMRIGHT", parent, "BOTTOMRIGHT", 1.5, -1.5)
     border:SetFrameLevel(parent:GetFrameLevel() + 1)
     border:EnableMouse(false)
     border:SetBackdrop({
@@ -231,8 +231,8 @@ local function updateAuraPreview(f)
                 -- Use a real nine-slice border rather than stretching the
                 -- entire tooltip texture over the preview icon.
                 local border = CreateFrame("Frame", nil, group, "BackdropTemplate")
-                border:SetPoint("TOPLEFT", tile, "TOPLEFT", 0, 0)
-                border:SetPoint("BOTTOMRIGHT", tile, "BOTTOMRIGHT", 0, 0)
+                border:SetPoint("TOPLEFT", tile, "TOPLEFT", -1.5, 1.5)
+                border:SetPoint("BOTTOMRIGHT", tile, "BOTTOMRIGHT", 1.5, -1.5)
                 border:SetFrameLevel(group:GetFrameLevel() + 1)
                 border:EnableMouse(false)
                 border:SetBackdrop({
