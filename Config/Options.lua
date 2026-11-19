@@ -341,7 +341,7 @@ local function CreateMinimapPage()
         end
         for name, panel in pairs(tabPanels) do panel:SetShown(name == activeTab) end
         -- Compact tabs fit their contents; long tabs retain the scroll area.
-        local heights = {General = 430, ["Map Info"] = 352, Buttons = 340, Visibility = 365}
+        local heights = {General = 430, ["Map Info"] = 352, Buttons = 265, Visibility = 315}
         local compact = heights[activeTab]
         main:SetPoint("BOTTOM", page, compact and "TOP" or "BOTTOM",
             0, compact and -compact or 0)
