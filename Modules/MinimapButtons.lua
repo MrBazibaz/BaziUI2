@@ -131,6 +131,65 @@ local function makeMenu()
     menu:Hide()
     M.Menu = menu
 end
+-- Keep third-party addon buttons above the bronze frame and apply the
+-- same hover setting. Never touch minimap pins, Blizzard controls or protected
+-- frames in combat. This is deliberately narrower than FlareUI's drawer scanner.
+local managed = setmetatable({}, {__mode = "k"})
+local function isAddonButton(child)
+    if not child or not child.IsObjectType or not child:IsObjectType("Button") then return false end
+    if child == M.Launcher then return false end
+    local name = child:GetName() or ""
+    if name:find("^BaziUI") or name:find("^Minimap") or name:find("^MiniMap")
+        or name:find("^GameTime") or name:find("^TimeManager")
+        or name:find("^QueueStatus") or name:find("^AddonCompartment")
+        or name:find("^Quest") or name:find("^HandyNotes")
+        or name:find("^Gather") or name:find("^HereBeDragons") then return false end
+    return name:find("^LibDBIcon") or name:find("MinimapButton")
+        or name:find("MiniMapButton") or name:find("MinimapIcon")
+end
+local function refreshAddonButtons()
+    local cfg = db()
+    if not cfg or not cfg.enabled then return end
+    local anchor = addon.Minimap and addon.Minimap.Border or map
+    local hover = map:IsMouseOver() or (anchor and anchor:IsMouseOver())
+    for child in pairs(managed) do
+        if child:IsMouseOver() then hover = true end
+    end
+    local holder = M.ButtonHolder
+    if not holder then
+        holder = CreateFrame("Frame", nil, cluster or UIParent)
+        holder:SetAllPoints(map)
+        holder:SetFrameStrata("HIGH")
+        holder:SetFrameLevel(math.max(map:GetFrameLevel() + 20, 25))
+        M.ButtonHolder = holder
+    end
+    local function scan(parent)
+        if not parent then return end
+        for _, child in ipairs({parent:GetChildren()}) do
+            if isAddonButton(child) then
+                managed[child] = true
+                if not (InCombatLockdown and InCombatLockdown()) then
+                    if child:GetParent() ~= holder then child:SetParent(holder) end
+                    child:SetFrameStrata("HIGH")
+                    child:SetFrameLevel(holder:GetFrameLevel() + 1)
+                end
+            end
+        end
+    end
+    scan(map)
+    scan(_G.MinimapBackdrop)
+    scan(cluster)
+    for child in pairs(managed) do
+        if not (InCombatLockdown and InCombatLockdown() and child.IsProtected and child:IsProtected()) then
+            child:SetAlpha((not cfg.hideAddonButtons or hover) and 1 or 0)
+            child:EnableMouse(not cfg.hideAddonButtons or hover)
+        end
+    end
+    if M.Launcher then
+        local show = cfg.showMinimapButton ~= false and (not cfg.hideAddonButtons or hover or M.Launcher:IsMouseOver())
+        M.Launcher:SetShown(show)
+    end
+end
 function M:Apply()
     local cfg = db()
     if not cfg or not map then return end
@@ -197,6 +256,9 @@ function M:Initialize()
         compartment:HookScript("OnShow", function(self) self:Hide() end)
     end
     self:Apply()
+    if C_Timer and C_Timer.NewTicker then
+        M.ButtonTicker = C_Timer.NewTicker(0.25, refreshAddonButtons)
+    end
 end
 local frame = CreateFrame("Frame")
 frame:RegisterEvent("PLAYER_LOGIN")
