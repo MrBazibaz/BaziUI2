@@ -207,6 +207,7 @@ function M:Apply()
         end
         M.Launcher:SetShown(show)
     end
+    if M.UpdateMapMouse then M.UpdateMapMouse() end
     if M.Menu and not cfg.microMenu then M.Menu:Hide() end
 end
 function M:Initialize()
@@ -214,19 +215,49 @@ function M:Initialize()
     self.initialized = true
     makeLauncher()
     makeMenu()
-    -- Restore the original Bazi UI direct minimap handler (fb0ce0168).
-    -- Do not place an invisible mouse-catching frame over the minimap.
-    map:EnableMouse(true)
-    if map.RegisterForClicks then map:RegisterForClicks("AnyUp") end
-    map:HookScript("OnMouseUp", function(_, button)
-        local cfg = db()
-        if button ~= "MiddleButton" or not cfg or not cfg.enabled or not cfg.microMenu then return end
-        if InCombatLockdown and InCombatLockdown() then return end
-        if M.Menu:IsShown() then M.Menu:Hide(); return end
-        M.Menu:ClearAllPoints()
-        M.Menu:SetPoint("TOPLEFT", map, "TOPRIGHT", 8, 0)
-        M.Menu:Show()
-    end)
+    -- FlareUI/Modules/Minimap.lua: CreateMapSurface / UpdateMapMouse.
+    -- The Forever click target is MinimapFrame, not the Minimap texture widget.
+    local target = _G.MinimapFrame
+    if target then
+        local surface = CreateFrame("Frame", nil, target)
+        surface:SetAllPoints(target)
+        surface:SetFrameLevel(target:GetFrameLevel() + 10)
+        if surface.SetMouseMotionEnabled then surface:SetMouseMotionEnabled(false) end
+        if surface.SetPropagateMouseMotion then surface:SetPropagateMouseMotion(true) end
+        surface:SetScript("OnMouseUp", function(_, button)
+            local cfg = db()
+            if button ~= "MiddleButton" or not cfg or not cfg.microMenu then return end
+            if InCombatLockdown() then return end
+            if M.Menu:IsShown() then M.Menu:Hide(); return end
+            local x, y = GetCursorPosition()
+            local scale = M.Menu:GetEffectiveScale()
+            M.Menu:ClearAllPoints()
+            M.Menu:SetPoint("TOPRIGHT", UIParent, "BOTTOMLEFT", x / scale, y / scale)
+            M.Menu:Show()
+        end)
+        M.MouseSurface = surface
+        local function updateMouse()
+            local cfg = db()
+            if not cfg then return end
+            local active = cfg.enabled and cfg.microMenu
+            surface:EnableMouse(active)
+            if surface.SetPassThroughButtons and not InCombatLockdown() then
+                if active then
+                    surface:SetPassThroughButtons("Button4", "Button5", "LeftButton", "RightButton")
+                else
+                    surface:SetPassThroughButtons("Button4", "Button5", "LeftButton", "RightButton", "MiddleButton")
+                end
+            end
+        end
+        M.UpdateMapMouse = updateMouse
+        local events = CreateFrame("Frame")
+        events:RegisterEvent("PLAYER_ENTERING_WORLD")
+        events:RegisterEvent("ZONE_CHANGED_NEW_AREA")
+        events:RegisterEvent("PLAYER_REGEN_ENABLED")
+        events:SetScript("OnEvent", updateMouse)
+    else
+        addon:Print("Micro Menu: MinimapFrame not found.")
+    end
     if M.Launcher then
         M.Launcher:HookScript("OnEnter", function() M:Apply() end)
         M.Launcher:HookScript("OnLeave", function() M:Apply() end)
