@@ -210,6 +210,7 @@ function M:Apply()
     if M.MouseSurface then
         local active = cfg.enabled and cfg.microMenu
         M.MouseSurface:EnableMouse(active)
+        if M.MouseSurface.SetMouseClickEnabled then M.MouseSurface:SetMouseClickEnabled(active) end
         -- FlareUI UpdateMapMouse: pass through every button except enabled middle click.
         if M.MouseSurface.SetPassThroughButtons and not (InCombatLockdown and InCombatLockdown()) then
             if active then
@@ -232,12 +233,15 @@ function M:Initialize()
     local surface = CreateFrame("Frame", nil, target)
     surface:SetAllPoints(target)
     surface:SetFrameLevel(target:GetFrameLevel() + 10)
-    if surface.SetMouseMotionEnabled then surface:SetMouseMotionEnabled(false) end
+    surface:EnableMouse(true)
+    if surface.SetMouseClickEnabled then surface:SetMouseClickEnabled(true) end
+    if surface.SetMouseMotionEnabled then surface:SetMouseMotionEnabled(true) end
     if surface.SetPropagateMouseMotion then surface:SetPropagateMouseMotion(true) end
     surface:SetScript("OnMouseUp", function(_, button)
         local cfg = db()
         if button == "MiddleButton" then
-            if cfg and cfg.microMenu then
+            addon:Print("Middle click received; enabled=" .. tostring(cfg and cfg.enabled) .. ", microMenu=" .. tostring(cfg and cfg.microMenu))
+            if cfg and cfg.enabled and cfg.microMenu then
                 if InCombatLockdown() then return end
                 if M.Menu:IsShown() then M.Menu:Hide(); return end
                 local x, y = GetCursorPosition()
@@ -245,6 +249,7 @@ function M:Initialize()
                 M.Menu:ClearAllPoints()
                 M.Menu:SetPoint("TOPRIGHT", UIParent, "BOTTOMLEFT", x / scale, y / scale)
                 M.Menu:Show()
+                addon:Print("Micro menu shown=" .. tostring(M.Menu:IsShown()))
             end
             return
         end
