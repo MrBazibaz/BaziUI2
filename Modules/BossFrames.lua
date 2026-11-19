@@ -29,6 +29,47 @@ local units = {
 local frames = {}
 local movers = {}
 local moving = false
+local groupMover
+local function refreshGroupMover()
+    local settings=cfg()
+    if not settings then return end
+    if not groupMover then
+        groupMover=CreateFrame("Button",nil,UIParent,"BackdropTemplate")
+        groupMover:SetSize(180,34)
+        groupMover:SetFrameStrata("DIALOG")
+        groupMover:SetBackdrop({bgFile="Interface\\Buttons\\WHITE8X8",edgeFile="Interface\\Tooltips\\UI-Tooltip-Border",edgeSize=12})
+        groupMover:SetBackdropColor(.22,.10,.32,.75)
+        groupMover:SetBackdropBorderColor(.85,.65,.35,1)
+        local title=groupMover:CreateFontString(nil,"OVERLAY","GameFontNormal")
+        title:SetPoint("CENTER")
+        title:SetText("Move Boss Group")
+        groupMover:RegisterForDrag("LeftButton")
+        groupMover:SetScript("OnDragStart",function(self)
+            if InCombatLockdown and InCombatLockdown() then return end
+            local cx,cy=GetCursorPosition()
+            local scale=UIParent:GetEffectiveScale()
+            self.startX,self.startY=cx/scale,cy/scale
+            self.originalX=tonumber(settings.x) or 300
+            self.originalY=tonumber(settings.y) or 180
+        end)
+        groupMover:SetScript("OnDragStop",function(self)
+            if not self.startX or (InCombatLockdown and InCombatLockdown()) then return end
+            local cx,cy=GetCursorPosition()
+            local scale=UIParent:GetEffectiveScale()
+            local dx,dy=cx/scale-self.startX,cy/scale-self.startY
+            settings.x=math.floor(self.originalX+dx+.5)
+            settings.y=math.floor(self.originalY+dy+.5)
+            self.startX=nil
+            M:Refresh()
+        end)
+    end
+    groupMover:ClearAllPoints()
+    local first=frames["boss1"]
+    if first then groupMover:SetPoint("BOTTOMLEFT",first,"TOPLEFT",0,4)
+    else groupMover:SetPoint("CENTER",UIParent,"CENTER") end
+    groupMover:SetShown(moving and settings.enabled~=false)
+end
+
 local previewIndicators = false
 local previewPetCast = false
 local auraPreview = {}
@@ -1422,6 +1463,7 @@ function M:Refresh()
             f:SetScale(1.15 * (settings.scale or 1))
         end
     end
+    refreshGroupMover()
 end
 function M:Initialize()
     if self.initialized then return end
