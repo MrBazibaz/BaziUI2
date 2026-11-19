@@ -120,12 +120,7 @@ local function makeMenu()
     menu:EnableMouse(true)
     table.insert(UISpecialFrames, "BaziUIMinimapMicroMenu")
     menu:RegisterEvent("PLAYER_REGEN_DISABLED")
-    menu:SetScript("OnShow", function(self)
-        -- Register after the opening click has finished propagating.
-        C_Timer.After(0.15, function()
-            if self:IsShown() then self:RegisterEvent("GLOBAL_MOUSE_DOWN") end
-        end)
-    end)
+    menu:SetScript("OnShow", function(self) self:RegisterEvent("GLOBAL_MOUSE_DOWN") end)
     menu:SetScript("OnHide", function(self) self:UnregisterEvent("GLOBAL_MOUSE_DOWN") end)
     menu:SetScript("OnEvent", function(self, event)
         if event == "GLOBAL_MOUSE_DOWN" and self:IsMouseOver() then return end
@@ -215,16 +210,12 @@ function M:Apply()
     if M.MouseSurface then
         local active = cfg.enabled and cfg.microMenu
         M.MouseSurface:EnableMouse(active)
-        if M.MouseSurface.SetMouseClickEnabled then
-            M.MouseSurface:SetMouseClickEnabled(active)
-        end
-        -- Match FlareUI: pass the middle button through only when the menu is disabled.
-        -- Changing pass-through buttons is restricted during combat.
+        -- FlareUI UpdateMapMouse: pass through every button except enabled middle click.
         if M.MouseSurface.SetPassThroughButtons and not (InCombatLockdown and InCombatLockdown()) then
             if active then
-                M.MouseSurface:SetPassThroughButtons("LeftButton", "RightButton", "Button4", "Button5")
+                M.MouseSurface:SetPassThroughButtons("Button4", "Button5", "LeftButton", "RightButton")
             else
-                M.MouseSurface:SetPassThroughButtons("LeftButton", "RightButton", "MiddleButton", "Button4", "Button5")
+                M.MouseSurface:SetPassThroughButtons("Button4", "Button5", "LeftButton", "RightButton", "MiddleButton")
             end
         end
     end
@@ -235,36 +226,35 @@ function M:Initialize()
     self.initialized = true
     makeLauncher()
     makeMenu()
-    -- FlareUI uses a separate mouse surface above the map. Hooking the
-    -- Blizzard map directly does not reliably receive middle clicks.
-    local surface = CreateFrame("Frame", nil, map)
-    surface:SetAllPoints(map)
-    surface:SetFrameStrata(map:GetFrameStrata())
-    surface:SetFrameLevel(map:GetFrameLevel() + 25)
-    if surface.SetMouseMotionEnabled then surface:SetMouseMotionEnabled(true) end
+    -- FlareUI Modules/Minimap.lua: CreateMapSurface / UpdateMapMouse.
+    -- Use the game's minimap frame, not our artwork or an independent click hook.
+    local target = _G.MinimapFrame or map
+    local surface = CreateFrame("Frame", nil, target)
+    surface:SetAllPoints(target)
+    surface:SetFrameLevel(target:GetFrameLevel() + 10)
+    if surface.SetMouseMotionEnabled then surface:SetMouseMotionEnabled(false) end
     if surface.SetPropagateMouseMotion then surface:SetPropagateMouseMotion(true) end
-    surface:EnableMouse(true)
-    if surface.SetMouseClickEnabled then surface:SetMouseClickEnabled(true) end
-    -- Apply() configures button pass-through based on the current menu setting.
-    M.MouseSurface = surface
-    local mouseEvents = CreateFrame("Frame")
-    mouseEvents:RegisterEvent("PLAYER_ENTERING_WORLD")
-    mouseEvents:RegisterEvent("ZONE_CHANGED_NEW_AREA")
-    mouseEvents:RegisterEvent("PLAYER_REGEN_ENABLED")
-    mouseEvents:SetScript("OnEvent", function() M:Apply() end)
-    -- FlareUI's model: one dedicated surface, one mouse-up handler.
-    -- Never hook Blizzard's own click handler.
     surface:SetScript("OnMouseUp", function(_, button)
         local cfg = db()
-        if button ~= "MiddleButton" or not cfg or not cfg.enabled or not cfg.microMenu then return end
-        if InCombatLockdown and InCombatLockdown() then return end
-        if M.Menu:IsShown() then M.Menu:Hide(); return end
-        local x, y = GetCursorPosition()
-        local scale = M.Menu:GetEffectiveScale()
-        M.Menu:ClearAllPoints()
-        M.Menu:SetPoint("TOPRIGHT", UIParent, "BOTTOMLEFT", x / scale, y / scale)
-        M.Menu:Show()
+        if button == "MiddleButton" then
+            if cfg and cfg.microMenu then
+                if InCombatLockdown() then return end
+                if M.Menu:IsShown() then M.Menu:Hide(); return end
+                local x, y = GetCursorPosition()
+                local scale = M.Menu:GetEffectiveScale()
+                M.Menu:ClearAllPoints()
+                M.Menu:SetPoint("TOPRIGHT", UIParent, "BOTTOMLEFT", x / scale, y / scale)
+                M.Menu:Show()
+            end
+            return
+        end
     end)
+    M.MouseSurface = surface
+    local events = CreateFrame("Frame")
+    events:RegisterEvent("PLAYER_ENTERING_WORLD")
+    events:RegisterEvent("ZONE_CHANGED_NEW_AREA")
+    events:RegisterEvent("PLAYER_REGEN_ENABLED")
+    events:SetScript("OnEvent", function() M:Apply() end)
     if M.Launcher then
         M.Launcher:HookScript("OnEnter", function() M:Apply() end)
         M.Launcher:HookScript("OnLeave", function() M:Apply() end)
