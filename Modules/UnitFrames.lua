@@ -48,7 +48,7 @@ function M:SetMoveMode(value)
     return true
 end
 function M:IsMoveMode() return moving end
-local layoutKeys = {"barWidth", "hpHeight", "powerHeight", "portraitSize", "portraitX", "portraitY", "showPvP", "showLeader", "showRaidMarker", "showRole", "showClassification", "hpText", "powerText", "fontSize", "nameFontSize", "hpFontSize", "powerFontSize", "fontFace", "showName", "hpTextX", "hpTextY", "powerTextX", "powerTextY", "hpFontColor", "powerFontColor"}
+local layoutKeys = {"barWidth", "hpHeight", "powerHeight", "portraitSize", "portraitX", "portraitY", "showPvP", "showLeader", "showRaidMarker", "showRole", "showClassification", "hpText", "powerText", "fontSize", "nameFontSize", "hpFontSize", "powerFontSize", "fontFace", "showName", "hpTextX", "hpTextY", "powerTextX", "powerTextY", "hpFontColor", "powerFontColor", "hpTextAnchor", "powerTextAnchor"}
 local function unitSettings(settings, key)
     settings.frames = settings.frames or {}
     local own = settings.frames[key]
@@ -153,16 +153,21 @@ local function layout(f, settings)
     f.power:ClearAllPoints()
     f.power:SetPoint("TOPLEFT", f.health, "BOTTOMLEFT", 0, -1)
     f.power:SetSize(width, powerHeight)
-    local font = settings.fontFace == "arial" and "Fonts\\ARIALN.TTF" or "Fonts\\FRIZQT__.TTF"
+    local font = settings.fontFace == "arial" and "Fonts\\ARIALN.TTF" or settings.fontFace == "friz" and "Fonts\\FRIZQT__.TTF" or (GameFontNormal and select(1, GameFontNormal:GetFont())) or "Fonts\\FRIZQT__.TTF"
     local size = math.max(8, math.min(28, tonumber(settings.fontSize) or 12))
     f.name:SetFont(font, tonumber(settings.nameFontSize) or size, "OUTLINE")
     f.value:SetFont(font, tonumber(settings.hpFontSize) or size, "OUTLINE")
     f.powerText:SetFont(font, tonumber(settings.powerFontSize) or size, "OUTLINE")
     f.name:SetShown(settings.showName ~= false)
-    f.value:ClearAllPoints()
-    f.value:SetPoint("RIGHT", f.health, "RIGHT", (tonumber(settings.hpTextX) or 0) - 4, tonumber(settings.hpTextY) or 0)
-    f.powerText:ClearAllPoints()
-    f.powerText:SetPoint("RIGHT", f.power, "RIGHT", (tonumber(settings.powerTextX) or 0) - 4, tonumber(settings.powerTextY) or 0)
+    local function anchorText(text, bar, anchor, x, y)
+        local point = anchor == "LEFT" and "LEFT" or anchor == "CENTER" and "CENTER" or "RIGHT"
+        local inset = point == "LEFT" and 4 or point == "RIGHT" and -4 or 0
+        text:ClearAllPoints()
+        text:SetPoint(point, bar, point, (tonumber(x) or 0) + inset, tonumber(y) or 0)
+        text:SetJustifyH(point)
+    end
+    anchorText(f.value, f.health, settings.hpTextAnchor, settings.hpTextX, settings.hpTextY)
+    anchorText(f.powerText, f.power, settings.powerTextAnchor, settings.powerTextX, settings.powerTextY)
     local function tint(fontString, mode)
         if mode == "gold" then fontString:SetTextColor(1, 0.80, 0.38)
         elseif mode == "white" then fontString:SetTextColor(1, 1, 1)
