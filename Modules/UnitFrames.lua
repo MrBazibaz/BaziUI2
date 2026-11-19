@@ -1395,6 +1395,43 @@ function M:AuditAuraText(key, kind)
     debugPrint("Audit is read-only; no protected duration values are inspected.")
     showAuraDebugWindow()
 end
+-- Read-only verification of the aura button's registered duration FontString.
+function M:AuditAuraDurationBinding(key, kind)
+    debugLines = {}
+    key = units[key] and key or "target"
+    kind = kind == "debuffs" and "debuffs" or "buffs"
+    local frame = frames[key]
+    local entry = frame and frame.liveAuras and frame.liveAuras[kind]
+    local item = entry and entry.texts and entry.texts[1]
+    if not item then
+        debugPrint("No initialized aura button")
+        showAuraDebugWindow()
+        return
+    end
+    local ok, registered = pcall(item.button.GetDurationText, item.button)
+    debugPrint("GetDurationText call=" .. (ok and "OK" or "FAILED"))
+    if ok then
+        debugPrint("Registered matches our duration=" .. tostring(registered == item.duration))
+        debugPrint("Registered matches number=" .. tostring(registered == item.number))
+        debugPrint("Registered matches unit=" .. tostring(registered == item.unit))
+        if registered and type(registered.GetText) == "function" then
+            debugText("registered duration", registered)
+        else
+            debugPrint("Registered duration has no readable FontString")
+        end
+    end
+    debugPrint("No duration values modified or protected data inspected.")
+    showAuraDebugWindow()
+end
+SLASH_BAZIAURABIND1 = "/baziaurabind"
+SlashCmdList.BAZIAURABIND = function(msg)
+    local key, kind = (msg or ""):match("^(%S*)%s*(%S*)")
+    local ok, err = pcall(M.AuditAuraDurationBinding, M, key, kind)
+    if not ok then
+        debugLines = {"Aura binding audit error: " .. tostring(err)}
+        showAuraDebugWindow()
+    end
+end
 SLASH_BAZIAURAAUDIT1 = "/baziauraaudit"
 SlashCmdList.BAZIAURAAUDIT = function(msg)
     local key, kind = (msg or ""):match("^(%S*)%s*(%S*)")
