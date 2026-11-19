@@ -249,7 +249,8 @@ local function CreateUnitFramesPage()
     pages.UnitFrames = page
     local db = addon.db.profile.unitframes
     local activeTab = "General"
-    local tabButtons, tabPanels = {}, {}\n    local syncControls = {}
+    local tabButtons, tabPanels = {}, {}
+    local syncControls = {}
 
     local headingPanel = CreatePanel(page, -8, 76)
     CreateSection(headingPanel, "UNIT FRAMES", -12)
@@ -288,7 +289,8 @@ local function CreateUnitFramesPage()
                     selected and 0.63 or 0.37, selected and 0.30 or 0.20, 0.95)
             end
         end
-        for name, panel in pairs(tabPanels) do panel:SetShown(name == activeTab) end\n        if syncControls[activeTab] then syncControls[activeTab]() end
+        for name, panel in pairs(tabPanels) do panel:SetShown(name == activeTab) end
+        if syncControls[activeTab] then syncControls[activeTab]() end
     end
     for i, name in ipairs({"General", "Player", "Target", "Focus", "Pet"}) do
         local button = CreateFrame("Button", nil, tabBar)
