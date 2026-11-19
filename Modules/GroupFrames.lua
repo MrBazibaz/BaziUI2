@@ -58,6 +58,8 @@ function M:CopyMember(kind,sourceKind,sourceIndex,targetIndex)
         output.showPortrait = kind ~= "raid"
         output.showHealthPercent = source.hpText == "percent"
         output.showPowerPercent = source.powerText == "percent"
+        output.hpText = source.hpText
+        output.powerText = source.powerText
     end
     -- Copy visual settings only; preserve group geometry and unit identity.
     for _,field in ipairs({"x","y","spacing","columns","growth","anchor","enabled","showSolo","members","offsetX","offsetY"}) do output[field]=nil end
@@ -123,9 +125,11 @@ local function createMember(kind, index)
     end
     local hpText = frame:CreateFontString(nil,"OVERLAY","GameFontNormalSmall")
     hpText:SetPoint("RIGHT",hp,"RIGHT",-3,0)
+    hpText:SetJustifyH("RIGHT")
     frame.hpText = hpText
     local powerText = frame:CreateFontString(nil,"OVERLAY","GameFontNormalSmall")
     powerText:SetPoint("RIGHT",power,"RIGHT",-3,0)
+    powerText:SetJustifyH("RIGHT")
     frame.powerText = powerText
     -- Party-specific indicators; the established single-unit frames are untouched.
     if kind=="party" then
@@ -146,13 +150,24 @@ local function createMember(kind, index)
         end
         frame.indicators.raid:SetTexCoord(0,.25,0,.25)
     end
+    if kind=="party" then
+        local level=frame:CreateFontString(nil,"OVERLAY","GameFontNormalSmall")
+        level:SetPoint("BOTTOM",frame,"TOP",0,1)
+        frame.levelText=level
+        local classification=frame:CreateTexture(nil,"OVERLAY")
+        classification:SetSize(23,23)
+        classification:SetPoint("TOPRIGHT",frame,"TOPRIGHT",6,10)
+        classification:SetAtlas("UI-HUD-UnitFrame-Target-PortraitOn-Boss-Gold-Winged")
+        classification:Hide()
+        frame.classificationIcon=classification
+    end
     frame.unitToken = unit
     frame.hp,frame.power,frame.label,frame.portrait = hp,power,name,portrait
     frame:Hide()
     return frame
 end
 local function layoutMember(f, kind, index, opt)
-    local width = math.max(80,math.min(360,tonumber(opt.width) or (kind=="party" and 190 or 110)))
+    local width = math.max(80,math.min(400,tonumber(opt.width) or tonumber(opt.barWidth) or (kind=="party" and 190 or 110)))
     local height = math.max(22,math.min(90,tonumber(opt.height) or (kind=="party" and 48 or 30)))
     f:SetSize(width,height)
     local portrait = f.portrait
@@ -180,8 +195,15 @@ local function layoutMember(f, kind, index, opt)
     f.label:SetPoint("CENTER",f.hp,"CENTER")
     local font,size,flags = f.label:GetFont()
     if font then f.label:SetFont(font,math.max(1,tonumber(opt.fontSize) or 11),flags) end
-    f.hpText:SetShown(opt.showHealthPercent == true)
-    f.powerText:SetShown(opt.showPowerPercent == true and opt.showPower ~= false)
+    local hpMode=opt.hpText or (opt.showHealthPercent and "percent" or "none")
+    local powerMode=opt.powerText or (opt.showPowerPercent and "percent" or "none")
+    f.hpText:SetShown(hpMode~="none" and hpMode~="hide" and hpMode~="off")
+    f.powerText:SetShown(powerMode~="none" and powerMode~="hide" and powerMode~="off" and opt.showPower~=false)
+    if f.levelText then
+        f.levelText:SetShown(opt.showLevel~=false)
+        local font=select(1,f.levelText:GetFont())
+        if font then f.levelText:SetFont(font,math.max(1,tonumber(opt.levelFontSize) or 11),"OUTLINE") end
+    end
     f.label:SetShown(opt.showName ~= false and (tonumber(opt.fontSize) or 11)>0)
     f.power:SetShown(opt.showPower ~= false)
     local gap = tonumber(opt.spacing) or 8
@@ -294,6 +316,11 @@ local function updatePartyIndicators(f,preview)
     f.indicators.leader:SetShown(opt.showLeader~=false and (preview or (UnitIsGroupLeader and safe(UnitIsGroupLeader(unit))==true)))
     local role=not preview and UnitGroupRolesAssigned and safe(UnitGroupRolesAssigned(unit))
     f.indicators.role:SetShown(opt.showRole~=false and (preview or role=="TANK" or role=="HEALER" or role=="DAMAGER"))
+    if f.classificationIcon then
+        local classification=not preview and UnitClassification and safe(UnitClassification(unit))
+        local special=classification=="elite" or classification=="rare" or classification=="rareelite" or classification=="worldboss"
+        f.classificationIcon:SetShown(opt.showClassification~=false and (preview or special))
+    end
 end
 local function updateMember(f, preview)
     updatePartyIndicators(f,preview)
@@ -303,6 +330,7 @@ local function updateMember(f, preview)
         f.power:SetMinMaxValues(0,100)
         f.power:SetValue(60)
         f.label:SetText("Preview " .. f.unitToken)
+        if f.levelText then f.levelText:SetText("60") end
         f.hpText:SetText("75%")
         f.powerText:SetText("60%")
         if f.portrait then f.portrait:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark") end
@@ -314,9 +342,21 @@ local function updateMember(f, preview)
     f.power:SetMinMaxValues(0,UnitPowerMax(f.unitToken))
     f.power:SetValue(UnitPower(f.unitToken))
     f.label:SetText(UnitName(f.unitToken) or "")
-    -- Health and power values can be protected in Forever; do not perform Lua arithmetic on them.
-    f.hpText:SetText("")
-    f.powerText:SetText("")
+    if f.levelText then f.levelText:SetText(UnitLevel(f.unitToken)) end
+    -- Forward protected numbers directly to Blizzard StatusBars. Never calculate with secrets.
+    -- Text remains hidden unless an unprotected numeric value can be read safely.
+    local index=tonumber(f.unitToken:match("%d+"))
+    local opt=index and effectiveOptions(config("party"),index) or {}
+    local function textFor(mode,current,maximum)
+        if issecretvalue and (issecretvalue(current) or issecretvalue(maximum)) then return "" end
+        if type(current)~="number" or type(maximum)~="number" then return "" end
+        if mode=="percent" then return maximum>0 and (math.floor(current/maximum*100+.5).."%") or "0%" end
+        if mode=="current" or mode=="value" then return tostring(math.floor(current)) end
+        if mode=="currentmax" or mode=="current/max" then return math.floor(current).."/"..math.floor(maximum) end
+        return ""
+    end
+    f.hpText:SetText(textFor(opt.hpText or (opt.showHealthPercent and "percent"),UnitHealth(f.unitToken),UnitHealthMax(f.unitToken)))
+    f.powerText:SetText(textFor(opt.powerText or (opt.showPowerPercent and "percent"),UnitPower(f.unitToken),UnitPowerMax(f.unitToken)))
     if f.portrait then SetPortraitTexture(f.portrait,f.unitToken) end
 end
 function M:Refresh()
@@ -349,7 +389,7 @@ function M:Initialize()
     if self.initialized then return end
     self.initialized=true
     local events=CreateFrame("Frame")
-    for _,event in ipairs({"PLAYER_ENTERING_WORLD","GROUP_ROSTER_UPDATE","PLAYER_REGEN_ENABLED","UNIT_HEALTH","UNIT_POWER_UPDATE","UNIT_NAME_UPDATE"}) do
+    for _,event in ipairs({"PLAYER_ENTERING_WORLD","GROUP_ROSTER_UPDATE","PLAYER_REGEN_ENABLED","UNIT_HEALTH","UNIT_MAXHEALTH","UNIT_POWER_UPDATE","UNIT_MAXPOWER","UNIT_NAME_UPDATE","UNIT_AURA","RAID_TARGET_UPDATE","PLAYER_ROLES_ASSIGNED","UNIT_FLAGS"}) do
         events:RegisterEvent(event)
     end
     events:SetScript("OnEvent",function() M:Refresh() end)

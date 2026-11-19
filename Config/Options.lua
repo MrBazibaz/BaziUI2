@@ -728,6 +728,8 @@ local function CreateUnitFramesPage()
             groupToggle(panel,"Group leader indicator","showLeader",-195)
             groupToggle(panel,"Raid target marker","showRaidMarker",-235)
             groupToggle(panel,"Role indicator","showRole",-275)
+            groupToggle(panel,"Classification indicator","showClassification",-315)
+            groupToggle(panel,"Level label","showLevel",-355)
             panel=sections["Bar Text"]
             CreateSection(panel,"BAR TEXT",-12)
             CreateDivider(panel,-45)
@@ -737,6 +739,7 @@ local function CreateUnitFramesPage()
             CreateSection(panel,"FONTS",-12)
             CreateDivider(panel,-45)
             groupSlider(panel,"NAME FONT SIZE","Size of the unit name (0 hides it)","fontSize",0,22,11,-65)
+            if key=="party" then groupSlider(panel,"LEVEL FONT SIZE","Size of the level label","levelFontSize",0,22,11,-145) end
             panel=sections["Buffs / Debuffs"]
             CreateSection(panel,"BUFFS / DEBUFFS",-12)
             CreateDivider(panel,-45)
