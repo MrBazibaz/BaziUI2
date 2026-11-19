@@ -340,6 +340,10 @@ local function CreateMinimapPage()
             end
         end
         for name, panel in pairs(tabPanels) do panel:SetShown(name == activeTab) end
+        -- General has only a few controls; other tabs keep their full-height panel.
+        main:SetPoint("BOTTOM", page,
+            activeTab == "General" and "TOP" or "BOTTOM", 0,
+            activeTab == "General" and -430 or 0)
     end
 
     for i, name in ipairs({"General", "Map Info", "Buttons", "Visibility", "Fonts"}) do
@@ -477,13 +481,13 @@ local function CreateMinimapPage()
     Select(general, "AUTO ZOOM OUT", -49, "autoZoom",
         {{0, "Off"}, {5, "5 seconds"}, {10, "10 seconds"}, {30, "30 seconds"}})
     CreateSlider(general, "MINIMAP ICON SCALE",
-        "Scale player and tracking icons (1.0 - 2.5).",
+        "Scale player and tracking icons.",
         1.0, 2.5, 0.1, db.iconScale, -106, function(value)
             db.iconScale = value
             if addon.Minimap then addon.Minimap:Apply() end
         end)
     CreateSlider(general, "MINIMAP WINDOW SCALE",
-        "Resize the entire minimap and its frame (0.7 - 1.5).",
+        "Resize the entire minimap and its frame.",
         0.7, 1.5, 0.05, db.mapScale, -169, function(value)
             db.mapScale = value
             if addon.Minimap then addon.Minimap:Apply() end
@@ -494,6 +498,7 @@ local function CreateMinimapPage()
     note:SetPoint("TOPLEFT", general, "TOPLEFT", 12, -245)
     note:SetWidth(340)
     note:SetJustifyH("LEFT")
+    note:SetTextColor(0.66, 0.63, 0.59, 1)
     local function Planned(parent, title, description)
         local heading = CreateLabel(parent, title, "GameFontNormalLarge")
         heading:SetPoint("TOPLEFT", 14, -12)
