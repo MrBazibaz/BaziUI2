@@ -141,15 +141,18 @@ local function layoutMember(f, kind, index, opt)
     local side = opt.portraitSide or (index <= 2 and "LEFT" or "RIGHT")
     if portrait then
         portrait:ClearAllPoints()
-        portrait:SetPoint(side,f,side,side=="LEFT" and 3 or -3,0)
-        portrait:SetSize(tonumber(opt.portraitSize) or height-6,tonumber(opt.portraitSize) or height-6)
+        local portraitSize=math.max(24,math.min(90,tonumber(opt.portraitSize) or (height-6)))
+        local px=tonumber(opt.portraitX) or 0
+        local py=tonumber(opt.portraitY) or 0
+        portrait:SetPoint(side,f,side,(side=="LEFT" and 3 or -3)+px,py)
+        portrait:SetSize(portraitSize,portraitSize)
         portrait:SetShown(opt.showPortrait ~= false)
-        f.rim:SetSize((tonumber(opt.portraitSize) or height-6)*62/48,(tonumber(opt.portraitSize) or height-6)*62/48)
+        f.rim:SetSize(portraitSize*62/48,portraitSize*62/48)
         f.rim:SetShown(opt.showPortrait ~= false)
     end
     f.hp:ClearAllPoints()
-    f.hp:SetPoint("TOPLEFT",f,"TOPLEFT",portrait and (side=="LEFT" and height or 5) or 5,-5)
-    f.hp:SetPoint("TOPRIGHT",f,"TOPRIGHT",portrait and (side=="RIGHT" and -height or -5) or -5,-5)
+    f.hp:SetPoint("TOPLEFT",f,"TOPLEFT",portrait and opt.showPortrait ~= false and (side=="LEFT" and portraitSize+6 or 5) or 5,-5)
+    f.hp:SetPoint("TOPRIGHT",f,"TOPRIGHT",portrait and opt.showPortrait ~= false and (side=="RIGHT" and -(portraitSize+6) or -5) or -5,-5)
     f.hp:SetHeight(math.max(12,tonumber(opt.hpHeight) or (height-12)*.72))
     f.power:ClearAllPoints()
     f.power:SetPoint("TOPLEFT",f.hp,"BOTTOMLEFT",0,-2)
@@ -158,7 +161,7 @@ local function layoutMember(f, kind, index, opt)
     f.label:ClearAllPoints()
     f.label:SetPoint("CENTER",f.hp,"CENTER")
     local font,size,flags = f.label:GetFont()
-    if font then f.label:SetFont(font,math.max(0,tonumber(opt.fontSize) or 11),flags) end
+    if font then f.label:SetFont(font,math.max(1,tonumber(opt.fontSize) or 11),flags) end
     f.hpText:SetShown(opt.showHealthPercent == true)
     f.powerText:SetShown(opt.showPowerPercent == true and opt.showPower ~= false)
     f.label:SetShown(opt.showName ~= false and (tonumber(opt.fontSize) or 11)>0)
