@@ -1,7 +1,7 @@
--- Item-link hover tooltips for Blizzard chat frames.
+-- Item and quest hyperlink hover tooltips for Blizzard chat frames.
 -- Hooks only hyperlink hover; clicking remains Blizzard-owned.
 local function showLink(frame, link)
-    if type(link) ~= "string" or not link:match("^item:") then return end
+    if type(link) ~= "string" or not (link:match("^item:") or link:match("^quest:")) then return end
     if not GameTooltip or not GameTooltip.SetHyperlink then return end
     local tooltip = GameTooltip
     local ok = pcall(function()
