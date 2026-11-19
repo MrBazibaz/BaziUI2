@@ -200,7 +200,7 @@ local function layout(f, settings)
         -- The gold atlas rim has a narrower visible annulus at small
         -- portrait sizes. Inset the XP ticks at 36, blending back to the
         -- approved geometry at 60+. Rotation and tick width stay unchanged.
-        local smallInset = 3 * math.max(0, math.min(1, (60 - portraitSize) / 24))
+        local smallInset = 1.5 * math.max(0, math.min(1, (60 - portraitSize) / 24))
         local radius = rimSize * 0.445 - smallInset
         local count = #f.petXPRing.segments
         -- Calculate the badge position from its actual anchor rather than
