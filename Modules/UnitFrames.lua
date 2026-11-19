@@ -14,6 +14,40 @@ local units = {
     pet = {unit="pet", x=-260, y=-250},
 }
 local frames = {}
+local movers = {}
+local moving = false
+local function position(settings, key)
+    settings.frames = settings.frames or {}
+    settings.frames[key] = settings.frames[key] or {}
+    local own = settings.frames[key]
+    local spec = units[key]
+    if own.x == nil then own.x = spec.x end
+    if own.y == nil then own.y = spec.y end
+    return own
+end
+local function applyPosition(f, settings, key)
+    local own = position(settings, key)
+    f:ClearAllPoints()
+    f:SetPoint("CENTER", UIParent, "CENTER", own.x, own.y)
+end
+function M:SetPosition(key, x, y)
+    local settings = cfg()
+    if not settings or not units[key] or (InCombatLockdown and InCombatLockdown()) then return false end
+    local own = position(settings, key)
+    own.x = math.floor(tonumber(x) or own.x)
+    own.y = math.floor(tonumber(y) or own.y)
+    if frames[key] then applyPosition(frames[key], settings, key) end
+    if movers[key] then movers[key]:ClearAllPoints(); movers[key]:SetPoint("CENTER", UIParent, "CENTER", own.x, own.y) end
+    if self.onPositionChanged then self.onPositionChanged(key, own.x, own.y) end
+    return true
+end
+function M:SetMoveMode(value)
+    if InCombatLockdown and InCombatLockdown() then return false end
+    moving = value == true
+    self:Refresh()
+    return true
+end
+function M:IsMoveMode() return moving end
 local layoutKeys = {"barWidth", "hpHeight", "powerHeight", "portraitSize", "portraitX", "portraitY", "portrait3D"}
 local function unitSettings(settings, key)
     settings.frames = settings.frames or {}
@@ -125,7 +159,7 @@ local function create(key, spec)
     f:SetAttribute("type1", "target")
     f:SetAttribute("type2", "togglemenu")
     f:SetSize(224, 48)
-    f:SetPoint("CENTER", UIParent, "CENTER", spec.x, spec.y)
+    applyPosition(f, cfg() or {}, key)
     f:SetFrameStrata("MEDIUM")
     f.unit = spec.unit
     f.portraitSide = (key == "player" or key == "pet") and "LEFT" or "RIGHT"
@@ -285,7 +319,7 @@ function M:Refresh()
         syncOriginal(key, settings.enabled == false and {hideBlizzard=false} or settings)
         local f = frames[key]
         if f and not (InCombatLockdown and InCombatLockdown()) then
-            layout(f, unitSettings(settings, key))
+            layout(f, unitSettings(settings, key))\n            applyPosition(f, settings, key)
             if settings.enabled ~= false and settings[key] then
                 if key == "focus" or key == "target" or key == "pet" then
                     if not f.visibilityRegistered and RegisterStateDriver then
@@ -305,6 +339,16 @@ function M:Refresh()
             end
             f:SetScale(1.15 * (settings.scale or 1))
         end
+        local mover = movers[key]
+        if mover then
+            local own = position(settings, key)
+            mover:ClearAllPoints()
+            mover:SetPoint("CENTER", UIParent, "CENTER", own.x, own.y)
+            if f then mover:SetSize(f:GetWidth() * f:GetEffectiveScale() / UIParent:GetEffectiveScale(), f:GetHeight() * f:GetEffectiveScale() / UIParent:GetEffectiveScale()) end
+            mover:SetShown(moving and settings.enabled ~= false and settings[key] == true)
+        end
+        if false then
+        end
     end
 end
 function M:Initialize()
@@ -314,6 +358,6 @@ function M:Initialize()
     events:RegisterEvent("PLAYER_REGEN_ENABLED")
     events:RegisterEvent("PLAYER_ENTERING_WORLD")
     events:RegisterEvent("ADDON_LOADED")
-    events:SetScript("OnEvent", function() M:Refresh() end)
+    events:SetScript("OnEvent", function(eventFrame, event)\n        if event == "PLAYER_REGEN_ENABLED" then M:Refresh() else M:Refresh() end\n    end)
     self:Refresh()
 end
