@@ -416,8 +416,20 @@ local function CreateQoLPage()
         label:SetTextColor(1, 0.8, 0.47)
         -- Editable window position (UIParent bottom-left coordinates).
         local coordinateBoxes = {}
+        local function selectAllOnDoubleClick(edit)
+            local lastClick = 0
+            edit:HookScript("OnMouseDown", function(self, button)
+                if button ~= "LeftButton" then return end
+                local now = GetTime()
+                if now - lastClick < 0.35 then
+                    self:SetFocus()
+                    self:HighlightText()
+                end
+                lastClick = now
+            end)
+        end
         for index, axis in ipairs({"X", "Y"}) do
-            local offset = index == 1 and -322 or -216
+            local offset = index == 1 and -257 or -158
             local coordLabel = CreateLabel(row, axis .. ":", "GameFontNormalSmall")
             coordLabel:SetPoint("RIGHT", row, "RIGHT", offset, 0)
             coordLabel:SetTextColor(0.96, 0.78, 0.53)
@@ -433,6 +445,7 @@ local function CreateQoLPage()
             local background = edit:CreateTexture(nil, "BACKGROUND")
             background:SetAllPoints()
             background:SetColorTexture(0.11, 0.065, 0.04, 0.95)
+            selectAllOnDoubleClick(edit)
             coordinateBoxes[axis] = edit
         end
         local function refreshCoordinates()
@@ -458,7 +471,7 @@ local function CreateQoLPage()
         end
         local drag = CreateFrame("CheckButton", nil, row, "UICheckButtonTemplate")
         drag:SetSize(23,23)
-        drag:SetPoint("RIGHT", row, "RIGHT", -111, 0)
+        drag:SetPoint("RIGHT", row, "RIGHT", -342, 0)
         drag:SetChecked(cfg.draggable ~= false)
         drag:SetEnabled(cfg.enabled)
         local dragLabel = CreateLabel(row, "Drag", "GameFontNormalSmall")
@@ -473,6 +486,7 @@ local function CreateQoLPage()
         valueBox:SetFontObject("GameFontNormal")
         valueBox:SetTextColor(1, 0.81, 0.45)
         valueBox:SetJustifyH("CENTER")
+        selectAllOnDoubleClick(valueBox)
         local bg = valueBox:CreateTexture(nil, "BACKGROUND")
         bg:SetAllPoints()
         bg:SetColorTexture(0.11, 0.065, 0.04, 0.95)
