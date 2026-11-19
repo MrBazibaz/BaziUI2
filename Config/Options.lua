@@ -265,14 +265,22 @@ local function CreateQoLPage()
         addon.db.profile.qol.characterItemLevel = not not self:GetChecked()
         if addon.ItemLevel then addon.ItemLevel:RefreshCharacter() end
     end)
+    local soundsPanel = CreatePanel(page, -12, 340)
+    soundsPanel:Hide()
+    soundsPanel:ClearAllPoints()
+    soundsPanel:SetPoint("TOPLEFT", page, "TOPLEFT", 12, -12)
+    soundsPanel:SetPoint("TOPRIGHT", page, "TOPRIGHT", -12, -12)
+    soundsPanel:SetPoint("BOTTOM", page, "BOTTOM", 0, 0)
+    CreateSection(soundsPanel, "SOUNDS", -14)
+    CreateDivider(soundsPanel, -48)
     local function SoundCheck(title, descriptionText, key, y)
-        local check = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
+        local check = CreateFrame("CheckButton", nil, soundsPanel, "UICheckButtonTemplate")
         check:SetSize(25, 25)
-        check:SetPoint("TOPLEFT", panel, "TOPLEFT", 18, y)
+        check:SetPoint("TOPLEFT", soundsPanel, "TOPLEFT", 18, y)
         check:SetChecked(addon.db.profile.qol[key])
-        local caption = CreateLabel(panel, title, "GameFontHighlight")
+        local caption = CreateLabel(soundsPanel, title, "GameFontHighlight")
         caption:SetPoint("LEFT", check, "RIGHT", 6, 0)
-        local hint = CreateLabel(panel, descriptionText, "GameFontHighlightSmall")
+        local hint = CreateLabel(soundsPanel, descriptionText, "GameFontHighlightSmall")
         hint:SetPoint("TOPLEFT", check, "BOTTOMLEFT", 4, -5)
         hint:SetTextColor(0.84, 0.73, 0.59)
         check:SetScript("OnClick", function(self)
@@ -282,10 +290,10 @@ local function CreateQoLPage()
     end
     SoundCheck("Mute Character Error Speech",
         "Silence character voice errors, such as not enough mana.",
-        "muteErrorSpeech", -153)
+        "muteErrorSpeech", -72)
     SoundCheck("Mute Failed Spell Sounds",
         "Silence the sound played when a spell or ability fails.",
-        "muteFailedSpellSounds", -233)
+        "muteFailedSpellSounds", -152
     -- Same right-side tabs used by Minimap and Tooltip.
     local resize = addon.WindowResize
     local resizePanel = CreatePanel(page, -12, 420)
@@ -300,7 +308,7 @@ local function CreateQoLPage()
     help:SetTextColor(0.89, 0.73, 0.52)
     local tabBar = CreateFrame("Frame", nil, page)
     tabBar:SetPoint("TOPLEFT", resizePanel, "TOPRIGHT", 25, 0)
-    tabBar:SetSize(108, 58)
+    tabBar:SetSize(108, 87)
     tabBar:SetFrameStrata("FULLSCREEN_DIALOG")
     local tabs = {}
     local active = "General"
@@ -308,6 +316,7 @@ local function CreateQoLPage()
         active = name
         panel:SetShown(name == "General")
         resizePanel:SetShown(name == "Resize Options")
+        soundsPanel:SetShown(name == "Sounds")
         for key, button in pairs(tabs) do
             local selected = key == name
             button.fill:SetColorTexture(selected and 0.34 or 0.23, selected and 0.17 or 0.12,
@@ -317,7 +326,7 @@ local function CreateQoLPage()
             for _, edge in ipairs(button.edges) do edge:SetColorTexture(selected and 0.83 or 0.54, selected and 0.63 or 0.37, selected and 0.30 or 0.20, 0.95) end
         end
     end
-    for i, name in ipairs({"General", "Resize Options"}) do
+    for i, name in ipairs({"General", "Resize Options", "Sounds"}) do
         local tab = CreateFrame("Button", nil, tabBar)
         tab:SetSize(108, 29)
         tab:SetPoint("TOPLEFT", tabBar, "TOPLEFT", 0, -(i-1)*29)
