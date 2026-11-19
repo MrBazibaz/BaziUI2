@@ -627,6 +627,60 @@ local function CreateUnitFramesPage()
             optionCheck("showClassification", "Elite / rare", 20, -138)
 
             optionCheck("showName", "Show name", 230, -138)
+            local iconSpecs = {
+                {"pvp", "PvP flag"}, {"leader", "Group leader"},
+                {"raid", "Raid marker"}, {"role", "Group / raid role"},
+                {"classification", "Elite / rare"}
+            }
+            local function indicatorField(kind, field, x, y, caption)
+                own[field] = own[field] or {}
+                local label = CreateLabel(panel, caption, "GameFontNormalSmall")
+                label:SetPoint("TOPLEFT", panel, "TOPLEFT", x, y)
+                label:SetTextColor(1, 0.79, 0.42)
+                local edit = CreateFrame("EditBox", nil, panel, "InputBoxTemplate")
+                edit:SetSize(43, 22)
+                edit:SetPoint("TOPLEFT", panel, "TOPLEFT", x, y - 19)
+                edit:SetAutoFocus(false)
+                local function current()
+                    return own[field][kind] or (field == "indicatorSize" and 17 or 0)
+                end
+                local function apply(value)
+                    local n = math.floor(tonumber(value) or current())
+                    if field == "indicatorSize" then n = math.max(10, math.min(48, n))
+                    else n = math.max(-150, math.min(150, n)) end
+                    own[field][kind] = n
+                    edit:SetText(tostring(n))
+                    if addon.UnitFrames then addon.UnitFrames:Refresh() end
+                end
+                edit:SetScript("OnEditFocusGained", function(self) self:HighlightText() end)
+                edit:SetScript("OnEnterPressed", function(self) apply(self:GetText()); self:ClearFocus() end)
+                edit:SetScript("OnEscapePressed", function(self) self:ClearFocus(); self:SetText(tostring(current())) end)
+                edit:SetScript("OnEditFocusLost", function(self) self:SetText(tostring(current())) end)
+                edit:SetText(tostring(current()))
+                for i, delta in ipairs({1, -1}) do
+                    local button = CreateFrame("Button", nil, panel)
+                    button:SetSize(18, 12)
+                    button:SetPoint("TOPLEFT", edit, "TOPRIGHT", 3, -(i-1)*12)
+                    local bg = button:CreateTexture(nil, "BACKGROUND")
+                    bg:SetAllPoints()
+                    bg:SetColorTexture(0.23, 0.12, 0.065, 1)
+                    local t = CreateLabel(button, delta == 1 and "+" or "-", "GameFontNormalSmall")
+                    t:SetPoint("CENTER")
+                    button:SetScript("OnClick", function() apply(current() + delta) end)
+                end
+                refreshers[#refreshers+1] = function()
+                    if not edit:HasFocus() then edit:SetText(tostring(current())) end
+                end
+            end
+            for i, spec in ipairs(iconSpecs) do
+                local rowY = -200 - (i-1)*65
+                local title = CreateLabel(panel, spec[2], "GameFontNormal")
+                title:SetPoint("TOPLEFT", panel, "TOPLEFT", 20, rowY)
+                title:SetTextColor(1, 0.79, 0.42)
+                indicatorField(spec[1], "indicatorSize", 215, rowY, "SIZE")
+                indicatorField(spec[1], "indicatorX", 310, rowY, "X")
+                indicatorField(spec[1], "indicatorY", 405, rowY, "Y")
+            end
             panel = groups["Bar Text"]
             local barTitle = CreateLabel(panel, "BAR TEXT", "GameFontNormalLarge")
             barTitle:SetPoint("TOPLEFT", panel, "TOPLEFT", 20, -15)
