@@ -332,7 +332,7 @@ local function CreateUnitFramesPage()
         viewport:SetPoint("BOTTOMRIGHT", main, "BOTTOMRIGHT", -10, 10)
         viewport:EnableMouseWheel(true)
         local panel = CreateFrame("Frame", nil, viewport)
-        panel:SetHeight(name == "General" and 300 or 1150)
+        panel:SetHeight(name == "General" and 300 or 1350)
         panel:SetWidth(500)
         viewport:SetScrollChild(panel)
         viewport:SetScript("OnSizeChanged", function(self) panel:SetWidth(math.max(1, self:GetWidth())) end)
@@ -616,6 +616,21 @@ local function CreateUnitFramesPage()
                     if addon.UnitFrames then addon.UnitFrames:Refresh() end
                 end, false)
             refreshers[#refreshers+1] = function() fontSlider:SetValue(own.fontSize or 12) end
+            for i, spec in ipairs({
+                {"nameFontSize", "NAME SIZE"},
+                {"hpFontSize", "HP TEXT SIZE"},
+                {"powerFontSize", "POWER TEXT SIZE"},
+            }) do
+                local field = spec[1]
+                local slider = CreateSlider(panel, spec[2], "Independent text size", 8, 28, 1,
+                    own[field] or own.fontSize or 12, -1100 - (i-1)*57, function(v)
+                        own[field] = v
+                        if addon.UnitFrames then addon.UnitFrames:Refresh() end
+                    end, false)
+                refreshers[#refreshers+1] = function()
+                    slider:SetValue(own[field] or own.fontSize or 12)
+                end
+            end
 
             local note = CreateLabel(panel, "Copies appearance only. Frame position is preserved.", "GameFontHighlightSmall")
             note:SetTextColor(0.91, 0.78, 0.61, 1)
