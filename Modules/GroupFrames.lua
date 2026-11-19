@@ -85,6 +85,7 @@ function M:CopyMember(kind,sourceKind,sourceIndex,targetIndex)
     keep.offsetX,keep.offsetY=offsetX,offsetY
     self:Refresh()
     if kind=="party" and addon.PartyFrames then addon.PartyFrames:Refresh() end
+    if kind=="boss" and addon.BossFrames then addon.BossFrames:Refresh() end
     return true
 end
 function M:ApplyToAll(kind,sourceIndex)
@@ -471,6 +472,7 @@ function M:Initialize()
     if self.initialized then return end
     self.initialized=true
     if addon.PartyFrames then addon.PartyFrames:Initialize() end
+    if addon.BossFrames then addon.BossFrames:Initialize() end
     local events=CreateFrame("Frame")
     for _,event in ipairs({"PLAYER_ENTERING_WORLD","GROUP_ROSTER_UPDATE","PLAYER_REGEN_ENABLED","UNIT_HEALTH","UNIT_MAXHEALTH","UNIT_POWER_UPDATE","UNIT_MAXPOWER","UNIT_NAME_UPDATE","UNIT_AURA","RAID_TARGET_UPDATE","PLAYER_ROLES_ASSIGNED","UNIT_FLAGS"}) do
         events:RegisterEvent(event)
