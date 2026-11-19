@@ -402,6 +402,10 @@ local function CreateUnitFramesPage()
             db.groups = db.groups or {}
             db.groups[key] = db.groups[key] or {}
             local opt = db.groups[key]
+            local function refreshGroup()
+                if addon.GroupFrames then addon.GroupFrames:Refresh() end
+                if key=="boss" and addon.BossFrames then addon.BossFrames:Refresh() end
+            end
             local selectedMember = 1
             local memberRefreshers = {}
             local function memberSettings()
@@ -585,7 +589,7 @@ local function CreateUnitFramesPage()
                 check:SetChecked(opt[field] == true)
                 check:SetScript("OnClick",function(self)
                     opt[field] = self:GetChecked() == true
-                    if addon.GroupFrames then addon.GroupFrames:Refresh() end
+                    refreshGroup()
                 end)
                 page:HookScript("OnShow",function() check:SetChecked(opt[field] == true) end)
             end
@@ -599,7 +603,7 @@ local function CreateUnitFramesPage()
                 local row = CreateSlider(panel,string.upper(label),label,min,max,step,current(),y,function(value)
                     if syncing then return end
                     if shared then opt[field]=value else memberSettings()[field]=value end
-                    if addon.GroupFrames then addon.GroupFrames:Refresh() end
+                    refreshGroup()
                 end,false)
                 local function refresh()
                     syncing=true
@@ -624,7 +628,7 @@ local function CreateUnitFramesPage()
                         button:SetScript("OnClick",function()
                             memberSettings()[field]=(tonumber(memberValue(field,0)) or 0)+step
                             redraw()
-                            if addon.GroupFrames then addon.GroupFrames:Refresh() end
+                            refreshGroup()
                         end)
                     end
                     memberRefreshers[#memberRefreshers+1]=redraw
@@ -656,7 +660,7 @@ local function CreateUnitFramesPage()
                 growth:SetScript("OnClick",function()
                     opt.growth=opt.growth=="up" and "down" or "up"
                     updateGrowth()
-                    if addon.GroupFrames then addon.GroupFrames:Refresh() end
+                    refreshGroup()
                 end)
                 updateGrowth()
                 local anchorButton=CreateFrame("Button",nil,panel,"UIPanelButtonTemplate")
@@ -670,15 +674,13 @@ local function CreateUnitFramesPage()
                     for i,v in ipairs(anchors) do if v==current then index=i break end end
                     opt.anchor=anchors[index%#anchors+1]
                     updateAnchor()
-                    if addon.GroupFrames then addon.GroupFrames:Refresh() end
+                    refreshGroup()
                 end)
                 updateAnchor()
                 panel:SetHeight(530)
-            elseif key=="boss" then
-                setting("Vertical offset","y",180,-500,500,5,16,-385,true)
             end
             local function groupRefresh()
-                if addon.GroupFrames then addon.GroupFrames:Refresh() end
+                refreshGroup()
             end
             local function groupSlider(canvas,title,hint,field,min,max,default,y)
                 local syncing=false
@@ -799,14 +801,14 @@ local function CreateUnitFramesPage()
                     partyDropdown(canvas,label,field,{{"LEFT","Left"},{"CENTER","Center"},{"RIGHT","Right"},{"HIDDEN","Hidden"}},x,y,190,"CENTER")
                 end
                 partyDropdown(sections.Layout,"PORTRAIT SIDE","portraitSide",{{"LEFT","Left"},{"RIGHT","Right"}},16,-730,190,selectedMember<=2 and "LEFT" or "RIGHT")
-                coordinate(sections.Indicators,"ROLE PORTRAIT X","roleX",16,-910)
+                if key~="boss" then coordinate(sections.Indicators,"ROLE PORTRAIT X","roleX",16,-910)
                 coordinate(sections.Indicators,"ROLE PORTRAIT Y","roleY",260,-910)
                 -- Existing profiles may store 1.5 instead of 150; normalize on edit.
                 local roleSetting=memberSettings()
                 if tonumber(roleSetting.rolePortraitScale) and tonumber(roleSetting.rolePortraitScale)<=5 then
                     roleSetting.rolePortraitScale=math.floor(roleSetting.rolePortraitScale*100+0.5)
                 end
-                coordinate(sections.Indicators,"ROLE SCALE %","rolePortraitScale",16,-995,150)
+                coordinate(sections.Indicators,"ROLE SCALE %","rolePortraitScale",16,-995,150) end
                 coordinate(sections.Layout,"FRAME X","offsetX",16,-670)
                 coordinate(sections.Layout,"FRAME Y","offsetY",260,-670)
                 coordinate(sections["Bar Text"],"NAME X","nameX",16,-470)
