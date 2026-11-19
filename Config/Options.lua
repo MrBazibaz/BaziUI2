@@ -801,6 +801,11 @@ local function CreateUnitFramesPage()
                 partyDropdown(sections.Layout,"PORTRAIT SIDE","portraitSide",{{"LEFT","Left"},{"RIGHT","Right"}},16,-730,190,selectedMember<=2 and "LEFT" or "RIGHT")
                 coordinate(sections.Indicators,"ROLE PORTRAIT X","roleX",16,-910)
                 coordinate(sections.Indicators,"ROLE PORTRAIT Y","roleY",260,-910)
+                -- Existing profiles may store 1.5 instead of 150; normalize on edit.
+                local roleSetting=memberSettings()
+                if tonumber(roleSetting.rolePortraitScale) and tonumber(roleSetting.rolePortraitScale)<=5 then
+                    roleSetting.rolePortraitScale=math.floor(roleSetting.rolePortraitScale*100+0.5)
+                end
                 coordinate(sections.Indicators,"ROLE SCALE %","rolePortraitScale",16,-995,150)
                 coordinate(sections.Layout,"FRAME X","offsetX",16,-670)
                 coordinate(sections.Layout,"FRAME Y","offsetY",260,-670)

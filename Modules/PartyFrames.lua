@@ -541,14 +541,21 @@ local function layout(f, settings)
     f.rimMask:SetSize(rimSize, rimSize)
     f.rimMask:ClearAllPoints()
     f.rimMask:SetPoint("CENTER", f.rim, "CENTER")
-    -- The role atlas has generous transparent padding. Adjust its visible
-    -- artwork independently of the circular portrait mask and gold ring.
-    local rawScale=tonumber(settings.rolePortraitScale) or 150
-    -- Accept both legacy ratios (1.5) and the new editable percentages (150).
-    local roleScale=math.max(.6,math.min(2.5,rawScale>5 and rawScale/100 or rawScale))
-    f.portrait:SetSize(innerSize*roleScale,innerSize*roleScale)
+    -- Preserve the original portrait dimensions, regardless of role scale.
+    f.portrait:SetSize(innerSize,innerSize)
     f.portrait:ClearAllPoints()
-    f.portrait:SetPoint("CENTER",f.portraitAnchor,"CENTER",tonumber(settings.roleX) or 2,tonumber(settings.roleY) or -2)
+    f.portrait:SetPoint("CENTER",f.portraitAnchor,"CENTER",-1,0)
+    if f.roleArt then
+        local raw=tonumber(settings.rolePortraitScale) or 150
+        local percent=raw<=5 and raw*100 or raw
+        local scale=math.max(50,math.min(250,percent))/100
+        f.roleArt:SetSize(innerSize*scale,innerSize*scale)
+        f.roleArt:ClearAllPoints()
+        f.roleArt:SetPoint("CENTER",f.portraitAnchor,"CENTER",tonumber(settings.roleX) or 2,tonumber(settings.roleY) or -2)
+        f.roleMask:SetSize(innerSize,innerSize)
+        f.roleMask:ClearAllPoints()
+        f.roleMask:SetPoint("CENTER",f.portraitAnchor,"CENTER",-1,0)
+    end
     f.portraitBack:SetSize(backSize, backSize)
     -- The model is a genuine 3D render surface, not a masked texture.
     -- Keep its viewport within the ring while we investigate clipping.
@@ -1054,6 +1061,19 @@ local function create(key, spec)
     portraitBack:ClearAllPoints()
     portraitBack:SetPoint("CENTER", portrait, "CENTER")
     f.portrait = portrait
+    -- Separate role artwork: scaling must never resize the normal portrait,
+    -- its mask, the level badge, or the gold ring.
+    local roleArt=portraitLayer:CreateTexture(nil,"ARTWORK",nil,1)
+    roleArt:SetPoint("CENTER",portraitAnchor,"CENTER")
+    roleArt:SetSize(48,48)
+    roleArt:Hide()
+    f.roleArt=roleArt
+    local roleMask=portraitLayer:CreateMaskTexture()
+    roleMask:SetTexture("Interface\\CHARACTERFRAME\\TempPortraitAlphaMask","CLAMPTOBLACKADDITIVE","CLAMPTOBLACKADDITIVE")
+    roleMask:SetPoint("CENTER",portraitAnchor,"CENTER")
+    roleMask:SetSize(48,48)
+    roleArt:AddMaskTexture(roleMask)
+    f.roleMask=roleMask
     -- 3D portrait trial; retain the masked 2D texture as fallback.
     local model = CreateFrame("PlayerModel", nil, portraitLayer)
     -- Keep the model disabled: PlayerModel can render beyond its viewport on Forever.
@@ -1083,7 +1103,7 @@ local function create(key, spec)
     local disc = badgeLayer:CreateTexture(nil, "OVERLAY")
     disc:SetSize(24,24)
     f.levelDisc = disc
-    disc:SetPoint("BOTTOM", portrait, "BOTTOM", side == "LEFT" and -17 or 17, -9)
+    disc:SetPoint("BOTTOM", portraitAnchor, "BOTTOM", side == "LEFT" and -17 or 17, -9)
     disc:SetAtlas("UI-HUD-UnitFrame-SmallCircle")
     local level = badgeLayer:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     level:SetPoint("CENTER", disc, "CENTER", 0, 0)
@@ -1261,20 +1281,28 @@ local function showPartyRolePortrait(f,role)
     if not f or not f.portrait then return false end
     local atlas=dungeonFinderRoleAtlas(role)
     if not atlas then return false end
-    local ok=pcall(f.portrait.SetAtlas,f.portrait,atlas,false)
+    local ok=f.roleArt and pcall(f.roleArt.SetAtlas,f.roleArt,atlas,false)
     if not ok then return false end
     -- SetAtlas already supplies correct UV coordinates.
     if f.model then f.model:Hide() end
-    f.portrait:Show()
+    f.portrait:Hide()
+    f.roleArt:Show()
     return true
 end
 updatePartyRolePortrait = function(f)
     if not f or not UnitExists(f.unit) then return end
     local own=unitSettings(cfg() or {},f.unit)
-    if own.showRole==false or own.rolePortrait==false then return end
+    if own.showRole==false or own.rolePortrait==false then
+        if f.roleArt then f.roleArt:Hide() end
+        f.portrait:Show()
+        return
+    end
     local role=type(UnitGroupRolesAssigned)=="function" and UnitGroupRolesAssigned(f.unit)
     if issecretvalue and issecretvalue(role) then return end
-    showPartyRolePortrait(f,role)
+    if not showPartyRolePortrait(f,role) then
+        if f.roleArt then f.roleArt:Hide() end
+        f.portrait:Show()
+    end
 end
 local function updateSample(f,index)
     local sample=samples[index]
@@ -1309,13 +1337,14 @@ local function updateSample(f,index)
     if f.portrait then
         local role=index==1 and "TANK" or (index==2 and "HEALER" or "DAMAGER")
         if own.showRole==false or not showPartyRolePortrait(f,role) then
+            if f.roleArt then f.roleArt:Hide() end
             -- Safe fallback on clients without Dungeon Finder role atlases.
             f.portrait:SetTexture("Interface\\Icons\\"..sample.icon)
             f.portrait:SetTexCoord(0,1,0,1)
         end
     end
     if f.model then f.model:Hide() end
-    if f.portrait then f.portrait:Show() end
+    if f.portrait then f.portrait:SetShown(not (f.roleArt and f.roleArt:IsShown())) end
     for _,field in ipairs({"pvpIcon","leaderIcon","raidIcon","roleIcon","classIcon","happinessIcon"}) do
         if f[field] then f[field]:Hide() end
     end
