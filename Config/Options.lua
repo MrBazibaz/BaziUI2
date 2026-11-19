@@ -605,7 +605,7 @@ local function CreateUnitFramesPage()
 
             do
                 panel = groups["Buffs / Debuffs"]
-                -- Target-only aura layout previews. They never modify real auras.
+                -- Shared aura editor grid: three aligned columns, consistent row spacing.\n                -- Previews never modify real auras.
                 local function auraPreviewControls(kind, top)
                     local title = CreateLabel(panel, string.upper(name .. " " .. kind), "GameFontNormal")
                     title:SetPoint("TOPLEFT", panel, "TOPLEFT", 20, top)
@@ -645,7 +645,7 @@ local function CreateUnitFramesPage()
                         edit:SetSize(65, 22)
                         edit:SetPoint("TOPLEFT", panel, "TOPLEFT", x, y-17)
                         edit:SetAutoFocus(false)
-                        edit:SetText(tostring(opt[spec[1]] or spec[5]))
+                        edit:SetText(tostring(opt[spec[1]] == nil and spec[5] or opt[spec[1]]))
                         local function apply(value)
                             local n = tonumber(value)
                             if not n then n = opt[spec[1]] end
@@ -678,7 +678,7 @@ local function CreateUnitFramesPage()
                     if key == "target" and kind == "debuffs" then
                         local mine = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
                         mine:SetSize(24, 24)
-                        mine:SetPoint("TOPLEFT", panel, "TOPLEFT", 20, top - 222)
+                        mine:SetPoint("TOPLEFT", panel, "TOPLEFT", 20, top - 219)
                         local mineLabel = CreateLabel(panel, "Show only my debuffs (requires /reload)", "GameFontHighlight")
                         mineLabel:SetPoint("LEFT", mine, "RIGHT", 4, 0)
                         mine:SetChecked(opt.onlyMine == true)
@@ -689,7 +689,7 @@ local function CreateUnitFramesPage()
                     local function direction(field, x)
                         local button = CreateFrame("Button", nil, panel)
                         button:SetSize(190, 24)
-                        button:SetPoint("TOPLEFT", panel, "TOPLEFT", x, top-185)
+                        button:SetPoint("TOPLEFT", panel, "TOPLEFT", x, top-190)
                         local bg = button:CreateTexture(nil, "BACKGROUND")
                         bg:SetAllPoints()
                         bg:SetColorTexture(0.23, 0.12, 0.065, 1)
@@ -708,7 +708,7 @@ local function CreateUnitFramesPage()
                         refresh()
                     end
                     direction("horizontal", 20)
-                    direction("vertical", 235)
+                    direction("vertical", 255)
                     viewport:HookScript("OnHide", function()
                         check:SetChecked(false)
                         if addon.UnitFrames then addon.UnitFrames:SetAuraPreview(key, kind, false) end
