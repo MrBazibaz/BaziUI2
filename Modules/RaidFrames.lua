@@ -685,8 +685,10 @@ local function layout(f, settings)
     if f.partyCast then
         local cast=f.partyCast
         cast:ClearAllPoints()
-        cast:SetPoint("TOPLEFT",f.power,"BOTTOMLEFT",tonumber(settings.partyCastX) or 0,-(tonumber(settings.partyCastGap) or 5)+(tonumber(settings.partyCastY) or 0))
-        cast:SetSize(math.max(40,tonumber(settings.partyCastWidth) or width),math.max(4,tonumber(settings.partyCastHeight) or 13))
+        -- Raid default: cast occupies the power bar slot, not a separate row.
+        -- Explicit saved offsets/sizes remain available for fine tuning.
+        cast:SetPoint("TOPLEFT",f.power,"TOPLEFT",tonumber(settings.partyCastX) or 0,tonumber(settings.partyCastY) or 0)
+        cast:SetSize(math.max(40,tonumber(settings.partyCastWidth) or width),math.max(4,tonumber(settings.partyCastHeight) or powerHeight))
         local font=(GameFontNormal and select(1,GameFontNormal:GetFont())) or "Fonts\\FRIZQT__.TTF"
         local size=tonumber(settings.partyCastFontSize) or 10
         cast.label:ClearAllPoints()
