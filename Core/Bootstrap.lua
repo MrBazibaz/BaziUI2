@@ -4,7 +4,7 @@ BaziUI = BaziUI or namespace or {}
 local addon = BaziUI
 
 addon.name = addonName or "BaziUI"
-addon.version = "0.1.4"
+addon.version = "0.2.1"
 addon.modules = addon.modules or {}
 
 function addon:Print(message)
