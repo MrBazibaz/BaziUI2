@@ -419,7 +419,8 @@ local function updateExtras(f, own)
     if previewIndicators then SetRaidTargetIconTexture(f.raidIcon, 1)
     elseif type(marker) == "number" then SetRaidTargetIconTexture(f.raidIcon, marker) end
     local role = UnitGroupRolesAssigned and readable(UnitGroupRolesAssigned(unit))
-    f.roleIcon:SetShown(own.showRole ~= false and (previewIndicators or role == "TANK" or role == "HEALER" or role == "DAMAGER"))
+    -- Role is represented by the large portrait; never duplicate the tiny icon.
+    f.roleIcon:Hide()
     if role == "TANK" then f.roleIcon:SetTexCoord(0, 19/64, 22/64, 41/64)
     elseif role == "HEALER" then f.roleIcon:SetTexCoord(20/64, 39/64, 1/64, 20/64)
     else f.roleIcon:SetTexCoord(20/64, 39/64, 22/64, 41/64) end
@@ -540,7 +541,7 @@ local function layout(f, settings)
     f.rimMask:SetSize(rimSize, rimSize)
     f.rimMask:ClearAllPoints()
     f.rimMask:SetPoint("CENTER", f.rim, "CENTER")
-    f.portrait:SetSize(innerSize, innerSize)
+    f.portrait:SetSize(innerSize * (settings.showRole == false and 1 or 1.12), innerSize * (settings.showRole == false and 1 or 1.12))
     f.portraitBack:SetSize(backSize, backSize)
     -- The model is a genuine 3D render surface, not a masked texture.
     -- Keep its viewport within the ring while we investigate clipping.
@@ -1261,7 +1262,7 @@ end
 updatePartyRolePortrait = function(f)
     if not f or not UnitExists(f.unit) then return end
     local own=unitSettings(cfg() or {},f.unit)
-    if own.rolePortrait==false then return end
+    if own.showRole==false or own.rolePortrait==false then return end
     local role=type(UnitGroupRolesAssigned)=="function" and UnitGroupRolesAssigned(f.unit)
     if issecretvalue and issecretvalue(role) then return end
     showPartyRolePortrait(f,role)
@@ -1298,7 +1299,7 @@ local function updateSample(f,index)
     else f.power:SetStatusBarColor(.12,.34,.90) end
     if f.portrait then
         local role=index==1 and "TANK" or (index==2 and "HEALER" or "DAMAGER")
-        if not showPartyRolePortrait(f,role) then
+        if own.showRole==false or not showPartyRolePortrait(f,role) then
             -- Safe fallback on clients without Dungeon Finder role atlases.
             f.portrait:SetTexture("Interface\\Icons\\"..sample.icon)
             f.portrait:SetTexCoord(0,1,0,1)
@@ -1309,12 +1310,7 @@ local function updateSample(f,index)
     for _,field in ipairs({"pvpIcon","leaderIcon","raidIcon","roleIcon","classIcon","happinessIcon"}) do
         if f[field] then f[field]:Hide() end
     end
-    if f.roleIcon then
-        f.roleIcon:SetShown(own.showRole~=false)
-        if index==1 then f.roleIcon:SetTexCoord(0,19/64,22/64,41/64)
-        elseif index==2 then f.roleIcon:SetTexCoord(20/64,39/64,1/64,20/64)
-        else f.roleIcon:SetTexCoord(20/64,39/64,22/64,41/64) end
-    end
+    -- No miniature role overlay: Show Role controls the portrait itself.
 end
 function M:Refresh()
     local settings=cfg()
