@@ -601,6 +601,30 @@ local function CreateMinimapPage()
         groupBack:SetPoint("TOPRIGHT", fonts, "TOPRIGHT", -6, y + 12)
         groupBack:SetHeight(172)
         groupBack:SetColorTexture(0.18, 0.10, 0.065, 0.52)
+        -- Thin bronze outline around each separate font category.
+        local edges = {}
+        for _, side in ipairs({"TOP", "BOTTOM", "LEFT", "RIGHT"}) do
+            local edge = fonts:CreateTexture(nil, "BORDER")
+            edge:SetColorTexture(0.68, 0.46, 0.24, 0.85)
+            if side == "TOP" then
+                edge:SetPoint("TOPLEFT", groupBack, "TOPLEFT")
+                edge:SetPoint("TOPRIGHT", groupBack, "TOPRIGHT")
+                edge:SetHeight(1)
+            elseif side == "BOTTOM" then
+                edge:SetPoint("BOTTOMLEFT", groupBack, "BOTTOMLEFT")
+                edge:SetPoint("BOTTOMRIGHT", groupBack, "BOTTOMRIGHT")
+                edge:SetHeight(1)
+            elseif side == "LEFT" then
+                edge:SetPoint("TOPLEFT", groupBack, "TOPLEFT")
+                edge:SetPoint("BOTTOMLEFT", groupBack, "BOTTOMLEFT")
+                edge:SetWidth(1)
+            else
+                edge:SetPoint("TOPRIGHT", groupBack, "TOPRIGHT")
+                edge:SetPoint("BOTTOMRIGHT", groupBack, "BOTTOMRIGHT")
+                edge:SetWidth(1)
+            end
+            edges[#edges + 1] = edge
+        end
         local heading = CreateLabel(fonts, title, "GameFontNormalLarge")
         heading:SetPoint("TOPLEFT", fonts, "TOPLEFT", 14, y)
         heading:SetTextColor(1, 0.79, 0.42)
@@ -772,7 +796,7 @@ local function CreateTooltipPage()
         if viewport.SetClipsChildren then viewport:SetClipsChildren(true) end
         viewport:EnableMouseWheel(true)
         local panel = CreateFrame("Frame", nil, viewport)
-        panel:SetHeight(name == "Contents" and 420 or 390)
+        panel:SetHeight(name == "Fonts" and 460 or (name == "Contents" and 420 or 390))
         panel:SetWidth(math.max(1, viewport:GetWidth()))
         viewport:SetScrollChild(panel)
         viewport:SetScript("OnSizeChanged", function(self)
@@ -784,6 +808,43 @@ local function CreateTooltipPage()
             local limit = math.max(0, panel:GetHeight() - self:GetHeight())
             self:SetVerticalScroll(math.max(0, math.min(limit, self:GetVerticalScroll() - delta * 36)))
         end)
+        if name == "Fonts" then
+            local bar = CreateFrame("Slider", nil, main)
+            bar:SetOrientation("VERTICAL")
+            bar:SetWidth(12)
+            bar:SetPoint("TOPRIGHT", main, "TOPRIGHT", -2, -12)
+            bar:SetPoint("BOTTOMRIGHT", main, "BOTTOMRIGHT", -2, 12)
+            bar:SetMinMaxValues(0, 1)
+            bar:SetValueStep(1)
+            local track = bar:CreateTexture(nil, "BACKGROUND")
+            track:SetAllPoints()
+            track:SetColorTexture(0.12, 0.07, 0.04, 0.9)
+            local thumb = bar:CreateTexture(nil, "OVERLAY")
+            thumb:SetSize(14, 38)
+            thumb:SetTexture(ASSET .. "Sliders\\Slider_Gem.png")
+            bar:SetThumbTexture(thumb)
+            viewport:SetPoint("BOTTOMRIGHT", main, "BOTTOMRIGHT", -19, 10)
+            local syncing = false
+            local function RefreshScroll()
+                local limit = math.max(0, panel:GetHeight() - viewport:GetHeight())
+                bar:SetMinMaxValues(0, math.max(1, limit))
+                bar:SetShown(limit > 1)
+                if not syncing then
+                    syncing = true
+                    bar:SetValue(math.min(limit, viewport:GetVerticalScroll()))
+                    syncing = false
+                end
+            end
+            bar:SetScript("OnValueChanged", function(_, value)
+                if syncing then return end
+                syncing = true
+                viewport:SetVerticalScroll(value)
+                syncing = false
+            end)
+            viewport:HookScript("OnVerticalScroll", RefreshScroll)
+            viewport:HookScript("OnSizeChanged", RefreshScroll)
+            viewport:HookScript("OnShow", RefreshScroll)
+        end
         tabPanels[name] = viewport
         return panel
     end
@@ -990,6 +1051,32 @@ local function CreateTooltipPage()
     end
 
     local function FontGroup(config, offset, title)
+        local groupBack = fonts:CreateTexture(nil, "BACKGROUND")
+        groupBack:SetPoint("TOPLEFT", fonts, "TOPLEFT", 6, offset + 12)
+        groupBack:SetPoint("TOPRIGHT", fonts, "TOPRIGHT", -6, offset + 12)
+        groupBack:SetHeight(211)
+        groupBack:SetColorTexture(0.18, 0.10, 0.065, 0.52)
+        for _, side in ipairs({"TOP", "BOTTOM", "LEFT", "RIGHT"}) do
+            local edge = fonts:CreateTexture(nil, "BORDER")
+            edge:SetColorTexture(0.68, 0.46, 0.24, 0.85)
+            if side == "TOP" then
+                edge:SetPoint("TOPLEFT", groupBack, "TOPLEFT")
+                edge:SetPoint("TOPRIGHT", groupBack, "TOPRIGHT")
+                edge:SetHeight(1)
+            elseif side == "BOTTOM" then
+                edge:SetPoint("BOTTOMLEFT", groupBack, "BOTTOMLEFT")
+                edge:SetPoint("BOTTOMRIGHT", groupBack, "BOTTOMRIGHT")
+                edge:SetHeight(1)
+            elseif side == "LEFT" then
+                edge:SetPoint("TOPLEFT", groupBack, "TOPLEFT")
+                edge:SetPoint("BOTTOMLEFT", groupBack, "BOTTOMLEFT")
+                edge:SetWidth(1)
+            else
+                edge:SetPoint("TOPRIGHT", groupBack, "TOPRIGHT")
+                edge:SetPoint("BOTTOMRIGHT", groupBack, "BOTTOMRIGHT")
+                edge:SetWidth(1)
+            end
+        end
         local titleLabel = CreateLabel(fonts, title, "GameFontNormalLarge")
         titleLabel:SetPoint("TOPLEFT", fonts, "TOPLEFT", 14, offset)
         titleLabel:SetTextColor(1, 0.79, 0.42)
@@ -1005,7 +1092,8 @@ local function CreateTooltipPage()
             function(v) config.shadow = v; if BaziUI.TooltipFonts then BaziUI.TooltipFonts.Apply() end end)
     end
     FontGroup(db.titleFont, -4, "TITLE TEXT")
-    FontGroup(db.textFont, -224, "BODY TEXT")
+    FontGroup(db.textFont, -232, "BODY TEXT")
+    fonts:SetHeight(470)
     RefreshTabs()
     return page
 end
