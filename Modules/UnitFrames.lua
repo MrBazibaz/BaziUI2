@@ -111,13 +111,13 @@ local function addAuraBorder(parent)
     -- Thin inset frame, using the built-in nine-slice tooltip border.
     -- Unlike UI-Quickslot2 this does not draw a giant square over the icon.
     local border = CreateFrame("Frame", nil, parent, "BackdropTemplate")
-    border:SetPoint("TOPLEFT", parent, "TOPLEFT", -1, 1)
-    border:SetPoint("BOTTOMRIGHT", parent, "BOTTOMRIGHT", 1, -1)
+    border:SetPoint("TOPLEFT", parent, "TOPLEFT", -3, 3)
+    border:SetPoint("BOTTOMRIGHT", parent, "BOTTOMRIGHT", 3, -3)
     border:SetFrameLevel(parent:GetFrameLevel() + 1)
     border:EnableMouse(false)
     border:SetBackdrop({
         edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-        edgeSize = 9,
+        edgeSize = 7,
         insets = {left=0, right=0, top=0, bottom=0},
     })
     border:SetBackdropBorderColor(0.48, 0.34, 0.18, 0.95)
@@ -228,11 +228,19 @@ local function updateAuraPreview(f)
                 local tile = group:CreateTexture(nil, "ARTWORK")
                 tile:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark")
                 tile:SetTexCoord(0.08, 0.92, 0.08, 0.92)
-                local border = group:CreateTexture(nil, "OVERLAY")
-                border:SetTexture("Interface\\Tooltips\\UI-Tooltip-Border")
-                border:SetPoint("TOPLEFT", tile, "TOPLEFT", -1, 1)
-                border:SetPoint("BOTTOMRIGHT", tile, "BOTTOMRIGHT", 1, -1)
-                border:SetVertexColor(0.48, 0.34, 0.18, 0.95)
+                -- Use a real nine-slice border rather than stretching the
+                -- entire tooltip texture over the preview icon.
+                local border = CreateFrame("Frame", nil, group, "BackdropTemplate")
+                border:SetPoint("TOPLEFT", tile, "TOPLEFT", -3, 3)
+                border:SetPoint("BOTTOMRIGHT", tile, "BOTTOMRIGHT", 3, -3)
+                border:SetFrameLevel(group:GetFrameLevel() + 1)
+                border:EnableMouse(false)
+                border:SetBackdrop({
+                    edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+                    edgeSize = 7,
+                    insets = {left=0, right=0, top=0, bottom=0},
+                })
+                border:SetBackdropBorderColor(0.48, 0.34, 0.18, 0.95)
                 group.tiles[i] = tile
                 group.tiles[i .. "_border"] = border
             end
