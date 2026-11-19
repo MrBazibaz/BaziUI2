@@ -665,7 +665,7 @@ local function CreateUnitFramesPage()
                 local function apply(value)
                     local n = math.floor(tonumber(value) or current())
                     if field == "indicatorSize" then n = math.max(10, math.min(kind == "classification" and 120 or 48, n))
-                    else n = math.max(-150, math.min(150, n)) end
+                    else n = math.max(-250, math.min(250, n)) end
                     own[field][kind] = n
                     edit:SetText(tostring(n))
                     if addon.UnitFrames then addon.UnitFrames:Refresh() end
