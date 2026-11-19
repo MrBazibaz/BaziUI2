@@ -136,15 +136,32 @@ local function updateExtras(f, own)
     end
     f.happinessIcon:SetShown(unit == "pet" and own.showHappiness ~= false and
         (previewIndicators or type(happiness) == "number"))
-    if type(happiness) == "number" then
-        local index = math.max(1, math.min(3, happiness)) - 1
-        f.happinessIcon:SetTexCoord(index * 0.1875, (index + 1) * 0.1875, 0, 1)
+    -- Blizzard's happiness atlas is a single icon; don't crop the old sprite sheet.
+    if f.happinessIcon.SetAtlas and C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo("UI-PetHappiness") then
+        f.happinessIcon:SetAtlas("UI-PetHappiness", false)
     else
-        f.happinessIcon:SetTexCoord(0.375, 0.5625, 0, 1)
+        local index = type(happiness) == "number" and (math.max(1, math.min(3, happiness)) - 1) or 2
+        f.happinessIcon:SetTexture("Interface\\PetPaperDollFrame\\UI-PetHappiness")
+        f.happinessIcon:SetTexCoord(index / 3, (index + 1) / 3, 0, 1)
     end
     local classification = UnitClassification and readable(UnitClassification(unit))
     f.classIcon:SetShown(own.showClassification ~= false and
         (previewIndicators or classification == "elite" or classification == "rare" or classification == "rareelite" or classification == "worldboss"))
+    -- FlareUI uses Blizzard's native boss-portrait atlas, which is higher quality
+    -- than the tiny world-quest dragon marker.
+    local atlas
+    if type(GetBossPortraitFrameData) == "function" then
+        local ok, result = pcall(GetBossPortraitFrameData, unit, classification)
+        if ok then atlas = result end
+    end
+    if not atlas then
+        atlas = classification == "rare" and "UI-HUD-UnitFrame-Target-PortraitOn-Boss-Rare-Silver-Winged"
+            or "UI-HUD-UnitFrame-Target-PortraitOn-Boss-Gold-Winged"
+    end
+    if C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo(atlas) then
+        f.classIcon:SetAtlas(atlas, false)
+        f.classIcon:SetTexCoord(0, 1, 0, 1)
+    end
 end
 
 local function layout(f, settings)
@@ -440,15 +457,7 @@ local function create(key, spec)
     f.leaderIcon = icon(-25, 25, "Interface\\GroupFrame\\UI-Group-LeaderIcon")
     f.raidIcon = icon(0, 33, "Interface\\TargetingFrame\\UI-RaidTargetingIcons")
     f.roleIcon = icon(26, -23, "Interface\\LFGFrame\\UI-LFG-ICON-PORTRAITROLES")
-    -- Standalone Blizzard dragon atlas, not the composite target frame texture.
-    f.classIcon = icon(-26, -23, "Interface\\TargetingFrame\\UI-TargetingFrame-Elite")
-    if C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo("worldquest-questmarker-dragon") then
-        f.classIcon:SetAtlas("worldquest-questmarker-dragon", false)
-    else
-        -- No standalone dragon atlas on this client: avoid drawing the bar strip.
-        f.classIcon:SetTexture("Interface\\TargetingFrame\\UI-RaidTargetingIcons")
-        SetRaidTargetIconTexture(f.classIcon, 8)
-    end
+    -- Native Blizzard boss portrait decoration, selected per classification.\n    f.classIcon = icon(-26, -23, "Interface\\TargetingFrame\\UI-RaidTargetingIcons")
     f.happinessIcon = icon(24, -3, "Interface\\PetPaperDollFrame\\UI-PetHappiness")
     -- Indicators are layered above the portrait rim and badge.
     local indicatorLayer = CreateFrame("Frame", nil, portraitLayer)
