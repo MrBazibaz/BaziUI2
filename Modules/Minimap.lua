@@ -272,7 +272,9 @@ local function onZoom(_, level)
     if safe(level) and type(level) == "number" and level > 0
         and type(delay) == "number" and delay > 0 and C_Timer and C_Timer.NewTimer then
         timer = C_Timer.NewTimer(delay, function()
-            if cfg.enabled and map and not (InCombatLockdown and InCombatLockdown()) then
+            local indoors = cfg.ignoreIndoorZoom and IsIndoors and IsIndoors()
+            if cfg.enabled and map and not indoors
+                and not (InCombatLockdown and InCombatLockdown()) then
                 pcall(map.SetZoom, map, 0)
             end
         end)
