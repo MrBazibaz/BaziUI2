@@ -332,7 +332,7 @@ local function CreateUnitFramesPage()
         viewport:SetPoint("BOTTOMRIGHT", main, "BOTTOMRIGHT", -10, 10)
         viewport:EnableMouseWheel(true)
         local panel = CreateFrame("Frame", nil, viewport)
-        panel:SetHeight(name == "General" and 300 or 1640)
+        panel:SetHeight(name == "General" and 300 or 1840)
         panel:SetWidth(500)
         viewport:SetScrollChild(panel)
         viewport:SetScript("OnSizeChanged", function(self) panel:SetWidth(math.max(1, self:GetWidth())) end)
@@ -713,6 +713,15 @@ local function CreateUnitFramesPage()
                     slider:SetValue(own[field] or own.fontSize or 12)
                 end
             end
+
+            local levelSlider = CreateSlider(panel, "LEVEL TEXT SIZE", "Level number only; badge ring stays fixed", 8, 28, 1,
+                own.levelFontSize or 12, -1510, function(v)
+                    own.levelFontSize = v
+                    if addon.UnitFrames then addon.UnitFrames:Refresh() end
+                end, false)
+            refreshers[#refreshers+1] = function() levelSlider:SetValue(own.levelFontSize or 12) end
+            offsetEditor("levelTextX", "LEVEL TEXT X", 20, -1590)
+            offsetEditor("levelTextY", "LEVEL TEXT Y", 180, -1590)
 
             local note = CreateLabel(panel, "Copies appearance only. Frame position is preserved.", "GameFontHighlightSmall")
             note:SetTextColor(0.91, 0.78, 0.61, 1)
