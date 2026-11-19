@@ -190,22 +190,22 @@ local function layout(f, settings)
     f:SetHitRectInsets(-math.ceil(leftExtra), -math.ceil(rightExtra),
         -math.ceil(topExtra), -math.ceil(bottomExtra))
     if f.petXPRing then
-        -- Start underneath the lower-left level badge and advance clockwise.
-        -- A continuous opaque dark track prevents the world showing between
-        -- the XP ticks; the purple foreground only marks earned progress.
-        local radius = rimSize * 0.505
-        local thickness = math.max(4, rimSize * 0.065)
+        -- Discrete ticks outside the rim. Never rotate opaque rectangular
+        -- textures: overlapping rotated quads form an unwanted solid disc.
+        local radius = rimSize * 0.545
         local count = #f.petXPRing.segments
-        local arcWidth = radius * 2 * math.pi / count * 1.09
+        local tickWidth = math.max(4, math.min(7, rimSize * 0.065))
+        local tickHeight = math.max(5, math.min(8, rimSize * 0.085))
         for i, segment in ipairs(f.petXPRing.segments) do
             local angle = -3 * math.pi / 4 - (i - 1) * (2 * math.pi / count)
             local x, y = math.cos(angle) * radius, math.sin(angle) * radius
-            for _, tile in ipairs({f.petXPRing.backgrounds[i], segment}) do
-                tile:ClearAllPoints()
-                tile:SetPoint("CENTER", f.portraitAnchor, "CENTER", x, y)
-                tile:SetSize(arcWidth, thickness)
-                tile:SetRotation(angle + math.pi / 2)
-            end
+            local background = f.petXPRing.backgrounds[i]
+            background:ClearAllPoints()
+            background:SetPoint("CENTER", f.portraitAnchor, "CENTER", x, y)
+            background:SetSize(tickWidth, tickHeight)
+            segment:ClearAllPoints()
+            segment:SetPoint("CENTER", background, "CENTER")
+            segment:SetSize(tickWidth - 1, tickHeight - 1)
         end
     end
     f.rim:SetSize(rimSize, rimSize)
