@@ -102,7 +102,8 @@ local function ensureAuraLibrary()
 end
 local function styleAuraText(text, opt, field, fallback)
     local size = math.max(0, math.min(24, tonumber(opt[field]) or fallback))
-    if size == 0 then text:Hide(); return end
+    if size == 0 then text:SetAlpha(0); return end
+    text:SetAlpha(1)
     local font = (GameFontNormalSmall and select(1, GameFontNormalSmall:GetFont())) or "Fonts\\FRIZQT__.TTF"
     text:SetFont(font, size, "OUTLINE")
     text:SetTextColor(1, 0.94, 0.72, 1)
@@ -123,7 +124,7 @@ local function addAuraBorder(parent)
     border:SetBackdropBorderColor(0.48, 0.34, 0.18, 0.95)
     return border
 end
-local function initializeAuraButton(button, size, opt)
+local function initializeAuraButton(button, size, opt, entry)
     button:SetSize(size, size)
     local icon = button:CreateTexture(nil, "ARTWORK")
     icon:SetAllPoints()
@@ -143,6 +144,7 @@ local function initializeAuraButton(button, size, opt)
     if button.SetDurationText then pcall(button.SetDurationText, button, duration)
     elseif button.SetAuraDurationText then pcall(button.SetAuraDurationText, button, duration) end
     pcall(button.SetDurationCooldown, button, cooldown)
+    entry.texts[#entry.texts + 1] = {duration=duration, count=count}
 end
 
 local function createLiveAuras(f)
@@ -159,9 +161,10 @@ local function createLiveAuras(f)
             local size = math.max(12, math.min(48, tonumber(opt.size) or 24))
             local gap = math.max(0, math.min(20, tonumber(opt.spacing) or 2))
             local count = math.max(1, math.min(40, tonumber(opt.count) or 12))
+            local entry = {frame=container, size=size, gap=gap, count=count, texts={}}
             local options = {
                 maxFrameCount = count, candidateFilters = {},
-                initializeFrame = function(button) initializeAuraButton(button, size, opt) end,
+                initializeFrame = function(button) initializeAuraButton(button, size, opt, entry) end,
                 layout = { elementWidth=size, elementHeight=size,
                     elementSpacing=gap, lineSpacing=gap, groupSpacing=gap, groupLineSpacing=gap },
             }
@@ -169,7 +172,7 @@ local function createLiveAuras(f)
                 kind == "buffs" and "HELPFUL" or "HARMFUL", options)
             if added then
                 pcall(container.SetUnit, container, f.unit)
-                f.liveAuras[kind] = {frame=container, size=size, gap=gap, count=count}
+                f.liveAuras[kind] = entry
             end
         end
     end
@@ -182,6 +185,10 @@ local function updateLiveAuras(f)
         if entry then
             local c = entry.frame
             local opt = own["aura_" .. kind] or {}
+            for _, texts in ipairs(entry.texts) do
+                styleAuraText(texts.duration, opt, "durationFontSize", 10)
+                styleAuraText(texts.count, opt, "stackFontSize", 11)
+            end
             local enabled = opt.enabled
             if enabled == nil then enabled = f.unit ~= "player" end
             local size = math.max(12, math.min(48, tonumber(opt.size) or 24))
