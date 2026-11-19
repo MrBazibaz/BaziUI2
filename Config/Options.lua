@@ -754,7 +754,7 @@ local function CreateUnitFramesPage()
                 -- Toggle a stationary castbar for layout work even when the pet cannot cast.
                 local castPreview = CreateFrame("Button", nil, panel)
                 castPreview:SetSize(170, 27)
-                castPreview:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -14, -584)
+                castPreview:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -14, -632)
                 local castPreviewText = styleButton(castPreview, "Preview castbar")
                 local castPreviewOn = false
                 local function stopCastPreview()
