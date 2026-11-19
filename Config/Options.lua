@@ -400,6 +400,32 @@ local function CreateUnitFramesPage()
             db.groups = db.groups or {}
             db.groups[key] = db.groups[key] or {}
             local opt = db.groups[key]
+            local root = panel
+            local sections = {}
+            local sectionButtons = {}
+            local function selectSection(selected)
+                for label, canvas in pairs(sections) do canvas:SetShown(label == selected) end
+                for label, button in pairs(sectionButtons) do
+                    button:SetAlpha(label == selected and 1 or 0.7)
+                end
+                root:SetHeight(selected == "Layout" and 610 or 480)
+                viewport:SetVerticalScroll(0)
+            end
+            for i, label in ipairs({"Layout","Indicators","Bar Text","Fonts","Buffs / Debuffs"}) do
+                local button = CreateFrame("Button",nil,root,"UIPanelButtonTemplate")
+                button:SetSize(94,29)
+                button:SetPoint("TOPLEFT",root,"TOPLEFT",12+(i-1)*96,-5)
+                button:SetText(label)
+                button:SetScript("OnClick",function() selectSection(label) end)
+                sectionButtons[label] = button
+                local canvas = CreateFrame("Frame",nil,root)
+                canvas:SetPoint("TOPLEFT",root,"TOPLEFT",0,-48)
+                canvas:SetPoint("TOPRIGHT",root,"TOPRIGHT",0,-48)
+                canvas:SetHeight(540)
+                canvas:Hide()
+                sections[label] = canvas
+            end
+            panel = sections.Layout
             CreateSection(panel, string.upper(key) .. " LAYOUT", -12)
             CreateDivider(panel,-45)
             local function toggle(label, field, x, y)
@@ -478,6 +504,48 @@ local function CreateUnitFramesPage()
             else
                 setting("Vertical offset","y",key=="boss" and 180 or -45,-500,500,5,16,-305)
             end
+            local function groupRefresh()
+                if addon.GroupFrames then addon.GroupFrames:Refresh() end
+            end
+            local function groupSlider(canvas,title,hint,field,min,max,default,y)
+                local slider = CreateSlider(canvas,title,hint,min,max,1,opt[field] or default,y,function(value)
+                    opt[field] = value
+                    groupRefresh()
+                end,false)
+                page:HookScript("OnShow",function()
+                    slider:SetValue(opt[field] or default)
+                end)
+            end
+            panel=sections.Indicators
+            CreateSection(panel,"INDICATORS",-12)
+            CreateDivider(panel,-45)
+            local function groupToggle(canvas,label,field,y)
+                local check=CreateFrame("CheckButton",nil,canvas,"UICheckButtonTemplate")
+                check:SetSize(25,25)
+                check:SetPoint("TOPLEFT",canvas,"TOPLEFT",20,y)
+                local text=CreateLabel(canvas,label,"GameFontHighlight")
+                text:SetPoint("LEFT",check,"RIGHT",5,0)
+                check:SetChecked(opt[field] ~= false)
+                check:SetScript("OnClick",function(self) opt[field]=self:GetChecked()==true;groupRefresh() end)
+                page:HookScript("OnShow",function() check:SetChecked(opt[field] ~= false) end)
+            end
+            groupToggle(panel,"Show names","showName",-75)
+            groupToggle(panel,"Show power bar","showPower",-115)
+            panel=sections["Bar Text"]
+            CreateSection(panel,"BAR TEXT",-12)
+            CreateDivider(panel,-45)
+            groupToggle(panel,"Show health percentage","showHealthPercent",-75)
+            groupToggle(panel,"Show power percentage","showPowerPercent",-115)
+            panel=sections.Fonts
+            CreateSection(panel,"FONTS",-12)
+            CreateDivider(panel,-45)
+            groupSlider(panel,"NAME FONT SIZE","Size of the unit name (0 hides it)","fontSize",0,22,11,-65)
+            panel=sections["Buffs / Debuffs"]
+            CreateSection(panel,"BUFFS / DEBUFFS",-12)
+            CreateDivider(panel,-45)
+            local note=CreateLabel(panel,"Secure aura support is not yet implemented for group frames.","GameFontHighlight")
+            note:SetPoint("TOPLEFT",panel,"TOPLEFT",18,-72)
+            selectSection("Layout")
         else
             db.frames = db.frames or {}
             local own = db.frames[key] or {}
