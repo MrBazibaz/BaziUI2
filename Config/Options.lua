@@ -339,7 +339,7 @@ local function CreateUnitFramesPage()
         viewport:SetPoint("BOTTOMRIGHT", main, "BOTTOMRIGHT", -10, 10)
         viewport:EnableMouseWheel(true)
         local panel = CreateFrame("Frame", nil, viewport)
-        panel:SetHeight(name == "General" and 355 or 490)
+        panel:SetHeight(name == "General" and 430 or 490)
         panel:SetWidth(500)
         viewport:SetScrollChild(panel)
         viewport:SetScript("OnSizeChanged", function(self) panel:SetWidth(math.max(1, self:GetWidth())) end)
@@ -365,9 +365,27 @@ local function CreateUnitFramesPage()
                 page:HookScript("OnShow", function() check:SetChecked(db[key] == true) end)
                 check:SetChecked(db[key] == true)
             end
+            db.groups = db.groups or {}
+            local function enableGroup(kind, caption, y)
+                db.groups[kind] = db.groups[kind] or {}
+                local opt = db.groups[kind]
+                local check = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
+                check:SetSize(25,25)
+                check:SetPoint("TOPLEFT",panel,"TOPLEFT",16,y)
+                local label = CreateLabel(panel,caption,"GameFontHighlight")
+                label:SetPoint("LEFT",check,"RIGHT",5,0)
+                check:SetChecked(opt.enabled == true)
+                check:SetScript("OnClick",function(self)
+                    opt.enabled = self:GetChecked() == true
+                    if addon.GroupFrames then addon.GroupFrames:Refresh() end
+                end)
+                page:HookScript("OnShow",function() check:SetChecked(opt.enabled == true) end)
+            end
+            enableGroup("party","Enable Party",-265)
+            enableGroup("raid","Enable Raid",-301)
             local move = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
             move:SetSize(25,25)
-            move:SetPoint("TOPLEFT", panel, "TOPLEFT", 16, -285)
+            move:SetPoint("TOPLEFT", panel, "TOPLEFT", 16, -349)
             local moveLabel = CreateLabel(panel, "Move UnitFrames", "GameFontHighlight")
             moveLabel:SetPoint("LEFT", move, "RIGHT", 5, 0)
             move:SetScript("OnClick", function(self)
