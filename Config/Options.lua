@@ -385,11 +385,11 @@ local function CreateUnitFramesPage()
             -- Compact subnavigation: each category has its own canvas.
             local rootPanel = panel
             local groups = {}
-            for _, category in ipairs({"Layout", "Indicators", "Bar Text", "Fonts"}) do
+            for _, category in ipairs((name == "Target" and {"Layout", "Indicators", "Bar Text", "Fonts", "Buffs / Debuffs"} or {"Layout", "Indicators", "Bar Text", "Fonts"})) do
                 local canvas = CreateFrame("Frame", nil, rootPanel)
                 canvas:SetPoint("TOPLEFT", rootPanel, "TOPLEFT", 0, -49)
                 canvas:SetPoint("TOPRIGHT", rootPanel, "TOPRIGHT", 0, -49)
-                canvas:SetHeight(category == "Indicators" and (name == "Target" and 1150 or (name == "Pet" and 930 or 590)) or 520)
+                canvas:SetHeight(category == "Indicators" and (name == "Pet" and 930 or 590) or (category == "Buffs / Debuffs" and 700 or 520))
                 canvas:Hide()
                 groups[category] = canvas
             end
@@ -403,13 +403,13 @@ local function CreateUnitFramesPage()
                         label == category and 0.18 or 0.12,
                         label == category and 0.26 or 0.07, 1)
                 end
-                rootPanel:SetHeight(category == "Indicators" and (name == "Target" and 1170 or (name == "Pet" and 950 or 610)) or (category == "Layout" and 540 or 490))
+                rootPanel:SetHeight(category == "Indicators" and (name == "Pet" and 950 or 610) or (category == "Buffs / Debuffs" and 750 or (category == "Layout" and 540 or 490)))
                 viewport:SetVerticalScroll(0)
             end
-            for i, category in ipairs({"Layout", "Indicators", "Bar Text", "Fonts"}) do
+            for i, category in ipairs((name == "Target" and {"Layout", "Indicators", "Bar Text", "Fonts", "Buffs / Debuffs"} or {"Layout", "Indicators", "Bar Text", "Fonts"})) do
                 local button = CreateFrame("Button", nil, rootPanel)
-                button:SetSize(112, 30)
-                button:SetPoint("TOPLEFT", rootPanel, "TOPLEFT", 12 + (i-1)*119, -5)
+                button:SetSize(name == "Target" and 100 or 112, 30)
+                button:SetPoint("TOPLEFT", rootPanel, "TOPLEFT", 12 + (i-1)*(name == "Target" and 102 or 119), -5)
                 button.fill = button:CreateTexture(nil, "BACKGROUND")
                 button.fill:SetAllPoints()
                 local text = CreateLabel(button, category, "GameFontNormal")
@@ -603,53 +603,8 @@ local function CreateUnitFramesPage()
                 end
             end)
 
-            panel = groups.Indicators
-            -- Independent per-unit indicators, text templates and fonts.
-            local function optionCheck(field, caption, x, y)
-                local check = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
-                check:SetSize(24, 24)
-                check:SetPoint("TOPLEFT", panel, "TOPLEFT", x, y)
-                local label = CreateLabel(panel, caption, "GameFontHighlight")
-                label:SetPoint("LEFT", check, "RIGHT", 4, 0)
-                check:SetScript("OnClick", function(self)
-                    own[field] = self:GetChecked() == true
-                    if addon.UnitFrames then addon.UnitFrames:Refresh() end
-                end)
-                refreshers[#refreshers+1] = function() check:SetChecked(own[field] ~= false) end
-            end
-            local preview = CreateFrame("Button", nil, panel)
-            preview:SetSize(170, 27)
-            preview:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -14, -11)
-            local previewText = styleButton(preview, "Preview indicators")
-            local previewOn = false
-            local function stopPreview()
-                if not previewOn then return end
-                previewOn = false
-                previewText:SetText("Preview indicators")
-                if addon.UnitFrames then addon.UnitFrames:SetIndicatorPreview(false) end
-            end
-            preview:SetScript("OnClick", function()
-                previewOn = not previewOn
-                previewText:SetText(previewOn and "Stop preview" or "Preview indicators")
-                if addon.UnitFrames then addon.UnitFrames:SetIndicatorPreview(previewOn) end
-            end)
-            viewport:HookScript("OnHide", stopPreview)
-            local indicators = CreateLabel(panel, "INDICATORS", "GameFontNormalLarge")
-            indicators:SetPoint("TOPLEFT", panel, "TOPLEFT", 20, -16)
-            indicators:SetTextColor(1, 0.79, 0.42)
-            optionCheck("showPvP", "PvP flag", 20, -58)
-            optionCheck("showLeader", "Group leader", 230, -58)
-            optionCheck("showRaidMarker", "Raid marker", 20, -98)
-            optionCheck("showRole", "Group / raid role", 230, -98)
-            optionCheck("showClassification", "Elite / rare", 20, -138)
-
-            optionCheck("showName", "Show name", 230, -138)
-            if name == "Pet" then
-                optionCheck("showHappiness", "Pet happiness", 20, -174)
-                optionCheck("showPetXP", "Pet XP bar", 230, -174)
-                optionCheck("showPetCast", "Pet castbar", 20, -204)
-            end
             if name == "Target" then
+                panel = groups["Buffs / Debuffs"]
                 -- Target-only aura layout previews. They never modify real auras.
                 local function auraPreviewControls(kind, top)
                     local title = CreateLabel(panel, kind == "buffs" and "TARGET BUFFS" or "TARGET DEBUFFS", "GameFontNormal")
@@ -715,8 +670,54 @@ local function CreateUnitFramesPage()
                         if addon.UnitFrames then addon.UnitFrames:SetTargetAuraPreview(kind, false) end
                     end)
                 end
-                auraPreviewControls("buffs", -540)
-                auraPreviewControls("debuffs", -800)
+                auraPreviewControls("buffs", -20)
+                auraPreviewControls("debuffs", -280)
+            end
+            panel = groups.Indicators
+            -- Independent per-unit indicators, text templates and fonts.
+            local function optionCheck(field, caption, x, y)
+                local check = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
+                check:SetSize(24, 24)
+                check:SetPoint("TOPLEFT", panel, "TOPLEFT", x, y)
+                local label = CreateLabel(panel, caption, "GameFontHighlight")
+                label:SetPoint("LEFT", check, "RIGHT", 4, 0)
+                check:SetScript("OnClick", function(self)
+                    own[field] = self:GetChecked() == true
+                    if addon.UnitFrames then addon.UnitFrames:Refresh() end
+                end)
+                refreshers[#refreshers+1] = function() check:SetChecked(own[field] ~= false) end
+            end
+            local preview = CreateFrame("Button", nil, panel)
+            preview:SetSize(170, 27)
+            preview:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -14, -11)
+            local previewText = styleButton(preview, "Preview indicators")
+            local previewOn = false
+            local function stopPreview()
+                if not previewOn then return end
+                previewOn = false
+                previewText:SetText("Preview indicators")
+                if addon.UnitFrames then addon.UnitFrames:SetIndicatorPreview(false) end
+            end
+            preview:SetScript("OnClick", function()
+                previewOn = not previewOn
+                previewText:SetText(previewOn and "Stop preview" or "Preview indicators")
+                if addon.UnitFrames then addon.UnitFrames:SetIndicatorPreview(previewOn) end
+            end)
+            viewport:HookScript("OnHide", stopPreview)
+            local indicators = CreateLabel(panel, "INDICATORS", "GameFontNormalLarge")
+            indicators:SetPoint("TOPLEFT", panel, "TOPLEFT", 20, -16)
+            indicators:SetTextColor(1, 0.79, 0.42)
+            optionCheck("showPvP", "PvP flag", 20, -58)
+            optionCheck("showLeader", "Group leader", 230, -58)
+            optionCheck("showRaidMarker", "Raid marker", 20, -98)
+            optionCheck("showRole", "Group / raid role", 230, -98)
+            optionCheck("showClassification", "Elite / rare", 20, -138)
+
+            optionCheck("showName", "Show name", 230, -138)
+            if name == "Pet" then
+                optionCheck("showHappiness", "Pet happiness", 20, -174)
+                optionCheck("showPetXP", "Pet XP bar", 230, -174)
+                optionCheck("showPetCast", "Pet castbar", 20, -204)
             end
             local iconSpecs = {
                 {"pvp", "PvP flag"}, {"leader", "Group leader"},
