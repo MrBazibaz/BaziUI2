@@ -205,6 +205,73 @@ local function layoutMember(f, kind, index, opt)
         f:SetPoint("TOPLEFT",UIParent,"CENTER",originX+(right and col or -col)*(width+gap),originY+(down and -row or row)*(height+gap))
     end
 end
+-- Blizzard's AuraContainer owns protected aura data. This code never inspects aura payloads.
+local function ensureGroupAuras(f,kind,index)
+    if kind~="party" or f.groupAuras then return end
+    if C_AddOns and C_AddOns.DoesAddOnExist and C_AddOns.DoesAddOnExist("Blizzard_AuraContainer")
+        and not C_AddOns.IsAddOnLoaded("Blizzard_AuraContainer") then
+        pcall(C_AddOns.LoadAddOn,"Blizzard_AuraContainer")
+    end
+    f.groupAuras={}
+    for _,auraKind in ipairs({"buffs","debuffs"}) do
+        local opt=effectiveOptions(config(kind),index)["aura_"..auraKind] or {}
+        local ok,container=pcall(CreateFrame,"AuraContainer",nil,f,"CustomAuraContainerTemplate")
+        if ok and container and type(container.AddAuraGroup)=="function" then
+            local size=math.max(12,math.min(48,tonumber(opt.size) or 24))
+            local gap=math.max(0,math.min(20,tonumber(opt.spacing) or 2))
+            local count=math.max(1,math.min(40,tonumber(opt.count) or 12))
+            local settings={
+                maxFrameCount=count,candidateFilters={},
+                initializeFrame=function(button)
+                    button:SetSize(size,size)
+                    local icon=button:CreateTexture(nil,"ARTWORK")
+                    icon:SetAllPoints()
+                    icon:SetTexCoord(.08,.92,.08,.92)
+                    local border=CreateFrame("Frame",nil,button,"BackdropTemplate")
+                    border:SetAllPoints()
+                    border:SetBackdrop({edgeFile="Interface\Tooltips\UI-Tooltip-Border",edgeSize=6})
+                    border:SetBackdropBorderColor(.48,.34,.18,.95)
+                    local countText=button:CreateFontString(nil,"OVERLAY","GameFontNormalSmall")
+                    countText:SetPoint("BOTTOMRIGHT",-1,1)
+                    local duration=button:CreateFontString(nil,"OVERLAY","GameFontNormalSmall")
+                    duration:SetPoint("CENTER")
+                    if auraKind=="buffs" then duration:SetAlpha(0) end
+                    local cooldown=CreateFrame("Cooldown",nil,button,"CooldownFrameTemplate")
+                    cooldown:SetAllPoints()
+                    cooldown:SetHideCountdownNumbers(true)
+                    if button.SetIcon then pcall(button.SetIcon,button,icon) end
+                    if button.SetApplicationCount then pcall(button.SetApplicationCount,button,countText,{}) end
+                    if button.SetDurationText then pcall(button.SetDurationText,button,duration) end
+                    if button.SetDurationCooldown then pcall(button.SetDurationCooldown,button,cooldown) end
+                end,
+                layout={elementWidth=size,elementHeight=size,elementSpacing=gap,lineSpacing=gap,groupSpacing=gap,groupLineSpacing=gap},
+            }
+            local added=pcall(container.AddAuraGroup,container,auraKind,auraKind=="buffs" and "HELPFUL" or "HARMFUL",settings)
+            if added then
+                pcall(container.SetUnit,container,f.unitToken)
+                f.groupAuras[auraKind]=container
+            else
+                container:Hide()
+            end
+        end
+    end
+end
+local function layoutGroupAuras(f,kind,index,preview)
+    if not f.groupAuras then return end
+    local settings=effectiveOptions(config(kind),index)
+    for _,auraKind in ipairs({"buffs","debuffs"}) do
+        local container=f.groupAuras[auraKind]
+        if container then
+            local opt=settings["aura_"..auraKind] or {}
+            local enabled=opt.enabled==true and not preview
+            container:ClearAllPoints()
+            container:SetPoint("TOPLEFT",f,"TOPLEFT",tonumber(opt.x) or 0,tonumber(opt.y) or (auraKind=="buffs" and 32 or -58))
+            if container.SetEnabled then pcall(container.SetEnabled,container,enabled) end
+            container:SetShown(enabled)
+            if enabled and container.UpdateAllAuras then pcall(container.UpdateAllAuras,container) end
+        end
+    end
+end
 local function updatePartyIndicators(f,preview)
     if not f.indicators then return end
     local unit=f.unitToken
@@ -259,11 +326,13 @@ function M:Refresh()
                     local f = groups[kind][i]
                     if not f then f=createMember(kind,i);groups[kind][i]=f end
                     layoutMember(f,kind,i,effectiveOptions(opt,i))
+                    if kind=="party" then ensureGroupAuras(f,kind,i) end
                     local preview = opt.showSolo and (kind=="boss" or not IsInGroup())
                     local exists = UnitExists(f.unitToken)
                     -- Secure unit frames are not reconfigured in combat.
                     f:SetShown(preview or exists == true)
                     if preview or exists == true then updateMember(f,preview) end
+                    if kind=="party" then layoutGroupAuras(f,kind,i,preview) end
                 end
             else
                 for _,f in ipairs(groups[kind]) do f:Hide() end
