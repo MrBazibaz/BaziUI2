@@ -120,12 +120,7 @@ local function makeMenu()
     menu:EnableMouse(true)
     table.insert(UISpecialFrames, "BaziUIMinimapMicroMenu")
     menu:RegisterEvent("PLAYER_REGEN_DISABLED")
-    menu:SetScript("OnShow", function(self)
-        -- Do not treat the middle click which opened the menu as an outside click.
-        C_Timer.After(0.1, function()
-            if self:IsShown() then self:RegisterEvent("GLOBAL_MOUSE_DOWN") end
-        end)
-    end)
+    menu:SetScript("OnShow", function(self) self:RegisterEvent("GLOBAL_MOUSE_DOWN") end)
     menu:SetScript("OnHide", function(self) self:UnregisterEvent("GLOBAL_MOUSE_DOWN") end)
     menu:SetScript("OnEvent", function(self, event)
         if event == "GLOBAL_MOUSE_DOWN" and self:IsMouseOver() then return end
@@ -239,8 +234,8 @@ function M:Initialize()
     -- Blizzard map directly does not reliably receive middle clicks.
     local surface = CreateFrame("Frame", nil, map)
     surface:SetAllPoints(map)
-    surface:SetFrameStrata("HIGH")
-    surface:SetFrameLevel(map:GetFrameLevel() + 30)
+    surface:SetFrameStrata(map:GetFrameStrata())
+    surface:SetFrameLevel(map:GetFrameLevel() + 10)
     if surface.SetMouseMotionEnabled then surface:SetMouseMotionEnabled(false) end
     if surface.SetPropagateMouseMotion then surface:SetPropagateMouseMotion(true) end
     surface:EnableMouse(true)
@@ -252,25 +247,19 @@ function M:Initialize()
     mouseEvents:RegisterEvent("ZONE_CHANGED_NEW_AREA")
     mouseEvents:RegisterEvent("PLAYER_REGEN_ENABLED")
     mouseEvents:SetScript("OnEvent", function() M:Apply() end)
-    -- Both the overlay and Minimap can receive the same physical click.
-    -- Handle mouse-down and deduplicate it rather than toggling twice on mouse-up.
-    local lastMiddleClick = -1
-    local function OnMinimapMiddleClick(_, button)
+    -- FlareUI's model: one dedicated surface, one mouse-up handler.
+    -- Never hook Blizzard's own click handler.
+    surface:SetScript("OnMouseUp", function(_, button)
         local cfg = db()
         if button ~= "MiddleButton" or not cfg or not cfg.enabled or not cfg.microMenu then return end
         if InCombatLockdown and InCombatLockdown() then return end
-        local now = GetTime()
-        if now - lastMiddleClick < 0.25 then return end
-        lastMiddleClick = now
         if M.Menu:IsShown() then M.Menu:Hide(); return end
-        M.Menu:ClearAllPoints()
         local x, y = GetCursorPosition()
         local scale = M.Menu:GetEffectiveScale()
-        M.Menu:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", x / scale, y / scale)
+        M.Menu:ClearAllPoints()
+        M.Menu:SetPoint("TOPRIGHT", UIParent, "BOTTOMLEFT", x / scale, y / scale)
         M.Menu:Show()
-    end
-    surface:SetScript("OnMouseDown", OnMinimapMiddleClick)
-    map:HookScript("OnMouseDown", OnMinimapMiddleClick)
+    end)
     if M.Launcher then
         M.Launcher:HookScript("OnEnter", function() M:Apply() end)
         M.Launcher:HookScript("OnLeave", function() M:Apply() end)
