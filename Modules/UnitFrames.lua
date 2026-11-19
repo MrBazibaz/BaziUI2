@@ -182,7 +182,7 @@ local function initializeAuraButton(button, size, opt, entry)
     number:SetPoint("CENTER", button, "CENTER", 0, 4)
     local unit = button:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     unit:SetPoint("TOP", number, "BOTTOM", 0, 1)
-    local texts = {button=button, duration=duration, count=count, number=number, unit=unit}
+    local texts = {button=button, duration=duration, count=count, number=number, unit=unit, cooldown=cooldown}
     entry.texts[#entry.texts + 1] = texts
     local elapsedTotal = 0
     button:HookScript("OnUpdate", function(_, elapsed)
@@ -1163,6 +1163,43 @@ local function debugText(label, fontString)
         .. " shown=" .. debugSafe(fontString:IsShown())
         .. " alpha=" .. debugSafe(fontString:GetAlpha()))
 end
+local function debugCooldown(label, cooldown)
+    if not cooldown then debugPrint(label .. " missing"); return end
+    local function probe(method)
+        if type(cooldown[method]) ~= "function" then return method .. "=unavailable" end
+        local ok, a, b = pcall(cooldown[method], cooldown)
+        if not ok then return method .. "=error" end
+        return method .. "=" .. debugSafe(a) .. (b ~= nil and ("," .. debugSafe(b)) or "")
+    end
+    debugPrint(label .. " " .. probe("GetCooldownTimes"))
+    debugPrint(label .. " " .. probe("GetCooldownDuration") .. " " .. probe("GetCountdownFontString"))
+    local ok, regions = pcall(function() return {cooldown:GetRegions()} end)
+    if ok then
+        local n = 0
+        for _, region in ipairs(regions) do
+            if region.GetObjectType and region:GetObjectType() == "FontString" then
+                n = n + 1
+                if n <= 2 then debugText(label .. " region " .. n, region) end
+            end
+        end
+        debugPrint(label .. " font regions=" .. n)
+    end
+    local ok2, children = pcall(function() return {cooldown:GetChildren()} end)
+    if ok2 then
+        debugPrint(label .. " children=" .. #children)
+        for i = 1, math.min(2, #children) do
+            local child = children[i]
+            local ok3, childRegions = pcall(function() return {child:GetRegions()} end)
+            if ok3 then
+                for _, region in ipairs(childRegions) do
+                    if region.GetObjectType and region:GetObjectType() == "FontString" then
+                        debugText(label .. " child " .. i, region)
+                    end
+                end
+            end
+        end
+    end
+end
 function M:DebugAuras(key, kind)
     key = units[key] and key or "target"
     kind = kind == "debuffs" and "debuffs" or "buffs"
@@ -1178,6 +1215,7 @@ function M:DebugAuras(key, kind)
         debugText("native " .. i, item.duration)
         debugText("number " .. i, item.number)
         debugText("unit " .. i, item.unit)
+        if i == 1 then debugCooldown("cooldown " .. i, item.cooldown) end
         local ok, regions = pcall(function() return {item.button:GetRegions()} end)
         if ok then
             local found = 0
