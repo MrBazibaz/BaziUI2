@@ -400,6 +400,65 @@ local function CreateUnitFramesPage()
             db.groups = db.groups or {}
             db.groups[key] = db.groups[key] or {}
             local opt = db.groups[key]
+            local selectedMember = 1
+            local sourceKind, sourceIndex = "player", 1
+            local memberCount = key=="raid" and 40 or (key=="party" and 4 or 5)
+            local function headerButton(parent,label,x,width)
+                local button=CreateFrame("Button",nil,parent)
+                button:SetSize(width,28)
+                button:SetPoint("TOPLEFT",parent,"TOPLEFT",x,-4)
+                local fill=button:CreateTexture(nil,"BACKGROUND")
+                fill:SetAllPoints()
+                fill:SetColorTexture(.24,.12,.06,.98)
+                local edges={}
+                for _,side in ipairs({"TOP","BOTTOM","LEFT","RIGHT"}) do
+                    local line=button:CreateTexture(nil,"OVERLAY")
+                    line:SetColorTexture(.72,.53,.29,.9)
+                    if side=="TOP" then line:SetPoint("TOPLEFT");line:SetPoint("TOPRIGHT");line:SetHeight(1)
+                    elseif side=="BOTTOM" then line:SetPoint("BOTTOMLEFT");line:SetPoint("BOTTOMRIGHT");line:SetHeight(1)
+                    elseif side=="LEFT" then line:SetPoint("TOPLEFT");line:SetPoint("BOTTOMLEFT");line:SetWidth(1)
+                    else line:SetPoint("TOPRIGHT");line:SetPoint("BOTTOMRIGHT");line:SetWidth(1) end
+                    edges[#edges+1]=line
+                end
+                local caption=CreateLabel(button,label,"GameFontNormal")
+                caption:SetPoint("CENTER")
+                return button,caption
+            end
+            local memberButton,memberText=headerButton(copyHeader,"",0,104)
+            local sourceButton,sourceText=headerButton(copyHeader,"",110,112)
+            local copyButton=headerButton(copyHeader,"Copy settings",228,128)
+            local applyButton=headerButton(headingPanel,"Apply to all",16,125)
+            applyButton:ClearAllPoints()
+            applyButton:SetPoint("TOPRIGHT",headingPanel,"TOPRIGHT",-388,-10)
+            local sourceChoices={{"Player","player",1},{"Target","target",1},{"Focus","focus",1},{"Pet","pet",1},{"Target of Target","targettarget",1}}
+            for _,kind in ipairs({"party","boss","raid"}) do
+                local count=kind=="raid" and 40 or kind=="party" and 4 or 5
+                for index=1,count do
+                    sourceChoices[#sourceChoices+1]={string.upper(kind:sub(1,1))..kind:sub(2).." "..index,kind,index}
+                end
+            end
+            local sourceCursor=1
+            local function refreshHeader()
+                memberText:SetText(key:sub(1,1):upper()..key:sub(2).." "..selectedMember.." / "..memberCount)
+                sourceText:SetText("From: "..sourceChoices[sourceCursor][1])
+            end
+            memberButton:SetScript("OnClick",function()
+                selectedMember=selectedMember%memberCount+1
+                refreshHeader()
+            end)
+            sourceButton:SetScript("OnClick",function()
+                sourceCursor=sourceCursor%#sourceChoices+1
+                sourceKind,sourceIndex=sourceChoices[sourceCursor][2],sourceChoices[sourceCursor][3]
+                refreshHeader()
+            end)
+            copyButton:SetScript("OnClick",function()
+                if addon.GroupFrames then addon.GroupFrames:CopyMember(key,sourceKind,sourceIndex,selectedMember) end
+            end)
+            applyButton:SetScript("OnClick",function()
+                if addon.GroupFrames then addon.GroupFrames:ApplyToAll(key,selectedMember) end
+            end)
+            refreshHeader()
+            copyControls[name]={SetShown=function(_,shown) memberButton:SetShown(shown);sourceButton:SetShown(shown);copyButton:SetShown(shown);applyButton:SetShown(shown) end}
             local root = panel
             local sections = {}
             local sectionButtons = {}
