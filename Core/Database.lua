@@ -7,9 +7,10 @@ local defaults = {
         uiScale = 1.0,
         fontSize = 14,
         font = "GameFontNormal",
-        qol = { characterItemLevel = false },
+        qol = { characterItemLevel = false, muteErrorSpeech = false, muteFailedSpellSounds = false },
         minimap = {
             enabled = false, style = "round", autoZoom = 0,
+            iconScale = 1.5, mapScale = 1.0,
             microMenu = false, finderEye = false,
             coords = "off", fps = "off", latency = "off", clock = "always",
             hideAddonButtons = false, hideCalendar = false,
