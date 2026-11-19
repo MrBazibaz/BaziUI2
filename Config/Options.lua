@@ -472,8 +472,13 @@ local function CreateMinimapPage()
         "Coordinates, FPS, latency and clock visibility will use FlareUI's original update and hover logic.")
     Planned(buttons, "BUTTONS",
         "Micro menu, movable group finder icon and minimap-button hover visibility are next.")
-    Planned(visibility, "VISIBILITY",
-        "Calendar, tracking, zone, clock, coordinates and search controls are next.")
+    Toggle(visibility, "HIDE DAY / NIGHT", -4, "hideDayNight")
+    Toggle(visibility, "HIDE TRACKING", -49, "hideTracking")
+    Toggle(visibility, "HIDE ZONE LOCATION", -94, "hideZone")
+    Toggle(visibility, "HIDE CLOCK", -139, "hideClock")
+    Toggle(visibility, "HIDE CALENDAR", -184, "hideCalendar")
+    Planned(visibility, "MORE CONTROLS",
+        "Coordinates and search visibility will be added separately.")
     Planned(fonts, "FONTS",
         "Zone, clock and information text will inherit Global or use an individual font.")
     RefreshTabs()
