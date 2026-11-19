@@ -1141,6 +1141,62 @@ function M:Refresh()
         end
     end
 end
+-- Temporary, opt-in diagnostics. Never print protected aura values.
+local function debugSafe(value)
+    if issecretvalue and issecretvalue(value) then return "<protected>" end
+    if canaccessvalue and not canaccessvalue(value) then return "<inaccessible>" end
+    if value == nil then return "<nil>" end
+    if type(value) ~= "string" and type(value) ~= "number" and type(value) ~= "boolean" then
+        return "<" .. type(value) .. ">"
+    end
+    return tostring(value):sub(1, 45)
+end
+local function debugPrint(message)
+    if DEFAULT_CHAT_FRAME then DEFAULT_CHAT_FRAME:AddMessage("|cffcba65bBazi Aura Debug:|r " .. message) end
+end
+local function debugText(label, fontString)
+    if not fontString then debugPrint(label .. " missing"); return end
+    local ok, value = pcall(fontString.GetText, fontString)
+    local fontOK, path, size = pcall(fontString.GetFont, fontString)
+    debugPrint(label .. " text=" .. (ok and debugSafe(value) or "<read error>")
+        .. " font=" .. (fontOK and debugSafe(size) or "<error>")
+        .. " shown=" .. debugSafe(fontString:IsShown())
+        .. " alpha=" .. debugSafe(fontString:GetAlpha()))
+end
+function M:DebugAuras(key, kind)
+    key = units[key] and key or "target"
+    kind = kind == "debuffs" and "debuffs" or "buffs"
+    local frame = frames[key]
+    if not frame then debugPrint("No frame for " .. key); return end
+    local entry = frame.liveAuras and frame.liveAuras[kind]
+    if not entry then debugPrint("No live aura container for " .. key .. "/" .. kind); return end
+    debugPrint(key .. "/" .. kind .. " container shown=" .. debugSafe(entry.frame:IsShown())
+        .. " initialized buttons=" .. #entry.texts)
+    for i = 1, math.min(3, #entry.texts) do
+        local item = entry.texts[i]
+        debugPrint("button " .. i .. " shown=" .. debugSafe(item.button:IsShown()))
+        debugText("native " .. i, item.duration)
+        debugText("number " .. i, item.number)
+        debugText("unit " .. i, item.unit)
+        local ok, regions = pcall(function() return {item.button:GetRegions()} end)
+        if ok then
+            local found = 0
+            for _, region in ipairs(regions) do
+                if region.GetObjectType and region:GetObjectType() == "FontString"
+                    and region ~= item.duration and region ~= item.number
+                    and region ~= item.unit and region ~= item.count then
+                    found = found + 1
+                    if found <= 3 then debugText("extra " .. i .. "." .. found, region) end
+                end
+            end
+        end
+    end
+end
+SLASH_BAZIAURADEBUG1 = "/baziauradebug"
+SlashCmdList.BAZIAURADEBUG = function(msg)
+    local key, kind = (msg or ""):match("^(%S*)%s*(%S*)")
+    M:DebugAuras(key, kind)
+end
 function M:Initialize()
     if self.initialized then return end
     self.initialized = true
