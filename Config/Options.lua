@@ -388,7 +388,7 @@ local function CreateUnitFramesPage()
                 local canvas = CreateFrame("Frame", nil, rootPanel)
                 canvas:SetPoint("TOPLEFT", rootPanel, "TOPLEFT", 0, -49)
                 canvas:SetPoint("TOPRIGHT", rootPanel, "TOPRIGHT", 0, -49)
-                canvas:SetHeight(category == "Indicators" and 590 or 520)
+                canvas:SetHeight(category == "Indicators" and (name == "Pet" and 680 or 590) or 520)
                 canvas:Hide()
                 groups[category] = canvas
             end
@@ -402,7 +402,7 @@ local function CreateUnitFramesPage()
                         label == category and 0.18 or 0.12,
                         label == category and 0.26 or 0.07, 1)
                 end
-                rootPanel:SetHeight(category == "Indicators" and 610 or (category == "Layout" and 540 or 490))
+                rootPanel:SetHeight(category == "Indicators" and (name == "Pet" and 700 or 610) or (category == "Layout" and 540 or 490))
                 viewport:SetVerticalScroll(0)
             end
             for i, category in ipairs({"Layout", "Indicators", "Bar Text", "Fonts"}) do
@@ -643,11 +643,13 @@ local function CreateUnitFramesPage()
             optionCheck("showClassification", "Elite / rare", 20, -138)
 
             optionCheck("showName", "Show name", 230, -138)
+            if name == "Pet" then optionCheck("showHappiness", "Pet happiness", 20, -174) end
             local iconSpecs = {
                 {"pvp", "PvP flag"}, {"leader", "Group leader"},
                 {"raid", "Raid marker"}, {"role", "Group / raid role"},
                 {"classification", "Elite / rare"}
             }
+            if name == "Pet" then iconSpecs[#iconSpecs + 1] = {"happiness", "Pet happiness"} end
             local function indicatorField(kind, field, x, y, caption)
                 own[field] = own[field] or {}
                 local label = CreateLabel(panel, caption, "GameFontNormalSmall")
@@ -658,11 +660,11 @@ local function CreateUnitFramesPage()
                 edit:SetPoint("TOPLEFT", panel, "TOPLEFT", x, y - 19)
                 edit:SetAutoFocus(false)
                 local function current()
-                    return own[field][kind] or (field == "indicatorSize" and 17 or 0)
+                    return own[field][kind] or (field == "indicatorSize" and (kind == "classification" and 64 or 17) or 0)
                 end
                 local function apply(value)
                     local n = math.floor(tonumber(value) or current())
-                    if field == "indicatorSize" then n = math.max(10, math.min(48, n))
+                    if field == "indicatorSize" then n = math.max(10, math.min(kind == "classification" and 120 or 48, n))
                     else n = math.max(-150, math.min(150, n)) end
                     own[field][kind] = n
                     edit:SetText(tostring(n))
