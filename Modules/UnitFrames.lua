@@ -81,19 +81,20 @@ local function layout(f, settings)
     local centreX = (side == "LEFT" and -5 or 5) + (tonumber(settings.portraitX) or 0)
     local centreY = tonumber(settings.portraitY) or 0
     local rimSize = portraitSize * 62 / 48
-    -- Size the circular portrait to the visible opening of the ring.
-    local innerSize = portraitSize
+    -- FlareUI UnitFramesRing.lua: portrait is 86% of ring diameter; backing 94%.
+    local innerSize = rimSize * 0.86
+    local backSize = rimSize * 0.94
     f.portraitAnchor:ClearAllPoints()
     f.portraitAnchor:SetPoint(side, f, side, centreX, centreY)
     f.rim:SetSize(rimSize, rimSize)
     f.rimMask:SetSize(rimSize, rimSize)
     f.portrait:SetSize(innerSize, innerSize)
-    f.portraitBack:SetSize(innerSize, innerSize)
+    f.portraitBack:SetSize(backSize, backSize)
     -- FlareUI uses a static portrait texture, not PlayerModel.
     -- The model stays disabled; our own circular mask supplies the round shape.
     f.model:SetSize(innerSize, innerSize)
     f.portraitMask:SetSize(innerSize, innerSize)
-    f.backMask:SetSize(innerSize, innerSize)
+    f.backMask:SetSize(backSize, backSize)
     f.levelDisc:SetSize(portraitSize / 2, portraitSize / 2)
     f.levelDisc:ClearAllPoints()
     f.levelDisc:SetPoint("BOTTOM", f.portrait, "BOTTOM", side == "LEFT" and -portraitSize * 17 / 48 or portraitSize * 17 / 48, -portraitSize * 9 / 48)
@@ -128,7 +129,7 @@ local function update(f)
     local settings = cfg()
     local own = settings and unitSettings(settings, f.unit)
     if own and own.portrait3D then
-        f.portrait:SetTexCoord(0.07, 0.93, 0.07, 0.93)
+        f.portrait:SetTexCoord(0.12, 0.88, 0.12, 0.88)
     else
         f.portrait:SetTexCoord(0, 1, 0, 1)
     end
