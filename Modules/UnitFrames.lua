@@ -48,7 +48,7 @@ function M:SetMoveMode(value)
     return true
 end
 function M:IsMoveMode() return moving end
-local layoutKeys = {"barWidth", "hpHeight", "powerHeight", "portraitSize", "portraitX", "portraitY", "portrait3D"}
+local layoutKeys = {"barWidth", "hpHeight", "powerHeight", "portraitSize", "portraitX", "portraitY", "portraitBackground"}
 local function unitSettings(settings, key)
     settings.frames = settings.frames or {}
     local own = settings.frames[key]
@@ -135,6 +135,8 @@ local function update(f)
     f.portrait:Show()
     if f.level then f.level:SetText(UnitLevel(f.unit)) end
     -- Pets have no player class colour.
+    local settings = cfg()
+    local own = settings and unitSettings(settings, f.unit)
     local _, class = UnitClass(f.unit)
     if f.unit == "pet" then class = nil end
     local color = class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
@@ -142,6 +144,18 @@ local function update(f)
         f.health:SetStatusBarColor(color.r * 0.53, color.g * 0.53, color.b * 0.53)
     else
         f.health:SetStatusBarColor(0.40, 0.37, 0.29)
+    end
+    -- The portrait uses additive blending: black source pixels reveal this tint.
+    -- Class colors are deliberately darkened to avoid merging with the HP bar.
+    local mode = own and own.portraitBackground or "class"
+    if mode == "purple" then
+        f.portraitBack:SetColorTexture(0.12, 0.065, 0.19, 1)
+    elseif mode == "dark" then
+        f.portraitBack:SetColorTexture(0.055, 0.045, 0.04, 1)
+    elseif color then
+        f.portraitBack:SetColorTexture(color.r * 0.28, color.g * 0.28, color.b * 0.28, 1)
+    else
+        f.portraitBack:SetColorTexture(0.12, 0.065, 0.19, 1)
     end
     local kind = UnitPowerType(f.unit)
     local c = PowerBarColor and PowerBarColor[kind]
