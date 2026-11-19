@@ -254,6 +254,20 @@ function M:Initialize()
             return
         end
     end)
+    -- Diagnostic: determine which actual minimap layer receives middle clicks.
+    -- HookScript preserves Blizzard's existing map behavior.
+    local function traceMapClick(self, button)
+        if button == "MiddleButton" then
+            addon:Print("Minimap click reached " .. tostring(self:GetName() or "unnamed frame"))
+        end
+    end
+    map:HookScript("OnMouseDown", traceMapClick)
+    map:HookScript("OnMouseUp", traceMapClick)
+    if target ~= map then
+        target:HookScript("OnMouseDown", traceMapClick)
+        target:HookScript("OnMouseUp", traceMapClick)
+    end
+    surface:HookScript("OnMouseDown", traceMapClick)
     M.MouseSurface = surface
     local events = CreateFrame("Frame")
     events:RegisterEvent("PLAYER_ENTERING_WORLD")
