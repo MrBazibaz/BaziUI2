@@ -332,7 +332,7 @@ local function CreateUnitFramesPage()
         viewport:SetPoint("BOTTOMRIGHT", main, "BOTTOMRIGHT", -10, 10)
         viewport:EnableMouseWheel(true)
         local panel = CreateFrame("Frame", nil, viewport)
-        panel:SetHeight(name == "General" and 300 or 650)
+        panel:SetHeight(name == "General" and 300 or 735)
         panel:SetWidth(500)
         viewport:SetScrollChild(panel)
         viewport:SetScript("OnSizeChanged", function(self) panel:SetWidth(math.max(1, self:GetWidth())) end)
@@ -478,6 +478,61 @@ local function CreateUnitFramesPage()
                 previousSync()
                 xField:SetText(tostring(own.x or ({player=-260,target=260,focus=260,pet=-260})[key]))
                 yField:SetText(tostring(own.y or ({player=-180,target=-180,focus=-250,pet=-250})[key]))
+            end
+            -- Portrait background is independent per frame and is copied with appearance.
+            local bgTitle = CreateLabel(panel, "PORTRAIT BACKGROUND", "GameFontNormal")
+            bgTitle:SetPoint("TOPLEFT", panel, "TOPLEFT", 20, -570)
+            bgTitle:SetTextColor(1, 0.79, 0.42)
+            local modes = {{"class", "Class Color"}, {"purple", "Royal Purple"}, {"dark", "Dark"}}
+            local bgButton = CreateFrame("Button", nil, panel)
+            bgButton:SetSize(190, 27)
+            bgButton:SetPoint("TOPLEFT", panel, "TOPLEFT", 20, -592)
+            local bgFill = bgButton:CreateTexture(nil, "BACKGROUND")
+            bgFill:SetAllPoints()
+            bgFill:SetColorTexture(0.23, 0.12, 0.065, 0.98)
+            local bgLabel = CreateLabel(bgButton, "", "GameFontNormal")
+            bgLabel:SetPoint("CENTER")
+            bgLabel:SetTextColor(1, 0.79, 0.42)
+            local bgMenu = CreateFrame("Frame", nil, panel)
+            bgMenu:SetSize(190, #modes * 27)
+            bgMenu:SetPoint("TOPLEFT", bgButton, "BOTTOMLEFT", 0, -2)
+            bgMenu:SetFrameStrata("DIALOG")
+            bgMenu:SetFrameLevel(bgButton:GetFrameLevel() + 20)
+            bgMenu:Hide()
+            local function refreshBackground()
+                local current = own.portraitBackground or "class"
+                for _, entry in ipairs(modes) do
+                    if entry[1] == current then
+                        bgLabel:SetText(entry[2] .. "  v")
+                        return
+                    end
+                end
+                bgLabel:SetText("Class Color  v")
+            end
+            for i, entry in ipairs(modes) do
+                local choice = CreateFrame("Button", nil, bgMenu)
+                choice:SetSize(190, 27)
+                choice:SetPoint("TOPLEFT", bgMenu, "TOPLEFT", 0, -(i-1)*27)
+                local fill = choice:CreateTexture(nil, "BACKGROUND")
+                fill:SetAllPoints()
+                fill:SetColorTexture(0.23, 0.12, 0.065, 0.98)
+                local textLabel = CreateLabel(choice, entry[2], "GameFontNormal")
+                textLabel:SetPoint("CENTER")
+                textLabel:SetTextColor(1, 0.79, 0.42)
+                choice:SetScript("OnEnter", function() fill:SetColorTexture(0.33, 0.18, 0.11, 0.98) end)
+                choice:SetScript("OnLeave", function() fill:SetColorTexture(0.23, 0.12, 0.065, 0.98) end)
+                choice:SetScript("OnClick", function()
+                    own.portraitBackground = entry[1]
+                    bgMenu:Hide()
+                    refreshBackground()
+                    if addon.UnitFrames then addon.UnitFrames:Refresh() end
+                end)
+            end
+            bgButton:SetScript("OnClick", function() bgMenu:SetShown(not bgMenu:IsShown()) end)
+            local oldSync = syncControls[name]
+            syncControls[name] = function()
+                oldSync()
+                refreshBackground()
             end
             local choices = {}
             for _, candidate in ipairs({"Player","Target","Focus","Pet"}) do
