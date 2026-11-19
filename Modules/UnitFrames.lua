@@ -292,12 +292,25 @@ local function layout(f, settings)
             bar:SetWidth(math.max(40, tonumber(settings[spec[2] .. "Width"]) or extraWidth))
             bar:SetHeight(math.max(4, tonumber(settings[spec[2] .. "Height"]) or spec[4]))
             bar:ClearAllPoints()
-            bar:SetPoint("TOPLEFT", f.power, "BOTTOMLEFT",
-                tonumber(settings[spec[2] .. "X"]) or 0,
-                spec[3] + (tonumber(settings[spec[2] .. "Y"]) or 0))
+            if spec[1] == "petCast" then
+                -- Castbar sits above the pet's health and power bars by default.
+                bar:SetPoint("BOTTOMLEFT", f.health, "TOPLEFT",
+                    tonumber(settings.petCastX) or 0,
+                    5 + (tonumber(settings.petCastY) or 0))
+            else
+                bar:SetPoint("TOPLEFT", f.power, "BOTTOMLEFT",
+                    tonumber(settings[spec[2] .. "X"]) or 0,
+                    spec[3] + (tonumber(settings[spec[2] .. "Y"]) or 0))
+            end
             local label = spec[1] == "petXP" and bar.text or bar.label
-            label:SetFont((GameFontNormal and select(1, GameFontNormal:GetFont())) or "Fonts\\FRIZQT__.TTF",
-                math.max(7, tonumber(settings[spec[2] .. "FontSize"]) or 10), "OUTLINE")
+            local fontSize = tonumber(settings[spec[2] .. "FontSize"]) or 10
+            if fontSize <= 0 then
+                label:Hide()
+            else
+                label:SetFont((GameFontNormal and select(1, GameFontNormal:GetFont())) or "Fonts\\FRIZQT__.TTF",
+                    math.max(7, fontSize), "OUTLINE")
+                label:Show()
+            end
         end
     end
     f.health:ClearAllPoints()
