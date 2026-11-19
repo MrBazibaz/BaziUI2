@@ -43,8 +43,8 @@ local function makeLauncher()
     local crystal = b:CreateTexture(nil, "ARTWORK")
     crystal:SetPoint("CENTER", 0, 0)
     crystal:SetSize(19, 19)
-    crystal:SetTexture("Interface\\Icons\\INV_Misc_Gem_Amethyst_02")
-    crystal:SetTexCoord(0.09, 0.91, 0.09, 0.91)
+    crystal:SetTexture("Interface\\AddOns\\BaziUI\\Assets\\Icons\\BaziUI_Emblem_256.png")
+    crystal:SetTexCoord(0, 1, 0, 1)
     -- A circular alpha mask clips the square inventory icon into a round medallion.
     if crystal.AddMaskTexture then
         local mask = b:CreateMaskTexture()
@@ -151,6 +151,7 @@ function M:Apply()
         end
         M.Launcher:SetShown(show)
     end
+    if M.MouseSurface then M.MouseSurface:EnableMouse(cfg.enabled and cfg.microMenu) end
     if M.Menu and not cfg.microMenu then M.Menu:Hide() end
 end
 function M:Initialize()
@@ -158,9 +159,19 @@ function M:Initialize()
     self.initialized = true
     makeLauncher()
     makeMenu()
-    if map.RegisterForClicks then map:RegisterForClicks("AnyUp") end
-    map:EnableMouse(true)
-    map:HookScript("OnMouseDown", function(_, button)
+    -- FlareUI uses a separate mouse surface above the map. Hooking the
+    -- Blizzard map directly does not reliably receive middle clicks.
+    local surface = CreateFrame("Frame", nil, map)
+    surface:SetAllPoints(map)
+    surface:SetFrameLevel(map:GetFrameLevel() + 10)
+    if surface.SetMouseMotionEnabled then surface:SetMouseMotionEnabled(false) end
+    if surface.SetPropagateMouseMotion then surface:SetPropagateMouseMotion(true) end
+    surface:EnableMouse(true)
+    if surface.SetPassThroughButtons then
+        surface:SetPassThroughButtons("LeftButton", "RightButton", "Button4", "Button5")
+    end
+    M.MouseSurface = surface
+    surface:SetScript("OnMouseUp", function(_, button)
         local cfg = db()
         if button ~= "MiddleButton" or not cfg or not cfg.enabled or not cfg.microMenu then return end
         if InCombatLockdown and InCombatLockdown() then return end
