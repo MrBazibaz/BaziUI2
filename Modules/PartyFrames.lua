@@ -552,8 +552,8 @@ local function layout(f, settings)
         if icon then
             local field = indicatorFields[i]
             local size = math.max(10, math.min(field == "classification" and 120 or 48, tonumber(settings.indicatorSize and settings.indicatorSize[field]) or (field == "classification" and 64 or 17)))
-            local x = (icon.baseX or 0) + (tonumber(settings.indicatorX and settings.indicatorX[field]) or 0)
-            local y = (icon.baseY or 0) + (tonumber(settings.indicatorY and settings.indicatorY[field]) or 0)
+            local x = (icon.baseX or 0) + (tonumber(settings.indicatorX and settings.indicatorX[field]) or tonumber(settings[field.."X"]) or 0)
+            local y = (icon.baseY or 0) + (tonumber(settings.indicatorY and settings.indicatorY[field]) or tonumber(settings[field.."Y"]) or 0)
             -- The dragon is a portrait decoration: scale its size and default
             -- attachment point with the portrait. Manual X/Y stay pixel offsets.
             local drawSize, drawX, drawY = size, x, y
@@ -565,8 +565,8 @@ local function layout(f, settings)
                 -- scale the entire offset about the portrait's centre.
                 local referenceFactor = 60 / 48
                 local relativeScale = portraitSize / 60
-                drawX = ((icon.baseX or 0) * referenceFactor + (tonumber(settings.indicatorX and settings.indicatorX[field]) or 0)) * relativeScale
-                drawY = ((icon.baseY or 0) * referenceFactor + (tonumber(settings.indicatorY and settings.indicatorY[field]) or 0)) * relativeScale
+                drawX = ((icon.baseX or 0) * referenceFactor + (tonumber(settings.indicatorX and settings.indicatorX[field]) or tonumber(settings[field.."X"]) or 0)) * relativeScale
+                drawY = ((icon.baseY or 0) * referenceFactor + (tonumber(settings.indicatorY and settings.indicatorY[field]) or tonumber(settings[field.."Y"]) or 0)) * relativeScale
             end
             icon:SetSize(drawSize, drawSize)
             icon:ClearAllPoints()
@@ -629,9 +629,17 @@ local function layout(f, settings)
     f.level:ClearAllPoints()
     f.level:SetPoint("CENTER", f.levelDisc, "CENTER", tonumber(settings.levelTextX) or 0, tonumber(settings.levelTextY) or 0)
     f.name:SetFont(font, math.max(1,tonumber(settings.nameFontSize) or tonumber(settings.fontSize) or size), "OUTLINE")
+    f.name:ClearAllPoints()
+    local namePoint=settings.nameAnchor or "LEFT"
+    local nameVisible=namePoint~="HIDDEN"
+    if nameVisible then
+        local point=(namePoint=="RIGHT" and "RIGHT") or (namePoint=="CENTER" and "CENTER") or "LEFT"
+        f.name:SetPoint(point,f.health,point,(tonumber(settings.nameX) or 0)+(point=="LEFT" and 4 or point=="RIGHT" and -4 or 0),tonumber(settings.nameY) or 0)
+        f.name:SetJustifyH(point)
+    end
     f.value:SetFont(font, tonumber(settings.hpFontSize) or size, "OUTLINE")
     f.powerText:SetFont(font, tonumber(settings.powerFontSize) or size, "OUTLINE")
-    f.name:SetShown(settings.showName ~= false and (tonumber(settings.nameFontSize) or tonumber(settings.fontSize) or 12)>0)
+    f.name:SetShown(settings.showName ~= false and settings.nameAnchor ~= "HIDDEN" and (tonumber(settings.nameFontSize) or tonumber(settings.fontSize) or 12)>0)
     f.level:SetShown(settings.showLevel ~= false)
     local function anchorText(text, bar, anchor, x, y)
         local point = anchor == "LEFT" and "LEFT" or anchor == "CENTER" and "CENTER" or "RIGHT"
@@ -1244,7 +1252,7 @@ local function showPartyRolePortrait(f,role)
     if not atlas then return false end
     local ok=pcall(f.portrait.SetAtlas,f.portrait,atlas,false)
     if not ok then return false end
-    f.portrait:SetTexCoord(0,1,0,1)
+    -- SetAtlas already supplies correct UV coordinates.
     if f.model then f.model:Hide() end
     f.portrait:Show()
     return true
