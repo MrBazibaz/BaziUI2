@@ -8,6 +8,17 @@ local defaults = {
         fontSize = 14,
         font = "GameFontNormal",
         qol = { characterItemLevel = false },
+        minimap = {
+            enabled = false, style = "round", autoZoom = 0,
+            microMenu = false, finderEye = false,
+            coords = "off", fps = "off", latency = "off", clock = "always",
+            hideAddonButtons = false, hideCalendar = false,
+            hideTracking = false, hideZone = false, hideClock = false,
+            hideCoordinates = false, hideSearch = false,
+            zoneFont = {font = "GLOBAL", outline = "NONE", size = 12, shadow = true},
+            clockFont = {font = "GLOBAL", outline = "NONE", size = 12, shadow = true},
+            infoFont = {font = "GLOBAL", outline = "NONE", size = 11, shadow = true},
+        },
         tooltip = {
             enabled = true, anchor = "corner", x = -30, y = 130,
             scale = 1, opacity = 1, healthBar = "below",
