@@ -190,17 +190,17 @@ local function layout(f, settings)
     f:SetHitRectInsets(-math.ceil(leftExtra), -math.ceil(rightExtra),
         -math.ceil(topExtra), -math.ceil(bottomExtra))
     if f.petXPRing then
-        -- 64 independent segments form a circular progress track around the
-        -- portrait. Unlike a rotated square status bar, no corners can show.
-        local radius = rimSize * 0.515
-        local thickness = math.max(2, rimSize * 0.038)
+        -- Fewer, broader segments sit just outside the gold portrait rim.
+        -- Each segment retains a subdued background until XP fills it.
+        local radius = rimSize * 0.502
+        local thickness = math.max(4, rimSize * 0.064)
         for i, segment in ipairs(f.petXPRing.segments) do
             local angle = (i - 1) * (2 * math.pi / #f.petXPRing.segments) - math.pi / 2
             segment:ClearAllPoints()
             segment:SetPoint("CENTER", f.portraitAnchor, "CENTER",
                 math.cos(angle) * radius, math.sin(angle) * radius)
-            segment:SetSize(thickness, math.max(3, radius * 2 * math.pi / #f.petXPRing.segments * 1.12))
-            segment:SetRotation(angle + math.pi / 2)
+            segment:SetSize(math.max(5, radius * 2 * math.pi / #f.petXPRing.segments * 0.89), thickness)
+            segment:SetRotation(angle)
         end
     end
     f.rim:SetSize(rimSize, rimSize)
@@ -390,7 +390,7 @@ updatePetExtras = function(f)
     -- XP is relevant only while the pet can gain levels. Checkbox cannot override this.
     local petLevel, playerLevel = UnitLevel("pet"), UnitLevel("player")
     if not (issecretvalue and (issecretvalue(petLevel) or issecretvalue(playerLevel))) then
-        hasXP = hasXP and petLevel > 0 and playerLevel > petLevel
+        hasXP = hasXP and petLevel > 0 and petLevel < playerLevel
     else
         hasXP = false
     end
@@ -404,8 +404,8 @@ updatePetExtras = function(f)
             local count = #f.petXPRing.segments
             for i, segment in ipairs(f.petXPRing.segments) do
                 local active = i <= math.floor(fraction * count + 0.5)
-                segment:SetColorTexture(active and 0.76 or 0.17,
-                    active and 0.43 or 0.11, active and 0.96 or 0.22, 0.96)
+                segment:SetColorTexture(active and 0.79 or 0.23,
+                    active and 0.48 or 0.17, active and 0.97 or 0.30, active and 0.98 or 0.38)
             end
         end
     end
@@ -462,10 +462,10 @@ local function createPetExtras(f)
     ring:SetAllPoints(f.portraitAnchor)
     ring:EnableMouse(false)
     ring.segments = {}
-    for i = 1, 64 do
+    for i = 1, 40 do
         local segment = ring:CreateTexture(nil, "OVERLAY")
         segment:SetTexture("Interface\\Buttons\\WHITE8X8")
-        segment:SetColorTexture(0.17, 0.11, 0.22, 0.96)
+        segment:SetColorTexture(0.23, 0.17, 0.30, 0.38)
         ring.segments[i] = segment
     end
     f.petXPRing = ring
