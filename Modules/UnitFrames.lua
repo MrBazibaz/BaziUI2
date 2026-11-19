@@ -201,7 +201,7 @@ local function layout(f, settings)
         -- portrait sizes. Inset the XP ticks at 36, blending back to the
         -- approved geometry at 60+. Rotation and tick width stay unchanged.
         local smallInset = 2 * math.max(0, math.min(1, (60 - portraitSize) / 24))
-        local radius = rimSize * 0.445 - smallInset
+        local radius = rimSize * 0.445 - smallInset + (tonumber(settings.petXPRadiusOffset) or 0)
         local count = #f.petXPRing.segments
         -- Calculate the badge position from its actual anchor rather than
         -- guessing a fixed angle. Its centre is offset from the portrait's
@@ -517,7 +517,7 @@ local function createPetExtras(f)
                 local scale = self.portraitAnchor:GetEffectiveScale()
                 local mx, my = GetCursorPosition()
                 local dx, dy = mx / scale - cx, my / scale - cy
-                local radius = (self.rim:GetWidth() or 0) * 0.445
+                local radius = (self.rim:GetWidth() or 0) * 0.445 - 2 * math.max(0, math.min(1, (60 - (tonumber(self.petXPSettings and self.petXPSettings.portraitSize) or 60)) / 24)) + (tonumber(self.petXPSettings and self.petXPSettings.petXPRadiusOffset) or 0)
                 local distance = math.sqrt(dx * dx + dy * dy)
                 overRing = distance >= radius - 7 and distance <= radius + 7
             end
