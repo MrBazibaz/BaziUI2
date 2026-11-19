@@ -389,7 +389,7 @@ local function CreateUnitFramesPage()
                 local canvas = CreateFrame("Frame", nil, rootPanel)
                 canvas:SetPoint("TOPLEFT", rootPanel, "TOPLEFT", 0, -49)
                 canvas:SetPoint("TOPRIGHT", rootPanel, "TOPRIGHT", 0, -49)
-                canvas:SetHeight(category == "Indicators" and (name == "Pet" and 930 or 590) or 520)
+                canvas:SetHeight(category == "Indicators" and (name == "Target" and 1150 or (name == "Pet" and 930 or 590)) or 520)
                 canvas:Hide()
                 groups[category] = canvas
             end
@@ -403,7 +403,7 @@ local function CreateUnitFramesPage()
                         label == category and 0.18 or 0.12,
                         label == category and 0.26 or 0.07, 1)
                 end
-                rootPanel:SetHeight(category == "Indicators" and (name == "Pet" and 950 or 610) or (category == "Layout" and 540 or 490))
+                rootPanel:SetHeight(category == "Indicators" and (name == "Target" and 1170 or (name == "Pet" and 950 or 610)) or (category == "Layout" and 540 or 490))
                 viewport:SetVerticalScroll(0)
             end
             for i, category in ipairs({"Layout", "Indicators", "Bar Text", "Fonts"}) do
@@ -648,6 +648,75 @@ local function CreateUnitFramesPage()
                 optionCheck("showHappiness", "Pet happiness", 20, -174)
                 optionCheck("showPetXP", "Pet XP bar", 230, -174)
                 optionCheck("showPetCast", "Pet castbar", 20, -204)
+            end
+            if name == "Target" then
+                -- Target-only aura layout previews. They never modify real auras.
+                local function auraPreviewControls(kind, top)
+                    local title = CreateLabel(panel, kind == "buffs" and "TARGET BUFFS" or "TARGET DEBUFFS", "GameFontNormal")
+                    title:SetPoint("TOPLEFT", panel, "TOPLEFT", 20, top)
+                    local check = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
+                    check:SetSize(24, 24)
+                    check:SetPoint("TOPLEFT", panel, "TOPLEFT", 20, top - 24)
+                    local label = CreateLabel(panel, "Preview " .. kind, "GameFontHighlight")
+                    label:SetPoint("LEFT", check, "RIGHT", 4, 0)
+                    check:SetScript("OnClick", function(self)
+                        if addon.UnitFrames then addon.UnitFrames:SetTargetAuraPreview(kind, self:GetChecked() == true) end
+                    end)
+                    local opt = own["aura_" .. kind] or {}
+                    own["aura_" .. kind] = opt
+                    local fields = {
+                        {"size", "SIZE", 12, 48, 24}, {"count", "COUNT", 0, 40, 12},
+                        {"perRow", "PER ROW", 1, 20, 6}, {"spacing", "GAP", 0, 20, 2},
+                        {"x", "X", -250, 250, 0}, {"y", "Y", -250, 250, kind == "buffs" and 32 or -58},
+                    }
+                    for i, spec in ipairs(fields) do
+                        local x = 20 + ((i-1) % 3) * 165
+                        local y = top - 65 - math.floor((i-1)/3)*65
+                        local caption = CreateLabel(panel, spec[2], "GameFontNormalSmall")
+                        caption:SetPoint("TOPLEFT", panel, "TOPLEFT", x, y)
+                        local edit = CreateFrame("EditBox", nil, panel, "InputBoxTemplate")
+                        edit:SetSize(70, 22)
+                        edit:SetPoint("TOPLEFT", panel, "TOPLEFT", x, y-20)
+                        edit:SetAutoFocus(false)
+                        edit:SetText(tostring(opt[spec[1]] or spec[5]))
+                        edit:SetScript("OnEnterPressed", function(self)
+                            local value = tonumber(self:GetText()) or spec[5]
+                            opt[spec[1]] = math.max(spec[3], math.min(spec[4], math.floor(value)))
+                            self:SetText(tostring(opt[spec[1]]))
+                            self:ClearFocus()
+                            if addon.UnitFrames then addon.UnitFrames:Refresh() end
+                        end)
+                    end
+                    local function direction(field, x)
+                        local button = CreateFrame("Button", nil, panel)
+                        button:SetSize(190, 24)
+                        button:SetPoint("TOPLEFT", panel, "TOPLEFT", x, top-202)
+                        local bg = button:CreateTexture(nil, "BACKGROUND")
+                        bg:SetAllPoints()
+                        bg:SetColorTexture(0.23, 0.12, 0.065, 1)
+                        local text = CreateLabel(button, "", "GameFontNormalSmall")
+                        text:SetPoint("CENTER")
+                        local function refresh()
+                            text:SetText(field .. ": " .. (opt[field] or (field == "horizontal" and "right" or "down")))
+                        end
+                        button:SetScript("OnClick", function()
+                            local current = opt[field] or (field == "horizontal" and "right" or "down")
+                            opt[field] = field == "horizontal" and (current == "right" and "left" or "right")
+                                or (current == "down" and "up" or "down")
+                            refresh()
+                            if addon.UnitFrames then addon.UnitFrames:Refresh() end
+                        end)
+                        refresh()
+                    end
+                    direction("horizontal", 20)
+                    direction("vertical", 235)
+                    viewport:HookScript("OnHide", function()
+                        check:SetChecked(false)
+                        if addon.UnitFrames then addon.UnitFrames:SetTargetAuraPreview(kind, false) end
+                    end)
+                end
+                auraPreviewControls("buffs", -540)
+                auraPreviewControls("debuffs", -800)
             end
             local iconSpecs = {
                 {"pvp", "PvP flag"}, {"leader", "Group leader"},
