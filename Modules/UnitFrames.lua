@@ -618,31 +618,9 @@ local function layout(f, settings)
     f.barBorder:SetPoint("BOTTOMRIGHT", f.power, "BOTTOMRIGHT", 2, -2)
 end
 local updatePetExtras
-local function update(f)
-    if not f or not UnitExists(f.unit) then
-        if f then f.health:SetValue(0); f.power:SetValue(0); f.name:SetText("") end
-        return
-    end
+local function updateHealthColor(f)
+    if not f or not UnitExists(f.unit) then return end
     local health, maximum = UnitHealth(f.unit), UnitHealthMax(f.unit)
-    local power, powerMax = UnitPower(f.unit), UnitPowerMax(f.unit)
-    f.health:SetMinMaxValues(0, maximum)
-    f.health:SetValue(health)
-    f.power:SetMinMaxValues(0, powerMax)
-    f.power:SetValue(power)
-    f.name:SetText(UnitName(f.unit) or "")
-    -- UnitHealth can be a secret number in Forever. Do not compare or calculate it in Lua.
-    local own = unitSettings(cfg() or {}, f.unit)
-    setBarText(f.value, f.unit, own.hpText or "", true)
-    setBarText(f.powerText, f.unit, own.powerText or "", false)
-    updateExtras(f, own)
-    if f.unit == "pet" then updatePetExtras(f) end
-    -- FlareUI's so-called "3d" mode is a Blizzard-rendered static portrait.
-    -- Keep one masked texture in both modes; optional zoom changes its crop.
-    SetPortraitTexture(f.portrait, f.unit, true)
-    f.portrait:SetTexCoord(own.flipPortrait and 1 or 0, own.flipPortrait and 0 or 1, 0, 1)
-    f.model:Hide()
-    f.portrait:Show()
-    if f.level then f.level:SetText(UnitLevel(f.unit)) end
     -- Smooth health coloring through Blizzard's native color curves.
     -- UnitHealthPercent accepts a curve without exposing protected HP numbers to Lua.
     local _, class = UnitClass(f.unit)
@@ -688,6 +666,33 @@ local function update(f)
         -- Older clients without ColorCurve cannot safely inspect secret HP.
         f.health:SetStatusBarColor(cr, cg, cb)
     end
+end
+local function update(f)
+    if not f or not UnitExists(f.unit) then
+        if f then f.health:SetValue(0); f.power:SetValue(0); f.name:SetText("") end
+        return
+    end
+    local health, maximum = UnitHealth(f.unit), UnitHealthMax(f.unit)
+    local power, powerMax = UnitPower(f.unit), UnitPowerMax(f.unit)
+    f.health:SetMinMaxValues(0, maximum)
+    f.health:SetValue(health)
+    f.power:SetMinMaxValues(0, powerMax)
+    f.power:SetValue(power)
+    f.name:SetText(UnitName(f.unit) or "")
+    -- UnitHealth can be a secret number in Forever. Do not compare or calculate it in Lua.
+    local own = unitSettings(cfg() or {}, f.unit)
+    setBarText(f.value, f.unit, own.hpText or "", true)
+    setBarText(f.powerText, f.unit, own.powerText or "", false)
+    updateExtras(f, own)
+    if f.unit == "pet" then updatePetExtras(f) end
+    -- FlareUI's so-called "3d" mode is a Blizzard-rendered static portrait.
+    -- Keep one masked texture in both modes; optional zoom changes its crop.
+    SetPortraitTexture(f.portrait, f.unit, true)
+    f.portrait:SetTexCoord(own.flipPortrait and 1 or 0, own.flipPortrait and 0 or 1, 0, 1)
+    f.model:Hide()
+    f.portrait:Show()
+    if f.level then f.level:SetText(UnitLevel(f.unit)) end
+    updateHealthColor(f)
     local kind = UnitPowerType(f.unit)
     local c = PowerBarColor and PowerBarColor[kind]
     if c then f.power:SetStatusBarColor(c.r * 0.56, c.g * 0.56, c.b * 0.56) else f.power:SetStatusBarColor(0.10, 0.30, 0.58) end
@@ -1038,6 +1043,15 @@ local function create(key, spec)
         end
     end
     f:RegisterEvent("PLAYER_ENTERING_WORLD")
+    -- Refresh health tint frequently without rebuilding portraits, auras or layout.
+    -- Uses the native secret-safe UnitHealthPercent color curve.
+    f.healthColorElapsed = 0
+    f:SetScript("OnUpdate", function(self, elapsed)
+        self.healthColorElapsed = self.healthColorElapsed + elapsed
+        if self.healthColorElapsed < 0.05 then return end
+        self.healthColorElapsed = 0
+        if self:IsShown() then updateHealthColor(self) end
+    end)
     f:SetScript("OnEvent", function(self, event, unit)
         if not unit or unit == self.unit or event == "PLAYER_TARGET_CHANGED" or event == "PLAYER_FOCUS_CHANGED" or event == "PLAYER_ENTERING_WORLD" or event == "UNIT_PET" or event == "GROUP_ROSTER_UPDATE" or event == "RAID_TARGET_UPDATE" then
             update(self)
