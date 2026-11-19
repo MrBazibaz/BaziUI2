@@ -24,10 +24,30 @@ local function effectiveOptions(opt,index)
     for k,v in pairs(memberOptions(opt,index)) do merged[k]=v end
     return merged
 end
-local function clone(value)
+-- Saved settings can contain shared/cyclic tables. Copy only settings,
+-- never recurse into the group members tree.
+local excludedCopyFields = {
+    x=true, y=true, spacing=true, columns=true, growth=true,
+    anchor=true, enabled=true, showSolo=true, members=true,
+    offsetX=true, offsetY=true,
+}
+local function clone(value, seen)
     if type(value) ~= "table" then return value end
+    seen = seen or {}
+    if seen[value] then return seen[value] end
     local result = {}
-    for k,v in pairs(value) do result[k]=clone(v) end
+    seen[value] = result
+    for k,v in pairs(value) do result[k]=clone(v,seen) end
+    return result
+end
+local function visualSettings(source)
+    local result = {}
+    local seen = {}
+    for k,v in pairs(source) do
+        if not excludedCopyFields[k] then
+            result[k] = clone(v,seen)
+        end
+    end
     return result
 end
 function M:CopyMember(kind,sourceKind,sourceIndex,targetIndex)
@@ -45,7 +65,7 @@ function M:CopyMember(kind,sourceKind,sourceIndex,targetIndex)
     end
     if not source then return false end
     local keep=memberOptions(target,targetIndex)
-    local output=clone(source)
+    local output=visualSettings(source)
     -- Translate the original UnitFrames schema into the separate group renderer.
     -- Never modify the original source tables.
     if sourceKind=="player" or sourceKind=="target" or sourceKind=="focus" or sourceKind=="pet" or sourceKind=="targettarget" then
@@ -76,7 +96,7 @@ function M:ApplyToAll(kind,sourceIndex)
     local opt=config(kind)
     if not opt then return false end
     local count=kind=="raid" and 40 or kind=="party" and 4 or 5
-    local source=clone(effectiveOptions(opt,sourceIndex))
+    local source=visualSettings(effectiveOptions(opt,sourceIndex))
     for _,field in ipairs({"x","y","spacing","columns","growth","anchor","enabled","showSolo","members","offsetX","offsetY"}) do source[field]=nil end
     for i=1,count do
         if i~=sourceIndex then
