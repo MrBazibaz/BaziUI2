@@ -60,7 +60,12 @@ local function refreshHover()
     if not cfg then return end
     local over = cluster and cluster:IsMouseOver()
     local c = coords()
-    if c then c:SetAlpha(((not cfg.hideCoordinates) and (cfg.coords == "always" or (cfg.coords == "hover" and over))) and 1 or 0) end
+    if c then
+        -- A profile saved before Map Info was implemented may have coords="off"
+        -- while the player was still seeing Blizzard's default coordinates.
+        -- Do not hide the coordinate frame unless the user explicitly chose Never.
+        c:SetAlpha(((not cfg.hideCoordinates) and (cfg.coords == "always" or (cfg.coords == "hover" and over))) and 1 or 0)
+    end
     local clock = _G.TimeManagerClockButton
     if clock and not cfg.hideClock then
         clock:SetAlpha(((cfg.clock == "always") or (cfg.clock == "hover" and over)) and 1 or 0)
@@ -75,12 +80,18 @@ local function refreshHover()
 end
 local function makeStats()
     if stats.fps or not cluster then return end
-    local holder = CreateFrame("Frame", nil, cluster)
-    holder:SetAllPoints(cluster)
-    holder:SetFrameLevel(cluster:GetFrameLevel() + 12)
+    -- FlareUI anchors stats to the minimap frame, not to the Edit Mode cluster.
+    -- Its border is a separate child of the cluster in Bazi UI.
+    local anchor = addon.Minimap and addon.Minimap.Border or _G.Minimap or cluster
+    local holder = CreateFrame("Frame", nil, anchor)
+    holder:SetAllPoints(anchor)
+    holder:SetFrameStrata("HIGH")
+    holder:SetFrameLevel(math.max(anchor:GetFrameLevel() + 5, 15))
+    M.StatsHolder = holder
     for _, key in ipairs({"fps","home","world"}) do
         local fs = holder:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
         fs:SetJustifyH("RIGHT")
+        fs:SetTextColor(1, 0.82, 0.38)
         stats[key] = fs
     end
 end
@@ -107,10 +118,14 @@ function M:Apply()
         if fps ~= "off" then order[#order+1] = stats.fps end
     end
     for _, fs in pairs(stats) do fs:Hide() end
-    local anchor = addon.Minimap and addon.Minimap.Border or cluster
+    local anchor = addon.Minimap and addon.Minimap.Border or _G.Minimap or cluster
+    local c = coords()
+    local mid = 5 + ((c and c:GetHeight()) or 12) / 2
+    local _, fontSize = stats.fps:GetFont()
+    local step = math.floor((fontSize or 12) + 2)
     for i, fs in ipairs(order) do
         fs:ClearAllPoints()
-        fs:SetPoint("RIGHT", anchor, "BOTTOMRIGHT", -14, 17 + (i-1)*14)
+        fs:SetPoint("RIGHT", anchor, "BOTTOMRIGHT", -11, mid + (i-1)*step)
         fs:Show()
     end
     if #order > 0 then
