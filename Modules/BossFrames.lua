@@ -106,13 +106,22 @@ end
 function M:IsMoveMode() return moving end
 local layoutKeys = {"indicatorSize", "indicatorX", "indicatorY","barWidth", "hpHeight", "powerHeight", "portraitSize", "portraitX", "portraitY", "flipPortrait", "showPvP", "showLeader", "showRaidMarker", "showRole", "showClassification", "showHappiness", "hpText", "powerText", "fontSize", "nameFontSize", "hpFontSize", "powerFontSize", "fontFace", "showName", "hpTextX", "hpTextY", "powerTextX", "powerTextY", "hpFontColor", "powerFontColor", "hpTextAnchor", "powerTextAnchor", "levelFontSize", "levelTextX", "levelTextY"}
 local function unitSettings(settings, key)
-    settings.frames = settings.frames or {}
-    local own = settings.frames[key]
+    -- Boss editor and Apply to All store appearance in members[index].
+    -- Keep frames[key] exclusively for the existing positional data.
+    local index = tonumber(key:match("%d+"))
+    settings.members = settings.members or {}
+    local own = settings.members[index]
     if not own then
         own = {}
-        settings.frames[key] = own
+        settings.members[index] = own
     end
-    -- Migrate existing shared dimensions once per frame without losing saved values.
+    -- Preserve earlier Boss appearance values on first migration.
+    local legacy = settings.frames and settings.frames[key]
+    if legacy then
+        for _, name in ipairs(layoutKeys) do
+            if own[name] == nil and legacy[name] ~= nil then own[name] = legacy[name] end
+        end
+    end
     for _, name in ipairs(layoutKeys) do
         if own[name] == nil then own[name] = settings[name] end
     end
@@ -757,10 +766,6 @@ local function update(f)
     setBarText(f.value, f.unit, own.hpText or "", true)
     setBarText(f.powerText, f.unit, own.powerText or "", false)
     updateExtras(f, own)
-    if f.bossDragon then
-        local classification=UnitClassification(f.unit)
-        f.bossDragon:SetShown(own.showClassification~=false and (classification=="elite" or classification=="worldboss" or classification=="rareelite"))
-    end
     if f.unit == "pet" then updatePetExtras(f) end
     -- FlareUI's so-called "3d" mode is a Blizzard-rendered static portrait.
     -- Keep one masked texture in both modes; optional zoom changes its crop.
@@ -1099,12 +1104,6 @@ local function create(key, spec)
     rim:SetPoint("CENTER", portraitAnchor, "CENTER")
     rim:SetAtlas("UI-HUD-UnitFrame-Target-PortraitOn")
     rim:SetTexCoord(252.78/384, 375/384, 1.67/134, 123.89/134)
-    -- Boss-only elite ornament; the normal portrait ring stays untouched.
-    local dragon=portraitLayer:CreateTexture(nil,"OVERLAY",nil,1)
-    dragon:SetTexture("Interface\\TargetingFrame\\UI-TargetingFrame-Elite")
-    dragon:SetSize(100,100)
-    dragon:SetPoint("CENTER",portraitAnchor,"CENTER",3,0)
-    f.bossDragon=dragon
     local rimMask = portraitLayer:CreateMaskTexture()
     rimMask:SetTexture("Interface\\CHARACTERFRAME\\TempPortraitAlphaMask", "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
     rimMask:SetSize(62, 62)
@@ -1334,7 +1333,6 @@ local function updateSample(f,index)
         f.name:SetTextColor(c.r,c.g,c.b)
     end
     local own=unitSettings(cfg() or {},f.unit)
-    if f.bossDragon then f.bossDragon:SetShown(own.showClassification~=false) end
     f.health:SetStatusBarColor(.72,.16,.16)
     f.power:SetStatusBarColor(.12,.35,.85)
     local function previewText(template,value)
@@ -1343,11 +1341,15 @@ local function updateSample(f,index)
     end
     f.value:SetText(previewText(own.hpText or (own.showHealthPercent and "{percent}" or "{current} / {max}"),sample.hp))
     f.powerText:SetText(previewText(own.powerText or (own.showPowerPercent and "{percent}" or "{current} / {max}"),sample.power))
-    f.pvpIcon:SetShown(own.showPvP~=false and index==3)
-    f.leaderIcon:SetShown(own.showLeader~=false and index==1)
-    f.raidIcon:SetShown(own.showRaidMarker~=false and index==4)
+    f.pvpIcon:Hide()
+    f.leaderIcon:Hide()
+    f.raidIcon:Hide()
     if index==4 and SetRaidTargetIconTexture then SetRaidTargetIconTexture(f.raidIcon,1) end
     if f.level then f.level:SetText("60") end
+    if f.classIcon then
+        f.classIcon:SetShown(own.showClassification~=false)
+        if f.classIcon.SetAtlas then f.classIcon:SetAtlas("UI-HUD-UnitFrame-Target-PortraitOn-Boss-Gold-Winged",false) end
+    end
     local hpColors={WARRIOR={.78,.20,.19},PRIEST={.95,.95,.95},ROGUE={1,.96,.35},MAGE={.25,.78,.94}}
     local c=hpColors[sample.class] or {0.3,0.7,0.3}
     f.health:SetStatusBarColor(c[1],c[2],c[3])
@@ -1365,7 +1367,6 @@ local function updateSample(f,index)
         end
         f.portrait:Show()
     end
-    if f.bossDragon then f.bossDragon:SetShown(own.showClassification~=false) end
     if f.model then f.model:Hide() end
     if f.portrait then f.portrait:SetShown(not (f.roleArt and f.roleArt:IsShown())) end
     for _,field in ipairs({"pvpIcon","leaderIcon","raidIcon","roleIcon","classIcon","happinessIcon"}) do
@@ -1394,7 +1395,7 @@ function M:Refresh()
             local preview=settings.showSolo and not UnitExists(key)
             if exists then
                 update(f)
-                updatePartyRolePortrait(f)
+                -- Boss portraits do not use Party role overlays.
             elseif preview then
                 updateSample(f,i)
             end
