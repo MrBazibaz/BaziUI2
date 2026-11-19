@@ -339,16 +339,18 @@ local function CreateMinimapPage()
             end
         end
         for name, panel in pairs(tabPanels) do panel:SetShown(name == activeTab) end
-        -- Keep the content panel inside the resizable window on every tab.
-        -- The scroll viewport handles smaller window sizes.
+        -- Fit each tab's background to its content, without escaping the window.
+        local heights = {General = 430, ["Map Info"] = 352, Buttons = 265, Visibility = 335, Fonts = 545}
+        local available = math.max(120, page:GetHeight() - 110)
         main:ClearAllPoints()
         main:SetPoint("TOPLEFT", page, "TOPLEFT", 12, -100)
         main:SetPoint("TOPRIGHT", page, "TOPRIGHT", -12, -100)
-        main:SetPoint("BOTTOM", page, "BOTTOM", 0, 0)
-        for name, viewport in pairs(tabPanels) do
-            if name == activeTab then viewport:SetVerticalScroll(0) end
-        end
+        main:SetHeight(math.min(heights[activeTab] or 430, available))
+        local viewport = tabPanels[activeTab]
+        if viewport then viewport:SetVerticalScroll(0) end
     end
+
+    page:SetScript("OnSizeChanged", function() RefreshTabs() end)
 
     for i, name in ipairs({"General", "Map Info", "Buttons", "Visibility", "Fonts"}) do
         local b = CreateFrame("Button", nil, tabBar)
@@ -392,7 +394,7 @@ local function CreateMinimapPage()
         if viewport.SetClipsChildren then viewport:SetClipsChildren(true) end
         viewport:EnableMouseWheel(true)
         local panel = CreateFrame("Frame", nil, viewport)
-        panel:SetHeight(({General = 410, ["Map Info"] = 320, Buttons = 220, Visibility = 250, Fonts = 440})[name] or 400)
+        panel:SetHeight(({General = 410, ["Map Info"] = 320, Buttons = 220, Visibility = 260, Fonts = 535})[name] or 400)
         panel:SetWidth(math.max(1, viewport:GetWidth()))
         viewport:SetScrollChild(panel)
         viewport:SetScript("OnSizeChanged", function(self)
@@ -626,9 +628,9 @@ local function CreateMinimapPage()
         end)
     end
     FontGroup("ZONE TEXT", -10, "zoneFont")
-    FontGroup("CLOCK", -157, "clockFont")
-    FontGroup("INFO TEXT", -304, "infoFont")
-    fonts:SetHeight(440)
+    FontGroup("CLOCK", -185, "clockFont")
+    FontGroup("INFO TEXT", -360, "infoFont")
+    fonts:SetHeight(535)
     RefreshTabs()
     return page
 end
