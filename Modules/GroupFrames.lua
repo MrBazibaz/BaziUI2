@@ -110,11 +110,12 @@ local function layoutMember(f, kind, index, opt)
     local height = math.max(22,math.min(90,tonumber(opt.height) or (kind=="party" and 48 or 30)))
     f:SetSize(width,height)
     local portrait = f.portrait
-    local side = index <= 2 and "LEFT" or "RIGHT"
+    local side = opt.portraitSide or (index <= 2 and "LEFT" or "RIGHT")
     if portrait then
         portrait:ClearAllPoints()
         portrait:SetPoint(side,f,side,side=="LEFT" and 3 or -3,0)
-        portrait:SetSize(height-6,height-6)
+        portrait:SetSize(tonumber(opt.portraitSize) or height-6,tonumber(opt.portraitSize) or height-6)
+        portrait:SetShown(opt.showPortrait ~= false)
     end
     f.hp:ClearAllPoints()
     f.hp:SetPoint("TOPLEFT",f,"TOPLEFT",portrait and (side=="LEFT" and height or 5) or 5,-5)
@@ -146,7 +147,7 @@ local function layoutMember(f, kind, index, opt)
         end
         local offset=0
         for i=1,index-1 do offset=offset+widths[i]+gap end
-        f:SetPoint("TOPLEFT",UIParent,"TOP",-(total/2)+offset,tonumber(opt.y) or -45)
+        f:SetPoint("TOPLEFT",UIParent,"TOP",-(total/2)+offset+(tonumber(opt.offsetX) or 0), (tonumber(opt.y) or -45)+(tonumber(opt.offsetY) or 0))
     else
         local cols = math.max(1,math.min(8,tonumber(opt.columns) or 5))
         local col = (index-1)%cols
