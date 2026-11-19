@@ -589,13 +589,13 @@ local function layout(f, settings)
             local drawSize, drawX, drawY = size, x, y
             if field == "classification" then
                 local factor = portraitSize / 48
-                drawSize = size * factor
+                drawSize = size * factor * (side == "RIGHT" and 1.14 or 1)
                 -- User X/Y adjustments must scale with the portrait too.
                 -- Preserve the existing alignment at portrait size 60, then
                 -- scale the entire offset about the portrait's centre.
                 local referenceFactor = 60 / 48
                 local relativeScale = portraitSize / 60
-                drawX = ((side == "RIGHT" and 6 or (icon.baseX or 0) * referenceFactor) + (tonumber(settings.indicatorX and settings.indicatorX[field]) or tonumber(settings[field.."X"]) or 0)) * relativeScale
+                drawX = ((side == "RIGHT" and 12 or (icon.baseX or 0) * referenceFactor) + (tonumber(settings.indicatorX and settings.indicatorX[field]) or tonumber(settings[field.."X"]) or 0)) * relativeScale
                 drawY = ((side == "RIGHT" and 1 or (icon.baseY or 0) * referenceFactor) + (tonumber(settings.indicatorY and settings.indicatorY[field]) or tonumber(settings[field.."Y"]) or 0)) * relativeScale
             end
             icon:SetSize(drawSize, drawSize)
