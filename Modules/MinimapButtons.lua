@@ -252,7 +252,7 @@ function M:Initialize()
     mouseEvents:RegisterEvent("ZONE_CHANGED_NEW_AREA")
     mouseEvents:RegisterEvent("PLAYER_REGEN_ENABLED")
     mouseEvents:SetScript("OnEvent", function() M:Apply() end)
-    surface:SetScript("OnMouseUp", function(_, button)
+    local function OnMinimapMiddleClick(_, button)
         local cfg = db()
         if button ~= "MiddleButton" or not cfg or not cfg.enabled or not cfg.microMenu then return end
         if InCombatLockdown and InCombatLockdown() then return end
@@ -262,7 +262,10 @@ function M:Initialize()
         local scale = M.Menu:GetEffectiveScale()
         M.Menu:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", x / scale, y / scale)
         M.Menu:Show()
-    end)
+    end
+    surface:SetScript("OnMouseUp", OnMinimapMiddleClick)
+    -- Also hook the minimap itself: some clients route clicks past the overlay.
+    map:HookScript("OnMouseUp", OnMinimapMiddleClick)
     if M.Launcher then
         M.Launcher:HookScript("OnEnter", function() M:Apply() end)
         M.Launcher:HookScript("OnLeave", function() M:Apply() end)
