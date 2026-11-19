@@ -123,6 +123,7 @@ local function applyPosition(f, settings, key)
     local row=math.floor((index-1)/columns)
     local col=(index-1)%columns
     local gap=tonumber(settings.spacing) or 8
+    local rowGap=tonumber(settings.verticalSpacing) or gap
     local width=tonumber(own.width) or tonumber(own.barWidth) or 162
     local height=(tonumber(own.hpHeight) or 23)+(tonumber(own.powerHeight) or 9)+20
     -- Anchor determines growth direction while keeping the saved group origin.
@@ -132,7 +133,7 @@ local function applyPosition(f, settings, key)
     f:ClearAllPoints()
     f:SetPoint("TOPLEFT",UIParent,"TOPLEFT",
         (tonumber(settings.x) or 80)+horizontal*col*(width+gap)+(tonumber(own.offsetX) or 0),
-        -(tonumber(settings.y) or 150)+vertical*row*(height+gap)+(tonumber(own.offsetY) or 0))
+        -(tonumber(settings.y) or 150)+vertical*row*(height+rowGap)+(tonumber(own.offsetY) or 0))
 end
 function M:SetPosition(key, x, y)
     local settings = cfg()
@@ -1445,6 +1446,13 @@ function M:Refresh()
                 updateSample(f,i)
             end
             updatePartyCast(f,preview and not exists)
+            -- Raid is intentionally text-light: centered white names only.
+            f.value:Hide()
+            f.powerText:Hide()
+            f.name:ClearAllPoints()
+            f.name:SetPoint("CENTER",f.health,"CENTER",0,0)
+            f.name:SetJustifyH("CENTER")
+            f.name:SetTextColor(1,1,1)
             -- Preview/live updates may show portrait textures again.
             -- Raid intentionally has no portrait, ring, level disc or portrait decorations.
             for _,region in ipairs({f.portrait,f.portraitBack,f.rim,f.model,f.roleArt,f.levelDisc,f.level,f.classIcon,f.pvpIcon,f.leaderIcon,f.roleIcon,f.happinessIcon}) do
