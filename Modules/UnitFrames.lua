@@ -220,7 +220,7 @@ local function updateAuraPreview(f)
                 tile:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark")
                 tile:SetTexCoord(0.08, 0.92, 0.08, 0.92)
                 local border = group:CreateTexture(nil, "OVERLAY")
-                border:SetTexture("Interface\\\\Buttons\\\\UI-Quickslot2")
+                border:SetTexture("Interface\\Buttons\\UI-Quickslot2")
                 border:SetPoint("TOPLEFT", tile, "TOPLEFT", -3, 3)
                 border:SetPoint("BOTTOMRIGHT", tile, "BOTTOMRIGHT", 3, -3)
                 group.tiles[i] = tile
