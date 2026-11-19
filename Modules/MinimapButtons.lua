@@ -258,6 +258,23 @@ function M:Initialize()
     else
         addon:Print("Micro Menu: MinimapFrame not found.")
     end
+    -- Fallback: GLOBAL_MOUSE_DOWN is delivered even if Blizzard's map or
+    -- another overlay consumes the click before our surface sees OnMouseUp.
+    local globalClick = CreateFrame("Frame")
+    globalClick:RegisterEvent("GLOBAL_MOUSE_DOWN")
+    globalClick:SetScript("OnEvent", function(_, _, button)
+        if button ~= "MiddleButton" then return end
+        local cfg = db()
+        if not cfg or not cfg.enabled or not cfg.microMenu then return end
+        if InCombatLockdown and InCombatLockdown() then return end
+        if not (map:IsMouseOver() or (_G.MinimapFrame and _G.MinimapFrame:IsMouseOver())) then return end
+        if M.Menu:IsShown() then M.Menu:Hide(); return end
+        local x, y = GetCursorPosition()
+        local scale = M.Menu:GetEffectiveScale()
+        M.Menu:ClearAllPoints()
+        M.Menu:SetPoint("TOPRIGHT", UIParent, "BOTTOMLEFT", x / scale, y / scale)
+        M.Menu:Show()
+    end)
     if M.Launcher then
         M.Launcher:HookScript("OnEnter", function() M:Apply() end)
         M.Launcher:HookScript("OnLeave", function() M:Apply() end)
