@@ -441,7 +441,7 @@ end
 function M:Refresh()
     if addon.PartyFrames then addon.PartyFrames:Refresh() end
     if safeCombat() then return end
-    for _,kind in ipairs({"raid","boss"}) do
+    for _,kind in ipairs({"raid"}) do
         local opt = config(kind)
         if opt then
             groups[kind] = groups[kind] or {}
