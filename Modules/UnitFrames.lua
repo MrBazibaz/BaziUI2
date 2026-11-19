@@ -76,7 +76,7 @@ local function create(key, spec)
     local bg = f:CreateTexture(nil, "BACKGROUND")
     bg:SetPoint("TOPLEFT", f, "TOPLEFT", (key == "player" or key == "pet") and 49 or 4, -4)
     bg:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", (key == "player" or key == "pet") and -4 or -49, 4)
-    bg:SetColorTexture(0.10, 0.065, 0.035, 0.95)
+    -- Diagnostic: hide the square backing plate to isolate the visible outline.\n    -- Keep its anchors so the border geometry remains identical.\n    bg:SetColorTexture(0.10, 0.065, 0.035, 0)
     -- FlareUI-style composition: compact bronze plate, circular portrait on the outer side.
     -- Uses Blizzard's own ring atlas and portrait mask, not FlareUI's excluded artwork.
     local side = (key == "player" or key == "pet") and "LEFT" or "RIGHT"
