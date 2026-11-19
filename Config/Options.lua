@@ -388,7 +388,7 @@ local function CreateUnitFramesPage()
                 local canvas = CreateFrame("Frame", nil, rootPanel)
                 canvas:SetPoint("TOPLEFT", rootPanel, "TOPLEFT", 0, -49)
                 canvas:SetPoint("TOPRIGHT", rootPanel, "TOPRIGHT", 0, -49)
-                canvas:SetHeight(category == "Indicators" and (name == "Pet" and 870 or 590) or 520)
+                canvas:SetHeight(category == "Indicators" and (name == "Pet" and 940 or 590) or 520)
                 canvas:Hide()
                 groups[category] = canvas
             end
@@ -402,7 +402,7 @@ local function CreateUnitFramesPage()
                         label == category and 0.18 or 0.12,
                         label == category and 0.26 or 0.07, 1)
                 end
-                rootPanel:SetHeight(category == "Indicators" and (name == "Pet" and 890 or 610) or (category == "Layout" and 540 or 490))
+                rootPanel:SetHeight(category == "Indicators" and (name == "Pet" and 960 or 610) or (category == "Layout" and 540 or 490))
                 viewport:SetVerticalScroll(0)
             end
             for i, category in ipairs({"Layout", "Indicators", "Bar Text", "Fonts"}) do
@@ -751,6 +751,37 @@ local function CreateUnitFramesPage()
                 end
                 petBarControl("petXP", "PET XP BAR", -640)
                 petBarControl("petCast", "PET CASTBAR", -735)
+
+                -- Pet XP ring rotation: independent of segment width, sweep and
+                -- portrait size. Numeric entry and +/- adjust by one degree.
+                local rotationSlider = CreateSlider(panel, "PET XP RING ROTATION",
+                    "Rotate the XP segments around the portrait (degrees)",
+                    -180, 180, 1, tonumber(own.petXPRotation) or 0, -825,
+                    function(value)
+                        own.petXPRotation = value
+                        if addon.UnitFrames then addon.UnitFrames:Refresh() end
+                    end, true)
+                for i, delta in ipairs({-1, 1}) do
+                    local btn = CreateFrame("Button", nil, panel)
+                    btn:SetSize(24, 24)
+                    btn:SetPoint("TOPLEFT", panel, "TOPLEFT", 245 + (i-1)*28, -830)
+                    local bg = btn:CreateTexture(nil, "BACKGROUND")
+                    bg:SetAllPoints()
+                    bg:SetColorTexture(0.23, 0.12, 0.065, 1)
+                    local glyph = CreateLabel(btn, delta == 1 and "+" or "-", "GameFontNormal")
+                    glyph:SetPoint("CENTER")
+                    btn:SetScript("OnClick", function()
+                        local nextValue = math.max(-180, math.min(180,
+                            (tonumber(own.petXPRotation) or 0) + delta))
+                        rotationSlider:SetValue(nextValue)
+                    end)
+                end
+                refreshers[#refreshers+1] = function()
+                    local value = tonumber(own.petXPRotation) or 0
+                    if math.abs(rotationSlider:GetValue() - value) > 0.01 then
+                        rotationSlider:SetValue(value)
+                    end
+                end
             end
             panel = groups["Bar Text"]
             local barTitle = CreateLabel(panel, "BAR TEXT", "GameFontNormalLarge")
