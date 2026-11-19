@@ -192,10 +192,10 @@ local function layout(f, settings)
     if f.petXPRing then
         -- Discrete ticks outside the rim. Never rotate opaque rectangular
         -- textures: overlapping rotated quads form an unwanted solid disc.
-        local radius = rimSize * 0.545
+        local radius = rimSize * 0.508
         local count = #f.petXPRing.segments
-        local tickWidth = math.max(4, math.min(7, rimSize * 0.065))
-        local tickHeight = math.max(5, math.min(8, rimSize * 0.085))
+        local tickWidth = math.max(2, rimSize * 0.024)
+        local tickHeight = math.max(3, rimSize * 0.038)
         for i, segment in ipairs(f.petXPRing.segments) do
             local angle = -3 * math.pi / 4 - (i - 1) * (2 * math.pi / count)
             local x, y = math.cos(angle) * radius, math.sin(angle) * radius
@@ -205,7 +205,7 @@ local function layout(f, settings)
             background:SetSize(tickWidth, tickHeight)
             segment:ClearAllPoints()
             segment:SetPoint("CENTER", background, "CENTER")
-            segment:SetSize(tickWidth - 1, tickHeight - 1)
+            segment:SetSize(tickWidth, tickHeight)
         end
     end
     f.rim:SetSize(rimSize, rimSize)
@@ -466,9 +466,9 @@ local function createPetExtras(f)
     ring:EnableMouse(false)
     ring.segments = {}
     ring.backgrounds = {}
-    for i = 1, 25 do
+    for i = 1, 96 do
         local background = ring:CreateTexture(nil, "ARTWORK")
-        background:SetColorTexture(0.13, 0.09, 0.17, 1)
+        background:SetColorTexture(0.12, 0.075, 0.17, 1)
         ring.backgrounds[i] = background
         local segment = ring:CreateTexture(nil, "OVERLAY")
         segment:SetColorTexture(0.79, 0.48, 0.97, 1)
@@ -476,6 +476,24 @@ local function createPetExtras(f)
     end
     f.petXPRing = ring
     ring:Hide()
+    -- The ring is decorative and must not steal clicks from the secure unit.
+    -- Expose its XP details through the pet frame's normal mouse hover.
+    f:HookScript("OnEnter", function(self)
+        if not self.petXPRing or not self.petXPRing:IsShown() then return end
+        local current, maximum = GetPetExperience()
+        if type(current) ~= "number" or type(maximum) ~= "number" then return end
+        if issecretvalue and (issecretvalue(current) or issecretvalue(maximum)) then return end
+        if maximum <= 0 then return end
+        GameTooltip:SetOwner(self, "ANCHOR_CURSOR")
+        GameTooltip:AddLine("Pet Experience", 1, 0.82, 0.25)
+        GameTooltip:AddDoubleLine("XP", string.format("%d / %d", current, maximum), 1, 1, 1, 1, 1, 1)
+        GameTooltip:AddDoubleLine("Remaining", tostring(math.max(0, maximum - current)), 1, 1, 1, 1, 1, 1)
+        GameTooltip:AddDoubleLine("Progress", string.format("%.1f%%", current / maximum * 100), 1, 1, 1, 1, 1, 1)
+        GameTooltip:Show()
+    end)
+    f:HookScript("OnLeave", function()
+        if GameTooltip:IsOwned(f) then GameTooltip:Hide() end
+    end)
     local cast = bar(-20, {0.72, 0.43, 0.20})
     cast:SetHeight(13)
     cast.label = cast:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
