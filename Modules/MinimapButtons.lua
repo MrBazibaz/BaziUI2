@@ -66,67 +66,56 @@ local function makeLauncher()
     b:SetScript("OnLeave", function() GameTooltip:Hide() end)
     M.Launcher = b
 end
+-- FlareUI Minimap.lua: secure micro menu rows and dismissal behavior.
 local function makeMenu()
     if M.Menu or not map then return end
-    local parent = UIParent
-    local menu = CreateFrame("Frame", "BaziUIMinimapMicroMenu", parent)
+    local menu = CreateFrame("Frame", "BaziUIMinimapMicroMenu", UIParent, "BackdropTemplate")
     menu:SetFrameStrata("DIALOG")
-    menu:SetSize(196, #entries * 31 + 12)
-    local back = menu:CreateTexture(nil, "BACKGROUND")
-    back:SetAllPoints()
-    back:SetColorTexture(0.14, 0.075, 0.035, 0.97)
-    local border = menu:CreateTexture(nil, "BORDER")
-    border:SetPoint("TOPLEFT", 1, -1)
-    border:SetPoint("TOPRIGHT", -1, -1)
-    border:SetHeight(2)
-    border:SetColorTexture(0.80, 0.61, 0.32)
-    for i, entry in ipairs(entries) do
-        local item = CreateFrame("Button", nil, menu)
-        item:SetPoint("TOPLEFT", 6, -6 - (i-1)*31)
-        item:SetPoint("TOPRIGHT", -6, -6 - (i-1)*31)
-        item:SetHeight(30)
-        local label = item:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-        local icon = item:CreateTexture(nil, "ARTWORK")
-        icon:SetSize(24, 24)
-        icon:SetPoint("LEFT", 4, 0)
-        local source = _G[entry[2]]
-        local normal = source and source.GetNormalTexture and source:GetNormalTexture()
-        local texture = normal and normal.GetTexture and normal:GetTexture()
-        if type(texture) == "string" or type(texture) == "number" then
-            icon:SetTexture(texture)
-        else
-            icon:SetTexture(entry[3])
-        end
-        label:SetPoint("LEFT", icon, "RIGHT", 10, 0)
-        label:SetText(entry[1])
-        label:SetTextColor(1, 0.80, 0.44)
-        local highlight = item:CreateTexture(nil, "HIGHLIGHT")
-        highlight:SetAllPoints()
-        highlight:SetColorTexture(0.43, 0.21, 0.36, 0.72)
-        item:SetScript("OnClick", function()
-            menu:Hide()
-            if InCombatLockdown and InCombatLockdown() then
-                addon:Print("Micro menu actions are unavailable in combat.")
-                return
-            end
-            local micro = _G[entry[2]]
-            if micro and micro.Click and micro:IsEnabled() then
-                micro:Click()
-            end
-        end)
-    end
-    menu:Hide()
     menu:SetClampedToScreen(true)
     menu:EnableMouse(true)
-    table.insert(UISpecialFrames, "BaziUIMinimapMicroMenu")
+    menu:SetBackdrop({bgFile="Interface\\Buttons\\WHITE8x8",edgeFile="Interface\\Tooltips\\UI-Tooltip-Border",edgeSize=16,insets={left=4,right=4,top=4,bottom=4}})
+    menu:SetBackdropColor(0.14,0.075,0.035,0.97)
+    menu:SetBackdropBorderColor(0.8,0.61,0.32,1)
+    local rows, width = 0, 0
+    for _, entry in ipairs(entries) do
+        if _G[entry[2]] then
+            rows = rows + 1
+            local button = CreateFrame("Button", nil, menu, "SecureActionButtonTemplate")
+            button:SetHeight(22)
+            button:SetPoint("TOPLEFT", menu, "TOPLEFT", 8, -8-(rows-1)*22)
+            button:SetPoint("TOPRIGHT", menu, "TOPRIGHT", -8, -8-(rows-1)*22)
+            local icon = button:CreateTexture(nil,"ARTWORK")
+            icon:SetSize(16,16)
+            icon:SetPoint("LEFT",2,0)
+            icon:SetTexture(entry[3])
+            local label = button:CreateFontString(nil,"OVERLAY","GameFontHighlight")
+            label:SetPoint("LEFT",icon,"RIGHT",6,0)
+            label:SetText(entry[1])
+            width = math.max(width,label:GetStringWidth()+28)
+            button:RegisterForClicks("AnyUp","AnyDown")
+            button:SetAttribute("type","macro")
+            button:SetAttribute("macrotext","/click "..entry[2])
+            local highlight = button:CreateTexture(nil,"HIGHLIGHT")
+            highlight:SetAllPoints()
+            highlight:SetColorTexture(1,1,1,0.08)
+            button:HookScript("PostClick",function()
+                C_Timer.After(0,function()
+                    if menu:IsShown() and not InCombatLockdown() then menu:Hide() end
+                end)
+            end)
+        end
+    end
+    menu:SetSize(width+16,rows*22+16)
+    menu:Hide()
+    table.insert(UISpecialFrames,"BaziUIMinimapMicroMenu")
     menu:RegisterEvent("PLAYER_REGEN_DISABLED")
-    menu:SetScript("OnShow", function(self) self:RegisterEvent("GLOBAL_MOUSE_DOWN") end)
-    menu:SetScript("OnHide", function(self) self:UnregisterEvent("GLOBAL_MOUSE_DOWN") end)
-    menu:SetScript("OnEvent", function(self, event)
-        if event == "GLOBAL_MOUSE_DOWN" and self:IsMouseOver() then return end
-        self:Hide()
+    menu:SetScript("OnShow",function(self) self:RegisterEvent("GLOBAL_MOUSE_DOWN") end)
+    menu:SetScript("OnHide",function(self) self:UnregisterEvent("GLOBAL_MOUSE_DOWN") end)
+    menu:SetScript("OnEvent",function(self,event)
+        if event=="GLOBAL_MOUSE_DOWN" and self:IsMouseOver() then return end
+        if not InCombatLockdown() then self:Hide() end
     end)
-    M.Menu = menu
+    M.Menu=menu
 end
 -- Keep third-party addon buttons above the bronze frame and apply the
 -- same hover setting. Never touch minimap pins, Blizzard controls or protected
