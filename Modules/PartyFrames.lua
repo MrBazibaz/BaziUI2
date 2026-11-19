@@ -1343,9 +1343,15 @@ local function updateSample(f,index)
         local role=index==1 and "TANK" or (index==2 and "HEALER" or "DAMAGER")
         if own.showRole==false or not showPartyRolePortrait(f,role) then
             if f.roleArt then f.roleArt:Hide() end
-            -- Safe fallback on clients without Dungeon Finder role atlases.
-            f.portrait:SetTexture("Interface\\Icons\\"..sample.icon)
-            f.portrait:SetTexCoord(0,1,0,1)
+            -- Solo preview: use the actual player's portrait instead of a
+            -- square inventory icon, so the circular mask can be inspected.
+            if UnitExists("player") then
+                SetPortraitTexture(f.portrait,"player",true)
+                f.portrait:SetTexCoord(0,1,0,1)
+            else
+                f.portrait:SetTexture("Interface\\Icons\\"..sample.icon)
+                f.portrait:SetTexCoord(0,1,0,1)
+            end
         end
     end
     if f.model then f.model:Hide() end
