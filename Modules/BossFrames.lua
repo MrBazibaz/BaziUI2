@@ -1354,21 +1354,18 @@ local function updateSample(f,index)
     if index==1 then f.power:SetStatusBarColor(.85,.12,.12)
     elseif index==3 then f.power:SetStatusBarColor(.95,.82,.16)
     else f.power:SetStatusBarColor(.12,.34,.90) end
+    -- Boss preview uses a real player portrait; role badges are Party-only.
+    if f.roleArt then f.roleArt:Hide() end
     if f.portrait then
-        local role=index==1 and "TANK" or (index==2 and "HEALER" or "DAMAGER")
-        if own.showRole==false or not showPartyRolePortrait(f,role) then
-            if f.roleArt then f.roleArt:Hide() end
-            -- Solo preview: use the actual player's portrait instead of a
-            -- square inventory icon, so the circular mask can be inspected.
-            if UnitExists("player") then
-                SetPortraitTexture(f.portrait,"player",true)
-                f.portrait:SetTexCoord(0,1,0,1)
-            else
-                f.portrait:SetTexture("Interface\\Icons\\"..sample.icon)
-                f.portrait:SetTexCoord(0,1,0,1)
-            end
+        if UnitExists("player") then
+            SetPortraitTexture(f.portrait,"player",true)
+            f.portrait:SetTexCoord(0,1,0,1)
+        else
+            f.portrait:SetTexture("Interface\\Icons\\"..sample.icon)
         end
+        f.portrait:Show()
     end
+    if f.bossDragon then f.bossDragon:SetShown(own.showClassification~=false) end
     if f.model then f.model:Hide() end
     if f.portrait then f.portrait:SetShown(not (f.roleArt and f.roleArt:IsShown())) end
     for _,field in ipairs({"pvpIcon","leaderIcon","raidIcon","roleIcon","classIcon","happinessIcon"}) do
