@@ -229,7 +229,7 @@ local function layout(f, settings)
             local background = f.petXPRing.backgrounds[i]
             for _, tile in ipairs({background, segment}) do
                 tile:ClearAllPoints()
-                tile:SetPoint("CENTER", f.portraitAnchor, "CENTER", x, y - 1)
+                tile:SetPoint("CENTER", f.portraitAnchor, "CENTER", x, y)
                 tile:SetSize(tickWidth, tickHeight)
                 tile:SetRotation(angle + math.pi / 2)
             end
@@ -517,7 +517,7 @@ local function createPetExtras(f)
             if cx and cy then
                 local scale = self.portraitAnchor:GetEffectiveScale()
                 local mx, my = GetCursorPosition()
-                local dx, dy = mx / scale - cx, my / scale - (cy - 1)
+                local dx, dy = mx / scale - cx, my / scale - cy
                 local radius = (self.rim:GetWidth() or 0) * 0.445 - 2 * math.max(0, math.min(1, (60 - (tonumber(self.petXPSettings and self.petXPSettings.portraitSize) or 60)) / 24)) + (tonumber(self.petXPSettings and self.petXPSettings.petXPRadiusOffset) or 0)
                 local distance = math.sqrt(dx * dx + dy * dy)
                 overRing = distance >= radius - 7 and distance <= radius + 7
