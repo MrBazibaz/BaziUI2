@@ -7,7 +7,7 @@ local defaults = {
         uiScale = 1.0,
         fontSize = 14,
         font = "GameFontNormal",
-        qol = { characterItemLevel = false, muteErrorSpeech = false, muteFailedSpellSounds = false },
+        qol = { characterItemLevel = false, muteErrorSpeech = false, muteFailedSpellSounds = false, resizeWindows = {} },
         minimap = {
             enabled = false, style = "round", autoZoom = 0,
             ignoreIndoorZoom = false,
