@@ -31,21 +31,17 @@ local excludedCopyFields = {
     anchor=true, enabled=true, showSolo=true, members=true,
     offsetX=true, offsetY=true,
 }
-local function clone(value, seen)
-    if type(value) ~= "table" then return value end
-    seen = seen or {}
-    if seen[value] then return seen[value] end
-    local result = {}
-    seen[value] = result
-    for k,v in pairs(value) do result[k]=clone(v,seen) end
-    return result
-end
+-- Group settings are scalar values. Never deep-copy arbitrary profile tables:
+-- AceDB can expose the entire profile (including 'general') via defaults.
+-- Such tables are not Party appearance settings and can be enormous.
 local function visualSettings(source)
     local result = {}
-    local seen = {}
     for k,v in pairs(source) do
-        if not excludedCopyFields[k] then
-            result[k] = clone(v,seen)
+        if not excludedCopyFields[k] and type(k) == "string" then
+            local t = type(v)
+            if t == "number" or t == "string" or t == "boolean" then
+                result[k] = v
+            end
         end
     end
     return result
@@ -85,7 +81,7 @@ function M:CopyMember(kind,sourceKind,sourceIndex,targetIndex)
     for _,field in ipairs({"x","y","spacing","columns","growth","anchor","enabled","showSolo","members","offsetX","offsetY"}) do output[field]=nil end
     local offsetX,offsetY=keep.offsetX,keep.offsetY
     for k in pairs(keep) do keep[k]=nil end
-    for k,v in pairs(output) do keep[k]=clone(v) end
+    for k,v in pairs(output) do keep[k]=v end
     keep.offsetX,keep.offsetY=offsetX,offsetY
     self:Refresh()
     if kind=="party" and addon.PartyFrames then addon.PartyFrames:Refresh() end
@@ -103,7 +99,7 @@ function M:ApplyToAll(kind,sourceIndex)
             local target=memberOptions(opt,i)
             local offsetX,offsetY=target.offsetX,target.offsetY
             for k in pairs(target) do target[k]=nil end
-            for k,v in pairs(source) do target[k]=clone(v) end
+            for k,v in pairs(source) do target[k]=v end
             target.offsetX,target.offsetY=offsetX,offsetY
         end
     end
