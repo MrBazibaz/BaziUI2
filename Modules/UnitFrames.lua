@@ -16,6 +16,11 @@ local units = {
 local frames = {}
 local movers = {}
 local moving = false
+local previewIndicators = false
+function M:SetIndicatorPreview(enabled)
+    previewIndicators = enabled == true
+    self:Refresh()
+end
 local function position(settings, key)
     settings.frames = settings.frames or {}
     settings.frames[key] = settings.frames[key] or {}
@@ -99,20 +104,21 @@ end
 local function updateExtras(f, own)
     local unit = f.unit
     local function readable(v) return not (issecretvalue and issecretvalue(v)) and v end
-    f.pvpIcon:SetShown(own.showPvP ~= false and (readable(UnitIsPVP(unit)) == true or readable(UnitIsPVPFreeForAll(unit)) == true))
-    f.leaderIcon:SetShown(own.showLeader ~= false and UnitIsGroupLeader and readable(UnitIsGroupLeader(unit)) == true)
+    f.pvpIcon:SetShown(own.showPvP ~= false and (previewIndicators or readable(UnitIsPVP(unit)) == true or readable(UnitIsPVPFreeForAll(unit)) == true))
+    f.leaderIcon:SetShown(own.showLeader ~= false and (previewIndicators or (UnitIsGroupLeader and readable(UnitIsGroupLeader(unit)) == true)))
     local marker = GetRaidTargetIndex(unit)
     if issecretvalue and issecretvalue(marker) then marker = nil end
-    f.raidIcon:SetShown(own.showRaidMarker ~= false and type(marker) == "number")
-    if type(marker) == "number" then SetRaidTargetIconTexture(f.raidIcon, marker) end
+    f.raidIcon:SetShown(own.showRaidMarker ~= false and (previewIndicators or type(marker) == "number"))
+    if previewIndicators then SetRaidTargetIconTexture(f.raidIcon, 1)
+    elseif type(marker) == "number" then SetRaidTargetIconTexture(f.raidIcon, marker) end
     local role = UnitGroupRolesAssigned and readable(UnitGroupRolesAssigned(unit))
-    f.roleIcon:SetShown(own.showRole ~= false and (role == "TANK" or role == "HEALER" or role == "DAMAGER"))
+    f.roleIcon:SetShown(own.showRole ~= false and (previewIndicators or role == "TANK" or role == "HEALER" or role == "DAMAGER"))
     if role == "TANK" then f.roleIcon:SetTexCoord(0, 19/64, 22/64, 41/64)
     elseif role == "HEALER" then f.roleIcon:SetTexCoord(20/64, 39/64, 1/64, 20/64)
     else f.roleIcon:SetTexCoord(20/64, 39/64, 22/64, 41/64) end
     local classification = UnitClassification and readable(UnitClassification(unit))
     f.classIcon:SetShown(own.showClassification ~= false and
-        (classification == "elite" or classification == "rare" or classification == "rareelite" or classification == "worldboss"))
+        (previewIndicators or classification == "elite" or classification == "rare" or classification == "rareelite" or classification == "worldboss"))
 end
 
 local function layout(f, settings)
