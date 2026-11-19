@@ -46,14 +46,17 @@ local function install(key, name)
     local entry = {key=key, frameName=name}
     local function handle(side)
         local grip = CreateFrame("Button", nil, frame)
-        grip:SetSize(23, 23)
-        grip:SetFrameLevel(frame:GetFrameLevel() + 15)
+        grip:SetSize(28, 28)
+        grip:SetFrameStrata("TOOLTIP")
+        grip:SetFrameLevel(frame:GetFrameLevel() + 25)
         grip:SetPoint(side == "LEFT" and "BOTTOMLEFT" or "BOTTOMRIGHT", frame,
-            side == "LEFT" and "BOTTOMLEFT" or "BOTTOMRIGHT", side == "LEFT" and 2 or -2, 2)
+            side == "LEFT" and "BOTTOMLEFT" or "BOTTOMRIGHT", side == "LEFT" and -5 or 5, -5)
         grip:EnableMouse(true)
+        grip:RegisterForClicks("LeftButtonDown", "LeftButtonUp")
         local lines = grip:CreateTexture(nil, "OVERLAY")
         lines:SetAllPoints()
         lines:SetTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
+        lines:SetVertexColor(1, 0.82, 0.38, 1)
         if side == "LEFT" then
             lines:SetTexCoord(1, 0, 0, 1)
         end
@@ -94,6 +97,7 @@ local function install(key, name)
     end
     entry.left, entry.right = handle("LEFT"), handle("RIGHT")
     frame:HookScript("OnShow", function() update(entry) end)
+    frame:HookScript("OnSizeChanged", function() update(entry) end)
     update(entry)
     M.entries = M.entries or {}
     M.entries[#M.entries+1] = entry
