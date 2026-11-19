@@ -647,6 +647,7 @@ local function layout(f, settings)
         text:ClearAllPoints()
         text:SetPoint(point, bar, point, (tonumber(x) or 0) + inset, tonumber(y) or 0)
         text:SetJustifyH(point)
+        text:SetShown(anchor ~= "HIDDEN")
     end
     anchorText(f.value, f.health, settings.hpTextAnchor, settings.hpTextX, settings.hpTextY)
     anchorText(f.powerText, f.power, settings.powerTextAnchor, settings.powerTextX, settings.powerTextY)
