@@ -6,6 +6,7 @@ local MM = addon.Minimap
 local map, cluster = _G.Minimap, _G.MinimapCluster
 local SQUARE_MASK = "Interface\\BUTTONS\\WHITE8X8"
 local MAP_SIZE, MAP_CROP, FRAME_PAD = 244, 4, 8
+local BRONZE_OUT = {left = 9, right = 7, top = 11, bottom = 8}
 local timer, square, applying, refreshQueued
 local hidden = CreateFrame("Frame")
 hidden:Hide()
@@ -25,16 +26,19 @@ end
 local function parkRoundArt()
     park(_G.MinimapCompassTexture)
     park(_G.MinimapCompassTextureUnderlay)
+    if _G.MinimapBackdrop then park(_G.MinimapBackdrop.StaticOverlayTexture) end
     if map then
         park(map.ZoomIn)
         park(map.ZoomOut)
         park(map.ZoomHitArea)
     end
-    if _G.MinimapBackdrop then park(_G.MinimapBackdrop.StaticOverlayTexture) end
 end
 local function setSquareMask()
     if not map or not map.SetMaskTexture then return end
     map:SetMaskTexture(SQUARE_MASK)
+    if map.SetArchBlobRingScalar then map:SetArchBlobRingScalar(0) end
+    if map.SetQuestBlobRingScalar then map:SetQuestBlobRingScalar(0) end
+    if map.SetTaskBlobRingScalar then map:SetTaskBlobRingScalar(0) end
     _G.GetMinimapShape = function() return "SQUARE" end
     local hybrid = _G.HybridMinimap
     if hybrid and hybrid.CircleMask and hybrid.MapCanvas then
@@ -69,7 +73,7 @@ local function createArt()
             end
         end
         for _, key in ipairs({"TopLeftCorner", "BottomLeftCorner"}) do
-            if layout[key] then layout[key].x = (layout[key].x or 0) - 6 end
+            if layout[key] then layout[key].x = (layout[key].x or 0) + (-6) end
         end
         for _, key in ipairs({"TopLeftCorner", "TopRightCorner"}) do
             if layout[key] then layout[key].y = (layout[key].y or 0) - 3 end
@@ -83,8 +87,8 @@ local function createArt()
         if bronze then
             local texture = above:CreateTexture(nil, "BORDER")
             texture:SetAtlas("heavybronze-frame-basic")
-            texture:SetPoint("TOPLEFT", border, "TOPLEFT", -9, 11)
-            texture:SetPoint("BOTTOMRIGHT", border, "BOTTOMRIGHT", 7, -8)
+            texture:SetPoint("TOPLEFT", border, "TOPLEFT", -BRONZE_OUT.left, BRONZE_OUT.top)
+            texture:SetPoint("BOTTOMRIGHT", border, "BOTTOMRIGHT", BRONZE_OUT.right, -BRONZE_OUT.bottom)
             for _, key in ipairs({"TopLeftCorner", "TopRightCorner", "BottomLeftCorner",
                 "BottomRightCorner", "TopEdge", "BottomEdge", "LeftEdge", "RightEdge"}) do
                 if border[key] then border[key]:SetAlpha(0) end
