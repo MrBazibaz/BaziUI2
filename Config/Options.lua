@@ -341,7 +341,7 @@ local function CreateMinimapPage()
         end
         for name, panel in pairs(tabPanels) do panel:SetShown(name == activeTab) end
         -- Compact tabs fit their contents; long tabs retain the scroll area.
-        local heights = {General = 430, ["Map Info"] = 370, Buttons = 340}
+        local heights = {General = 430, ["Map Info"] = 352, Buttons = 340, Visibility = 365}
         local compact = heights[activeTab]
         main:SetPoint("BOTTOM", page, compact and "TOP" or "BOTTOM",
             0, compact and -compact or 0)
@@ -533,13 +533,12 @@ local function CreateMinimapPage()
     mapHint:SetJustifyH("LEFT")
     mapHint:SetTextColor(0.66, 0.63, 0.59, 1)
     Toggle(buttons, "MIDDLE CLICK MICRO MENU", -4, "microMenu")
-    Toggle(buttons, "GROUP FINDER ICON", -49, "finderEye")
-    Toggle(buttons, "HIDE ADDON BUTTONS UNTIL HOVER", -94, "hideAddonButtons")
-    Toggle(buttons, "SHOW BAZI UI MINIMAP BUTTON", -139, "showMinimapButton")
+    Toggle(buttons, "HIDE ADDON BUTTONS UNTIL HOVER", -49, "hideAddonButtons")
+    Toggle(buttons, "SHOW BAZI UI MINIMAP BUTTON", -94, "showMinimapButton")
     local buttonsHint = CreateLabel(buttons,
-        "Group Finder and addon-button hover controls are still being implemented.",
+        "Middle-click opens the micro menu outside combat.",
         "GameFontHighlightSmall")
-    buttonsHint:SetPoint("TOPLEFT", buttons, "TOPLEFT", 14, -200)
+    buttonsHint:SetPoint("TOPLEFT", buttons, "TOPLEFT", 14, -148)
     buttonsHint:SetWidth(345)
     buttonsHint:SetJustifyH("LEFT")
     buttonsHint:SetTextColor(0.66, 0.63, 0.59, 1)
@@ -548,8 +547,6 @@ local function CreateMinimapPage()
     Toggle(visibility, "HIDE ZONE LOCATION", -94, "hideZone")
     Toggle(visibility, "HIDE CLOCK", -139, "hideClock")
     Toggle(visibility, "HIDE CALENDAR", -184, "hideCalendar")
-    Toggle(visibility, "HIDE COORDINATES", -229, "hideCoordinates")
-    Toggle(visibility, "HIDE SEARCH / TRACKING BUTTON", -274, "hideSearch")
     local fontChoices = {{"GLOBAL", "Global"}, {"FRIZQT", "Friz Quadrata"},
         {"ARIAL", "Arial Narrow"}, {"MORPHEUS", "Morpheus"}}
     local outlineChoices = {{"NONE", "None"}, {"OUTLINE", "Outline"},
