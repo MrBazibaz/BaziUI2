@@ -211,7 +211,7 @@ local function create(key, spec)
     f.backMask = backMask
     local portrait = portraitLayer:CreateTexture(nil, "ARTWORK")
     portrait:SetSize(48,48)
-    portrait:SetPoint("CENTER", portraitAnchor, "CENTER")
+    portrait:SetPoint("CENTER", portraitAnchor, "CENTER", -1, 2)
     local mask = portraitLayer:CreateMaskTexture()
     mask:SetTexture("Interface\\CHARACTERFRAME\\TempPortraitAlphaMask", "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
     mask:SetAllPoints(portrait)
@@ -224,7 +224,7 @@ local function create(key, spec)
     local model = CreateFrame("PlayerModel", nil, portraitLayer)
     -- Keep the model disabled: PlayerModel can render beyond its viewport on Forever.
     model:SetSize(48, 48)
-    model:SetPoint("CENTER", portraitAnchor, "CENTER")
+    model:SetPoint("CENTER", portraitAnchor, "CENTER", -1, 2)
     model:SetFrameLevel(portraitLayer:GetFrameLevel() + 1)
     model:Hide()
     f.model = model
