@@ -708,6 +708,7 @@ local function CreateUnitFramesPage()
                 memberRefreshers[#memberRefreshers+1]=refresh
                 page:HookScript("OnShow",refresh)
             end
+            local partyDropdown
             if key=="party" then
                 -- Same compact edit field and stacked +/- controls as Player.
                 local function coordinate(canvas,label,field,x,y,default)
@@ -749,7 +750,7 @@ local function CreateUnitFramesPage()
                     redraw()
                 end
                 -- Matching the dark-gold dropdown design already used by Player/Tooltip.
-                local function partyDropdown(canvas,label,field,choices,x,y,width,default)
+                partyDropdown = function(canvas,label,field,choices,x,y,width,default)
                     width=width or 170
                     local title=CreateLabel(canvas,label,"GameFontNormal")
                     title:SetPoint("TOPLEFT",canvas,"TOPLEFT",x,y)
