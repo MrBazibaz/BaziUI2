@@ -100,15 +100,32 @@ local function ensureAuraLibrary()
     auraAvailable = true
     return true
 end
-local function initializeAuraButton(button, size)
+local function styleAuraText(text, opt, field, fallback)
+    local size = math.max(0, math.min(24, tonumber(opt[field]) or fallback))
+    if size == 0 then text:Hide(); return end
+    local font = (GameFontNormalSmall and select(1, GameFontNormalSmall:GetFont())) or "Fonts\\FRIZQT__.TTF"
+    text:SetFont(font, size, "OUTLINE")
+    text:SetTextColor(1, 0.94, 0.72, 1)
+end
+local function addAuraBorder(parent)
+    local border = parent:CreateTexture(nil, "OVERLAY")
+    border:SetTexture("Interface\\Buttons\\UI-Quickslot2")
+    border:SetPoint("TOPLEFT", parent, "TOPLEFT", -3, 3)
+    border:SetPoint("BOTTOMRIGHT", parent, "BOTTOMRIGHT", 3, -3)
+    return border
+end
+local function initializeAuraButton(button, size, opt)
     button:SetSize(size, size)
     local icon = button:CreateTexture(nil, "ARTWORK")
     icon:SetAllPoints()
     icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+    addAuraBorder(button)
     local count = button:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     count:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", -1, 1)
+    styleAuraText(count, opt, "stackFontSize", 11)
     local duration = button:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     duration:SetPoint("CENTER")
+    styleAuraText(duration, opt, "durationFontSize", 10)
     local cooldown = CreateFrame("Cooldown", nil, button, "CooldownFrameTemplate")
     cooldown:SetAllPoints()
     cooldown:SetHideCountdownNumbers(true)
@@ -118,6 +135,7 @@ local function initializeAuraButton(button, size)
     elseif button.SetAuraDurationText then pcall(button.SetAuraDurationText, button, duration) end
     pcall(button.SetDurationCooldown, button, cooldown)
 end
+
 local function createLiveAuras(f)
     if f.liveAuras or not ensureAuraLibrary() then return end
     f.liveAuras = {}
@@ -134,7 +152,7 @@ local function createLiveAuras(f)
             local count = math.max(1, math.min(40, tonumber(opt.count) or 12))
             local options = {
                 maxFrameCount = count, candidateFilters = {},
-                initializeFrame = function(button) initializeAuraButton(button, size) end,
+                initializeFrame = function(button) initializeAuraButton(button, size, opt) end,
                 layout = { elementWidth=size, elementHeight=size,
                     elementSpacing=gap, lineSpacing=gap, groupSpacing=gap, groupLineSpacing=gap },
             }
@@ -201,7 +219,12 @@ local function updateAuraPreview(f)
                 local tile = group:CreateTexture(nil, "ARTWORK")
                 tile:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark")
                 tile:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+                local border = group:CreateTexture(nil, "OVERLAY")
+                border:SetTexture("Interface\\\\Buttons\\\\UI-Quickslot2")
+                border:SetPoint("TOPLEFT", tile, "TOPLEFT", -3, 3)
+                border:SetPoint("BOTTOMRIGHT", tile, "BOTTOMRIGHT", 3, -3)
                 group.tiles[i] = tile
+                group.tiles[i .. "_border"] = border
             end
             f.auraPreview[kind] = group
         end
@@ -224,6 +247,7 @@ local function updateAuraPreview(f)
             tonumber(opt.y) or (kind == "buffs" and 32 or -58))
         group:SetShown(auraPreview[f.unit] and auraPreview[f.unit][kind] == true)
         for i, tile in ipairs(group.tiles) do
+            group.tiles[i .. "_border"]:SetShown(auraPreview[f.unit] and auraPreview[f.unit][kind] == true and i <= math.min(count, #group.tiles))
             tile:SetShown(auraPreview[f.unit] and auraPreview[f.unit][kind] == true and i <= math.min(count, #group.tiles))
             tile:SetSize(size, size)
             tile:ClearAllPoints()
