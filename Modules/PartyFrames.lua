@@ -613,6 +613,16 @@ local function layout(f, settings)
     f.power:ClearAllPoints()
     f.power:SetPoint("TOPLEFT", f.health, "BOTTOMLEFT", 0, -1)
     f.power:SetSize(width, powerHeight)
+    if f.partyCast then
+        local cast=f.partyCast
+        cast:ClearAllPoints()
+        cast:SetPoint("TOPLEFT",f.power,"BOTTOMLEFT",tonumber(settings.partyCastX) or 0,-(tonumber(settings.partyCastGap) or 5)+(tonumber(settings.partyCastY) or 0))
+        cast:SetSize(math.max(40,tonumber(settings.partyCastWidth) or width),math.max(4,tonumber(settings.partyCastHeight) or 13))
+        local font=(GameFontNormal and select(1,GameFontNormal:GetFont())) or "Fonts\\FRIZQT__.TTF"
+        local size=tonumber(settings.partyCastFontSize) or 10
+        cast.label:SetShown(size>0)
+        if size>0 then cast.label:SetFont(font,math.max(7,size),"OUTLINE") end
+    end
     local font = settings.fontFace == "arial" and "Fonts\\ARIALN.TTF" or settings.fontFace == "friz" and "Fonts\\FRIZQT__.TTF" or (GameFontNormal and select(1, GameFontNormal:GetFont())) or "Fonts\\FRIZQT__.TTF"
     local size = math.max(8, math.min(28, tonumber(settings.fontSize) or 12))
     f.level:SetFont(font, math.max(8, math.min(28, tonumber(settings.levelFontSize) or 12)), "OUTLINE")
@@ -893,6 +903,77 @@ local function createPetExtras(f)
     xp:Hide()
     cast:Hide()
 end
+
+-- Party-only casting bar, based on the existing Pet cast bar.
+local function createPartyCast(f)
+    local cast=CreateFrame("StatusBar",nil,f)
+    cast:SetStatusBarTexture("Interface\\Buttons\\WHITE8X8")
+    cast:SetStatusBarColor(.72,.43,.20)
+    cast:SetMinMaxValues(0,1)
+    cast:EnableMouse(false)
+    local bg=cast:CreateTexture(nil,"BACKGROUND")
+    bg:SetAllPoints()
+    bg:SetColorTexture(.07,.05,.035,.95)
+    local border=CreateFrame("Frame",nil,cast,"BackdropTemplate")
+    border:SetPoint("TOPLEFT",-2,2)
+    border:SetPoint("BOTTOMRIGHT",2,-2)
+    border:SetBackdrop({edgeFile="Interface\\Tooltips\\UI-Tooltip-Border",edgeSize=8})
+    border:SetBackdropBorderColor(.75,.56,.29,1)
+    border:EnableMouse(false)
+    cast.label=cast:CreateFontString(nil,"OVERLAY","GameFontNormalSmall")
+    cast.label:SetPoint("CENTER")
+    cast.label:SetTextColor(1,.9,.72)
+    cast:SetFrameLevel(f.barBorder:GetFrameLevel()+1)
+    cast:SetScript("OnUpdate",function(self)
+        if not self:IsShown() or not self.startTime or not self.endTime then return end
+        local duration=self.endTime-self.startTime
+        if duration<=0 then return end
+        local progress=(GetTime()*1000-self.startTime)/duration
+        if self.channel then progress=1-progress end
+        self:SetValue(math.max(0,math.min(1,progress)))
+    end)
+    cast:Hide()
+    f.partyCast=cast
+end
+local function updatePartyCast(f,preview)
+    local cast=f.partyCast
+    if not cast then return end
+    local settings=unitSettings(cfg() or {},f.unit)
+    if settings.showPartyCast==false then cast:Hide() return end
+    if preview then
+        cast.startTime=nil
+        cast.endTime=nil
+        cast:SetMinMaxValues(0,1)
+        cast:SetValue(.65)
+        cast.label:SetText("Casting Preview")
+        cast:SetStatusBarColor(.72,.43,.20)
+        cast:Show()
+        return
+    end
+    if not UnitExists(f.unit) then cast:Hide() return end
+    local name,_,_,startTime,endTime,_,_,notInterruptible
+    local channel=false
+    if type(UnitCastingInfo)=="function" then
+        name,_,_,startTime,endTime,_,_,notInterruptible=UnitCastingInfo(f.unit)
+    end
+    if not name and type(UnitChannelInfo)=="function" then
+        name,_,_,startTime,endTime,_,notInterruptible=UnitChannelInfo(f.unit)
+        channel=true
+    end
+    if not name or not startTime or not endTime then
+        cast:Hide()
+        cast.startTime=nil
+        return
+    end
+    cast.startTime=startTime
+    cast.endTime=endTime
+    cast.channel=channel
+    cast.label:SetText(name)
+    cast:SetStatusBarColor(notInterruptible and .5 or .72,notInterruptible and .5 or .43,notInterruptible and .5 or .20)
+    cast:SetMinMaxValues(0,1)
+    cast:Show()
+end
+
 local function create(key, spec)
     if frames[key] or (InCombatLockdown and InCombatLockdown()) then return end
     local f = CreateFrame("Button", "BaziUI_PartyExact_" .. key, UIParent, "SecureUnitButtonTemplate")
@@ -1086,12 +1167,14 @@ local function create(key, spec)
     f:SetScript("OnEvent", function(self, event, unit)
         if not unit or unit == self.unit or event == "PLAYER_TARGET_CHANGED" or event == "PLAYER_FOCUS_CHANGED" or event == "PLAYER_ENTERING_WORLD" or event == "UNIT_PET" or event == "GROUP_ROSTER_UPDATE" or event == "RAID_TARGET_UPDATE" then
             update(self)
+            if self.partyCast then updatePartyCast(self,false) end
         end
     end)
     if key == "pet" then
         createPetExtras(f)
         updatePetExtras(f)
     end
+    createPartyCast(f)
     frames[key] = f
     local mover = CreateFrame("Button", nil, UIParent, "BackdropTemplate")
     mover:SetSize(224, 48)
@@ -1204,6 +1287,7 @@ function M:Refresh()
             elseif preview then
                 updateSample(f,i)
             end
+            updatePartyCast(f,preview and not exists)
             if f.liveAuras then
                 for _,kind in ipairs({"buffs","debuffs"}) do
                     local entry=f.liveAuras[kind]
