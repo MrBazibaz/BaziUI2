@@ -14,6 +14,29 @@ local units = {
     pet = {unit="pet", x=-260, y=-250},
 }
 local frames = {}
+local layoutKeys = {"barWidth", "hpHeight", "powerHeight", "portraitSize", "portraitX", "portraitY"}
+local function unitSettings(settings, key)
+    settings.frames = settings.frames or {}
+    local own = settings.frames[key]
+    if not own then
+        own = {}
+        settings.frames[key] = own
+    end
+    -- Migrate existing shared dimensions once per frame without losing saved values.
+    for _, name in ipairs(layoutKeys) do
+        if own[name] == nil then own[name] = settings[name] end
+    end
+    return own
+end
+function M:CopyLayout(source, destination)
+    local settings = cfg()
+    if not settings or not units[source] or not units[destination] or source == destination then return false end
+    local from = unitSettings(settings, source)
+    local to = unitSettings(settings, destination)
+    for _, name in ipairs(layoutKeys) do to[name] = from[name] end
+    self:Refresh()
+    return true
+end
 local function layout(f, settings)
     local width = math.max(100, math.min(400, tonumber(settings.barWidth) or 162))
     local hpHeight = math.max(12, math.min(45, tonumber(settings.hpHeight) or 23))
@@ -212,7 +235,7 @@ local function create(key, spec)
         end
     end)
     frames[key] = f
-    layout(f, cfg() or {})
+    layout(f, unitSettings(cfg() or {}, key))
     update(f)
 end
 -- Reversible, opt-in suppression of Blizzard's original frames.
@@ -251,7 +274,7 @@ function M:Refresh()
         syncOriginal(key, settings.enabled == false and {hideBlizzard=false} or settings)
         local f = frames[key]
         if f and not (InCombatLockdown and InCombatLockdown()) then
-            layout(f, settings)
+            layout(f, unitSettings(settings, key))
             if settings.enabled ~= false and settings[key] then
                 if key == "focus" or key == "target" or key == "pet" then
                     if not f.visibilityRegistered and RegisterStateDriver then
