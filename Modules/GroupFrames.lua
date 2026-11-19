@@ -151,10 +151,10 @@ local function layoutMember(f, kind, index, opt)
     local height = math.max(22,math.min(90,tonumber(opt.height) or (kind=="party" and 48 or 30)))
     f:SetSize(width,height)
     local portrait = f.portrait
+    local portraitSize=math.max(24,math.min(90,tonumber(opt.portraitSize) or (height-6)))
     local side = opt.portraitSide or (index <= 2 and "LEFT" or "RIGHT")
     if portrait then
         portrait:ClearAllPoints()
-        local portraitSize=math.max(24,math.min(90,tonumber(opt.portraitSize) or (height-6)))
         local px=tonumber(opt.portraitX) or 0
         local py=tonumber(opt.portraitY) or 0
         portrait:SetPoint(side,f,side,(side=="LEFT" and 3 or -3)+px,py)
@@ -229,7 +229,7 @@ local function ensureGroupAuras(f,kind,index)
                     icon:SetTexCoord(.08,.92,.08,.92)
                     local border=CreateFrame("Frame",nil,button,"BackdropTemplate")
                     border:SetAllPoints()
-                    border:SetBackdrop({edgeFile="Interface\Tooltips\UI-Tooltip-Border",edgeSize=6})
+                    border:SetBackdrop({edgeFile="Interface\\Tooltips\\UI-Tooltip-Border",edgeSize=6})
                     border:SetBackdropBorderColor(.48,.34,.18,.95)
                     local countText=button:CreateFontString(nil,"OVERLAY","GameFontNormalSmall")
                     countText:SetPoint("BOTTOMRIGHT",-1,1)
