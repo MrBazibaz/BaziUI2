@@ -1452,7 +1452,16 @@ function M:Refresh()
             f.name:ClearAllPoints()
             f.name:SetPoint("CENTER",f.health,"CENTER",0,0)
             f.name:SetJustifyH("CENTER")
-            f.name:SetTextColor(1,1,1)
+            local class
+            if exists then
+                _,class=UnitClass(key)
+            elseif preview then
+                local sample=samples[(i-1)%#samples+1]
+                class=sample and sample.class
+            end
+            local color=class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
+            if color then f.name:SetTextColor(color.r,color.g,color.b)
+            else f.name:SetTextColor(1,1,1) end
             -- Preview/live updates may show portrait textures again.
             -- Raid intentionally has no portrait, ring, level disc or portrait decorations.
             for _,region in ipairs({f.portrait,f.portraitBack,f.rim,f.model,f.roleArt,f.levelDisc,f.level,f.classIcon,f.pvpIcon,f.leaderIcon,f.roleIcon,f.happinessIcon}) do
