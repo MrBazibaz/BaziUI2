@@ -30,15 +30,14 @@ local function update(f)
     f.value:SetText("")
     SetPortraitTexture(f.portrait, f.unit)
     if f.level then f.level:SetText(UnitLevel(f.unit)) end
-    -- Pets inherit the player's class colour; neutral units use muted green.
-    -- A restrained tint keeps the flat bars from looking fluorescent.
-    local classUnit = f.unit == "pet" and "player" or f.unit
-    local _, class = UnitClass(classUnit)
+    -- Pets have no player class colour.
+    local _, class = UnitClass(f.unit)
+    if f.unit == "pet" then class = nil end
     local color = class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
     if color then
         f.health:SetStatusBarColor(color.r * 0.72, color.g * 0.72, color.b * 0.72)
     else
-        f.health:SetStatusBarColor(0.24, 0.47, 0.26)
+        f.health:SetStatusBarColor(0.40, 0.37, 0.29)
     end
     local kind = UnitPowerType(f.unit)
     local c = PowerBarColor and PowerBarColor[kind]
@@ -56,46 +55,52 @@ local function create(key, spec)
     f:SetFrameStrata("MEDIUM")
     f.unit = spec.unit
     local bg = f:CreateTexture(nil, "BACKGROUND")
-    bg:SetPoint("TOPLEFT", f, "TOPLEFT", (key == "player" or key == "pet") and 43 or 4, -4)
-    bg:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", (key == "player" or key == "pet") and -4 or -43, 4)
+    bg:SetPoint("TOPLEFT", f, "TOPLEFT", (key == "player" or key == "pet") and 29 or 4, -4)
+    bg:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", (key == "player" or key == "pet") and -4 or -29, 4)
     bg:SetColorTexture(0.10, 0.065, 0.035, 0.95)
     -- FlareUI-style composition: compact bronze plate, circular portrait on the outer side.
     -- Uses Blizzard's own ring atlas and portrait mask, not FlareUI's excluded artwork.
     local side = (key == "player" or key == "pet") and "LEFT" or "RIGHT"
     local border = CreateFrame("Frame", nil, f, "BackdropTemplate")
     border:SetAllPoints(bg)
-    border:SetBackdrop({edgeFile="Interface\\Buttons\\WHITE8X8", edgeSize=1})
-    border:SetBackdropBorderColor(0.64, 0.51, 0.31, 0.95)
-    local portrait = f:CreateTexture(nil, "ARTWORK")
+    border:SetBackdrop({edgeFile="Interface\\Tooltips\\UI-Tooltip-Border", edgeSize=10})
+    border:SetBackdropBorderColor(0.38, 0.30, 0.19, 1)
+    local portraitLayer = CreateFrame("Frame", nil, f)
+    portraitLayer:SetAllPoints(f)
+    portraitLayer:SetFrameLevel(f:GetFrameLevel() + 8)
+    local portrait = portraitLayer:CreateTexture(nil, "ARTWORK")
     portrait:SetSize(48,48)
     portrait:SetPoint(side, f, side, side == "LEFT" and -5 or 5, 0)
-    local mask = f:CreateMaskTexture()
+    local mask = portraitLayer:CreateMaskTexture()
     mask:SetTexture("Interface\\CHARACTERFRAME\\TempPortraitAlphaMask", "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
     mask:SetAllPoints(portrait)
     portrait:AddMaskTexture(mask)
     f.portrait = portrait
-    local rim = f:CreateTexture(nil, "OVERLAY")
+    local rim = portraitLayer:CreateTexture(nil, "OVERLAY")
     rim:SetSize(62,62)
     rim:SetPoint("CENTER", portrait, "CENTER")
     rim:SetAtlas("UI-HUD-UnitFrame-Target-PortraitOn")
     rim:SetTexCoord(252.78/384, 375/384, 1.67/134, 123.89/134)
-    local rimMask = f:CreateMaskTexture()
+    local rimMask = portraitLayer:CreateMaskTexture()
     rimMask:SetTexture("Interface\\CHARACTERFRAME\\TempPortraitAlphaMask", "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
     rimMask:SetSize(66, 66)
     rimMask:SetPoint("CENTER", rim, "CENTER", side == "LEFT" and -2 or 2, 0)
     rim:AddMaskTexture(rimMask)
     if side == "LEFT" then rim:SetTexCoord(375/384, 252.78/384, 1.67/134, 123.89/134) end
-    local disc = f:CreateTexture(nil, "OVERLAY")
+    local badgeLayer = CreateFrame("Frame", nil, portraitLayer)
+    badgeLayer:SetAllPoints(portraitLayer)
+    badgeLayer:SetFrameLevel(portraitLayer:GetFrameLevel() + 2)
+    local disc = badgeLayer:CreateTexture(nil, "OVERLAY")
     disc:SetSize(24,24)
-    disc:SetPoint("BOTTOM", portrait, "BOTTOM", side == "LEFT" and -17 or 17, -3)
+    disc:SetPoint("BOTTOM", portrait, "BOTTOM", side == "LEFT" and -17 or 17, -9)
     disc:SetAtlas("UI-HUD-UnitFrame-SmallCircle")
-    local level = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    local level = badgeLayer:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     level:SetPoint("CENTER", disc, "CENTER", 0, 0)
     f.level = level
     local hp = CreateFrame("StatusBar", nil, f)
     hp:SetStatusBarTexture("Interface\\Buttons\\WHITE8X8")
-    hp:SetPoint("TOPLEFT", f, "TOPLEFT", side == "LEFT" and 43 or 6, -5)
-    hp:SetPoint("TOPRIGHT", f, "TOPRIGHT", side == "LEFT" and -6 or -43, -5)
+    hp:SetPoint("TOPLEFT", f, "TOPLEFT", side == "LEFT" and 29 or 6, -5)
+    hp:SetPoint("TOPRIGHT", f, "TOPRIGHT", side == "LEFT" and -6 or -29, -5)
     hp:SetHeight(26)
     f.health = hp
     local pp = CreateFrame("StatusBar", nil, f)
@@ -104,6 +109,11 @@ local function create(key, spec)
     pp:SetPoint("TOPRIGHT", hp, "BOTTOMRIGHT", 0, -1)
     pp:SetHeight(11)
     f.power = pp
+    local divider = f:CreateTexture(nil, "OVERLAY")
+    divider:SetColorTexture(0.22, 0.16, 0.10, 1)
+    divider:SetHeight(2)
+    divider:SetPoint("BOTTOMLEFT", hp, "BOTTOMLEFT", 0, -1)
+    divider:SetPoint("BOTTOMRIGHT", hp, "BOTTOMRIGHT", 0, -1)
     local name = hp:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     name:SetPoint("LEFT", hp, "LEFT", 4, 0)
     name:SetJustifyH("LEFT")
