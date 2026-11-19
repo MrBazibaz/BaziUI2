@@ -192,10 +192,12 @@ local function layout(f, settings)
     if f.petXPRing then
         -- Radial tick marks: the long axis points towards the portrait centre.
         -- Keep each tick separated to avoid opaque quads merging into a disc.
-        local radius = rimSize * 0.515
+        -- Match the visible outer edge of the gold portrait ring. Keep
+        -- tick depth modest so the XP track hugs the rim instead of floating.
+        local tickWidth = math.max(2, rimSize * 0.028)
+        local tickHeight = math.max(4, rimSize * 0.052)
+        local radius = rimSize * 0.49 + tickHeight * 0.5
         local count = #f.petXPRing.segments
-        local tickWidth = math.max(2.5, rimSize * 0.038)
-        local tickHeight = math.max(5, rimSize * 0.073)
         for i, segment in ipairs(f.petXPRing.segments) do
             local angle = -3 * math.pi / 4 - (i - 1) * (2 * math.pi / count)
             local x, y = math.cos(angle) * radius, math.sin(angle) * radius
