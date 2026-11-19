@@ -624,15 +624,15 @@ local function layout(f, settings)
     f.power:ClearAllPoints()
     f.power:SetPoint("TOPLEFT", f.health, "BOTTOMLEFT", 0, -1)
     f.power:SetSize(width, powerHeight)
-    if f.raidCast then
-        local cast=f.raidCast
+    if f.partyCast then
+        local cast=f.partyCast
         cast:ClearAllPoints()
-        cast:SetPoint("TOPLEFT",f.power,"BOTTOMLEFT",tonumber(settings.raidCastX) or 0,-(tonumber(settings.raidCastGap) or 5)+(tonumber(settings.raidCastY) or 0))
-        cast:SetSize(math.max(40,tonumber(settings.raidCastWidth) or width),math.max(4,tonumber(settings.raidCastHeight) or 13))
+        cast:SetPoint("TOPLEFT",f.power,"BOTTOMLEFT",tonumber(settings.partyCastX) or 0,-(tonumber(settings.partyCastGap) or 5)+(tonumber(settings.partyCastY) or 0))
+        cast:SetSize(math.max(40,tonumber(settings.partyCastWidth) or width),math.max(4,tonumber(settings.partyCastHeight) or 13))
         local font=(GameFontNormal and select(1,GameFontNormal:GetFont())) or "Fonts\\FRIZQT__.TTF"
-        local size=tonumber(settings.raidCastFontSize) or 10
+        local size=tonumber(settings.partyCastFontSize) or 10
         cast.label:ClearAllPoints()
-        cast.label:SetPoint("CENTER",cast,"CENTER",tonumber(settings.raidCastTextX) or 0,tonumber(settings.raidCastTextY) or 0)
+        cast.label:SetPoint("CENTER",cast,"CENTER",tonumber(settings.partyCastTextX) or 0,tonumber(settings.partyCastTextY) or 0)
         cast.label:SetShown(size>0)
         if size>0 then cast.label:SetFont(font,math.max(7,size),"OUTLINE") end
     end
@@ -955,10 +955,10 @@ local function createPartyCast(f)
         self:SetValue(math.max(0,math.min(1,progress)))
     end)
     cast:Hide()
-    f.raidCast=cast
+    f.partyCast=cast
 end
 local function updatePartyCast(f,preview)
-    local cast=f.raidCast
+    local cast=f.partyCast
     if not cast then return end
     local settings=unitSettings(cfg() or {},f.unit)
     if settings.showPartyCast==false then cast:Hide() return end
@@ -1205,7 +1205,7 @@ local function create(key, spec)
         if not unit or unit == self.unit or event == "PLAYER_TARGET_CHANGED" or event == "PLAYER_FOCUS_CHANGED" or event == "PLAYER_ENTERING_WORLD" or event == "UNIT_PET" or event == "GROUP_ROSTER_UPDATE" or event == "RAID_TARGET_UPDATE" then
             update(self)
             updateRaidRolePortrait(self)
-            if self.raidCast then updatePartyCast(self,false) end
+            if self.partyCast then updatePartyCast(self,false) end
         end
     end)
     if key == "pet" then
