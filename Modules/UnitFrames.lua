@@ -14,6 +14,22 @@ local units = {
     pet = {unit="pet", x=-260, y=-250},
 }
 local frames = {}
+local function layout(f, settings)
+    local width = math.max(100, math.min(400, tonumber(settings.barWidth) or 162))
+    local hpHeight = math.max(12, math.min(45, tonumber(settings.hpHeight) or 23))
+    local powerHeight = math.max(4, math.min(30, tonumber(settings.powerHeight) or 9))
+    local side = f.portraitSide
+    f:SetSize(width + 62, math.max(48, hpHeight + powerHeight + 16))
+    f.health:ClearAllPoints()
+    f.health:SetPoint("TOPLEFT", f, "TOPLEFT", side == "LEFT" and 53 or 9, -8)
+    f.health:SetSize(width, hpHeight)
+    f.power:ClearAllPoints()
+    f.power:SetPoint("TOPLEFT", f.health, "BOTTOMLEFT", 0, -1)
+    f.power:SetSize(width, powerHeight)
+    f.barBorder:ClearAllPoints()
+    f.barBorder:SetPoint("TOPLEFT", f.health, "TOPLEFT", -5, 5)
+    f.barBorder:SetPoint("BOTTOMRIGHT", f.power, "BOTTOMRIGHT", 5, -5)
+end
 local function update(f)
     if not f or not UnitExists(f.unit) then
         if f then f.health:SetValue(0); f.power:SetValue(0); f.name:SetText("") end
@@ -72,7 +88,7 @@ local function create(key, spec)
     f:SetSize(224, 48)
     f:SetPoint("CENTER", UIParent, "CENTER", spec.x, spec.y)
     f:SetFrameStrata("MEDIUM")
-    f.unit = spec.unit
+    f.unit = spec.unit\n    f.portraitSide = (key == "player" or key == "pet") and "LEFT" or "RIGHT"
     local bg = f:CreateTexture(nil, "BACKGROUND")
     bg:SetPoint("TOPLEFT", f, "TOPLEFT", (key == "player" or key == "pet") and 49 or 4, -4)
     bg:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", (key == "player" or key == "pet") and -4 or -49, 4)
@@ -84,7 +100,7 @@ local function create(key, spec)
     -- Use the same Blizzard tooltip border texture, but at a slimmer edge size.
     -- Keep the existing bar geometry and portrait layering unchanged.
     local border = CreateFrame("Frame", nil, f, "BackdropTemplate")
-    border:SetAllPoints(bg)
+    border:SetAllPoints(bg)\n    f.barBorder = border
     border:SetFrameLevel(f:GetFrameLevel() + 5)
     border:SetBackdrop({edgeFile="Interface\\Tooltips\\UI-Tooltip-Border", edgeSize=12})
     border:SetBackdropBorderColor(0.90, 0.72, 0.42, 1)
@@ -216,7 +232,7 @@ function M:Refresh()
         if settings[key] then create(key, spec) end
         syncOriginal(key, settings)
         local f = frames[key]
-        if f and not (InCombatLockdown and InCombatLockdown()) then
+        if f and not (InCombatLockdown and InCombatLockdown()) then\n            layout(f, settings)
             if settings[key] then
                 if key == "focus" or key == "target" or key == "pet" then
                     if not f.visibilityRegistered and RegisterStateDriver then
