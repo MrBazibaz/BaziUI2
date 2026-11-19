@@ -80,7 +80,8 @@ local function CreateSlider(parent, labelText, description, minValue, maxValue, 
     hint:SetTextColor(0.91, 0.78, 0.61, 1)
     local valueText
     local valueBox
-    if labelText == "WINDOW SCALE" or labelText == "FONT SIZE" then
+    if labelText == "WINDOW SCALE" or labelText == "FONT SIZE"
+        or labelText == "MINIMAP ICON SCALE" or labelText == "MINIMAP WINDOW SCALE" then
         valueBox = CreateFrame("EditBox", nil, row)
         valueBox:SetSize(36, 19)
         valueBox:SetPoint("RIGHT", row, "RIGHT", -13, 0)
@@ -284,7 +285,7 @@ local function CreateQoLPage()
         "Silence character voice errors, such as not enough mana.",
         "muteErrorSpeech", -153)
     SoundCheck("Mute Failed Spell Sounds",
-        "Mute the five spell-fizzle sounds from BaziQoL.",
+        "Silence the sound played when a spell or ability fails.",
         "muteFailedSpellSounds", -233)
     return page
 end
