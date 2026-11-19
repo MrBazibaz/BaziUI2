@@ -264,6 +264,9 @@ local function CreateUnitFramesPage()
         if addon.UnitFrames then addon.UnitFrames:Refresh() end
     end)
 
+    local copyHeader = CreateFrame("Frame", nil, headingPanel)
+    copyHeader:SetPoint("TOPRIGHT", headingPanel, "TOPRIGHT", -16, -13)
+    copyHeader:SetSize(310, 52)
     local main = CreatePanel(page, -100, 400)
     main:ClearAllPoints()
     main:SetPoint("TOPLEFT", page, "TOPLEFT", 12, -100)
@@ -546,9 +549,11 @@ local function CreateUnitFramesPage()
             local source = choices[1]
             local selector = CreateFrame("Button", nil, panel)
             selector:SetSize(155, 28)
-            selector:SetPoint("TOPLEFT", panel, "TOPLEFT", 20, -338)
+            selector:SetParent(copyHeader)
+            selector:SetPoint("TOPLEFT", copyHeader, "TOPLEFT", 0, -3)
             local selectorText = styleButton(selector, "From: " .. source .. "  v")
             local dropdown = CreateFrame("Frame", nil, panel)
+            dropdown:SetParent(page)
             dropdown:SetSize(155, #choices * 27)
             dropdown:SetPoint("TOPLEFT", selector, "BOTTOMLEFT", 0, -2)
             dropdown:SetFrameStrata("DIALOG")
@@ -567,6 +572,7 @@ local function CreateUnitFramesPage()
             end
             selector:SetScript("OnClick", function() dropdown:SetShown(not dropdown:IsShown()) end)
             local copy = CreateFrame("Button", nil, panel)
+            copy:SetParent(copyHeader)
             copy:SetSize(145, 28)
             copy:SetPoint("LEFT", selector, "RIGHT", 12, 0)
             styleButton(copy, "Copy settings")
@@ -591,6 +597,27 @@ local function CreateUnitFramesPage()
                 end)
                 refreshers[#refreshers+1] = function() check:SetChecked(own[field] ~= false) end
             end
+            local preview = CreateFrame("Button", nil, panel)
+            preview:SetSize(170, 27)
+            preview:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -14, -11)
+            local previewBg = preview:CreateTexture(nil, "BACKGROUND")
+            previewBg:SetAllPoints()
+            previewBg:SetColorTexture(0.18, 0.085, 0.035, 1)
+            local previewText = CreateLabel(preview, "Preview indicators", "GameFontNormal")
+            previewText:SetPoint("CENTER")
+            local previewOn = false
+            local function stopPreview()
+                if not previewOn then return end
+                previewOn = false
+                previewText:SetText("Preview indicators")
+                if addon.UnitFrames then addon.UnitFrames:SetIndicatorPreview(false) end
+            end
+            preview:SetScript("OnClick", function()
+                previewOn = not previewOn
+                previewText:SetText(previewOn and "Stop preview" or "Preview indicators")
+                if addon.UnitFrames then addon.UnitFrames:SetIndicatorPreview(previewOn) end
+            end)
+            viewport:HookScript("OnHide", stopPreview)
             local indicators = CreateLabel(panel, "INDICATORS", "GameFontNormalLarge")
             indicators:SetPoint("TOPLEFT", panel, "TOPLEFT", 20, -16)
             indicators:SetTextColor(1, 0.79, 0.42)
@@ -683,12 +710,20 @@ local function CreateUnitFramesPage()
                 button:SetPoint("TOPLEFT", panel, "TOPLEFT", x, y - 22)
                 local bg = button:CreateTexture(nil, "BACKGROUND")
                 bg:SetAllPoints()
-                bg:SetColorTexture(0.23, 0.12, 0.065, 1)
+                bg:SetColorTexture(0.12, 0.07, 0.045, 1)
+                local border = button:CreateTexture(nil, "BORDER")
+                border:SetPoint("TOPLEFT"); border:SetPoint("TOPRIGHT"); border:SetHeight(1)
+                border:SetColorTexture(0.75, 0.55, 0.29)
+                local arrow = CreateLabel(button, "v", "GameFontHighlightSmall")
+                arrow:SetPoint("RIGHT", button, "RIGHT", -7, 0)
                 local text = CreateLabel(button, "", "GameFontNormal")
                 text:SetPoint("CENTER")
                 text:SetTextColor(1, 0.79, 0.42)
                 local menu = CreateFrame("Frame", nil, panel)
-                menu:SetSize(width or 145, #choices * 27)
+                menu:SetSize(width or 145, #choices * 24 + 4)
+                local menuBg = menu:CreateTexture(nil, "BACKGROUND")
+                menuBg:SetAllPoints()
+                menuBg:SetColorTexture(0.12, 0.07, 0.045, 1)
                 menu:SetPoint("TOPLEFT", button, "BOTTOMLEFT", 0, -2)
                 menu:SetFrameStrata("FULLSCREEN_DIALOG")
                 menu:SetFrameLevel(button:GetFrameLevel() + 25)
@@ -696,22 +731,22 @@ local function CreateUnitFramesPage()
                 local function refresh()
                     local current = own[field] or choices[1][1]
                     for _, choice in ipairs(choices) do
-                        if choice[1] == current then text:SetText(choice[2] .. "  v"); return end
+                        if choice[1] == current then text:SetText(choice[2]); return end
                     end
-                    text:SetText(choices[1][2] .. "  v")
+                    text:SetText(choices[1][2])
                 end
                 for i, choice in ipairs(choices) do
                     local item = CreateFrame("Button", nil, menu)
-                    item:SetSize(width or 145, 27)
-                    item:SetPoint("TOPLEFT", menu, "TOPLEFT", 0, -(i-1)*27)
+                    item:SetSize((width or 145) - 4, 24)
+                    item:SetPoint("TOPLEFT", menu, "TOPLEFT", 2, -2-(i-1)*24)
                     local fill = item:CreateTexture(nil, "BACKGROUND")
                     fill:SetAllPoints()
-                    fill:SetColorTexture(0.23, 0.12, 0.065, 1)
+                    fill:SetColorTexture(0.12, 0.07, 0.045, 1)
                     local captionText = CreateLabel(item, choice[2], "GameFontNormal")
                     captionText:SetPoint("CENTER")
                     captionText:SetTextColor(1, 0.79, 0.42)
                     item:SetScript("OnEnter", function() fill:SetColorTexture(0.34, 0.18, 0.11, 1) end)
-                    item:SetScript("OnLeave", function() fill:SetColorTexture(0.23, 0.12, 0.065, 1) end)
+                    item:SetScript("OnLeave", function() fill:SetColorTexture(0.12, 0.07, 0.045, 1) end)
                     item:SetScript("OnClick", function()
                         own[field] = choice[1]
                         menu:Hide()
@@ -763,9 +798,9 @@ local function CreateUnitFramesPage()
             offsetEditor("levelTextY", "LEVEL TEXT Y", 180, -415)
 
             panel = groups.Layout
-            local note = CreateLabel(panel, "Copies appearance only. Frame position is preserved.", "GameFontHighlightSmall")
+            local note = CreateLabel(copyHeader, "Copies appearance only; position is preserved.", "GameFontHighlightSmall")
             note:SetTextColor(0.91, 0.78, 0.61, 1)
-            note:SetPoint("TOPLEFT", panel, "TOPLEFT", 20, -380)
+            note:SetPoint("TOPLEFT", copyHeader, "TOPLEFT", 0, -35)
             panel = rootPanel
             selectGroup("Layout")
         end
