@@ -283,6 +283,41 @@ function M:Initialize()
     end
     M.UpdateMapMouse = UpdateMapMouse
     CreateMapSurface()
+    -- Temporary isolated diagnostics. /bazimouse reports runtime state;
+    -- /bazimouse menu tests the menu without relying on mouse events.
+    SLASH_BAZIMOUSE1 = "/bazimouse"
+    SlashCmdList.BAZIMOUSE = function(arg)
+        local cfg = db()
+        if arg == "menu" then
+            addon:Print("Diagnostic: direct menu toggle requested")
+            ToggleMenu()
+            addon:Print("Menu visible=" .. tostring(M.Menu and M.Menu:IsShown()))
+            return
+        end
+        addon:Print("Mouse diagnostic: enabled=" .. tostring(cfg and cfg.enabled)
+            .. " microMenu=" .. tostring(cfg and cfg.microMenu)
+            .. " surface=" .. tostring(surface ~= nil)
+            .. " mouse=" .. tostring(surface and surface:IsMouseEnabled())
+            .. " shown=" .. tostring(surface and surface:IsShown())
+            .. " mapLevel=" .. tostring(map:GetFrameLevel())
+            .. " surfaceLevel=" .. tostring(surface and surface:GetFrameLevel()))
+    end
+    if surface then
+        surface:HookScript("OnMouseDown", function(_, button)
+            if button == "MiddleButton" then addon:Print("Diagnostic: surface mouse DOWN") end
+        end)
+        surface:HookScript("OnMouseUp", function(_, button)
+            if button == "MiddleButton" then addon:Print("Diagnostic: surface mouse UP") end
+        end)
+    end
+    local watcher = CreateFrame("Frame")
+    watcher:RegisterEvent("GLOBAL_MOUSE_DOWN")
+    watcher:SetScript("OnEvent", function(_, _, button)
+        if button == "MiddleButton" and map:IsMouseOver() then
+            addon:Print("Diagnostic: GLOBAL middle down over map")
+        end
+    end)
+
     if M.Launcher then
         M.Launcher:HookScript("OnEnter", function() M:Apply() end)
         M.Launcher:HookScript("OnLeave", function() M:Apply() end)
