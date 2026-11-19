@@ -279,6 +279,7 @@ local function CreateUnitFramesPage()
     tabBar:SetFrameStrata("FULLSCREEN_DIALOG")
     tabBar:SetSize(108, 145)
     local function RefreshTabs()
+        copyHeader:SetShown(activeTab ~= "General")
         for name, button in pairs(tabButtons) do
             local selected = name == activeTab
             button.fill:SetColorTexture(selected and 0.34 or 0.23,
