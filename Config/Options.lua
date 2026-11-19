@@ -595,6 +595,12 @@ local function CreateMinimapPage()
         {"THICKOUTLINE", "Thick"}}
     local function FontGroup(title, y, key)
         local cfg = db[key]
+        -- Separate the three font settings visually without changing control positions.
+        local groupBack = fonts:CreateTexture(nil, "BACKGROUND")
+        groupBack:SetPoint("TOPLEFT", fonts, "TOPLEFT", 6, y + 12)
+        groupBack:SetPoint("TOPRIGHT", fonts, "TOPRIGHT", -6, y + 12)
+        groupBack:SetHeight(172)
+        groupBack:SetColorTexture(0.18, 0.10, 0.065, 0.52)
         local heading = CreateLabel(fonts, title, "GameFontNormalLarge")
         heading:SetPoint("TOPLEFT", fonts, "TOPLEFT", 14, y)
         heading:SetTextColor(1, 0.79, 0.42)
