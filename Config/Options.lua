@@ -388,7 +388,7 @@ local function CreateUnitFramesPage()
                 local canvas = CreateFrame("Frame", nil, rootPanel)
                 canvas:SetPoint("TOPLEFT", rootPanel, "TOPLEFT", 0, -49)
                 canvas:SetPoint("TOPRIGHT", rootPanel, "TOPRIGHT", 0, -49)
-                canvas:SetHeight(category == "Indicators" and (name == "Pet" and 680 or 590) or 520)
+                canvas:SetHeight(category == "Indicators" and (name == "Pet" and 870 or 590) or 520)
                 canvas:Hide()
                 groups[category] = canvas
             end
@@ -402,7 +402,7 @@ local function CreateUnitFramesPage()
                         label == category and 0.18 or 0.12,
                         label == category and 0.26 or 0.07, 1)
                 end
-                rootPanel:SetHeight(category == "Indicators" and (name == "Pet" and 700 or 610) or (category == "Layout" and 540 or 490))
+                rootPanel:SetHeight(category == "Indicators" and (name == "Pet" and 890 or 610) or (category == "Layout" and 540 or 490))
                 viewport:SetVerticalScroll(0)
             end
             for i, category in ipairs({"Layout", "Indicators", "Bar Text", "Fonts"}) do
@@ -439,25 +439,6 @@ local function CreateUnitFramesPage()
                     local value = own[settingKey]
                     if value == nil then value = db[settingKey] or 0 end
                     slider:SetValue(value)
-                end
-            end
-            if key == "pet" then
-                for index, entry in ipairs({
-                    {"showPetXP", "Show pet XP bar"},
-                    {"showPetCast", "Show pet castbar"},
-                }) do
-                    local checkbox = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
-                    checkbox:SetSize(23, 23)
-                    checkbox:SetPoint("TOPLEFT", panel, "TOPLEFT", 16 + (index - 1) * 225, -355)
-                    local caption = CreateLabel(panel, entry[2], "GameFontHighlight")
-                    caption:SetPoint("LEFT", checkbox, "RIGHT", 4, 0)
-                    checkbox:SetScript("OnClick", function(self)
-                        own[entry[1]] = self:GetChecked() == true
-                        if addon.UnitFrames then addon.UnitFrames:Refresh() end
-                    end)
-                    refreshers[#refreshers + 1] = function()
-                        checkbox:SetChecked(own[entry[1]] ~= false)
-                    end
                 end
             end
             local flip = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
@@ -662,7 +643,11 @@ local function CreateUnitFramesPage()
             optionCheck("showClassification", "Elite / rare", 20, -138)
 
             optionCheck("showName", "Show name", 230, -138)
-            if name == "Pet" then optionCheck("showHappiness", "Pet happiness", 20, -174) end
+            if name == "Pet" then
+                optionCheck("showHappiness", "Pet happiness", 20, -174)
+                optionCheck("showPetXP", "Pet XP bar", 230, -174)
+                optionCheck("showPetCast", "Pet castbar", 20, -204)
+            end
             local iconSpecs = {
                 {"pvp", "PvP flag"}, {"leader", "Group leader"},
                 {"raid", "Raid marker"}, {"role", "Group / raid role"},
@@ -710,13 +695,62 @@ local function CreateUnitFramesPage()
                 end
             end
             for i, spec in ipairs(iconSpecs) do
-                local rowY = -200 - (i-1)*65
+                local rowY = (name == "Pet" and -240 or -200) - (i-1)*65
                 local title = CreateLabel(panel, spec[2], "GameFontNormal")
                 title:SetPoint("TOPLEFT", panel, "TOPLEFT", 20, rowY)
                 title:SetTextColor(1, 0.79, 0.42)
                 indicatorField(spec[1], "indicatorSize", 215, rowY, "SIZE")
                 indicatorField(spec[1], "indicatorX", 310, rowY, "X")
                 indicatorField(spec[1], "indicatorY", 405, rowY, "Y")
+            end
+            if name == "Pet" then
+                local function petBarControl(prefix, title, top)
+                    local heading = CreateLabel(panel, title, "GameFontNormal")
+                    heading:SetPoint("TOPLEFT", panel, "TOPLEFT", 20, top)
+                    heading:SetTextColor(1, 0.79, 0.42)
+                    for i, spec in ipairs({
+                        {"Width", "WIDTH", 40, 400, 160},
+                        {"Height", "HEIGHT", 4, 40, prefix == "petXP" and 9 or 13},
+                        {"X", "X", -250, 250, 0},
+                        {"Y", "Y", -250, 250, 0},
+                        {"FontSize", "FONT", 7, 28, 10},
+                    }) do
+                        local field = prefix .. spec[1]
+                        local x = 20 + (i-1) * 96
+                        local caption = CreateLabel(panel, spec[2], "GameFontNormalSmall")
+                        caption:SetPoint("TOPLEFT", panel, "TOPLEFT", x, top - 23)
+                        caption:SetTextColor(1, 0.79, 0.42)
+                        local edit = CreateFrame("EditBox", nil, panel, "InputBoxTemplate")
+                        edit:SetSize(47, 22)
+                        edit:SetPoint("TOPLEFT", panel, "TOPLEFT", x, top - 42)
+                        edit:SetAutoFocus(false)
+                        local function current() return tonumber(own[field]) or spec[5] end
+                        local function apply(value)
+                            own[field] = math.max(spec[3], math.min(spec[4], math.floor(tonumber(value) or current())))
+                            edit:SetText(tostring(own[field]))
+                            if addon.UnitFrames then addon.UnitFrames:Refresh() end
+                        end
+                        edit:SetScript("OnEnterPressed", function(self) apply(self:GetText()); self:ClearFocus() end)
+                        edit:SetScript("OnEscapePressed", function(self) self:ClearFocus(); self:SetText(tostring(current())) end)
+                        edit:SetScript("OnEditFocusLost", function(self) self:SetText(tostring(current())) end)
+                        for j, delta in ipairs({1, -1}) do
+                            local btn = CreateFrame("Button", nil, panel)
+                            btn:SetSize(18, 12)
+                            btn:SetPoint("TOPLEFT", edit, "TOPRIGHT", 3, -(j-1)*12)
+                            local bg = btn:CreateTexture(nil, "BACKGROUND")
+                            bg:SetAllPoints()
+                            bg:SetColorTexture(0.23, 0.12, 0.065, 1)
+                            local glyph = CreateLabel(btn, delta == 1 and "+" or "-", "GameFontNormalSmall")
+                            glyph:SetPoint("CENTER")
+                            btn:SetScript("OnClick", function() apply(current() + delta) end)
+                        end
+                        refreshers[#refreshers+1] = function()
+                            if not edit:HasFocus() then edit:SetText(tostring(current())) end
+                        end
+                    end
+                end
+                petBarControl("petXP", "PET XP BAR", -640)
+                petBarControl("petCast", "PET CASTBAR", -735)
             end
             panel = groups["Bar Text"]
             local barTitle = CreateLabel(panel, "BAR TEXT", "GameFontNormalLarge")
