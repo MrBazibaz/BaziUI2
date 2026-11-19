@@ -465,11 +465,11 @@ local function createPetExtras(f)
     xp.text:SetPoint("CENTER")
     xp.text:SetTextColor(1, 0.9, 0.72)
     f.petXP = xp
-    -- Same layer as the portrait artwork: bronze OVERLAY renders above the
-    -- XP marks, so they become an inlaid background rather than an outer halo.
+    -- Draw XP marks above the bronze rim texture but below the level badge
+    -- and other indicators. Otherwise the opaque rim hides almost all ticks.
     local ring = CreateFrame("Frame", nil, f.portraitAnchor:GetParent())
     ring:SetAllPoints(f.portraitAnchor)
-    ring:SetFrameLevel(f.portraitAnchor:GetParent():GetFrameLevel())
+    ring:SetFrameLevel(f.portraitAnchor:GetParent():GetFrameLevel() + 1)
     ring:EnableMouse(false)
     ring.segments = {}
     ring.backgrounds = {}
