@@ -66,25 +66,25 @@ local function position(settings, key)
     return own
 end
 local function applyPosition(f, settings, key)
+    -- Boss units stack vertically at the right side of the screen.
+    -- Each member keeps its own independent X/Y offsets and spacing.
     local own = position(settings, key)
-    f:ClearAllPoints()
-    local index=tonumber(key:match("%d+")) or 1
-    local spacing=tonumber(settings.spacing) or 8
-    local total=0
-    for i=1,5 do
-        local member=settings.members and settings.members[i] or {}
-        total=total+(tonumber(member.width) or tonumber(member.barWidth) or 162)+62
-    end
-    for i=1,3 do
-        local member=settings.members and settings.members[i] or {}
-        total=total+(tonumber(member.spacing) or spacing)
-    end
-    local offset=0
+    local index = tonumber(key:match("%d+")) or 1
+    local x = tonumber(settings.x) or 300
+    local y = tonumber(settings.y) or 180
+    local offset = 0
     for i=1,index-1 do
-        local member=settings.members and settings.members[i] or {}
-        offset=offset+(tonumber(member.width) or tonumber(member.barWidth) or 162)+62+(tonumber(member.spacing) or spacing)
+        local member = settings.members and settings.members[i] or {}
+        local hp = tonumber(member.hpHeight) or tonumber(settings.hpHeight) or 23
+        local power = tonumber(member.powerHeight) or tonumber(settings.powerHeight) or 9
+        local height = math.max(48, hp + power + 16)
+        local gap = tonumber(member.spacing) or tonumber(settings.spacing) or 12
+        offset = offset + height + gap
     end
-    f:SetPoint("TOPLEFT",UIParent,"TOP", -total/2+offset+(tonumber(own.offsetX) or 0), -45+(tonumber(own.offsetY) or 0))
+    f:ClearAllPoints()
+    f:SetPoint("TOPLEFT", UIParent, "CENTER",
+        x + (tonumber(own.offsetX) or 0),
+        y - offset + (tonumber(own.offsetY) or 0))
 end
 function M:SetPosition(key, x, y)
     local settings = cfg()
