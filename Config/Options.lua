@@ -268,6 +268,218 @@ local function CreateQoLPage()
     return page
 end
 
+local function CreateMinimapPage()
+    local page = CreateFrame("Frame", nil, contentFrame)
+    page:SetAllPoints(contentFrame)
+    pages.Minimap = page
+    local db = addon.db.profile.minimap
+    local activeTab = "General"
+    local tabButtons = {}
+    local tabPanels = {}
+
+    local headingPanel = CreatePanel(page, -8, 76)
+    CreateSection(headingPanel, "MINIMAP", -12)
+    local enabled = CreateFrame("CheckButton", nil, headingPanel, "UICheckButtonTemplate")
+    enabled:SetSize(25, 25)
+    enabled:SetPoint("TOPLEFT", headingPanel, "TOPLEFT", 16, -41)
+    enabled:SetChecked(db.enabled)
+    local enabledLabel = CreateLabel(headingPanel, "Enable Minimap", "GameFontHighlight")
+    enabledLabel:SetPoint("LEFT", enabled, "RIGHT", 5, 0)
+    enabled:SetScript("OnClick", function(self)
+        db.enabled = not not self:GetChecked()
+        if addon.Minimap then addon.Minimap:Apply() end
+    end)
+
+    local main = CreatePanel(page, -100, 400)
+    -- Reserve a separate strip outside the content panel for protruding tabs.
+    main:ClearAllPoints()
+    main:SetPoint("TOPLEFT", page, "TOPLEFT", 12, -100)
+    main:SetPoint("TOPRIGHT", page, "TOPRIGHT", -12, -100)
+    main:SetPoint("BOTTOM", page, "BOTTOM", 0, 0)
+    if main.SetClipsChildren then main:SetClipsChildren(true) end
+    -- Text tabs use the same bronze borders and plum selection as categories.
+    local tabBar = CreateFrame("Frame", nil, page)
+    tabBar:SetPoint("TOPLEFT", main, "TOPRIGHT", 25, 0)
+    tabBar:SetFrameStrata("FULLSCREEN_DIALOG")
+    tabBar:SetSize(108, 145)
+
+    local function RefreshTabs()
+        for name, button in pairs(tabButtons) do
+            local selected = name == activeTab
+            button.fill:SetColorTexture(selected and 0.34 or 0.23,
+                selected and 0.17 or 0.12, selected and 0.25 or 0.07, 0.98)
+            button.label:SetTextColor(selected and 1 or 0.95,
+                selected and 0.85 or 0.80, selected and 0.55 or 0.66)
+            button.accent:SetColorTexture(selected and 0.83 or 0.54,
+                selected and 0.63 or 0.37, selected and 0.30 or 0.20, selected and 1 or 0.8)
+            for _, edge in ipairs(button.edges) do
+                edge:SetColorTexture(selected and 0.83 or 0.54,
+                    selected and 0.63 or 0.37, selected and 0.30 or 0.20, 0.95)
+            end
+        end
+        for name, panel in pairs(tabPanels) do panel:SetShown(name == activeTab) end
+    end
+
+    for i, name in ipairs({"General", "Map Info", "Buttons", "Visibility", "Fonts"}) do
+        local b = CreateFrame("Button", nil, tabBar)
+        b:SetSize(108, 29)
+        b:SetPoint("TOPLEFT", tabBar, "TOPLEFT", 0, -((i - 1) * 29))
+        b.fill = b:CreateTexture(nil, "BACKGROUND")
+        b.fill:SetAllPoints()
+        b.edges = {}
+        for _, side in ipairs({"TOP", "BOTTOM", "LEFT", "RIGHT"}) do
+            local edge = b:CreateTexture(nil, "OVERLAY")
+            if side == "TOP" then
+                edge:SetPoint("TOPLEFT"); edge:SetPoint("TOPRIGHT"); edge:SetHeight(1)
+            elseif side == "BOTTOM" then
+                edge:SetPoint("BOTTOMLEFT"); edge:SetPoint("BOTTOMRIGHT"); edge:SetHeight(1)
+            elseif side == "LEFT" then
+                edge:SetPoint("TOPLEFT"); edge:SetPoint("BOTTOMLEFT"); edge:SetWidth(1)
+            else
+                edge:SetPoint("TOPRIGHT"); edge:SetPoint("BOTTOMRIGHT"); edge:SetWidth(1)
+            end
+            b.edges[#b.edges + 1] = edge
+        end
+        -- Mirror the navigation accent: right edge for the right-side tabs.
+        b.accent = b:CreateTexture(nil, "OVERLAY")
+        b.accent:SetPoint("TOPRIGHT", b, "TOPRIGHT", 0, 0)
+        b.accent:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", 0, 0)
+        b.accent:SetWidth(3)
+        b.label = CreateLabel(b, name, "GameFontNormal")
+        b.label:SetPoint("LEFT", b, "LEFT", 12, 0)
+        b:SetScript("OnClick", function() activeTab = name; RefreshTabs() end)
+        b:SetScript("OnEnter", function()
+            if activeTab ~= name then b.fill:SetColorTexture(0.28, 0.15, 0.085, 0.98) end
+        end)
+        b:SetScript("OnLeave", RefreshTabs)
+        tabButtons[name] = b
+    end
+
+    local function NewTab(name)
+        local viewport = CreateFrame("ScrollFrame", nil, main)
+        viewport:SetPoint("TOPLEFT", main, "TOPLEFT", 10, -12)
+        viewport:SetPoint("BOTTOMRIGHT", main, "BOTTOMRIGHT", -10, 10)
+        if viewport.SetClipsChildren then viewport:SetClipsChildren(true) end
+        viewport:EnableMouseWheel(true)
+        local panel = CreateFrame("Frame", nil, viewport)
+        panel:SetHeight(600)
+        panel:SetWidth(math.max(1, viewport:GetWidth()))
+        viewport:SetScrollChild(panel)
+        viewport:SetScript("OnSizeChanged", function(self)
+            panel:SetWidth(math.max(1, self:GetWidth()))
+            local limit = math.max(0, panel:GetHeight() - self:GetHeight())
+            self:SetVerticalScroll(math.min(self:GetVerticalScroll(), limit))
+        end)
+        viewport:SetScript("OnMouseWheel", function(self, delta)
+            local limit = math.max(0, panel:GetHeight() - self:GetHeight())
+            self:SetVerticalScroll(math.max(0, math.min(limit, self:GetVerticalScroll() - delta * 36)))
+        end)
+        tabPanels[name] = viewport
+        return panel
+    end
+    local general = NewTab("General")
+    local mapInfo = NewTab("Map Info")
+    local buttons = NewTab("Buttons")
+    local visibility = NewTab("Visibility")
+    local fonts = NewTab("Fonts")
+
+    local function SimpleRow(parent, title, y)
+        local row = CreateFrame("Frame", nil, parent)
+        row:SetPoint("TOPLEFT", parent, "TOPLEFT", 0, y)
+        row:SetPoint("TOPRIGHT", parent, "TOPRIGHT", 0, y)
+        row:SetHeight(43)
+        local bg = row:CreateTexture(nil, "BACKGROUND")
+        bg:SetAllPoints()
+        bg:SetColorTexture(0.25, 0.125, 0.055, 0.9)
+        local label = CreateLabel(row, title, "GameFontNormal")
+        label:SetPoint("LEFT", row, "LEFT", 14, 0)
+        label:SetTextColor(1, 0.78, 0.39)
+        return row
+    end
+    local function Toggle(parent, title, y, key)
+        local row = SimpleRow(parent, title, y)
+        local check = CreateFrame("CheckButton", nil, row, "UICheckButtonTemplate")
+        check:SetPoint("RIGHT", row, "RIGHT", -15, 0)
+        check:SetChecked(db[key])
+        check:SetScript("OnClick", function(self)
+            db[key] = not not self:GetChecked()
+            if addon.Minimap then addon.Minimap:Apply() end
+        end)
+    end
+    local function Select(parent, title, y, key, values)
+        local row = SimpleRow(parent, title, y)
+        local button = CreateFrame("Button", nil, row)
+        button:SetSize(156, 24)
+        button:SetPoint("RIGHT", row, "RIGHT", -14, 0)
+        local fill = button:CreateTexture(nil, "BACKGROUND")
+        fill:SetAllPoints()
+        fill:SetColorTexture(0.12, 0.07, 0.045, 1)
+        local text = CreateLabel(button, "", "GameFontNormal")
+        text:SetPoint("CENTER")
+        local arrow = CreateLabel(button, "v", "GameFontHighlightSmall")
+        arrow:SetPoint("RIGHT", -6, 0)
+        local menu = CreateFrame("Frame", nil, button)
+        menu:SetFrameStrata("FULLSCREEN_DIALOG")
+        menu:SetFrameLevel(button:GetFrameLevel() + 20)
+        menu:SetPoint("TOPRIGHT", button, "BOTTOMRIGHT", 0, -2)
+        menu:SetSize(156, #values * 24 + 4)
+        local background = menu:CreateTexture(nil, "BACKGROUND")
+        background:SetAllPoints()
+        background:SetColorTexture(0.12, 0.07, 0.045, 1)
+        local function display()
+            for _, choice in ipairs(values) do
+                if db[key] == choice[1] then text:SetText(choice[2]); return end
+            end
+            text:SetText("Select...")
+        end
+        for i, choice in ipairs(values) do
+            local item = CreateFrame("Button", nil, menu)
+            item:SetPoint("TOPLEFT", menu, "TOPLEFT", 2, -2 - (i - 1) * 24)
+            item:SetPoint("TOPRIGHT", menu, "TOPRIGHT", -2, -2 - (i - 1) * 24)
+            item:SetHeight(24)
+            local label = CreateLabel(item, choice[2], "GameFontHighlightSmall")
+            label:SetPoint("LEFT", 8, 0)
+            item:SetScript("OnClick", function()
+                db[key] = choice[1]
+                display()
+                menu:Hide()
+                if addon.Minimap then addon.Minimap:Apply() end
+            end)
+        end
+        menu:Hide()
+        button:SetScript("OnClick", function() menu:SetShown(not menu:IsShown()) end)
+        display()
+    end
+    Select(general, "MAP SHAPE (RELOAD)", -4, "style",
+        {{"round", "Round"}, {"square", "Square"}})
+    Select(general, "AUTO ZOOM OUT", -49, "autoZoom",
+        {{0, "Off"}, {5, "5 seconds"}, {10, "10 seconds"}, {30, "30 seconds"}})
+    local note = CreateLabel(general,
+        "Map shape and Enable Minimap require /reload to restore Blizzard's map safely.",
+        "GameFontHighlightSmall")
+    note:SetPoint("TOPLEFT", general, "TOPLEFT", 12, -110)
+    note:SetWidth(340)
+    note:SetJustifyH("LEFT")
+    local function Planned(parent, title, description)
+        local heading = CreateLabel(parent, title, "GameFontNormalLarge")
+        heading:SetPoint("TOPLEFT", 14, -12)
+        local label = CreateLabel(parent, description, "GameFontHighlight")
+        label:SetPoint("TOPLEFT", 14, -49)
+        label:SetWidth(350)
+        label:SetJustifyH("LEFT")
+    end
+    Planned(mapInfo, "MAP INFO",
+        "Coordinates, FPS, latency and clock visibility will use FlareUI's original update and hover logic.")
+    Planned(buttons, "BUTTONS",
+        "Micro menu, movable group finder icon and minimap-button hover visibility are next.")
+    Planned(visibility, "VISIBILITY",
+        "Calendar, tracking, zone, clock, coordinates and search controls are next.")
+    Planned(fonts, "FONTS",
+        "Zone, clock and information text will inherit Global or use an individual font.")
+    RefreshTabs()
+    return page
+end
+
 local function CreateTooltipPage()
     local page = CreateFrame("Frame", nil, contentFrame)
     page:SetAllPoints(contentFrame)
@@ -1054,7 +1266,7 @@ function addon.Options:Create()
     CreatePlaceholderPage("Chat")
     CreatePlaceholderPage("Quest")
     CreatePlaceholderPage("Gathering")
-    CreatePlaceholderPage("Minimap")
+    CreateMinimapPage()
     CreateTooltipPage()
     CreatePlaceholderPage("Combat")
     CreatePlaceholderPage("BugTab")
