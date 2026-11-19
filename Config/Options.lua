@@ -419,7 +419,7 @@ local function CreateUnitFramesPage()
                 for _,refresh in ipairs(memberRefreshers) do refresh() end
             end
             local sourceKind, sourceIndex = "player", 1
-            local memberCount = key=="raid" and 40 or ((key=="party" or key=="boss") and 4 or 5)
+            local memberCount = key=="raid" and 40 or (key=="party" and 4 or 5)
             local function headerButton(parent,label,x,width)
                 local button=CreateFrame("Button",nil,parent)
                 button:SetSize(width,28)
