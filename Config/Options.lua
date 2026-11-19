@@ -405,6 +405,7 @@ local function CreateUnitFramesPage()
             local function refreshGroup()
                 if addon.GroupFrames then addon.GroupFrames:Refresh() end
                 if key=="boss" and addon.BossFrames then addon.BossFrames:Refresh() end
+                if key=="raid" and addon.RaidFrames then addon.RaidFrames:Refresh() end
             end
             local selectedMember = 1
             local memberRefreshers = {}
