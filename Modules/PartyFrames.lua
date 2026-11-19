@@ -28,6 +28,47 @@ local units = {
 local frames = {}
 local movers = {}
 local moving = false
+local groupMover
+local function refreshGroupMover()
+    local settings=cfg()
+    if not settings then return end
+    if not groupMover then
+        groupMover=CreateFrame("Button",nil,UIParent,"BackdropTemplate")
+        groupMover:SetSize(180,34)
+        groupMover:SetFrameStrata("DIALOG")
+        groupMover:SetBackdrop({bgFile="Interface\\Buttons\\WHITE8X8",edgeFile="Interface\\Tooltips\\UI-Tooltip-Border",edgeSize=12})
+        groupMover:SetBackdropColor(.22,.10,.32,.75)
+        groupMover:SetBackdropBorderColor(.85,.65,.35,1)
+        local title=groupMover:CreateFontString(nil,"OVERLAY","GameFontNormal")
+        title:SetPoint("CENTER")
+        title:SetText("Move Party Group")
+        groupMover:RegisterForDrag("LeftButton")
+        groupMover:SetScript("OnDragStart",function(self)
+            if InCombatLockdown and InCombatLockdown() then return end
+            local cx,cy=GetCursorPosition()
+            local scale=UIParent:GetEffectiveScale()
+            self.startX,self.startY=cx/scale,cy/scale
+            self.originalX=tonumber(settings.x) or 0
+            self.originalY=tonumber(settings.y) or 0
+        end)
+        groupMover:SetScript("OnDragStop",function(self)
+            if not self.startX or (InCombatLockdown and InCombatLockdown()) then return end
+            local cx,cy=GetCursorPosition()
+            local scale=UIParent:GetEffectiveScale()
+            local dx,dy=cx/scale-self.startX,cy/scale-self.startY
+            settings.x=math.floor(self.originalX+dx+.5)
+            settings.y=math.floor(self.originalY+dy+.5)
+            self.startX=nil
+            M:Refresh()
+        end)
+    end
+    groupMover:ClearAllPoints()
+    local first=frames["party1"]
+    if first then groupMover:SetPoint("BOTTOMLEFT",first,"TOPLEFT",0,4)
+    else groupMover:SetPoint("CENTER",UIParent,"CENTER") end
+    groupMover:SetShown(moving and settings.enabled~=false)
+end
+
 local previewIndicators = false
 local previewPetCast = false
 local auraPreview = {}
@@ -83,7 +124,7 @@ local function applyPosition(f, settings, key)
         local member=settings.members and settings.members[i] or {}
         offset=offset+(tonumber(member.width) or tonumber(member.barWidth) or 162)+62+(tonumber(member.spacing) or spacing)
     end
-    f:SetPoint("TOPLEFT",UIParent,"TOP", -total/2+offset+(tonumber(own.offsetX) or 0), -45+(tonumber(own.offsetY) or 0))
+    f:SetPoint("TOPLEFT",UIParent,"TOP", -total/2+offset+(tonumber(settings.x) or 0)+(tonumber(own.offsetX) or 0), -45+(tonumber(settings.y) or 0)+(tonumber(own.offsetY) or 0))
 end
 function M:SetPosition(key, x, y)
     local settings = cfg()
@@ -1398,6 +1439,7 @@ function M:Refresh()
             f:SetScale(1.15 * (settings.scale or 1))
         end
     end
+    refreshGroupMover()
 end
 function M:Initialize()
     if self.initialized then return end
