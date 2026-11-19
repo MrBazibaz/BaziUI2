@@ -103,7 +103,23 @@ function M:Refresh()
         if settings[key] then create(key, spec) end
         local f = frames[key]
         if f and not (InCombatLockdown and InCombatLockdown()) then
-            f:SetShown(settings[key] == true)
+            if settings[key] then
+                if key == "focus" or key == "target" or key == "pet" then
+                    if not f.visibilityRegistered and RegisterStateDriver then
+                        RegisterStateDriver(f, "visibility", "[@" .. key .. ",exists] show; hide")
+                        f.visibilityRegistered = true
+                    end
+                    if not f.visibilityRegistered then f:SetShown(UnitExists(key) == true) end
+                else
+                    f:Show()
+                end
+            else
+                if f.visibilityRegistered and UnregisterStateDriver then
+                    UnregisterStateDriver(f, "visibility")
+                    f.visibilityRegistered = false
+                end
+                f:Hide()
+            end
             if settings.scale then f:SetScale(settings.scale) end
         end
     end
