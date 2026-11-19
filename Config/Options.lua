@@ -551,7 +551,7 @@ local function CreateUnitFramesPage()
                 for label, button in pairs(sectionButtons) do
                     button.fill:SetColorTexture(label == selected and 0.36 or 0.25, label == selected and 0.20 or 0.13, label == selected and 0.28 or 0.07, 1)
                 end
-                root:SetHeight(selected == "Layout" and (key=="party" and 1180 or 610) or (selected=="Buffs / Debuffs" and key=="party" and 820 or 480))
+                root:SetHeight(selected == "Layout" and (key=="party" and 1180 or 610) or (selected=="Buffs / Debuffs" and key=="party" and 930 or 480))
                 viewport:SetVerticalScroll(0)
             end
             for i, label in ipairs({"Layout","Indicators","Bar Text","Fonts","Buffs / Debuffs"}) do
@@ -686,8 +686,8 @@ local function CreateUnitFramesPage()
                 end)
                 updateAnchor()
                 panel:SetHeight(530)
-            else
-                setting("Vertical offset","y",key=="boss" and 180 or -45,-500,500,5,16,-385,true)
+            elseif key=="boss" then
+                setting("Vertical offset","y",180,-500,500,5,16,-385,true)
             end
             local function groupRefresh()
                 if addon.GroupFrames then addon.GroupFrames:Refresh() end
@@ -707,6 +707,38 @@ local function CreateUnitFramesPage()
                 memberRefreshers[#memberRefreshers+1]=refresh
                 page:HookScript("OnShow",refresh)
             end
+            if key=="party" then
+                local function memberNudge(canvas,label,field,x,y)
+                    local caption=CreateLabel(canvas,label,"GameFontNormal")
+                    caption:SetPoint("TOPLEFT",canvas,"TOPLEFT",x,y)
+                    local value=CreateLabel(canvas,"","GameFontHighlight")
+                    value:SetPoint("LEFT",caption,"RIGHT",12,0)
+                    local function redraw() value:SetText(tostring(tonumber(memberValue(field,0)) or 0)) end
+                    for _,step in ipairs({-1,1}) do
+                        local b=CreateFrame("Button",nil,canvas,"UIPanelButtonTemplate")
+                        b:SetSize(28,22)
+                        b:SetPoint("TOPLEFT",canvas,"TOPLEFT",x+(step==-1 and 166 or 198),y+4)
+                        b:SetText(step==-1 and "-" or "+")
+                        b:SetScript("OnClick",function()
+                            memberSettings()[field]=(tonumber(memberValue(field,0)) or 0)+step
+                            redraw()
+                            groupRefresh()
+                        end)
+                    end
+                    memberRefreshers[#memberRefreshers+1]=redraw
+                    redraw()
+                end
+                memberNudge(sections.Layout,"NAME X","nameX",16,-1030)
+                memberNudge(sections.Layout,"NAME Y","nameY",260,-1030)
+                memberNudge(sections["Bar Text"],"HP TEXT X","hpTextX",16,-200)
+                memberNudge(sections["Bar Text"],"HP TEXT Y","hpTextY",260,-200)
+                memberNudge(sections["Bar Text"],"POWER TEXT X","powerTextX",16,-250)
+                memberNudge(sections["Bar Text"],"POWER TEXT Y","powerTextY",260,-250)
+                for i,item in ipairs({{"PVP","pvp"},{"LEADER","leader"},{"RAID","raid"},{"ROLE","role"}}) do
+                    memberNudge(sections.Indicators,item[1].." X",item[2].."X",16,-420-(i-1)*48)
+                    memberNudge(sections.Indicators,item[1].." Y",item[2].."Y",260,-420-(i-1)*48)
+                end
+            end
             panel=sections.Indicators
             CreateSection(panel,"INDICATORS",-12)
             CreateDivider(panel,-45)
@@ -723,7 +755,7 @@ local function CreateUnitFramesPage()
                 page:HookScript("OnShow",refresh)
             end
             groupToggle(panel,"Show names","showName",-75)
-            groupToggle(panel,"Show power bar","showPower",-115)
+            if key~="party" then groupToggle(panel,"Show power bar","showPower",-115) end
             groupToggle(panel,"PvP indicator","showPvP",-155)
             groupToggle(panel,"Group leader indicator","showLeader",-195)
             groupToggle(panel,"Raid target marker","showRaidMarker",-235)
@@ -764,7 +796,7 @@ local function CreateUnitFramesPage()
             panel=sections.Fonts
             CreateSection(panel,"FONTS",-12)
             CreateDivider(panel,-45)
-            groupSlider(panel,"NAME FONT SIZE","Size of the unit name (0 hides it)","fontSize",0,22,11,-65)
+            if key~="party" then groupSlider(panel,"NAME FONT SIZE","Size of the unit name (0 hides it)","fontSize",0,22,11,-65) end
             if key=="party" then
                 groupSlider(panel,"HP FONT SIZE","HP value text","hpFontSize",0,24,12,-140)
                 groupSlider(panel,"POWER FONT SIZE","Power value text","powerFontSize",0,24,11,-215)
@@ -776,10 +808,10 @@ local function CreateUnitFramesPage()
             if key=="party" then
                 local function auraSettings(kind,x)
                     local label=CreateLabel(panel,string.upper(kind),"GameFontNormal")
-                    label:SetPoint("TOPLEFT",panel,"TOPLEFT",x,-65)
+                    label:SetPoint("TOPLEFT",panel,"TOPLEFT",x,kind=="buffs" and -65 or -460)
                     local check=CreateFrame("CheckButton",nil,panel,"UICheckButtonTemplate")
                     check:SetSize(25,25)
-                    check:SetPoint("TOPLEFT",panel,"TOPLEFT",x,-100)
+                    check:SetPoint("TOPLEFT",panel,"TOPLEFT",x,kind=="buffs" and -100 or -495)
                     local text=CreateLabel(panel,"Enable "..kind,"GameFontHighlight")
                     text:SetPoint("LEFT",check,"RIGHT",5,0)
                     local function aura()
@@ -812,14 +844,14 @@ local function CreateUnitFramesPage()
                         memberRefreshers[#memberRefreshers+1]=sync
                         page:HookScript("OnShow",sync)
                     end
-                    auraSlider(string.upper(kind).." SIZE","size",24,12,48,kind=="buffs" and -155 or -440)
-                    auraSlider(string.upper(kind).." COUNT","count",12,1,40,kind=="buffs" and -220 or -505)
-                    auraSlider(string.upper(kind).." X","x",0,-250,250,kind=="buffs" and -285 or -570)
-                    auraSlider(string.upper(kind).." Y","y",kind=="buffs" and 32 or -58,-250,250,kind=="buffs" and -350 or -635)
+                    auraSlider(string.upper(kind).." SIZE","size",24,12,48,kind=="buffs" and -155 or -550)
+                    auraSlider(string.upper(kind).." COUNT","count",12,1,40,kind=="buffs" and -220 or -615)
+                    auraSlider(string.upper(kind).." X","x",0,-250,250,kind=="buffs" and -285 or -680)
+                    auraSlider(string.upper(kind).." Y","y",kind=="buffs" and 32 or -58,-250,250,kind=="buffs" and -350 or -745)
                 end
                 auraSettings("buffs",18)
                 auraSettings("debuffs",18)
-                root:SetHeight(820)
+                root:SetHeight(930)
             else
                 local note=CreateLabel(panel,"Aura containers for this group type are not yet implemented.","GameFontHighlight")
                 note:SetPoint("TOPLEFT",panel,"TOPLEFT",18,-72)

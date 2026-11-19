@@ -80,7 +80,7 @@ local function applyPosition(f, settings, key)
         local member=settings.members and settings.members[i] or {}
         offset=offset+(tonumber(member.width) or tonumber(member.barWidth) or 162)+62+spacing
     end
-    f:SetPoint("TOPLEFT",UIParent,"TOP", -total/2+offset+(tonumber(own.offsetX) or 0), (tonumber(settings.y) or -45)+(tonumber(own.offsetY) or 0))
+    f:SetPoint("TOPLEFT",UIParent,"TOP", -total/2+offset+(tonumber(own.offsetX) or 0), -45+(tonumber(own.offsetY) or 0))
 end
 function M:SetPosition(key, x, y)
     local settings = cfg()
@@ -1147,6 +1147,10 @@ local function updateSample(f,index)
     end
     f.value:SetText(previewText(own.hpText or (own.showHealthPercent and "{percent}" or "{current} / {max}"),sample.hp))
     f.powerText:SetText(previewText(own.powerText or (own.showPowerPercent and "{percent}" or "{current} / {max}"),sample.power))
+    f.pvpIcon:SetShown(own.showPvP~=false and index==3)
+    f.leaderIcon:SetShown(own.showLeader~=false and index==1)
+    f.raidIcon:SetShown(own.showRaidMarker~=false and index==4)
+    if index==4 and SetRaidTargetIconTexture then SetRaidTargetIconTexture(f.raidIcon,1) end
     if f.level then f.level:SetText("60") end
     local hpColors={WARRIOR={.78,.20,.19},PRIEST={.95,.95,.95},ROGUE={1,.96,.35},MAGE={.25,.78,.94}}
     local c=hpColors[sample.class] or {0.3,0.7,0.3}
