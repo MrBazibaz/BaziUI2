@@ -87,7 +87,13 @@ local function layout(f, settings)
     f.portraitAnchor:ClearAllPoints()
     f.portraitAnchor:SetPoint(side, f, side, centreX, centreY)
     f.rim:SetSize(rimSize, rimSize)
-    f.rimMask:SetSize(rimSize, rimSize)
+    -- FlareUI UnitFramesRing.lua: the Blizzard ring art is asymmetric.
+    -- Its clean circular crop is shifted toward the outside of the frame.
+    local maskDiameter = (0.49 + 0.585) * rimSize
+    local maskOffset = (0.585 - 0.49) * rimSize / 2
+    f.rimMask:SetSize(maskDiameter, maskDiameter)
+    f.rimMask:ClearAllPoints()
+    f.rimMask:SetPoint("CENTER", f.rim, "CENTER", side == "LEFT" and -maskOffset or maskOffset, 0)
     f.portrait:SetSize(innerSize, innerSize)
     f.portraitBack:SetSize(backSize, backSize)
     -- FlareUI uses a static portrait texture, not PlayerModel.
