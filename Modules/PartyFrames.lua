@@ -544,7 +544,7 @@ local function layout(f, settings)
     -- Preserve the original portrait dimensions, regardless of role scale.
     f.portrait:SetSize(innerSize,innerSize)
     f.portrait:ClearAllPoints()
-    f.portrait:SetPoint("CENTER",f.portraitAnchor,"CENTER",-1,0)
+    f.portrait:SetPoint("CENTER",f.portraitAnchor,"CENTER",0,0)
     if f.roleArt then
         local raw=tonumber(settings.rolePortraitScale) or 150
         local percent=raw<=5 and raw*100 or raw
@@ -564,8 +564,8 @@ local function layout(f, settings)
     -- The portrait texture stays full-size for a natural crop, but its mask
     -- must not extend over the outer rim (especially visible in solo preview).
     f.portraitMask:ClearAllPoints()
-    f.portraitMask:SetPoint("CENTER",f.portraitAnchor,"CENTER",-1,0)
-    f.portraitMask:SetSize(rimSize * 0.73, rimSize * 0.73)
+    f.portraitMask:SetPoint("CENTER",f.portraitAnchor,"CENTER",0,0)
+    f.portraitMask:SetSize(rimSize * 0.82, rimSize * 0.82)
     f.backMask:SetSize(backSize, backSize)
     for i, name in ipairs(indicatorNames) do
         local icon = f[name]
