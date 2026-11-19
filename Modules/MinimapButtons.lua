@@ -204,17 +204,17 @@ function M:Initialize()
     self.initialized = true
     makeLauncher()
     makeMenu()
-    -- FlareUI Modules/Minimap.lua, lines 973-1069: direct mouse implementation.
-    -- FlareUI defines MinimapFrame = _G.Minimap (line 31).
+    -- FlareUI Modules/Minimap.lua: map mouse system, ported as a unit.
+    -- Only the database accessor and menu construction differ.
     local MinimapFrame = _G.Minimap
+    local squareStyle = (db() or {}).style == "square"
     local surface
-    local function InBattleground()
-        local inInstance, kind = IsInInstance()
-        return inInstance and kind == "pvp" or false
+    local function HideMenu()
+        if M.Menu and M.Menu:IsShown() and not InCombatLockdown() then M.Menu:Hide() end
     end
     local function ToggleMenu()
-        local db = db()
-        if not (db and db.microMenu) then return end
+        local settings = db()
+        if not (settings and settings.microMenu) then return end
         if InCombatLockdown() then
             if UIErrorsFrame then UIErrorsFrame:AddMessage(ERR_NOT_IN_COMBAT or "Can't do that in combat", 1, 0.25, 0.25) end
             return
@@ -228,11 +228,15 @@ function M:Initialize()
         menu:SetPoint("TOPRIGHT", UIParent, "BOTTOMLEFT", x / scale, y / scale)
         menu:Show()
     end
+    local function InBattleground()
+        local inInstance, kind = IsInInstance()
+        return inInstance and kind == "pvp" or false
+    end
     local function UpdateMapMouse()
         if not surface then return end
-        local db = db()
-        local menu = db and db.microMenu and true or false
-        local ownPings = db and db.enabled and db.style == "square" and not InBattleground()
+        local settings = db()
+        local menu = settings and settings.microMenu and true or false
+        local ownPings = squareStyle and not InBattleground()
         surface:EnableMouse(menu or ownPings)
         if surface.SetPassThroughButtons and not InCombatLockdown() then
             local through = { "Button4", "Button5" }
@@ -247,31 +251,28 @@ function M:Initialize()
         local cx, cy = MinimapFrame:GetCenter()
         if not cx then return end
         x, y = x / scale - cx, y / scale - cy
-        local cfg = db()
-        if not (cfg and cfg.style == "square") and math.sqrt(x*x+y*y) >= MinimapFrame:GetWidth()/2 then return end
+        if not squareStyle and math.sqrt(x * x + y * y) >= MinimapFrame:GetWidth() / 2 then return end
         pcall(MinimapFrame.PingLocation, MinimapFrame, x, y)
     end
     local function CreateMapSurface()
         surface = CreateFrame("Frame", nil, MinimapFrame)
         surface:SetAllPoints(MinimapFrame)
-        surface:SetFrameStrata("HIGH")
-        surface:SetFrameLevel(100)
+        surface:SetFrameLevel(MinimapFrame:GetFrameLevel() + 10)
         if surface.SetMouseMotionEnabled then surface:SetMouseMotionEnabled(false) end
         if surface.SetPropagateMouseMotion then surface:SetPropagateMouseMotion(true) end
-        local cfg = db()
-        if cfg and cfg.style == "square" then
+        if squareStyle then
             surface:EnableMouseWheel(true)
             surface:SetScript("OnMouseWheel", function(_, delta)
                 if delta > 0 then Minimap_ZoomIn() elseif delta < 0 then Minimap_ZoomOut() end
             end)
         end
         surface:SetScript("OnMouseUp", function(_, button)
-            local cfg = db()
+            local settings = db()
             if button == "MiddleButton" then
-                if cfg and cfg.microMenu then ToggleMenu() end
+                if settings and settings.microMenu then ToggleMenu() end
                 return
             end
-            if cfg and cfg.style == "square" and not InBattleground() then Ping() end
+            if squareStyle and not InBattleground() then Ping() end
         end)
         UpdateMapMouse()
         local events = CreateFrame("Frame")
