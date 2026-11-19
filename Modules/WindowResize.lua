@@ -41,8 +41,8 @@ local function update(entry)
         entry.positionApplied = true
     end
     if entry.move then entry.move:SetShown(cfg.enabled and cfg.draggable ~= false and frame:IsShown()) end
-    if entry.left then entry.left:SetShown(cfg.enabled and cfg.draggable ~= false and frame:IsShown()) end
-    if entry.right then entry.right:SetShown(cfg.enabled and cfg.draggable ~= false and frame:IsShown()) end
+    if entry.left then entry.left:SetShown(cfg.enabled and frame:IsShown()) end
+    if entry.right then entry.right:SetShown(cfg.enabled and frame:IsShown()) end
 end
 local function install(key, name)
     if installed[name] then return end
@@ -125,7 +125,7 @@ local function install(key, name)
             local left, top = frame:GetLeft(), frame:GetTop()
             if left and top then
                 local scale = frame:GetEffectiveScale() / UIParent:GetEffectiveScale()
-                cfg.position = {x = left * scale, y = top * scale}
+                cfg.position = {x = math.floor(left * scale + 0.5), y = math.floor(top * scale + 0.5)}
                 entry.positionApplied = true
             end
         end
@@ -163,6 +163,39 @@ function M:SetScale(key, percent)
     local value = tonumber(percent)
     if not cfg or not value then return false end
     cfg.scale = math.floor(clamp(value / 100) * 100 + 0.5) / 100
+    self:Refresh()
+    return true
+end
+
+-- Coordinates use UIParent units, measured from its bottom-left corner.
+-- Y represents the window's top edge. Saved values are applied on the next
+-- refresh and whenever a window is loaded later.
+function M:GetPosition(key)
+    local cfg = settings(key)
+    if not cfg then return nil end
+    if cfg.position then return cfg.position.x, cfg.position.y end
+    for _, entry in ipairs(self.entries or {}) do
+        if entry.key == key then
+            local frame = _G[entry.frameName]
+            if frame and frame:GetLeft() and frame:GetTop() then
+                local scale = frame:GetEffectiveScale() / UIParent:GetEffectiveScale()
+                return math.floor(frame:GetLeft() * scale + 0.5),
+                    math.floor(frame:GetTop() * scale + 0.5)
+            end
+        end
+    end
+    return nil
+end
+function M:SetPosition(key, x, y)
+    local cfg = settings(key)
+    if not cfg or not cfg.enabled then return false end
+    if InCombatLockdown and InCombatLockdown() then return false end
+    x, y = tonumber(x), tonumber(y)
+    if not x or not y then return false end
+    cfg.position = {x = math.floor(x + 0.5), y = math.floor(y + 0.5)}
+    for _, entry in ipairs(self.entries or {}) do
+        if entry.key == key then entry.positionApplied = false end
+    end
     self:Refresh()
     return true
 end
