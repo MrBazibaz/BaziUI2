@@ -105,6 +105,13 @@ function M:Apply()
         if cfg.coords == "off" then cfg.coords = "always" end
         cfg.infoInitialized = true
     end
+    -- One-time correction for the earlier Bazi UI migration: it marked
+    -- coords initialized while leaving the dormant "off" default in place.
+    -- Preserve explicit Never selections made after this correction.
+    if not cfg.coordsMigrationV2 then
+        if cfg.coords == "off" and not cfg.hideCoordinates then cfg.coords = "always" end
+        cfg.coordsMigrationV2 = true
+    end
     if C_CVar and C_CVar.SetCVar then
         pcall(C_CVar.SetCVar, "minimapShowPlayerCoords", (cfg.coords == "off" or cfg.hideCoordinates) and "0" or "1")
     end
