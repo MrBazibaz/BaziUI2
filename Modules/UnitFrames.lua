@@ -89,6 +89,103 @@ local function unitSettings(settings, key)
     end
     return own
 end
+-- Blizzard-managed aura containers. Never read protected aura payloads in addon code.
+local auraAvailable
+local function ensureAuraLibrary()
+    if auraAvailable ~= nil then return auraAvailable end
+    if C_AddOns and C_AddOns.DoesAddOnExist and C_AddOns.DoesAddOnExist("Blizzard_AuraContainer")
+        and not C_AddOns.IsAddOnLoaded("Blizzard_AuraContainer") then
+        pcall(C_AddOns.LoadAddOn, "Blizzard_AuraContainer")
+    end
+    auraAvailable = true
+    return true
+end
+local function initializeAuraButton(button, size)
+    button:SetSize(size, size)
+    local icon = button:CreateTexture(nil, "ARTWORK")
+    icon:SetAllPoints()
+    icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+    local count = button:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    count:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", -1, 1)
+    local duration = button:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    duration:SetPoint("CENTER")
+    local cooldown = CreateFrame("Cooldown", nil, button, "CooldownFrameTemplate")
+    cooldown:SetAllPoints()
+    cooldown:SetHideCountdownNumbers(true)
+    pcall(button.SetIcon, button, icon)
+    pcall(button.SetApplicationCount, button, count, {})
+    if button.SetDurationText then pcall(button.SetDurationText, button, duration)
+    elseif button.SetAuraDurationText then pcall(button.SetAuraDurationText, button, duration) end
+    pcall(button.SetDurationCooldown, button, cooldown)
+end
+local function createLiveAuras(f)
+    if f.liveAuras or not ensureAuraLibrary() then return end
+    f.liveAuras = {}
+    for _, kind in ipairs({"buffs", "debuffs"}) do
+        local ok, container = pcall(CreateFrame, "AuraContainer", nil, f, "CustomAuraContainerTemplate")
+        if ok and container and type(container.AddAuraGroup) == "function" then
+            container:SetSize(1, 1)
+            container:SetFrameLevel(f:GetFrameLevel() + 10)
+            container:Hide()
+            local own = unitSettings(cfg() or {}, f.unit)
+            local opt = own["aura_" .. kind] or {}
+            local size = math.max(12, math.min(48, tonumber(opt.size) or 24))
+            local gap = math.max(0, math.min(20, tonumber(opt.spacing) or 2))
+            local count = math.max(1, math.min(40, tonumber(opt.count) or 12))
+            local options = {
+                maxFrameCount = count, candidateFilters = {},
+                initializeFrame = function(button) initializeAuraButton(button, size) end,
+                layout = { elementWidth=size, elementHeight=size,
+                    elementSpacing=gap, lineSpacing=gap, groupSpacing=gap, groupLineSpacing=gap },
+            }
+            local added = pcall(container.AddAuraGroup, container, kind,
+                kind == "buffs" and "HELPFUL" or "HARMFUL", options)
+            if added then
+                pcall(container.SetUnit, container, f.unit)
+                f.liveAuras[kind] = {frame=container, size=size, gap=gap, count=count}
+            end
+        end
+    end
+end
+local function updateLiveAuras(f)
+    if not f.liveAuras then return end
+    local own = unitSettings(cfg() or {}, f.unit)
+    for _, kind in ipairs({"buffs", "debuffs"}) do
+        local entry = f.liveAuras[kind]
+        if entry then
+            local c = entry.frame
+            local opt = own["aura_" .. kind] or {}
+            local enabled = opt.enabled
+            if enabled == nil then enabled = f.unit ~= "player" end
+            local size = math.max(12, math.min(48, tonumber(opt.size) or 24))
+            local gap = math.max(0, math.min(20, tonumber(opt.spacing) or 2))
+            local count = math.max(0, math.min(40, tonumber(opt.count) or 12))
+            local horizontal = opt.horizontal == "left" and "LEFT" or "RIGHT"
+            local vertical = opt.vertical == "up" and "UP" or "DOWN"
+            c:ClearAllPoints()
+            c:SetPoint("TOPLEFT", f, "TOPLEFT", tonumber(opt.x) or 0,
+                tonumber(opt.y) or (kind == "buffs" and 32 or -58))
+            if AnchorUtil and AnchorUtil.FlowDirection then
+                pcall(c.SetFlowLayoutAxis, c, AnchorUtil.FlowLayoutAxis.Horizontal)
+                pcall(c.SetFlowLayoutAnchorPoint, c, (vertical == "UP" and "BOTTOM" or "TOP") .. (horizontal == "LEFT" and "RIGHT" or "LEFT"))
+                pcall(c.SetFlowLayoutGrowthDirection, c,
+                    AnchorUtil.FlowDirection[horizontal == "LEFT" and "Left" or "Right"],
+                    AnchorUtil.FlowDirection[vertical == "UP" and "Up" or "Down"])
+            end
+            pcall(c.SetFlowLayoutMaximumLineSize, c, math.max(size, (size + gap) * math.max(1, math.min(20, tonumber(opt.perRow) or 6)) - gap))
+            if c.SetAuraGroupLayout then
+                pcall(c.SetAuraGroupLayout, c, kind, {
+                    elementWidth=size, elementHeight=size, elementSpacing=gap,
+                    lineSpacing=gap, groupSpacing=gap, groupLineSpacing=gap })
+            end
+            -- Group count is fixed at creation. Hide zero-count groups without deleting them.
+            local active = enabled and count > 0 and cfg() and cfg().enabled ~= false and cfg()[f.unit]
+            pcall(c.SetEnabled, c, active == true)
+            c:SetShown(active == true)
+            if active and c.UpdateAllAuras then pcall(c.UpdateAllAuras, c) end
+        end
+    end
+end
 local function updateAuraPreview(f)
     if not f then return end
     if not f.auraPreview then
@@ -867,6 +964,7 @@ local function create(key, spec)
     end)
     mover:Hide()
     movers[key] = mover
+    createLiveAuras(f)
     layout(f, unitSettings(cfg() or {}, key))
     update(f)
 end
@@ -908,6 +1006,7 @@ function M:Refresh()
         if f and not (InCombatLockdown and InCombatLockdown()) then
             layout(f, unitSettings(settings, key))
             updateAuraPreview(f)
+            updateLiveAuras(f)
             update(f)
             applyPosition(f, settings, key)
             if settings.enabled ~= false and settings[key] then
