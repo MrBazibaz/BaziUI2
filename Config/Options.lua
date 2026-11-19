@@ -479,19 +479,6 @@ local function CreateUnitFramesPage()
                 xField:SetText(tostring(own.x or ({player=-260,target=260,focus=260,pet=-260})[key]))
                 yField:SetText(tostring(own.y or ({player=-180,target=-180,focus=-250,pet=-250})[key]))
             end
-            local portraitToggle = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
-            portraitToggle:SetSize(25, 25)
-            portraitToggle:SetPoint("TOPLEFT", panel, "TOPLEFT", 18, -358)
-            local portraitLabel = CreateLabel(panel, "3D portrait (experimental)", "GameFontHighlight")
-            portraitLabel:SetPoint("LEFT", portraitToggle, "RIGHT", 5, 0)
-            portraitToggle:SetScript("OnClick", function(self)
-                own.portrait3D = not not self:GetChecked()
-                if addon.UnitFrames then addon.UnitFrames:Refresh() end
-            end)
-            page:HookScript("OnShow", function()
-                portraitToggle:SetChecked(own.portrait3D == true)
-            end)
-            portraitToggle:SetChecked(own.portrait3D == true)
             local choices = {}
             for _, candidate in ipairs({"Player","Target","Focus","Pet"}) do
                 if candidate ~= name then choices[#choices+1] = candidate end
@@ -523,7 +510,7 @@ local function CreateUnitFramesPage()
             local source = choices[1]
             local selector = CreateFrame("Button", nil, panel)
             selector:SetSize(155, 28)
-            selector:SetPoint("TOPLEFT", panel, "TOPLEFT", 20, -408)
+            selector:SetPoint("TOPLEFT", panel, "TOPLEFT", 20, -365)
             local selectorText = styleButton(selector, "From: " .. source .. "  v")
             local dropdown = CreateFrame("Frame", nil, panel)
             dropdown:SetSize(155, #choices * 27)
@@ -555,7 +542,7 @@ local function CreateUnitFramesPage()
             end)
             local note = CreateLabel(panel, "Copies appearance only. Frame position is preserved.", "GameFontHighlightSmall")
             note:SetTextColor(0.91, 0.78, 0.61, 1)
-            note:SetPoint("TOPLEFT", panel, "TOPLEFT", 20, -446)
+            note:SetPoint("TOPLEFT", panel, "TOPLEFT", 20, -405)
         end
     end
     page:HookScript("OnShow", function()
