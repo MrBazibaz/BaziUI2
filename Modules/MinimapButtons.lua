@@ -237,11 +237,11 @@ function M:Initialize()
         local settings = db()
         local menu = settings and settings.microMenu and true or false
         local ownPings = squareStyle and not InBattleground()
-        surface:EnableMouse(menu or ownPings)
+        surface:EnableMouse(ownPings)
         if surface.SetPassThroughButtons and not InCombatLockdown() then
             local through = { "Button4", "Button5" }
             if not ownPings then through[#through + 1] = "LeftButton"; through[#through + 1] = "RightButton" end
-            if not menu then through[#through + 1] = "MiddleButton" end
+            through[#through + 1] = "MiddleButton"
             surface:SetPassThroughButtons(unpack(through))
         end
     end
@@ -268,10 +268,7 @@ function M:Initialize()
         end
         surface:SetScript("OnMouseUp", function(_, button)
             local settings = db()
-            if button == "MiddleButton" then
-                if settings and settings.microMenu then ToggleMenu() end
-                return
-            end
+            if button == "MiddleButton" then return end
             if squareStyle and not InBattleground() then Ping() end
         end)
         UpdateMapMouse()
@@ -310,12 +307,27 @@ function M:Initialize()
             if button == "MiddleButton" then addon:Print("Diagnostic: surface mouse UP") end
         end)
     end
+    -- The runtime diagnostic proved GLOBAL_MOUSE_DOWN reaches the map while
+    -- the FlareUI-style overlay never receives OnMouseDown/OnMouseUp here.
+    -- Use the observed working event for the micro menu exclusively.
     local watcher = CreateFrame("Frame")
     watcher:RegisterEvent("GLOBAL_MOUSE_DOWN")
     watcher:SetScript("OnEvent", function(_, _, button)
-        if button == "MiddleButton" and map:IsMouseOver() then
-            addon:Print("Diagnostic: GLOBAL middle down over map")
-        end
+        if button ~= "MiddleButton" or not map:IsMouseOver() then return end
+        local settings = db()
+        if not settings or not settings.enabled or not settings.microMenu then return end
+        if InCombatLockdown and InCombatLockdown() then return end
+        local wasOpen = M.Menu and M.Menu:IsShown()
+        -- Defer until the current GLOBAL_MOUSE_DOWN dispatch has completed,
+        -- otherwise the menu's own outside-click handler can immediately hide it.
+        C_Timer.After(0, function()
+            if not M.Menu then return end
+            if wasOpen then
+                M.Menu:Hide()
+            elseif not M.Menu:IsShown() then
+                ToggleMenu()
+            end
+        end)
     end)
 
     if M.Launcher then
