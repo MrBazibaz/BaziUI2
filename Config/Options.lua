@@ -3422,7 +3422,13 @@ function addon.Options:Create()
         CreatePlaceholderPage("Profiles", "Profile management is not implemented yet. Your current settings are preserved.")
     end
     pageFactories.UnitFrames = CreateUnitFramesPage
-    pageFactories.Nameplates = function() CreatePlaceholderPage("Nameplates") end
+    pageFactories.Nameplates = function()
+        if addon.NameplatesOptions and addon.NameplatesOptions.CreatePage then
+            pages.Nameplates = addon.NameplatesOptions:CreatePage(contentFrame)
+        else
+            CreatePlaceholderPage("Nameplates")
+        end
+    end
     pageFactories.ActionBars = function() CreatePlaceholderPage("ActionBars") end
     pageFactories.Chat = function() CreatePlaceholderPage("Chat") end
     pageFactories.Quest = function() CreatePlaceholderPage("Quest") end
