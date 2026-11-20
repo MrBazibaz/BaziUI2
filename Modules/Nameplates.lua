@@ -9,6 +9,7 @@ local plateUnits = {} -- NAME_PLATE_UNIT_ADDED is the reliable source of unit to
 -- Save original text presentation so disabling Bazi UI restores Blizzard styling.
 local styledNames = {}
 local hiddenUnitFrames = {} -- reversible alpha override for the nameplate test
+local nativeNameTest = false -- session-only experiment; never saved to profile
 
 local function RestoreName(plate)
     local saved = styledNames[plate]
@@ -230,6 +231,13 @@ local function UpdatePlate(unit)
             marker.guild:Hide()
         end
     end
+    -- Native-name experiment: keep the nameplate anchor and class icon,
+    -- but remove all addon-generated text to reveal whether the engine
+    -- renders its normal world-space player name independently.
+    if nativeNameTest then
+        if marker.name then marker.name:Hide() end
+        if marker.guild then marker.guild:Hide() end
+    end
     marker:Show()
     -- Do not restyle hidden nameplate text in this experiment.
 end
@@ -411,4 +419,19 @@ SLASH_BAZIWORLDNAME1 = "/baziname"
 SlashCmdList.BAZIWORLDNAME = function()
     local ok, err = pcall(function() M:DebugWorldName() end)
     if not ok then addon:Print("World name diagnostic failed: " .. tostring(err)) end
+end
+
+
+-- Temporary, reversible native world-name visibility experiment.
+-- /bazinative toggles addon text without changing any saved settings.
+-- A nameplate may suppress the engine's native world name regardless of
+-- UnitFrame alpha. This test deliberately does not claim otherwise.
+SLASH_BAZINATIVENAME1 = "/bazinative"
+SlashCmdList.BAZINATIVENAME = function()
+    nativeNameTest = not nativeNameTest
+    M:Apply()
+    addon:Print("Native-name test " .. (nativeNameTest and "ON: addon name/guild hidden; icon and nameplate anchor retained." or "OFF: addon name/guild restored."))
+    if nativeNameTest then
+        addon:Print("Compare nearby friendly players with your pet. If player names disappear, native names are suppressed by active nameplates.")
+    end
 end
