@@ -471,66 +471,35 @@ end
 -- repair, quest or unknown NPC functions from their names.
 -- Prefer the same icon textures the minimap tracking menu uses.
 -- This API describes tracking categories, NOT individual NPC service flags.
-local function TrackingTexture(key)
-    if type(GetNumTrackingTypes) ~= "function" or type(GetTrackingInfo) ~= "function" then
-        return nil
-    end
-    local ok, result = pcall(function()
-        for i = 1, GetNumTrackingTypes() do
-            local name, texture = GetTrackingInfo(i)
-            if type(name) == "string" and texture then
-                local lower = name:lower()
-                if (key == "repair" and lower:find("repair", 1, true))
-                    or (key == "flight" and lower:find("flight", 1, true))
-                    or (key == "trainer" and lower:find("trainer", 1, true))
-                    or (key == "inn" and lower:find("innkeeper", 1, true))
-                    or (key == "bank" and lower:find("bank", 1, true))
-                    or (key == "vendor" and (lower:find("vendor", 1, true)
-                        or lower:find("auctioneer", 1, true))) then
-                    return texture
-                end
-            end
-        end
-    end)
-    return ok and result or nil
-end
-
+-- Native minimap tracking textures are directly addressable even when
+-- GetTrackingInfo / GetNumTrackingTypes do not exist on Forever.
+local NPC_SERVICE_TEXTURES = {
+    repair = "Interface\\Minimap\\Tracking\\Repair",
+    flight = "Interface\\Minimap\\Tracking\\FlightMaster",
+    inn = "Interface\\Minimap\\Tracking\\Innkeeper",
+    bank = "Interface\\Minimap\\Tracking\\Banker",
+    vendor = "Interface\\Minimap\\Tracking\\Food",
+    trainer = "Interface\\Icons\\INV_Misc_Book_09",
+}
 local function NPCServiceIcon(title, unit)
     local registry = BaziUI.NPCServices
     local roles = registry and registry.Get and registry:Get(unit)
-    local service
     if roles then
+        -- A repair-capable merchant gets the anvil rather than the bag.
         for _, key in ipairs({"repair", "flight", "trainer", "inn", "bank", "vendor"}) do
-            if roles[key] then service = key; break end
+            if roles[key] then return NPC_SERVICE_TEXTURES[key] end
         end
     end
-    if not service and not title then return nil end
-    local value = title and title:lower() or ""
-    if not service then
+    -- For NPCs missing from the pilot database, only explicit service
+    -- subtitles qualify. Never guess repair from "Bowyer".
+    if type(title) ~= "string" then return nil end
+    local value = title:lower()
     if value:find("flight master", 1, true) or value:find("gryphon master", 1, true)
-        or value:find("wind rider master", 1, true) then
-        service = "flight"
-    elseif value:find("repair", 1, true) or value:find("armorsmith", 1, true)
-        or value:find("blacksmith", 1, true) then
-        service = "repair"
-    elseif value:find("trainer", 1, true) then
-        service = "trainer"
-    elseif value:find("innkeeper", 1, true) then
-        service = "inn"
-    elseif value:find("banker", 1, true) then
-        service = "bank"
-    elseif value:find("supplies", 1, true)
-        or value:find("vendor", 1, true) or value:find("merchant", 1, true)
-        or value:find("goods", 1, true) then
-        service = "vendor"
-    end
-    end
-    if not service then return nil end
-    local native = TrackingTexture(service)
-    if native then return native end
-    -- Preserve the previously working icon if tracking APIs are absent.
-    if service == "vendor" then return "Interface\\Icons\\INV_Misc_Bag_10" end
-    if service == "trainer" then return "Interface\\Icons\\INV_Misc_Book_09" end
+        or value:find("wind rider", 1, true) then return NPC_SERVICE_TEXTURES.flight end
+    if value:find("innkeeper", 1, true) then return NPC_SERVICE_TEXTURES.inn end
+    if value:find("banker", 1, true) then return NPC_SERVICE_TEXTURES.bank end
+    if value:find("repair", 1, true) then return NPC_SERVICE_TEXTURES.repair end
+    if value:find("trainer", 1, true) then return NPC_SERVICE_TEXTURES.trainer end
     return nil
 end
 
