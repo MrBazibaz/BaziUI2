@@ -221,6 +221,11 @@ local function UpdatePlate(unit)
         marker.border:SetVertexColor(0.30, 0.26, 0.20, 0.80)
         marker.border:SetSize(30, 30)
         marker.textAnchor = CreateFrame("Frame", nil, plate)
+        -- Keep text fully opaque even when the nameplate fades at range.
+        -- The icon remains a normal child and retains Blizzard fading.
+        if marker.textAnchor.SetIgnoreParentAlpha then
+            marker.textAnchor:SetIgnoreParentAlpha(true)
+        end
         marker.textAnchor:SetSize(1, 1)
         marker.textAnchor:SetFrameLevel(plate:GetFrameLevel() + 11)
         marker.name = marker.textAnchor:CreateFontString(nil, "OVERLAY")
@@ -300,6 +305,7 @@ local function UpdatePlate(unit)
         if marker.guild then marker.guild:Hide() end
     end
     marker.textAnchor:SetScale(1)
+    marker.textAnchor:SetAlpha(1)
     marker:Show()
     marker.textAnchor:Show()
     -- Do not restyle hidden nameplate text in this experiment.
