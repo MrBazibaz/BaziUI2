@@ -176,16 +176,6 @@ local function UpdatePlate(unit)
         marker.icon:SetAllPoints()
         marker.name = marker:CreateFontString(nil, "OVERLAY")
         marker.name:SetJustifyH("CENTER")
-        marker.nameOutline = {}
-        marker.guildOutline = {}
-        for _, pair in ipairs({{"name", marker.name}, {"guild", marker.guild}}) do
-            for _, offset in ipairs({{-1, 0}, {1, 0}, {0, -1}, {0, 1}}) do
-                local layer = marker:CreateFontString(nil, "ARTWORK")
-                layer:SetJustifyH("CENTER")
-                layer:SetPoint("CENTER", pair[2], "CENTER", offset[1], offset[2])
-                marker[pair[1] .. "Outline"][#marker[pair[1] .. "Outline"] + 1] = layer
-            end
-        end
         marker.guild = marker:CreateFontString(nil, "OVERLAY")
         marker.guild:SetJustifyH("CENTER")
         active[plate] = marker
@@ -222,13 +212,8 @@ local function UpdatePlate(unit)
     local blue = math.max(0, math.min(255, tonumber(cfg.friendlyTextB) or 255)) / 255
     local x = math.max(-300, math.min(300, tonumber(cfg.friendlyTextX) or 0))
     local y = math.max(-300, math.min(300, tonumber(cfg.friendlyTextY) or -2))
-    local outlineOn = cfg.friendlyTextOutline == true
-    local outlineR = math.max(0, math.min(255, tonumber(cfg.friendlyOutlineR) or 0)) / 255
-    local outlineG = math.max(0, math.min(255, tonumber(cfg.friendlyOutlineG) or 0)) / 255
-    local outlineB = math.max(0, math.min(255, tonumber(cfg.friendlyOutlineB) or 0)) / 255
     for _, key in ipairs({"name", "guild"}) do
         local label = marker[key]
-        local layers = marker[key .. "Outline"]
         -- Use the client's working world-name font, then a known Blizzard
         -- font object as a fallback. Never reset the requested size.
         local ok, applied = pcall(label.SetFont, label, fontPath, size, "")
@@ -236,16 +221,9 @@ local function UpdatePlate(unit)
             local fallback = GameFontNormal and select(1, GameFontNormal:GetFont())
             if fallback then pcall(label.SetFont, label, fallback, size, "") end
         end
-        local actualFont, actualSize, actualFlags = label:GetFont()
         label:SetTextColor(red, green, blue, 1)
         label:SetShadowColor(0, 0, 0, 0.35)
         label:SetShadowOffset(0, 0)
-        for _, layer in ipairs(layers) do
-            if actualFont then pcall(layer.SetFont, layer, actualFont, actualSize or size, actualFlags or "") end
-            layer:SetTextColor(outlineR, outlineG, outlineB, 1)
-            layer:SetShadowOffset(0, 0)
-            layer:SetShown(outlineOn)
-        end
     end
     marker.name:ClearAllPoints()
     marker.name:SetPoint("TOP", marker, "BOTTOM", x, y)
@@ -254,11 +232,6 @@ local function UpdatePlate(unit)
     local displayName = UnitName(unit)
     if marker.name then
         marker.name:SetText(displayName or "")
-        for _, layer in ipairs(marker.nameOutline) do
-            layer:SetText(displayName or "")
-            layer:SetWidth(math.max(160, (cfg.friendlySize or 28) * 4))
-            layer:SetShown(outlineOn and not nativeNameTest)
-        end
         marker.name:SetWidth(math.max(160, (cfg.friendlySize or 28) * 4))
         marker.name:Show()
     end
@@ -268,19 +241,11 @@ local function UpdatePlate(unit)
         local guildName = GetGuildInfo and GetGuildInfo(unit)
         if type(guildName) == "string" and guildName ~= "" then
             marker.guild:SetText("<" .. guildName .. ">")
-            for _, layer in ipairs(marker.guildOutline) do
-                layer:SetText("<" .. guildName .. ">")
-                layer:SetWidth(math.max(200, (cfg.friendlySize or 28) * 5))
-                layer:SetShown(outlineOn and not nativeNameTest)
-            end
-            marker.guild:SetWidth(math.max(200, (cfg.friendlySize or 28) * 5))
+                marker.guild:SetWidth(math.max(200, (cfg.friendlySize or 28) * 5))
             marker.guild:Show()
         else
             marker.guild:SetText("")
-            for _, layer in ipairs(marker.guildOutline) do layer:Hide() end
-            marker.guild:Hide()
         end
-    end
     -- Native-name experiment: keep the nameplate anchor and class icon,
     -- but remove all addon-generated text to reveal whether the engine
     -- renders its normal world-space player name independently.
