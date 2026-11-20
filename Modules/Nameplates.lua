@@ -650,7 +650,7 @@ function M:Initialize()
     eventFrame:RegisterEvent("PLAYER_REGEN_DISABLED")
     eventFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
     eventFrame:RegisterEvent("UNIT_PET")
-    eventFrame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
+    -- Diagnostic: combat-log registration temporarily disabled to isolate taint.
     eventFrame:SetScript("OnEvent", function(_, event, unit, ...)
         if event == "COMBAT_LOG_EVENT_UNFILTERED" then
             if type(CombatLogGetCurrentEventInfo) == "function" then
