@@ -26,5 +26,6 @@ Modules\GroupFrames.lua
 Modules\PartyFrames.lua
 Modules\BossFrames.lua
 Modules\RaidFrames.lua
+Modules\NameplatesOptions.lua
 Config\Options.lua
 Core\Commands.lua
