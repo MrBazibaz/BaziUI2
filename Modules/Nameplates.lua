@@ -435,9 +435,9 @@ local function NonPlayerMarker(plate)
             and C_NamePlate.GetNamePlateForUnit(unit) ~= plate then return end
         local cfg = Config()
         if cfg and cfg.petIconVisibility == "combat" and self.isOwnPet then
-            -- Pet entering combat is not the same as the owner entering combat.
+            -- Combat-only visibility follows the player, not the pet.
             self.iconAnchor:SetShown(cfg.petShowIcon == true
-                and UnitExists("pet") and UnitAffectingCombat("pet"))
+                and UnitAffectingCombat("player"))
         end
         local frame = plate.UnitFrame
         if frame and frame.GetAlpha and frame.SetAlpha and frame:GetAlpha() ~= 0 then
@@ -508,7 +508,7 @@ UpdateNonPlayerPlate = function(unit, plate, cfg)
     local myPet = pet and UnitIsUnit(unit, "pet")
     marker.isOwnPet = myPet
     local iconVisible = myPet and cfg.petShowIcon == true
-        and (cfg.petIconVisibility ~= "combat" or UnitAffectingCombat("pet"))
+        and (cfg.petIconVisibility ~= "combat" or UnitAffectingCombat("player"))
     marker.iconAnchor:SetSize(cfg.friendlySize or 28, cfg.friendlySize or 28)
     marker.icon:SetSize((cfg.friendlySize or 28) * 0.95, (cfg.friendlySize or 28) * 0.95)
     marker.iconMask:SetSize((cfg.friendlySize or 28) * 0.95, (cfg.friendlySize or 28) * 0.95)
