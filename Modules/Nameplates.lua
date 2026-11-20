@@ -559,7 +559,8 @@ local function NonPlayerMarker(plate)
     -- remain untouched and are never reused for NPC service markers.
     marker.npcIcon = marker.iconAnchor:CreateTexture(nil, "OVERLAY", nil, 3)
     marker.npcIcon:SetPoint("CENTER", marker.iconAnchor, "CENTER")
-    marker.npcIcon:SetTexCoord(0, 1, 0, 1)
+    -- Crop the built-in item icon border; the artwork itself is still a fallback.
+    marker.npcIcon:SetTexCoord(0.16, 0.84, 0.16, 0.84)
     marker.npcIcon:Hide()
     nonPlayerMarkers[plate] = marker
     -- Blizzard may reset UnitFrame alpha after NAME_PLATE_UNIT_ADDED.
@@ -636,6 +637,15 @@ UpdateNonPlayerPlate = function(unit, plate, cfg)
         frame:SetAlpha(0)
     end
     local size = pet and (cfg.friendlyTextSize or 20) or 16
+    if not pet and plate.GetEffectiveScale and UIParent.GetEffectiveScale then
+        -- Font sizes are measured in the plate's scaled coordinates. Keep
+        -- NPC text at 16 effective UI pixels even when native plates scale up.
+        local plateScale = plate:GetEffectiveScale()
+        local uiScale = UIParent:GetEffectiveScale()
+        if plateScale and plateScale > 0 and uiScale and uiScale > 0 then
+            size = 16 * uiScale / plateScale
+        end
+    end
     for _, label in ipairs({marker.name, marker.owner}) do
         local font = UNIT_NAME_FONT
         local ok, applied = pcall(label.SetFont, label, font, size, "")
