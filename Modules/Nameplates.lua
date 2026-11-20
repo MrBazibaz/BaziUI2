@@ -324,7 +324,63 @@ local function UpdatePlate(unit)
     -- Do not restyle hidden nameplate text in this experiment.
 end
 
+-- Session-only visual preview. These are UI frames, not spoofed unit nameplates.
+local friendlyPreviewEnabled = false
+local friendlyPreview = {}
+local function RefreshFriendlyPreview()
+    local cfg = Config()
+    if not friendlyPreviewEnabled or not cfg or not cfg.enabled then
+        for _, frame in ipairs(friendlyPreview) do frame:Hide() end
+        return
+    end
+    local size = cfg.friendlySize or 28
+    for i, role in ipairs({"TANK", "HEALER", "DAMAGER"}) do
+        local frame = friendlyPreview[i]
+        if not frame then
+            frame = CreateFrame("Frame", nil, UIParent)
+            frame:SetFrameStrata("DIALOG")
+            frame.icon = frame:CreateTexture(nil, "ARTWORK", nil, 2)
+            frame.icon:SetPoint("CENTER")
+            frame.mask = frame:CreateMaskTexture()
+            frame.mask:SetTexture("Interface\\CHARACTERFRAME\\TempPortraitAlphaMask")
+            frame.mask:SetPoint("CENTER")
+            frame.icon:AddMaskTexture(frame.mask)
+            frame.rim = frame:CreateTexture(nil, "ARTWORK", nil, 1)
+            frame.rim:SetAtlas("UI-HUD-UnitFrame-Target-PortraitOn")
+            frame.rim:SetTexCoord(252.78/384, 375/384, 1.67/134, 123.89/134)
+            frame.rim:SetPoint("CENTER")
+            frame.rimMask = frame:CreateMaskTexture()
+            frame.rimMask:SetTexture("Interface\\CHARACTERFRAME\\TempPortraitAlphaMask",
+                "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
+            frame.rimMask:SetPoint("CENTER")
+            frame.rim:AddMaskTexture(frame.rimMask)
+            frame.label = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+            frame.label:SetPoint("TOP", frame, "BOTTOM", 0, -3)
+            friendlyPreview[i] = frame
+        end
+        frame:ClearAllPoints()
+        frame:SetPoint("CENTER", UIParent, "CENTER",
+            (i-2)*math.max(85,size*2.5)+(cfg.friendlyX or 0),
+            115+(cfg.friendlyY or 20))
+        frame:SetSize(size,size)
+        frame.icon:SetSize(size*.95,size*.95)
+        frame.mask:SetSize(size*.95,size*.95)
+        frame.rim:SetSize(size*1.08,size*1.08)
+        frame.rimMask:SetSize(size*1.08,size*1.08)
+        RoleTexture(frame.icon,role)
+        frame.label:SetText(role == "DAMAGER" and "DPS" or role)
+        frame:Show()
+    end
+end
+SLASH_BAZINPTEST1 = "/bazinptest"
+SlashCmdList.BAZINPTEST = function()
+    friendlyPreviewEnabled = not friendlyPreviewEnabled
+    RefreshFriendlyPreview()
+    addon:Print("Friendly nameplate role preview " .. (friendlyPreviewEnabled and "ON" or "OFF"))
+end
+
 function M:Apply()
+    RefreshFriendlyPreview()
     local cfg = Config()
     if not cfg or not cfg.enabled then
         for plate in pairs(active) do HidePlate(plate) end
