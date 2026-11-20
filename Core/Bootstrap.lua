@@ -51,6 +51,11 @@ function addon:OnInitialize()
         if not ok then self:Print("Unit Frames initialization failed: " .. tostring(err)) end
     end
 
+    if self.Nameplates and self.Nameplates.Initialize then
+        local ok, err = pcall(function() self.Nameplates:Initialize() end)
+        if not ok then self:Print("Nameplates initialization failed: " .. tostring(err)) end
+    end
+
     if self.ItemLevel and self.ItemLevel.Initialize then
         local ok, err = pcall(function() self.ItemLevel:Initialize() end)
         if not ok then self:Print("Item Level initialization failed: " .. tostring(err)) end
