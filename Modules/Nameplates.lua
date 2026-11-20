@@ -131,35 +131,16 @@ local function Friendly(unit)
     return UnitIsFriend("player", unit) and not UnitIsEnemy("player", unit)
 end
 
+local ROLE_TEXTURES = {
+    TANK = "Interface\\AddOns\\BaziUI\\Assets\\Icons\\Roles\\Role_Tank",
+    HEALER = "Interface\\AddOns\\BaziUI\\Assets\\Icons\\Roles\\Role_Healer",
+    DAMAGER = "Interface\\AddOns\\BaziUI\\Assets\\Icons\\Roles\\Role_DPS",
+}
 local function RoleTexture(icon, role)
-    -- Match the full-size Dungeon Finder role portraits in PartyFrames.lua,
-    -- not the low-resolution UI-LFG-ICON-PORTRAITROLES indicator sheet.
-    if role ~= "TANK" and role ~= "HEALER" and role ~= "DAMAGER" then
-        return false
-    end
-    local atlas
-    if type(GetIconForRole) == "function" then
-        local ok, value = pcall(GetIconForRole, role, false)
-        if ok and type(value) == "string" then atlas = value end
-    end
-    if not atlas then
-        local known = {
-            TANK = "UI-LFG-RoleIcon-Tank",
-            HEALER = "UI-LFG-RoleIcon-Healer",
-            DAMAGER = "UI-LFG-RoleIcon-DPS",
-        }
-        atlas = known[role]
-    end
-    if type(GetAtlasInfo) == "function" then
-        local ok, info = pcall(GetAtlasInfo, atlas)
-        if not ok or not info then return false end
-    end
-    if not icon.SetAtlas then return false end
-    local ok = pcall(icon.SetAtlas, icon, atlas, false)
-    if not ok then return false end
-    -- SetAtlas already supplies the atlas's correct texture coordinates.
-    -- Do not crop them: zooming the baked role portrait hid its central symbol.
-    -- The shared circular mask and Bazi gold rim handle the outer silhouette.
+    local texture = ROLE_TEXTURES[role]
+    if not texture then return false end
+    icon:SetTexture(texture)
+    icon:SetTexCoord(0, 1, 0, 1)
     return true
 end
 
@@ -284,21 +265,11 @@ local function UpdatePlate(unit)
     -- to its edge, showing roughly half the previous visible gold border.
     local iconSize = cfg.friendlySize or 28
     local rimSize = iconSize * 1.08
-    -- Restore original artwork size and center both artwork and mask.
-    -- Dungeon Finder role atlases already contain their own circular gold rim.
-    -- Draw them at the same outer diameter and center as class icons, without
-    -- stacking Bazi's separate rim on top of the embedded role rim.
-    local rolePortrait = iconMode == "role" and valid
-    -- Role atlases have more internal padding than class artwork.
-    -- Enlarge only the role texture, clipping it to the unchanged icon circle.
+    -- Friendly role and class portraits share identical dimensions and mask.
+    -- Our role PNGs have no Blizzard atlas shadow or built-in gold rim.
     local visibleSize = iconSize * 0.95
-    local artworkSize = rolePortrait and (visibleSize * 1.65) or visibleSize
-    marker.icon:SetSize(artworkSize, artworkSize)
-    -- The role atlas includes a soft outer shadow. Clip its enlarged art
-    -- inside the ring opening rather than letting the shadow reach the rim.
-    -- Class icon masks retain their approved size.
-    local maskSize = rolePortrait and (visibleSize * 0.86) or visibleSize
-    marker.iconMask:SetSize(maskSize, maskSize)
+    marker.icon:SetSize(visibleSize, visibleSize)
+    marker.iconMask:SetSize(visibleSize, visibleSize)
     marker.rim:SetSize(rimSize, rimSize)
     marker.rimMask:SetSize(rimSize, rimSize)
     marker.rim:Show()
