@@ -589,6 +589,23 @@ local function NonPlayerMarker(plate)
             petCombatEngaged = false
         end
         local cfg = Config()
+        if self.isNPC and self:GetParent() == UIParent then
+            local ok, x, top = pcall(function()
+                return plate:GetCenter(), plate:GetTop()
+            end)
+            if ok and type(x) == "number" and type(top) == "number" then
+                local scale = UIParent:GetEffectiveScale()
+                local plateScale = plate:GetEffectiveScale()
+                if scale > 0 then
+                    local offsetX = (cfg and cfg.friendlyTextX or 0)
+                    local offsetY = 18 + (cfg and cfg.friendlyTextY or 0)
+                    self:ClearAllPoints()
+                    self:SetPoint("TOP", UIParent, "BOTTOMLEFT",
+                        x * plateScale / scale + offsetX,
+                        top * plateScale / scale + offsetY)
+                end
+            end
+        end
         if self.isNPC and cfg and cfg.npcEnabled ~= false then
             local title = NPCSubtitle(unit)
             self.owner:SetText(title or "")
@@ -643,7 +660,7 @@ UpdateNonPlayerPlate = function(unit, plate, cfg)
         KeepNativePlateHidden(plate)
         frame:SetAlpha(0)
     end
-    local size = pet and (cfg.friendlyTextSize or 20) or NPC_FONT_SIZE
+    local size = cfg.friendlyTextSize or NPC_FONT_SIZE
     for _, label in ipairs({marker.name, marker.owner}) do
         local font = UNIT_NAME_FONT
         local ok, applied = pcall(label.SetFont, label, font, size, "")
@@ -660,8 +677,14 @@ UpdateNonPlayerPlate = function(unit, plate, cfg)
         label:SetShadowOffset(0, 0)
     end
     marker:ClearAllPoints()
-    marker:SetPoint("TOP", plate, "TOP", cfg.friendlyTextX or 0,
-        18 + (cfg.friendlyTextY or 0))
+    if pet then
+        marker:SetPoint("TOP", plate, "TOP", cfg.friendlyTextX or 0,
+            18 + (cfg.friendlyTextY or 0))
+    else
+        -- NPC text must not inherit the nameplate's distance-dependent scale.
+        -- Its anchor is updated in UIParent coordinates by the marker updater.
+        marker:SetPoint("CENTER", UIParent, "BOTTOMLEFT", 0, 0)
+    end
     marker.name:ClearAllPoints()
     marker.name:SetPoint("TOP", marker, "TOP", 0, 0)
     marker.name:SetWidth(math.max(160, (cfg.friendlySize or 28) * 4))
