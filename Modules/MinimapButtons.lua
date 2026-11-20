@@ -37,7 +37,9 @@ local function makeLauncher()
     -- and Blizzard's round tracking border (rather than a square highlight).
     local emblem = b:CreateTexture(nil, "ARTWORK")
     emblem:SetSize(25, 25)
-    emblem:SetPoint("CENTER", b, "CENTER", -4, 2)
+    -- TrackingBorder artwork is visually offset within its texture bounds.
+    -- Align the emblem with the visible gold ring, not the texture rectangle.
+    emblem:SetPoint("CENTER", b, "CENTER", -4, 9)
     emblem:SetTexture("Interface\\AddOns\\BaziUI\\Assets\\Icons\\BaziUI_Emblem_64.png")
     local border = b:CreateTexture(nil, "OVERLAY")
     border:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder")
