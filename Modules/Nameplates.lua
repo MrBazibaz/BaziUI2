@@ -47,14 +47,14 @@ local function ApproximateDistanceScale(unit)
         local ok, near = pcall(CheckInteractDistance, unit, 3)
         if ok and near then return 1 end
         local ok2, middle = pcall(CheckInteractDistance, unit, 2)
-        if ok2 and middle then return 0.86 end
+        if ok2 and middle then return 0.88 end
         local ok3, far = pcall(CheckInteractDistance, unit, 4)
-        if ok3 and far then return 0.56 end
-        if ok3 then return 0.26 end
+        if ok3 and far then return 0.69 end
+        if ok3 then return 0.48 end
     end
     if type(UnitInRange) == "function" then
         local ok, inRange, checked = pcall(UnitInRange, unit)
-        if ok and checked then return inRange and 0.68 or 0.26 end
+        if ok and checked then return inRange and 0.75 or 0.48 end
     end
     return 1
 end
@@ -62,7 +62,7 @@ end
 local function TextDistanceScale(unit)
     local distance = UnitDistance(unit)
     if distance then
-        return math.max(0.26, math.min(1, 1 - (distance - 8) * 0.024))
+        return math.max(0.48, math.min(1, 1 - (distance - 8) * 0.016))
     end
     return ApproximateDistanceScale(unit)
 end
@@ -308,7 +308,7 @@ local function UpdatePlate(unit)
     marker:Show()
     if marker.scaleUnit ~= unit then
         marker.scaleUnit = unit
-        marker.textAnchor:SetScale(math.min(0.26, TextDistanceScale(unit)))
+        marker.textAnchor:SetScale(TextDistanceScale(unit))
     end
     textScaleTargets[plate] = TextDistanceScale(unit)
     -- Do not restyle hidden nameplate text in this experiment.
@@ -377,7 +377,7 @@ function M:Initialize()
         -- Sample discrete range bands at a modest rate, but animate the
         -- resulting text scale every rendered frame. Previously both ran
         -- every 120ms, making individual size increments plainly visible.
-        local fraction = 1 - math.exp(-math.min(elapsed, 0.1) * 2.5)
+        local fraction = 1 - math.exp(-math.min(elapsed, 0.1) * 1.7)
         for plate, marker in pairs(active) do
             local unit = plateUnits[plate]
             if unit and marker:IsShown() and UnitExists(unit)
@@ -389,7 +389,12 @@ function M:Initialize()
                 local target = textScaleTargets[plate]
                 local current = marker.textAnchor:GetScale()
                 if math.abs(target - current) > 0.0001 then
-                    marker.textAnchor:SetScale(current + (target - current) * fraction)
+                    -- Cap per-frame growth so a range-band boundary never
+                    -- produces a sudden large jump in the rendered text.
+                    local delta = (target - current) * fraction
+                    local maxDelta = math.min(elapsed, 0.1) * 0.24
+                    delta = math.max(-maxDelta, math.min(maxDelta, delta))
+                    marker.textAnchor:SetScale(current + delta)
                 end
             end
         end
