@@ -184,7 +184,7 @@ local function UpdatePlate(unit)
                 applied = ok and success ~= false
             end
             if not applied then
-                label:SetFont("Fonts\\\\FRIZQT__.TTF", 14, "")
+                label:SetFont("Fonts\\FRIZQT__.TTF", 14, "")
             end
         end
         -- Recreate the restrained in-world name style beneath our icon.
@@ -205,12 +205,12 @@ local function UpdatePlate(unit)
         -- Same-color weight experiment: a slightly larger text layer behind
         -- the original. WoW's OUTLINE flag is black and cannot be recolored.
         marker.nameWeight = marker:CreateFontString(nil, "ARTWORK")
-        marker.nameWeight:SetFont("Fonts\\\\FRIZQT__.TTF", 14.6, "")
+        marker.nameWeight:SetFont("Fonts\\FRIZQT__.TTF", 14.6, "")
         marker.nameWeight:SetTextColor(0.36, 0.37, 0.88, 1)
         marker.nameWeight:SetJustifyH("CENTER")
         marker.nameWeight:SetPoint("CENTER", marker.name, "CENTER", 0, 0)
         marker.guildWeight = marker:CreateFontString(nil, "ARTWORK")
-        marker.guildWeight:SetFont("Fonts\\\\FRIZQT__.TTF", 14.6, "")
+        marker.guildWeight:SetFont("Fonts\\FRIZQT__.TTF", 14.6, "")
         marker.guildWeight:SetTextColor(0.36, 0.37, 0.88, 1)
         marker.guildWeight:SetJustifyH("CENTER")
         marker.guildWeight:SetPoint("CENTER", marker.guild, "CENTER", 0, 0)
