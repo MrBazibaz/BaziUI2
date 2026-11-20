@@ -272,8 +272,8 @@ local function UpdatePlate(unit)
     local iconSize = cfg.friendlySize or 28
     local rimSize = iconSize * 1.08
     -- Restore original artwork size and center both artwork and mask.
-    marker.icon:SetSize(iconSize, iconSize)
-    marker.iconMask:SetSize(iconSize, iconSize)
+    marker.icon:SetSize(iconSize * 0.98, iconSize * 0.98)
+    marker.iconMask:SetSize(iconSize * 0.98, iconSize * 0.98)
     marker.rim:SetSize(rimSize, rimSize)
     marker.rimMask:SetSize(rimSize, rimSize)
     -- Keep the approved single-layer appearance. The user selected size 20.
