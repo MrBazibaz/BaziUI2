@@ -179,6 +179,7 @@ local function HidePlate(plate)
     RestoreName(plate)
 end
 
+local nonPlayerMarkers = {} -- separate, reversible pet/NPC overlays
 local UpdateNonPlayerPlate -- defined below; separate from approved Friendly Player logic
 local function UpdatePlate(unit)
     if not (C_NamePlate and C_NamePlate.GetNamePlateForUnit) then return end
@@ -192,11 +193,14 @@ local function UpdatePlate(unit)
     end
     if not cfg or not cfg.enabled or cfg.friendlyIcon == "off" or not Friendly(unit) then
         HidePlate(plate)
+        if nonPlayerMarkers[plate] then nonPlayerMarkers[plate]:Hide() end
         return
     end
 
     -- Scope filters icons only. Keep the configured name/guild styling
     -- on every friendly player regardless of group membership.
+    local staleNonPlayer = nonPlayerMarkers[plate]
+    if staleNonPlayer then staleNonPlayer:Hide() end
     local showIcon = cfg.friendlyScope ~= "group" or InGroup(unit)
     local iconMode = cfg.friendlyIcon or "role"
     local role
@@ -331,7 +335,6 @@ local function UpdatePlate(unit)
 end
 
 -- Pet and NPC text-only plates. Friendly player rendering above is unchanged.
-local nonPlayerMarkers = {}
 local function PetOwner(unit)
     if UnitIsUnit(unit, "pet") then return "player" end
     for i = 1, 4 do
