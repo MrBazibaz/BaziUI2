@@ -48,7 +48,9 @@ local function makeLauncher()
     local border = b:CreateTexture(nil, "OVERLAY")
     border:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder")
     border:SetSize(52, 52)
-    border:SetPoint("CENTER", visualCenter, "CENTER", 0, 0)
+    -- Blizzard's 52px tracking-border texture has off-center visible artwork.
+    -- Shift only the ring; the approved emblem and hover highlight stay put.
+    border:SetPoint("CENTER", visualCenter, "CENTER", 16, -16)
     local glow = b:CreateTexture(nil, "HIGHLIGHT")
     glow:SetTexture("Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight")
     glow:SetBlendMode("ADD")
