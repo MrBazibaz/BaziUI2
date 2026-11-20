@@ -221,6 +221,13 @@ local function UpdatePlate(unit)
         marker.rim:SetAtlas("UI-HUD-UnitFrame-Target-PortraitOn")
         marker.rim:SetTexCoord(252.78 / 384, 375 / 384, 1.67 / 134, 123.89 / 134)
         marker.rim:SetPoint("CENTER", marker, "CENTER")
+        -- The portrait implementation also masks the ring itself.
+        -- Without this, the atlas crop exposes a rectangular strip on the left.
+        marker.rimMask = marker:CreateMaskTexture()
+        marker.rimMask:SetTexture("Interface\\CHARACTERFRAME\\TempPortraitAlphaMask",
+            "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
+        marker.rimMask:SetPoint("CENTER", marker.rim, "CENTER")
+        marker.rim:AddMaskTexture(marker.rimMask)
         marker.textAnchor = CreateFrame("Frame", nil, plate)
         -- Keep text fully opaque even when the nameplate fades at range.
         -- The icon remains a normal child and retains Blizzard fading.
@@ -260,10 +267,11 @@ local function UpdatePlate(unit)
     marker:ClearAllPoints()
     marker:SetPoint("BOTTOM", anchor, "TOP", cfg.friendlyX or 0, cfg.friendlyY or 20)
     marker:SetSize(cfg.friendlySize or 28, cfg.friendlySize or 28)
-    -- The unit-frame ring is 62 px around a 48 px portrait.
-    -- Slightly reduce that ratio for nameplate icons to keep the rim subtle.
-    marker.rim:SetSize((cfg.friendlySize or 28) * 1.16,
-        (cfg.friendlySize or 28) * 1.16)
+    -- Keep the icon at its configured size but tuck the portrait rim closer
+    -- to its edge, showing roughly half the previous visible gold border.
+    local rimSize = (cfg.friendlySize or 28) * 1.08
+    marker.rim:SetSize(rimSize, rimSize)
+    marker.rimMask:SetSize(rimSize, rimSize)
     -- Keep the approved single-layer appearance. The user selected size 20.
     -- FontString text inherits the nameplate's frame transforms.
     for _, label in ipairs({marker.name, marker.guild}) do
