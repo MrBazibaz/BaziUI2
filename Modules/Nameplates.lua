@@ -103,6 +103,20 @@ local function StyleName(plate, unit)
     if next(saved) then styledNames[plate] = saved end
 end
 local eventFrame = CreateFrame("Frame")
+-- An attack order can flag player combat before either unit actually fights.
+local petCombatEngaged = false
+local function PetCombatLogInteraction(...)
+    local _, subevent, _, sourceGUID, _, _, _, destGUID = ...
+    if type(subevent) ~= "string" then return end
+    if not (subevent:match("_DAMAGE$") or subevent:match("_MISSED$")
+        or subevent == "SPELL_INTERRUPT") then return end
+    local playerGUID = UnitGUID("player")
+    local petGUID = UnitExists("pet") and UnitGUID("pet") or nil
+    if (sourceGUID and (sourceGUID == playerGUID or sourceGUID == petGUID))
+        or (destGUID and (destGUID == playerGUID or destGUID == petGUID)) then
+        petCombatEngaged = true
+    end
+end
 
 local function Config()
     local profile = addon.db and addon.db.profile
@@ -435,9 +449,9 @@ local function NonPlayerMarker(plate)
             and C_NamePlate.GetNamePlateForUnit(unit) ~= plate then return end
         local cfg = Config()
         if cfg and cfg.petIconVisibility == "combat" and self.isOwnPet then
-            -- Combat-only visibility follows the player, not the pet.
+            -- Combat begins on an actual attack or hit, not an attack order.
             self.iconAnchor:SetShown(cfg.petShowIcon == true
-                and UnitAffectingCombat("player"))
+                and petCombatEngaged)
         end
         local frame = plate.UnitFrame
         if frame and frame.GetAlpha and frame.SetAlpha and frame:GetAlpha() ~= 0 then
@@ -508,7 +522,7 @@ UpdateNonPlayerPlate = function(unit, plate, cfg)
     local myPet = pet and UnitIsUnit(unit, "pet")
     marker.isOwnPet = myPet
     local iconVisible = myPet and cfg.petShowIcon == true
-        and (cfg.petIconVisibility ~= "combat" or UnitAffectingCombat("player"))
+        and (cfg.petIconVisibility ~= "combat" or petCombatEngaged)
     marker.iconAnchor:SetSize(cfg.friendlySize or 28, cfg.friendlySize or 28)
     marker.icon:SetSize((cfg.friendlySize or 28) * 0.95, (cfg.friendlySize or 28) * 0.95)
     marker.iconMask:SetSize((cfg.friendlySize or 28) * 0.95, (cfg.friendlySize or 28) * 0.95)
@@ -659,7 +673,18 @@ function M:Initialize()
     eventFrame:RegisterEvent("PLAYER_REGEN_DISABLED")
     eventFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
     eventFrame:RegisterEvent("UNIT_PET")
-    eventFrame:SetScript("OnEvent", function(_, event, unit)
+    eventFrame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
+    eventFrame:SetScript("OnEvent", function(_, event, unit, ...)
+        if event == "COMBAT_LOG_EVENT_UNFILTERED" then
+            if type(CombatLogGetCurrentEventInfo) == "function" then
+                PetCombatLogInteraction(CombatLogGetCurrentEventInfo())
+            else
+                PetCombatLogInteraction(unit, ...)
+            end
+            return
+        elseif event == "PLAYER_REGEN_ENABLED" or event == "PLAYER_ENTERING_WORLD" then
+            petCombatEngaged = false
+        end
         if event == "NAME_PLATE_UNIT_ADDED" then
             UpdatePlate(unit)
         elseif event == "NAME_PLATE_UNIT_REMOVED" then
