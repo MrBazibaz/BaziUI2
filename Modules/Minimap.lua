@@ -8,6 +8,22 @@ local SQUARE_MASK = "Interface\\BUTTONS\\WHITE8X8"
 local MAP_SIZE, MAP_CROP, FRAME_PAD = 244, 4, 8
 local BRONZE_OUT = {left = 9, right = 7, top = 11, bottom = 8}
 local timer, square, applying, refreshQueued
+-- Track temporary minimap offsets used by node/quest hover scanners.
+-- FlareUI preserves these offsets when applying its square layout.
+local scanX, scanY = 0, 0
+local function scanAway()
+    return math.abs(scanX) > 0.01 or math.abs(scanY) > 0.01
+end
+local function watchScanOffsets()
+    if not map or not map.AdjustPointsOffset or not hooksecurefunc then return end
+    hooksecurefunc(map, "AdjustPointsOffset", function(_, dx, dy)
+        if type(dx) ~= "number" or type(dy) ~= "number" then return end
+        if issecretvalue and (issecretvalue(dx) or issecretvalue(dy)) then return end
+        scanX, scanY = scanX + dx, scanY + dy
+        if not scanAway() then scanX, scanY = 0, 0 end
+    end)
+end
+
 local hidden = CreateFrame("Frame")
 hidden:Hide()
 
@@ -270,7 +286,7 @@ local function layout()
     cluster:SetSize(MAP_SIZE + FRAME_PAD * 2, MAP_SIZE + FRAME_PAD * 2)
     map:SetSize(MAP_SIZE - MAP_CROP * 2, MAP_SIZE - MAP_CROP * 2)
     map:ClearAllPoints()
-    map:SetPoint("CENTER", cluster, "CENTER")
+    -- Preserve temporary offsets so external scanners can restore the map.\n    map:SetPoint("CENTER", cluster, "CENTER", scanX, scanY)
     setSquareMask()
     headerLayout()
     placeSun()
@@ -316,7 +332,7 @@ function MM:Initialize()
     self.initialized = true
     local cfg = db()
     if not cfg or not cfg.enabled or not map then return end
-    square = cfg.style == "square"
+    square = cfg.style == "square"\n    watchScanOffsets()
     if square then
         layout()
         if EventUtil and EventUtil.ContinueOnAddOnLoaded then
