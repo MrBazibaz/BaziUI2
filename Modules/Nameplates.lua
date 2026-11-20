@@ -247,10 +247,10 @@ local function UpdatePlate(unit)
     -- FontString text inherits the nameplate's frame transforms.
     for _, label in ipairs({marker.name, marker.guild}) do
         local font = UNIT_NAME_FONT
-        local ok, applied = pcall(label.SetFont, label, font, 20, "")
+        local ok, applied = pcall(label.SetFont, label, font, cfg.friendlyTextSize or 20, "")
         if not ok or applied == false then
             local fallback = GameFontNormal and select(1, GameFontNormal:GetFont())
-            if fallback then pcall(label.SetFont, label, fallback, 20, "") end
+            if fallback then pcall(label.SetFont, label, fallback, cfg.friendlyTextSize or 20, "") end
         end
         label:SetTextColor(115 / 255, 115 / 255, 217 / 255, 1)
         label:SetShadowColor(0, 0, 0, 0.35)
