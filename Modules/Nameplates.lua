@@ -411,14 +411,14 @@ local function NonPlayerMarker(plate)
     marker.iconMask:SetTexture("Interface\\CHARACTERFRAME\\TempPortraitAlphaMask")
     marker.iconMask:SetPoint("CENTER", marker.iconAnchor, "CENTER", 0, 0)
     marker.icon:AddMaskTexture(marker.iconMask)
-    marker.rim = marker:CreateTexture(nil, "OVERLAY", nil, 1)
+    marker.rim = marker.iconAnchor:CreateTexture(nil, "OVERLAY", nil, 1)
     marker.rim:SetAtlas("UI-HUD-UnitFrame-Target-PortraitOn")
     marker.rim:SetTexCoord(252.78 / 384, 375 / 384, 1.67 / 134, 123.89 / 134)
     marker.rim:SetPoint("CENTER", marker.iconAnchor, "CENTER", 0, 0)
-    marker.rimMask = marker:CreateMaskTexture()
+    marker.rimMask = marker.iconAnchor:CreateMaskTexture()
     marker.rimMask:SetTexture("Interface\\CHARACTERFRAME\\TempPortraitAlphaMask",
         "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
-    marker.rimMask:SetPoint("CENTER", marker.rim, "CENTER")
+    marker.rimMask:SetPoint("CENTER", marker.iconAnchor, "CENTER", 0, 0)
     marker.rim:AddMaskTexture(marker.rimMask)
     nonPlayerMarkers[plate] = marker
     -- Blizzard may reset UnitFrame alpha after NAME_PLATE_UNIT_ADDED.
@@ -433,6 +433,12 @@ local function NonPlayerMarker(plate)
         if not unit or not UnitExists(unit) or UnitIsPlayer(unit) then return end
         if C_NamePlate and C_NamePlate.GetNamePlateForUnit
             and C_NamePlate.GetNamePlateForUnit(unit) ~= plate then return end
+        local cfg = Config()
+        if cfg and cfg.petIconVisibility == "combat" and self.isOwnPet then
+            -- Pet entering combat is not the same as the owner entering combat.
+            self.iconAnchor:SetShown(cfg.petShowIcon == true
+                and UnitExists("pet") and UnitAffectingCombat("pet"))
+        end
         local frame = plate.UnitFrame
         if frame and frame.GetAlpha and frame.SetAlpha and frame:GetAlpha() ~= 0 then
             frame:SetAlpha(0)
@@ -500,8 +506,9 @@ UpdateNonPlayerPlate = function(unit, plate, cfg)
     marker.owner:SetShown(pet and ownerText ~= nil and ownerText ~= "")
     -- Only the player's own pet can ever display a portrait-style icon.
     local myPet = pet and UnitIsUnit(unit, "pet")
+    marker.isOwnPet = myPet
     local iconVisible = myPet and cfg.petShowIcon == true
-        and (cfg.petIconVisibility ~= "combat" or UnitAffectingCombat("player"))
+        and (cfg.petIconVisibility ~= "combat" or UnitAffectingCombat("pet"))
     marker.iconAnchor:SetSize(cfg.friendlySize or 28, cfg.friendlySize or 28)
     marker.icon:SetSize((cfg.friendlySize or 28) * 0.95, (cfg.friendlySize or 28) * 0.95)
     marker.iconMask:SetSize((cfg.friendlySize or 28) * 0.95, (cfg.friendlySize or 28) * 0.95)
