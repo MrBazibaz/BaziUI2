@@ -5,6 +5,7 @@ local addon = BaziUI
 addon.Nameplates = addon.Nameplates or {}
 local M = addon.Nameplates
 local active = {}
+local plateUnits = {} -- NAME_PLATE_UNIT_ADDED is the reliable source of unit tokens.
 local hiddenNames = {} -- FontStrings changed by this experiment, with original alpha.
 
 local function RestoreName(plate)
@@ -111,6 +112,7 @@ local function UpdatePlate(unit)
     if not (C_NamePlate and C_NamePlate.GetNamePlateForUnit) then return end
     local plate = C_NamePlate.GetNamePlateForUnit(unit)
     if not plate then return end
+    plateUnits[plate] = unit
     local cfg = Config()
     if not cfg or not cfg.enabled or cfg.friendlyIcon == "off" or not Friendly(unit)
         or (cfg.friendlyScope == "group" and not InGroup(unit)) then
@@ -160,10 +162,25 @@ function M:Apply()
         for plate in pairs(hiddenNames) do RestoreName(plate) end
         return
     end
+    -- A nameplate frame does not reliably expose namePlateUnitToken on this
+    -- client. Retain the token from NAME_PLATE_UNIT_ADDED instead of hiding
+    -- existing markers whenever a setting changes.
+    for plate, unit in pairs(plateUnits) do
+        if C_NamePlate and C_NamePlate.GetNamePlateForUnit
+            and C_NamePlate.GetNamePlateForUnit(unit) == plate then
+            UpdatePlate(unit)
+        else
+            plateUnits[plate] = nil
+            HidePlate(plate)
+        end
+    end
+    -- Also discover plates that existed before this module initialized.
     if C_NamePlate and C_NamePlate.GetNamePlates then
         for _, plate in ipairs(C_NamePlate.GetNamePlates()) do
-            local unit = plate.namePlateUnitToken
-            if unit then UpdatePlate(unit) else HidePlate(plate) end
+            if not plateUnits[plate] then
+                local unit = plate.namePlateUnitToken
+                if unit then UpdatePlate(unit) end
+            end
         end
     end
 end
@@ -182,7 +199,10 @@ function M:Initialize()
         elseif event == "NAME_PLATE_UNIT_REMOVED" then
             if C_NamePlate and C_NamePlate.GetNamePlateForUnit then
                 local plate = C_NamePlate.GetNamePlateForUnit(unit)
-                if plate then HidePlate(plate) end
+                if plate then
+                    plateUnits[plate] = nil
+                    HidePlate(plate)
+                end
             end
         else
             M:Apply()
