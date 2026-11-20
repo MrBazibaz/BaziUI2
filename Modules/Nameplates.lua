@@ -50,11 +50,11 @@ local function ApproximateDistanceScale(unit)
         if ok2 and middle then return 0.88 end
         local ok3, far = pcall(CheckInteractDistance, unit, 4)
         if ok3 and far then return 0.69 end
-        if ok3 then return 0.48 end
+        if ok3 then return 0.38 end
     end
     if type(UnitInRange) == "function" then
         local ok, inRange, checked = pcall(UnitInRange, unit)
-        if ok and checked then return inRange and 0.75 or 0.48 end
+        if ok and checked then return inRange and 0.70 or 0.38 end
     end
     return 1
 end
@@ -62,7 +62,7 @@ end
 local function TextDistanceScale(unit)
     local distance = UnitDistance(unit)
     if distance then
-        return math.max(0.48, math.min(1, 1 - (distance - 8) * 0.016))
+        return math.max(0.38, math.min(1, 1 - (distance - 8) * 0.019))
     end
     return ApproximateDistanceScale(unit)
 end
