@@ -292,7 +292,7 @@ local function UpdatePlate(unit)
     -- Role atlases have more internal padding than class artwork.
     -- Enlarge only the role texture, clipping it to the unchanged icon circle.
     local visibleSize = iconSize * 0.95
-    local artworkSize = rolePortrait and (visibleSize * 1.40) or visibleSize
+    local artworkSize = rolePortrait and (visibleSize * 1.65) or visibleSize
     marker.icon:SetSize(artworkSize, artworkSize)
     marker.iconMask:SetSize(visibleSize, visibleSize)
     marker.rim:SetSize(rimSize, rimSize)
