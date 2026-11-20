@@ -67,6 +67,15 @@ local function TextDistanceScale(unit)
     return ApproximateDistanceScale(unit)
 end
 
+-- Keep the user's text offsets independent from the icon, while raising
+-- name/guild together as their distance scale increases.
+local function PositionFriendlyText(plate, marker, cfg, scale)
+    local rise = math.max(0, scale - 0.38) * (cfg.friendlyTextRise or 160)
+    marker.textAnchor:ClearAllPoints()
+    marker.textAnchor:SetPoint("TOP", plate, "TOP",
+        cfg.friendlyTextX or 0, 18 + (cfg.friendlyTextY or 0) + rise)
+end
+
 local function RestoreName(plate)
     local saved = styledNames[plate]
     if not saved then return end
@@ -282,8 +291,7 @@ local function UpdatePlate(unit)
         label:SetShadowColor(0, 0, 0, 0.35)
         label:SetShadowOffset(0, 0)
     end
-    marker.textAnchor:ClearAllPoints()
-    marker.textAnchor:SetPoint("TOP", plate, "TOP", cfg.friendlyTextX or 0, 18 + (cfg.friendlyTextY or 0))
+    PositionFriendlyText(plate, marker, cfg, marker.textAnchor:GetScale())
     marker.name:ClearAllPoints()
     marker.name:SetPoint("TOP", marker.textAnchor, "TOP", 0, 0)
     marker.guild:ClearAllPoints()
@@ -322,6 +330,7 @@ local function UpdatePlate(unit)
     end
     marker.scaleUnit = unit
     textScaleTargets[plate] = initialScale
+    PositionFriendlyText(plate, marker, cfg, marker.textAnchor:GetScale())
     marker:Show()
     marker.textAnchor:Show()
     -- Do not restyle hidden nameplate text in this experiment.
@@ -407,7 +416,9 @@ function M:Initialize()
                     local delta = (target - current) * fraction
                     local maxDelta = math.min(elapsed, 0.1) * 0.24
                     delta = math.max(-maxDelta, math.min(maxDelta, delta))
-                    marker.textAnchor:SetScale(current + delta)
+                    local newScale = current + delta
+                    marker.textAnchor:SetScale(newScale)
+                    PositionFriendlyText(plate, marker, cfg, newScale)
                 end
             end
         end
