@@ -469,7 +469,7 @@ end
 
 -- BaziUI's original 64x64 TGA NPC service artwork. Keep the approved
 -- 28x28 presentation, icon positioning and pet/player nameplates unchanged.
-local NPC_ICON_ROOT = "Interface\\\\AddOns\\\\BaziUI\\\\Assets\\\\Icons\\\\NPC\\\\NPC_"
+local NPC_ICON_ROOT = "Interface\\AddOns\\BaziUI\\Assets\\Icons\\NPC\\NPC_"
 local function NPCIcon(name)
     return NPC_ICON_ROOT .. name .. ".tga"
 end
