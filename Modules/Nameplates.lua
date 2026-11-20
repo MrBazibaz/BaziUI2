@@ -235,3 +235,68 @@ function M:Initialize()
     end)
     self:Apply()
 end
+
+
+-- Temporary read-only diagnostic. Kept in Nameplates so locked Commands.lua
+-- and the other modules are untouched. Usage: /bazinpd
+function M:DebugNameplates()
+    local lines, plateCount, fontCount = {}, 0, 0
+    local function Add(message)
+        if #lines < 350 then lines[#lines + 1] = message end
+    end
+    local function Scan(frame, path, depth, visited)
+        if not frame or depth > 8 or visited[frame] or #lines >= 350 then return end
+        visited[frame] = true
+        if frame.GetRegions then
+            local regions = {frame:GetRegions()}
+            for i, region in ipairs(regions) do
+                if region.IsObjectType and region:IsObjectType("FontString") then
+                    fontCount = fontCount + 1
+                    local font, size, flags = region:GetFont()
+                    local r, g, b, a = region:GetTextColor()
+                    local value = region:GetText()
+                    Add(path .. "/region" .. i .. " FontString"
+                        .. " name=" .. tostring(region:GetName())
+                        .. " text=" .. tostring(value)
+                        .. " font=" .. tostring(font)
+                        .. " size=" .. tostring(size)
+                        .. " flags=" .. tostring(flags)
+                        .. " rgba=" .. string.format("%.2f,%.2f,%.2f,%.2f", r or 0, g or 0, b or 0, a or 0)
+                        .. " alpha=" .. tostring(region:GetAlpha())
+                        .. " shown=" .. tostring(region:IsShown()))
+                end
+            end
+        end
+        if frame.GetChildren then
+            for i, child in ipairs({frame:GetChildren()}) do
+                Scan(child, path .. "/child" .. i .. "(" .. tostring(child:GetName()) .. ")", depth + 1, visited)
+            end
+        end
+    end
+    for plate, unit in pairs(plateUnits) do
+        if plateCount >= 5 then break end
+        if C_NamePlate and C_NamePlate.GetNamePlateForUnit
+            and C_NamePlate.GetNamePlateForUnit(unit) == plate and Friendly(unit) then
+            plateCount = plateCount + 1
+            Add("=== plate " .. plateCount .. " unit=" .. tostring(unit)
+                .. " name=" .. tostring(UnitName(unit))
+                .. " unitFrame=" .. tostring(plate.UnitFrame) .. " ===")
+            local visited = {}
+            Scan(plate, "plate", 0, visited)
+        end
+    end
+    BaziUIDB = BaziUIDB or {}
+    BaziUIDB.nameplateDebug = lines
+    addon:Print("Nameplate debug: " .. plateCount .. " friendly plates, "
+        .. fontCount .. " text regions; " .. #lines .. " lines saved.")
+    addon:Print("Run /reload, then share nameplateDebug from WTF/Account/<account>/SavedVariables/BaziUI.lua.")
+    if plateCount == 0 then
+        addon:Print("No tracked friendly nameplates. Stand near players with friendly plates enabled and retry.")
+    end
+end
+
+SLASH_BAZINPDEBUG1 = "/bazinpd"
+SlashCmdList.BAZINPDEBUG = function()
+    local ok, err = pcall(function() M:DebugNameplates() end)
+    if not ok then addon:Print("Nameplate debug failed: " .. tostring(err)) end
+end
