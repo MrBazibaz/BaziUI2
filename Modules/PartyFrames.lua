@@ -792,6 +792,18 @@ local function update(f)
     f.power:SetMinMaxValues(0, powerMax)
     f.power:SetValue(power)
     f.name:SetText(UnitName(f.unit) or "")
+    -- Player names use their class color; keep pet/NPC name styling unchanged.
+    if UnitIsPlayer(f.unit) then
+        local _, class = UnitClass(f.unit)
+        local color = class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
+        if color then
+            f.name:SetTextColor(color.r, color.g, color.b)
+        else
+            f.name:SetTextColor(1, 0.80, 0.38)
+        end
+    else
+        f.name:SetTextColor(1, 0.80, 0.38)
+    end
     -- UnitHealth can be a secret number in Forever. Do not compare or calculate it in Lua.
     local own = unitSettings(cfg() or {}, f.unit)
     setBarText(f.value, f.unit, own.hpText or "", true)
