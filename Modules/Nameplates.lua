@@ -403,6 +403,28 @@ local function NativeOwnerLabel()
     return nil
 end
 
+-- NPC subtitles are server-provided titles (for example <Weaponsmith>).
+-- Tooltip data is optional on Forever; never read Blizzard nameplate text,
+-- which can be a protected secret value on this client.
+local function NPCSubtitle(unit)
+    if not (C_TooltipInfo and C_TooltipInfo.GetUnit) then return nil end
+    local ok, title = pcall(function()
+        local data = C_TooltipInfo.GetUnit(unit)
+        if not data or type(data.lines) ~= "table" then return nil end
+        for i = 2, math.min(#data.lines, 5) do
+            local line = data.lines[i]
+            local value = line and line.leftText
+            if type(value) == "string" then
+                local cleaned = value:match("^%s*<([^<>]+)>%s*$")
+                if cleaned and cleaned ~= "" then return "<" .. cleaned .. ">" end
+            end
+        end
+        return nil
+    end)
+    if ok then return title end
+    return nil
+end
+
 local function NonPlayerMarker(plate)
     local marker = nonPlayerMarkers[plate]
     if marker then return marker end
@@ -485,7 +507,7 @@ UpdateNonPlayerPlate = function(unit, plate, cfg)
     local marker = NonPlayerMarker(plate)
     local sourceName = UnitName(unit) or ""
     local owner = pet and PetOwner(unit) or nil
-    local ownerText = pet and NativeOwnerLabel(plate, sourceName) or nil
+    local ownerText = pet and NativeOwnerLabel(plate, sourceName) or NPCSubtitle(unit)
     if pet and not ownerText and owner then
         local ownerName = UnitName(owner)
         if ownerName and ownerName ~= "" then
@@ -509,7 +531,7 @@ UpdateNonPlayerPlate = function(unit, plate, cfg)
         if pet then
             label:SetTextColor(115 / 255, 115 / 255, 217 / 255, 1)
         else
-            label:SetTextColor(0.20, 0.90, 0.30, 1)
+            label:SetTextColor(0, 1, 0, 1)
         end
         label:SetShadowColor(0, 0, 0, 0.35)
         label:SetShadowOffset(0, 0)
@@ -523,7 +545,7 @@ UpdateNonPlayerPlate = function(unit, plate, cfg)
     marker.name:SetText(sourceName)
     marker.owner:SetWidth(math.max(200, (cfg.friendlySize or 28) * 5))
     marker.owner:SetText(ownerText or "")
-    marker.owner:SetShown(pet and ownerText ~= nil and ownerText ~= "")
+    marker.owner:SetShown(ownerText ~= nil and ownerText ~= "")
     -- Only the player's own pet can ever display a portrait-style icon.
     local myPet = pet and UnitIsUnit(unit, "pet")
     marker.isOwnPet = myPet
