@@ -6,42 +6,67 @@ addon.Nameplates = addon.Nameplates or {}
 local M = addon.Nameplates
 local active = {}
 local plateUnits = {} -- NAME_PLATE_UNIT_ADDED is the reliable source of unit tokens.
-local hiddenNames = {} -- FontStrings changed by this experiment, with original alpha.
+-- Save original text presentation so disabling Bazi UI restores Blizzard styling.
+local styledNames = {}
 
 local function RestoreName(plate)
-    local saved = hiddenNames[plate]
-    if saved then
-        for fontString, alpha in pairs(saved) do
-            if fontString and fontString.SetAlpha then fontString:SetAlpha(alpha) end
+    local saved = styledNames[plate]
+    if not saved then return end
+    for fontString, original in pairs(saved) do
+        if fontString and fontString.SetFont then
+            if original.font then
+                fontString:SetFont(original.font, original.size, original.flags)
+            end
+            fontString:SetTextColor(unpack(original.color))
+            fontString:SetAlpha(original.alpha)
         end
-        hiddenNames[plate] = nil
     end
+    styledNames[plate] = nil
 end
 
-local function HideName(plate, unit)
-    -- Experimental: hide only the Blizzard nameplate's player-name text.
-    -- Do not hide the plate or UnitFrame: our icon must remain attached.
-    local frame = plate.UnitFrame
-    if not frame then return end
-    local name = UnitName(unit)
-    if not name then return end
-    local candidates = {frame.name, frame.Name, frame.nameText, frame.NameText}
-    if frame.GetRegions then
-        for _, region in ipairs({frame:GetRegions()}) do
-            if region and region.IsObjectType and region:IsObjectType("FontString") then
-                candidates[#candidates + 1] = region
+local function StyleName(plate, unit)
+    -- Nameplates on this client may nest the name FontString several frames
+    -- below UnitFrame. Inspect descendants, not just direct regions.
+    local unitName = UnitName(unit)
+    if not unitName or not plate.UnitFrame then return end
+    local seen, candidates = {}, {}
+    local function Scan(frame, depth)
+        if not frame or depth > 6 or seen[frame] then return end
+        seen[frame] = true
+        if frame.GetRegions then
+            for _, region in ipairs({frame:GetRegions()}) do
+                if region.IsObjectType and region:IsObjectType("FontString") then
+                    candidates[#candidates + 1] = region
+                end
+            end
+        end
+        if frame.GetChildren then
+            for _, child in ipairs({frame:GetChildren()}) do
+                Scan(child, depth + 1)
             end
         end
     end
-    local saved = hiddenNames[plate] or {}
-    for _, region in ipairs(candidates) do
-        if region and region.IsObjectType and region:IsObjectType("FontString")
-            and region.GetText and region:GetText() == name then
-            if saved[region] == nil then saved[region] = region:GetAlpha() end
-            region:SetAlpha(0)
+    Scan(plate.UnitFrame, 0)
+    local saved = styledNames[plate] or {}
+    for _, label in ipairs(candidates) do
+        local value = label.GetText and label:GetText()
+        -- A nameplate may append a realm; do not touch unrelated text.
+        if type(value) == "string" and
+            (value == unitName or value:match("^" .. unitName:gsub("(%W)", "%%%1") .. "%-")) then
+            if not saved[label] then
+                local font, size, flags = label:GetFont()
+                saved[label] = {
+                    font = font, size = size, flags = flags,
+                    color = {label:GetTextColor()}, alpha = label:GetAlpha(),
+                }
+            end
+            local font = saved[label].font
+            if font then label:SetFont(font, 10, "") end
+            label:SetTextColor(0.64, 0.64, 0.68, 0.88)
+            label:SetAlpha(0.88)
         end
     end
-    if next(saved) then hiddenNames[plate] = saved end
+    if next(saved) then styledNames[plate] = saved end
 end
 local eventFrame = CreateFrame("Frame")
 
@@ -152,14 +177,14 @@ local function UpdatePlate(unit)
     marker:SetPoint("BOTTOM", anchor, "TOP", cfg.friendlyX or 0, cfg.friendlyY or 20)
     marker:SetSize(cfg.friendlySize or 28, cfg.friendlySize or 28)
     marker:Show()
-    HideName(plate, unit)
+    StyleName(plate, unit)
 end
 
 function M:Apply()
     local cfg = Config()
     if not cfg or not cfg.enabled then
         for plate in pairs(active) do HidePlate(plate) end
-        for plate in pairs(hiddenNames) do RestoreName(plate) end
+        for plate in pairs(styledNames) do RestoreName(plate) end
         return
     end
     -- A nameplate frame does not reliably expose namePlateUnitToken on this
