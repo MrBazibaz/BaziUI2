@@ -268,7 +268,7 @@ local function UpdatePlate(unit)
     -- Class and role icons use the same center, size and circular mask.
     -- The artwork stays on sublevel 2, in front of the gold rim on sublevel 1.
     local visibleSize = iconSize * 0.95
-    local artworkSize = iconMode == "role" and valid and (visibleSize * 1.05) or visibleSize
+    local artworkSize = iconMode == "role" and valid and (visibleSize * 1.0815) or visibleSize
     marker.icon:SetSize(artworkSize, artworkSize)
     marker.iconMask:SetSize(artworkSize, artworkSize)
     marker.rim:SetSize(rimSize, rimSize)
@@ -365,8 +365,8 @@ local function RefreshFriendlyPreview()
             115+(cfg.friendlyY or 20))
         frame:SetSize(size,size)
         -- Match the real friendly role nameplate, including front-of-rim layering.
-        frame.icon:SetSize(size*.95*1.05,size*.95*1.05)
-        frame.mask:SetSize(size*.95*1.05,size*.95*1.05)
+        frame.icon:SetSize(size*.95*1.0815,size*.95*1.0815)
+        frame.mask:SetSize(size*.95*1.0815,size*.95*1.0815)
         frame.rim:SetSize(size*1.08,size*1.08)
         frame.rimMask:SetSize(size*1.08,size*1.08)
         RoleTexture(frame.icon,role)
