@@ -186,22 +186,21 @@ local function UpdatePlate(unit)
     if not plate then return end
     plateUnits[plate] = unit
     local cfg = Config()
-    if not cfg or not cfg.enabled or cfg.friendlyIcon == "off" or not Friendly(unit)
-        or (cfg.friendlyScope == "group" and not InGroup(unit)) then
+    if not cfg or not cfg.enabled or cfg.friendlyIcon == "off" or not Friendly(unit) then
         HidePlate(plate)
         return
     end
 
+    -- Scope filters icons only. Keep the configured name/guild styling
+    -- on every friendly player regardless of group membership.
+    local showIcon = cfg.friendlyScope ~= "group" or InGroup(unit)
     local iconMode = cfg.friendlyIcon or "role"
     local role
     if IsRaid() then
-        -- Raid always uses roles, never class or DPS icons.
+        -- Raid always uses tank/healer role icons, but text stays visible.
         iconMode = "role"
         role = Role(unit)
-        if role ~= "TANK" and role ~= "HEALER" then
-            HidePlate(plate)
-            return
-        end
+        showIcon = showIcon and (role == "TANK" or role == "HEALER")
     end
     local marker = active[plate]
     if not marker then
@@ -249,11 +248,7 @@ local function UpdatePlate(unit)
         role = role or Role(unit)
         valid = RoleTexture(marker.icon, role)
     end
-    if not valid then
-        marker:Hide()
-        if marker.textAnchor then marker.textAnchor:Hide() end
-        return
-    end
+    showIcon = showIcon and valid
     -- Test: hide Blizzard nameplate presentation while keeping its parent
     -- visible as the marker anchor. Alpha is restored on disable/removal.
     local unitFrame = plate.UnitFrame
@@ -322,7 +317,7 @@ local function UpdatePlate(unit)
     end
     marker.textAnchor:SetScale(1)
     marker.textAnchor:SetAlpha(1)
-    marker:Show()
+    marker:SetShown(showIcon)
     marker.textAnchor:Show()
     -- Do not restyle hidden nameplate text in this experiment.
 end
