@@ -190,14 +190,14 @@ local function UpdatePlate(unit)
         -- Recreate the restrained in-world name style beneath our icon.
         marker.name = marker:CreateFontString(nil, "OVERLAY")
         SetWorldNameFont(marker.name)
-        marker.name:SetTextColor(0.43, 0.45, 1.0, 1.0)
+        marker.name:SetTextColor(0.36, 0.37, 0.88, 1.0)
         marker.name:SetShadowColor(0, 0, 0, 0.35)
         marker.name:SetShadowOffset(0, 0)
         marker.name:SetJustifyH("CENTER")
         marker.name:SetPoint("TOP", marker, "BOTTOM", 0, -2)
         marker.guild = marker:CreateFontString(nil, "OVERLAY")
         SetWorldNameFont(marker.guild)
-        marker.guild:SetTextColor(0.43, 0.45, 1.0, 1.0)
+        marker.guild:SetTextColor(0.36, 0.37, 0.88, 1.0)
         marker.guild:SetShadowColor(0, 0, 0, 0.35)
         marker.guild:SetShadowOffset(0, 0)
         marker.guild:SetJustifyH("CENTER")
@@ -447,4 +447,38 @@ SlashCmdList.BAZINATIVENAME = function()
     if nativeNameTest then
         addon:Print("Compare nearby friendly players with your pet. If player names disappear, native names are suppressed by active nameplates.")
     end
+end
+
+
+-- Read-only font-source diagnostic for the native world-name comparison.
+-- /bazifont saves client globals and effective font paths in SavedVariables.
+SLASH_BAZIFONT1 = "/bazifont"
+SlashCmdList.BAZIFONT = function()
+    local lines = {}
+    local function Add(line)
+        lines[#lines + 1] = tostring(line)
+    end
+    for _, key in ipairs({"UNIT_NAME_FONT", "STANDARD_TEXT_FONT", "NAMEPLATE_FONT"}) do
+        local value = _G[key]
+        Add(key .. " type=" .. type(value) .. " value=" .. tostring(value))
+    end
+    for _, key in ipairs({"SystemFont_NamePlate", "SystemFont_NamePlateFixed", "GameFontNormal"}) do
+        local obj = _G[key]
+        if obj and obj.GetFont then
+            local ok, path, size, flags = pcall(obj.GetFont, obj)
+            Add(key .. " font=" .. (ok and tostring(path) or "unavailable")
+                .. " size=" .. tostring(size) .. " flags=" .. tostring(flags))
+        end
+    end
+    for _, marker in pairs(active) do
+        if marker.name and marker.name.GetFont then
+            local path, size, flags = marker.name:GetFont()
+            Add("Bazi actual font=" .. tostring(path) .. " size=" .. tostring(size)
+                .. " flags=" .. tostring(flags))
+            break
+        end
+    end
+    BaziUIDB = BaziUIDB or {}
+    BaziUIDB.worldFontDebug = lines
+    addon:Print("Font debug saved to BaziUIDB.worldFontDebug; run /reload to write it.")
 end
