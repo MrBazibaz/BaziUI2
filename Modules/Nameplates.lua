@@ -536,39 +536,72 @@ SlashCmdList.BAZIFONT = function()
     addon:Print("Font debug saved to BaziUIDB.worldFontDebug; run /reload to write it.")
 end
 
--- Diagnostic: check whether the client exposes usable distance or plate scale.
--- Stand beside a friendly player and use /bazidistance, then repeat farther away.
-SLASH_BAZIDISTANCE1 = "/bazidistance"
-SlashCmdList.BAZIDISTANCE = function()
-    local function Print(line)
-        if addon.Print then addon:Print(line)
-        elseif DEFAULT_CHAT_FRAME then DEFAULT_CHAT_FRAME:AddMessage("Bazi UI: " .. line) end
+-- Capture distance samples silently in SavedVariables for later inspection.
+-- /bazidistance [clear|status|show] prioritizes target, otherwise tracks up to 3 plates.
+local distanceLog = {}
+local distanceSamples = 0
+local function SaveDistanceLog()
+    BaziUIDB = BaziUIDB or {}
+    BaziUIDB.nameplateDistanceLog = distanceLog
+end
+local function CaptureDistance(plate, unit)
+    if not plate or not unit or not UnitExists(unit) then return false end
+    local marker = active[plate]
+    local distance = UnitDistance(unit)
+    local squared
+    if type(UnitDistanceSquared) == "function" then
+        local ok, value = pcall(UnitDistanceSquared, unit)
+        if ok then squared = value end
     end
-    local found = 0
-    for plate, unit in pairs(plateUnits) do
-        if found >= 3 then break end
-        if unit and Friendly(unit) and C_NamePlate and C_NamePlate.GetNamePlateForUnit
-            and C_NamePlate.GetNamePlateForUnit(unit) == plate then
-            found = found + 1
-            local marker = active[plate]
-            local distance = UnitDistance(unit)
-            local squared = "unavailable"
-            if type(UnitDistanceSquared) == "function" then
-                local ok, value = pcall(UnitDistanceSquared, unit)
-                if ok then squared = tostring(value) end
-            end
-            local position = "unavailable"
-            if type(UnitPosition) == "function" then
-                local ok, x, y, z, map = pcall(UnitPosition, unit)
-                if ok then position = tostring(x) .. "," .. tostring(y) .. "," .. tostring(z) .. " map=" .. tostring(map) end
-            end
-            Print(tostring(UnitName(unit)) .. " distance=" .. tostring(distance)
-                .. " squared=" .. squared .. " position=" .. position)
-            Print("plate scale=" .. tostring(plate:GetScale())
-                .. " effective=" .. tostring(plate:GetEffectiveScale())
-                .. " marker scale=" .. tostring(marker and marker:GetScale())
-                .. " text scale=" .. tostring(marker and marker.textAnchor and marker.textAnchor:GetScale()))
+    local x, y, z, map
+    if type(UnitPosition) == "function" then
+        local ok, a, b, c, d = pcall(UnitPosition, unit)
+        if ok then x, y, z, map = a, b, c, d end
+    end
+    local name = UnitName(unit) or "unknown"
+    distanceSamples = distanceSamples + 1
+    distanceLog[#distanceLog + 1] = {
+        sample = distanceSamples, time = GetTime(), name = name,
+        guid = UnitGUID and UnitGUID(unit) or nil,
+        unit = unit, distance = distance, squared = squared,
+        x = x, y = y, z = z, map = map,
+        plateScale = plate:GetScale(),
+        plateEffectiveScale = plate:GetEffectiveScale(),
+        markerScale = marker and marker:GetScale() or nil,
+        textScale = marker and marker.textAnchor and marker.textAnchor:GetScale() or nil,
+    }
+    -- Bound the memory footprint when repeatedly testing.
+    if #distanceLog > 200 then table.remove(distanceLog, 1) end
+    SaveDistanceLog()
+    return true
+end
+SLASH_BAZIDISTANCE1 = "/bazidistance"
+SlashCmdList.BAZIDISTANCE = function(arg)
+    arg = (arg or ""):lower():match("^%s*(.-)%s*$")
+    if arg == "clear" then
+        distanceLog = {}
+        distanceSamples = 0
+        SaveDistanceLog()
+        addon:Print("Distance log cleared.")
+        return
+    elseif arg == "status" or arg == "show" then
+        addon:Print("Distance samples saved: " .. #distanceLog
+            .. ". SavedVariables: BaziUIDB.nameplateDistanceLog")
+        return
+    end
+    local count = 0
+    if UnitExists("target") and Friendly("target")
+        and C_NamePlate and C_NamePlate.GetNamePlateForUnit then
+        local plate = C_NamePlate.GetNamePlateForUnit("target")
+        if plate and active[plate] and CaptureDistance(plate, "target") then count = 1 end
+    end
+    if count == 0 then
+        for plate, unit in pairs(plateUnits) do
+            if count >= 3 then break end
+            if unit and Friendly(unit) and C_NamePlate and C_NamePlate.GetNamePlateForUnit
+                and C_NamePlate.GetNamePlateForUnit(unit) == plate
+                and CaptureDistance(plate, unit) then count = count + 1 end
         end
     end
-    if found == 0 then Print("No friendly nameplates tracked. Stand near a friendly player.") end
+    -- Sampling intentionally stays silent; /bazidistance status shows totals.
 end
