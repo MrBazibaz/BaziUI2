@@ -612,7 +612,7 @@ local function layout(f, settings)
         else fontString:SetTextColor(1, 0.80, 0.38) end
     end
     tint(f.value, settings.hpFontColor)
-    tint(f.powerText, settings.powerFontColor)
+    tint(f.powerText, f.unit == "player" and "white" or settings.powerFontColor)
     f.barBorder:ClearAllPoints()
     f.barBorder:SetPoint("TOPLEFT", f.health, "TOPLEFT", -2, 2)
     f.barBorder:SetPoint("BOTTOMRIGHT", f.power, "BOTTOMRIGHT", 2, -2)
