@@ -37,9 +37,13 @@ local function makeLauncher()
     -- and Blizzard's round tracking border (rather than a square highlight).
     local emblem = b:CreateTexture(nil, "ARTWORK")
     emblem:SetSize(25, 25)
-    -- TrackingBorder artwork is visually offset within its texture bounds.
-    -- Align the emblem with the visible gold ring, not the texture rectangle.
-    emblem:SetPoint("CENTER", b, "CENTER", -4, 9)
+    -- Blizzard's TrackingBorder has asymmetrical transparent padding.
+    -- The visible ring sits about 4px right and 1px above the button center.
+    -- Share one visual anchor for the emblem and hover highlight.
+    local visualCenter = CreateFrame("Frame", nil, b)
+    visualCenter:SetSize(1, 1)
+    visualCenter:SetPoint("CENTER", b, "CENTER", 4, 1)
+    emblem:SetPoint("CENTER", visualCenter, "CENTER", 0, 0)
     emblem:SetTexture("Interface\\AddOns\\BaziUI\\Assets\\Icons\\BaziUI_Emblem_64.png")
     local border = b:CreateTexture(nil, "OVERLAY")
     border:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder")
@@ -49,7 +53,7 @@ local function makeLauncher()
     glow:SetTexture("Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight")
     glow:SetBlendMode("ADD")
     glow:SetSize(32, 32)
-    glow:SetPoint("CENTER", b, "CENTER", 0, 0)
+    glow:SetPoint("CENTER", visualCenter, "CENTER", 0, 0)
     b:SetScript("OnClick", toggleOptions)
     b:RegisterForDrag("LeftButton")
     b:SetMovable(true)
