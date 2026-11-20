@@ -181,6 +181,13 @@ local function UpdatePlate(unit)
         marker.name:SetShadowOffset(1, -1)
         marker.name:SetJustifyH("CENTER")
         marker.name:SetPoint("TOP", marker, "BOTTOM", 0, -2)
+        marker.guild = marker:CreateFontString(nil, "OVERLAY")
+        marker.guild:SetFont("Fonts\\FRIZQT__.TTF", 14, "OUTLINE")
+        marker.guild:SetTextColor(0.60, 0.60, 1.0, 1.0)
+        marker.guild:SetShadowColor(0, 0, 0, 0.65)
+        marker.guild:SetShadowOffset(1, -1)
+        marker.guild:SetJustifyH("CENTER")
+        marker.guild:SetPoint("TOP", marker.name, "BOTTOM", 0, 0)
         active[plate] = marker
     end
     local valid = false
@@ -207,8 +214,21 @@ local function UpdatePlate(unit)
     local displayName = UnitName(unit)
     if marker.name then
         marker.name:SetText(displayName or "")
-        marker.name:SetWidth(math.max(120, (cfg.friendlySize or 28) * 3))
+        marker.name:SetWidth(math.max(160, (cfg.friendlySize or 28) * 4))
         marker.name:Show()
+    end
+    if marker.guild then
+        -- GetGuildInfo can be unavailable for units whose guild is not known
+        -- to the client. Do not invent a guild or show an empty bracket line.
+        local guildName = GetGuildInfo and GetGuildInfo(unit)
+        if type(guildName) == "string" and guildName ~= "" then
+            marker.guild:SetText("<" .. guildName .. ">")
+            marker.guild:SetWidth(math.max(200, (cfg.friendlySize or 28) * 5))
+            marker.guild:Show()
+        else
+            marker.guild:SetText("")
+            marker.guild:Hide()
+        end
     end
     marker:Show()
     -- Do not restyle hidden nameplate text in this experiment.
