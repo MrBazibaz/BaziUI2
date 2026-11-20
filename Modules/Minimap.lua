@@ -37,8 +37,9 @@ local function setSquareMask()
     if not map or not map.SetMaskTexture then return end
     map:SetMaskTexture(SQUARE_MASK)
     if map.SetArchBlobRingScalar then map:SetArchBlobRingScalar(0) end
-    -- Hide quest blob rings; hover details require separate tooltip handling.
-    if map.SetQuestBlobRingScalar then map:SetQuestBlobRingScalar(0) end
+    -- Preserve Blizzard's quest-blob interaction. A zero scalar may suppress
+    -- the quest hover hit region as well as the visual ring.
+    if map.SetQuestBlobRingScalar then map:SetQuestBlobRingScalar(1) end
     if map.SetTaskBlobRingScalar then map:SetTaskBlobRingScalar(0) end
     _G.GetMinimapShape = function() return "SQUARE" end
     local hybrid = _G.HybridMinimap
