@@ -294,7 +294,11 @@ local function UpdatePlate(unit)
     local visibleSize = iconSize * 0.95
     local artworkSize = rolePortrait and (visibleSize * 1.65) or visibleSize
     marker.icon:SetSize(artworkSize, artworkSize)
-    marker.iconMask:SetSize(visibleSize, visibleSize)
+    -- The role atlas includes a soft outer shadow. Clip its enlarged art
+    -- inside the ring opening rather than letting the shadow reach the rim.
+    -- Class icon masks retain their approved size.
+    local maskSize = rolePortrait and (visibleSize * 0.86) or visibleSize
+    marker.iconMask:SetSize(maskSize, maskSize)
     marker.rim:SetSize(rimSize, rimSize)
     marker.rimMask:SetSize(rimSize, rimSize)
     marker.rim:Show()
