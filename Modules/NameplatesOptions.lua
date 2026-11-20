@@ -41,11 +41,29 @@ local function Background(parent)
     art:SetTexture(ASSET .. "Panels\\Panel_Dark.png")
     art:SetAlpha(0.20)
 end
+local function PanelArtwork(frame)
+    local fill = frame:CreateTexture(nil, "BACKGROUND")
+    fill:SetAllPoints(frame)
+    fill:SetColorTexture(0.19, 0.105, 0.052, 0.97)
+    local art = frame:CreateTexture(nil, "BACKGROUND", nil, 1)
+    art:SetAllPoints(frame)
+    art:SetTexture(ASSET .. "Panels\\Panel_Dark.png")
+    art:SetAlpha(0.30)
+    local accent = frame:CreateTexture(nil, "ARTWORK")
+    accent:SetPoint("TOPLEFT"); accent:SetPoint("BOTTOMLEFT")
+    accent:SetWidth(3)
+    accent:SetColorTexture(0.76, 0.57, 0.29, 0.90)
+    local line = frame:CreateTexture(nil, "BORDER")
+    line:SetPoint("TOPLEFT"); line:SetPoint("TOPRIGHT")
+    line:SetHeight(1)
+    line:SetColorTexture(0.78, 0.59, 0.31, 0.45)
+end
+
 local function Row(parent, text, y, height)
     local frame = CreateFrame("Frame", nil, parent)
-    frame:SetPoint("TOPLEFT", parent, "TOPLEFT", 18, y)
-    frame:SetPoint("TOPRIGHT", parent, "TOPRIGHT", -18, y)
-    frame:SetHeight(height or 42)
+    frame:SetPoint("TOPLEFT", parent, "TOPLEFT", 0, y)
+    frame:SetPoint("TOPRIGHT", parent, "TOPRIGHT", 0, y)
+    frame:SetHeight(height or 43)
     Background(frame)
     local title = Label(frame, text)
     title:SetPoint("LEFT", 13, 0)
@@ -237,48 +255,166 @@ function addon.NameplatesOptions:CreatePage(parent)
     if not db then return nil end
     local page = CreateFrame("Frame", nil, parent)
     page:SetAllPoints(parent)
-    local tabs = {}
-    local active
+
+    -- Match Minimap's two-panel structure and right-hand navigation.
+    local headingPanel = CreateFrame("Frame", nil, page)
+    headingPanel:SetPoint("TOPLEFT", page, "TOPLEFT", 12, -8)
+    headingPanel:SetPoint("TOPRIGHT", page, "TOPRIGHT", -12, -8)
+    headingPanel:SetHeight(76)
+    PanelArtwork(headingPanel)
+    local heading = Label(headingPanel, "NAMEPLATES", "GameFontNormalLarge")
+    heading:SetPoint("TOPLEFT", headingPanel, "TOPLEFT", 22, -12)
+    heading:SetTextColor(1, 0.79, 0.42)
+
+    local main = CreateFrame("Frame", nil, page)
+    main:SetPoint("TOPLEFT", page, "TOPLEFT", 12, -100)
+    main:SetPoint("TOPRIGHT", page, "TOPRIGHT", -12, -100)
+    main:SetPoint("BOTTOM", page, "BOTTOM", 0, 0)
+    PanelArtwork(main)
+    if main.SetClipsChildren then main:SetClipsChildren(true) end
+
+    local tabBar = CreateFrame("Frame", nil, page)
+    tabBar:SetPoint("TOPLEFT", main, "TOPRIGHT", 25, 0)
+    tabBar:SetFrameStrata("FULLSCREEN_DIALOG")
+    tabBar:SetSize(108, 58)
+    local tabButtons, tabPanels = {}, {}
+    local activeTab = "Friendly"
+
+    local function RefreshTabs()
+        for name, button in pairs(tabButtons) do
+            local selected = name == activeTab
+            button.fill:SetColorTexture(selected and 0.34 or 0.23,
+                selected and 0.17 or 0.12, selected and 0.25 or 0.07, 0.98)
+            button.label:SetTextColor(selected and 1 or 0.95,
+                selected and 0.85 or 0.80, selected and 0.55 or 0.66)
+            button.accent:SetColorTexture(selected and 0.83 or 0.54,
+                selected and 0.63 or 0.37, selected and 0.30 or 0.20, selected and 1 or 0.8)
+            for _, edge in ipairs(button.edges) do
+                edge:SetColorTexture(selected and 0.83 or 0.54,
+                    selected and 0.63 or 0.37, selected and 0.30 or 0.20, 0.95)
+            end
+        end
+        for name, viewport in pairs(tabPanels) do viewport:SetShown(name == activeTab) end
+        local available = math.max(120, page:GetHeight() - 110)
+        main:ClearAllPoints()
+        main:SetPoint("TOPLEFT", page, "TOPLEFT", 12, -100)
+        main:SetPoint("TOPRIGHT", page, "TOPRIGHT", -12, -100)
+        main:SetHeight(math.min(activeTab == "Friendly" and 430 or 650, available))
+        local viewport = tabPanels[activeTab]
+        if viewport then viewport:SetVerticalScroll(0) end
+    end
+
     for i, name in ipairs({"Friendly", "Enemy"}) do
-        local button = CreateFrame("Button", nil, page)
-        button:SetSize(135, 28)
-        button:SetPoint("TOPLEFT", page, "TOPLEFT", 18 + (i - 1) * 143, -10)
-        Background(button)
-        local text = Label(button, name)
-        text:SetPoint("CENTER")
-        text:SetTextColor(1, 0.82, 0.46)
-        tabs[name] = {button = button, text = text}
+        local b = CreateFrame("Button", nil, tabBar)
+        b:SetSize(108, 29)
+        b:SetPoint("TOPLEFT", tabBar, "TOPLEFT", 0, -(i - 1) * 29)
+        b.fill = b:CreateTexture(nil, "BACKGROUND")
+        b.fill:SetAllPoints()
+        b.edges = {}
+        for _, side in ipairs({"TOP", "BOTTOM", "LEFT", "RIGHT"}) do
+            local edge = b:CreateTexture(nil, "OVERLAY")
+            if side == "TOP" then
+                edge:SetPoint("TOPLEFT"); edge:SetPoint("TOPRIGHT"); edge:SetHeight(1)
+            elseif side == "BOTTOM" then
+                edge:SetPoint("BOTTOMLEFT"); edge:SetPoint("BOTTOMRIGHT"); edge:SetHeight(1)
+            elseif side == "LEFT" then
+                edge:SetPoint("TOPLEFT"); edge:SetPoint("BOTTOMLEFT"); edge:SetWidth(1)
+            else
+                edge:SetPoint("TOPRIGHT"); edge:SetPoint("BOTTOMRIGHT"); edge:SetWidth(1)
+            end
+            b.edges[#b.edges + 1] = edge
+        end
+        b.accent = b:CreateTexture(nil, "OVERLAY")
+        b.accent:SetPoint("TOPRIGHT"); b.accent:SetPoint("BOTTOMRIGHT")
+        b.accent:SetWidth(3)
+        b.label = Label(b, name)
+        b.label:SetPoint("LEFT", b, "LEFT", 12, 0)
+        b:SetScript("OnClick", function() activeTab = name; RefreshTabs() end)
+        b:SetScript("OnEnter", function()
+            if activeTab ~= name then b.fill:SetColorTexture(0.28, 0.15, 0.085, 0.98) end
+        end)
+        b:SetScript("OnLeave", RefreshTabs)
+        tabButtons[name] = b
     end
-    local body = CreateFrame("Frame", nil, page)
-    body:SetPoint("TOPLEFT", page, "TOPLEFT", 4, -48)
-    body:SetPoint("BOTTOMRIGHT", page, "BOTTOMRIGHT", -4, 4)
-    local panes = {}
-    local function Pane(name)
-        local frame, child = ScrollPage(body)
-        panes[name] = frame
-        frame:Hide()
-        return child
+
+    local function NewTab(name, height)
+        local viewport = CreateFrame("ScrollFrame", nil, main)
+        viewport:SetPoint("TOPLEFT", main, "TOPLEFT", 10, -12)
+        viewport:SetPoint("BOTTOMRIGHT", main, "BOTTOMRIGHT", -19, 10)
+        if viewport.SetClipsChildren then viewport:SetClipsChildren(true) end
+        viewport:EnableMouseWheel(true)
+        local panel = CreateFrame("Frame", nil, viewport)
+        panel:SetSize(500, height)
+        viewport:SetScrollChild(panel)
+        viewport:SetScript("OnSizeChanged", function(self)
+            panel:SetWidth(math.max(1, self:GetWidth()))
+        end)
+        local scrollbar = CreateFrame("Slider", nil, main)
+        scrollbar:SetOrientation("VERTICAL")
+        scrollbar:SetWidth(12)
+        scrollbar:SetPoint("TOPRIGHT", main, "TOPRIGHT", -2, -12)
+        scrollbar:SetPoint("BOTTOMRIGHT", main, "BOTTOMRIGHT", -2, 12)
+        scrollbar:SetMinMaxValues(0, 1)
+        scrollbar:SetValueStep(1)
+        local track = scrollbar:CreateTexture(nil, "BACKGROUND")
+        track:SetAllPoints()
+        track:SetColorTexture(0.12, 0.07, 0.04, 0.9)
+        local thumb = scrollbar:CreateTexture(nil, "OVERLAY")
+        thumb:SetSize(14, 38)
+        thumb:SetTexture(ASSET .. "Sliders\\Slider_Gem.png")
+        scrollbar:SetThumbTexture(thumb)
+        local syncing = false
+        local function RefreshScroll()
+            local limit = math.max(0, panel:GetHeight() - viewport:GetHeight())
+            scrollbar:SetMinMaxValues(0, math.max(1, limit))
+            scrollbar:SetShown(viewport:IsShown() and limit > 1)
+            if not syncing then
+                syncing = true
+                scrollbar:SetValue(math.min(limit, viewport:GetVerticalScroll()))
+                syncing = false
+            end
+        end
+        scrollbar:SetScript("OnValueChanged", function(_, value)
+            if syncing then return end
+            syncing = true
+            viewport:SetVerticalScroll(value)
+            syncing = false
+        end)
+        viewport:SetScript("OnMouseWheel", function(self, delta)
+            local limit = math.max(0, panel:GetHeight() - self:GetHeight())
+            self:SetVerticalScroll(math.max(0, math.min(limit, self:GetVerticalScroll() - delta * 36)))
+            RefreshScroll()
+        end)
+        viewport:HookScript("OnVerticalScroll", RefreshScroll)
+        viewport:HookScript("OnSizeChanged", RefreshScroll)
+        viewport:HookScript("OnShow", RefreshScroll)
+        viewport:HookScript("OnHide", function() scrollbar:Hide() end)
+        tabPanels[name] = viewport
+        return panel
     end
-    local friendly = Pane("Friendly")
-    friendly:SetHeight(650)
-    Heading(friendly, "FRIENDLY NAMEPLATES", -12)
-    Dropdown(friendly, "ICON TYPE", -48, db, "friendlyIcon", {
+
+    local friendly = NewTab("Friendly", 450)
+    Dropdown(friendly, "ICON TYPE", -4, db, "friendlyIcon", {
         {"off", "Disabled"}, {"class", "Class Icon"}, {"role", "Role Icon"},
     })
-    Dropdown(friendly, "SHOW ICONS FOR", -96, db, "friendlyScope", {
+    Dropdown(friendly, "SHOW ICONS FOR", -49, db, "friendlyScope", {
         {"all", "All Friendly Players"}, {"group", "Group Members Only"},
     })
-    Toggle(friendly, "RAID: TANK AND HEALER ONLY", -144, db, "raidRoles")
-    Heading(friendly, "ICON LAYOUT", -206)
-    Slider(friendly, "ICON SIZE", -242, db, "friendlySize", 12, 64, 1)
-    Numeric(friendly, "ICON X OFFSET", -302, db, "friendlyX", -300, 300, 1)
-    Numeric(friendly, "ICON Y OFFSET", -350, db, "friendlyY", -300, 300, 1)
-    local note = Label(friendly, "Raid suppresses class icons and DPS icons. Role icons reuse UnitFrames assets.", "GameFontHighlightSmall")
-    note:SetPoint("TOPLEFT", friendly, "TOPLEFT", 26, -405)
-    note:SetTextColor(0.91, 0.78, 0.61)
-    local enemy = Pane("Enemy")
-    enemy:SetHeight(1550)
-    Heading(enemy, "ENEMY NAMEPLATES", -12)
+    Toggle(friendly, "RAID: TANK AND HEALER ONLY", -94, db, "raidRoles")
+    Heading(friendly, "ICON LAYOUT", -159)
+    Slider(friendly, "ICON SIZE", -195, db, "friendlySize", 12, 64, 1)
+    Numeric(friendly, "ICON X OFFSET", -255, db, "friendlyX", -300, 300, 1)
+    Numeric(friendly, "ICON Y OFFSET", -303, db, "friendlyY", -300, 300, 1)
+    local note = Label(friendly,
+        "In raids: only tank and healer role icons. Class icons and DPS icons are hidden.",
+        "GameFontHighlightSmall")
+    note:SetPoint("TOPLEFT", friendly, "TOPLEFT", 14, -365)
+    note:SetWidth(400)
+    note:SetJustifyH("LEFT")
+    note:SetTextColor(0.66, 0.63, 0.59, 1)
+
+    local enemy = NewTab("Enemy", 1530)
+    Heading(enemy, "HEALTH BARS", -12)
     Slider(enemy, "HEALTH WIDTH", -48, db, "enemyWidth", 80, 300, 1)
     Slider(enemy, "HEALTH HEIGHT", -106, db, "enemyHeight", 6, 45, 1)
     Slider(enemy, "NAMEPLATE SCALE", -164, db, "enemyScale", 0.5, 2, 0.05)
@@ -313,16 +449,9 @@ function addon.NameplatesOptions:CreatePage(parent)
     Slider(enemy, "CASTBAR TEXT SIZE (0 = GENERAL)", -1286, db, "enemyCastSize", 0, 32, 1)
     Numeric(enemy, "CASTBAR X OFFSET", -1344, db, "enemyCastX", -300, 300, 1)
     Numeric(enemy, "CASTBAR Y OFFSET", -1392, db, "enemyCastY", -300, 300, 1)
-    local function Show(name)
-        active = name
-        for key, pane in pairs(panes) do pane:SetShown(key == name) end
-        for key, tab in pairs(tabs) do
-            tab.text:SetTextColor(key == name and 1 or 0.76, key == name and 0.85 or 0.66, key == name and 0.55 or 0.48)
-        end
-    end
-    for name, tab in pairs(tabs) do
-        tab.button:SetScript("OnClick", function() Show(name) end)
-    end
-    Show("Friendly")
+
+    page:HookScript("OnShow", RefreshTabs)
+    page:HookScript("OnSizeChanged", RefreshTabs)
+    RefreshTabs()
     return page
 end
