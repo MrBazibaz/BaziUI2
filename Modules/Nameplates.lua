@@ -209,6 +209,17 @@ local function UpdatePlate(unit)
         marker:SetFrameLevel(plate:GetFrameLevel() + 10)
         marker.icon = marker:CreateTexture(nil, "OVERLAY")
         marker.icon:SetAllPoints()
+        -- MiniMarkers-style circular clipping with a subtle ring.
+        -- Use Blizzard's built-in portrait mask to avoid shipping third-party artwork.
+        marker.iconMask = marker:CreateMaskTexture()
+        marker.iconMask:SetTexture("Interface\\CHARACTERFRAME\\TempPortraitAlphaMask")
+        marker.iconMask:SetAllPoints(marker.icon)
+        marker.icon:AddMaskTexture(marker.iconMask)
+        marker.border = marker:CreateTexture(nil, "BACKGROUND")
+        marker.border:SetTexture("Interface\\CHARACTERFRAME\\TempPortraitAlphaMask")
+        marker.border:SetPoint("CENTER", marker, "CENTER", 0, 0)
+        marker.border:SetVertexColor(0.30, 0.26, 0.20, 0.80)
+        marker.border:SetSize(30, 30)
         marker.textAnchor = CreateFrame("Frame", nil, plate)
         marker.textAnchor:SetSize(1, 1)
         marker.textAnchor:SetFrameLevel(plate:GetFrameLevel() + 11)
@@ -243,6 +254,7 @@ local function UpdatePlate(unit)
     marker:ClearAllPoints()
     marker:SetPoint("BOTTOM", anchor, "TOP", cfg.friendlyX or 0, cfg.friendlyY or 20)
     marker:SetSize(cfg.friendlySize or 28, cfg.friendlySize or 28)
+    marker.border:SetSize((cfg.friendlySize or 28) + 2, (cfg.friendlySize or 28) + 2)
     -- Keep the approved single-layer appearance. The user selected size 20.
     -- FontString text inherits the nameplate's frame transforms.
     for _, label in ipairs({marker.name, marker.guild}) do
