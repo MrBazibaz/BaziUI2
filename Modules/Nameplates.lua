@@ -403,47 +403,28 @@ local function NativeOwnerLabel()
     return nil
 end
 
--- Learn NPC titles from the actual unit tooltip on mouseover. The client
--- exposes titles as plain second-line text, not necessarily <bracketed>.
-local npcTooltipByGUID = {}
-local function CleanNPCSubtitle(value)
-    if type(value) ~= "string" then return nil end
-    if issecretvalue and issecretvalue(value) then return nil end
-    value = value:match("^%s*(.-)%s*$")
-    if not value or value == "" then return nil end
-    if value:match("^Level%s") or value:match("^%d+%s") then return nil end
-    if value:match("^<(.+)>$") then return value end
-    return "<" .. value .. ">"
-end
+-- NPC subtitles are server-provided titles (for example <Weaponsmith>).
+-- Tooltip data is optional on Forever; never read Blizzard nameplate text,
+-- which can be a protected secret value on this client.
 local function NPCSubtitle(unit)
-    local guid = UnitGUID and UnitGUID(unit)
-    if guid and npcTooltipByGUID[guid] then return npcTooltipByGUID[guid] end
     if not (C_TooltipInfo and C_TooltipInfo.GetUnit) then return nil end
     local ok, title = pcall(function()
         local data = C_TooltipInfo.GetUnit(unit)
-        local line = data and data.lines and data.lines[2]
-        return CleanNPCSubtitle(line and line.leftText)
+        if not data or type(data.lines) ~= "table" then return nil end
+        for i = 2, math.min(#data.lines, 5) do
+            local line = data.lines[i]
+            local value = line and line.leftText
+            if type(value) == "string" then
+                local cleaned = value:match("^%s*<([^<>]+)>%s*$")
+                if cleaned and cleaned ~= "" then return "<" .. cleaned .. ">" end
+            end
+        end
+        return nil
     end)
-    if ok and title and guid then npcTooltipByGUID[guid] = title end
-    return ok and title or nil
-end
-
--- Conservative service classification: do not invent repair/quest markers.
--- Merchant/trainer titles can be learned on hover. Native cursor icons are
--- not exposed as a reliable remote-NPC API on this client.
-local function NPCServiceIcon(title)
-    if not title then return nil end
-    local lower = title:lower()
-    if lower:find("trainer", 1, true) then
-        return "Interface\\Icons\\INV_Misc_Book_09"
-    end
-    if lower:find("supplies", 1, true) or lower:find("bowyer", 1, true)
-        or lower:find("vendor", 1, true) or lower:find("merchant", 1, true)
-        or lower:find("goods", 1, true) then
-        return "Interface\\Icons\\INV_Misc_Bag_10"
-    end
+    if ok then return title end
     return nil
 end
+
 local function NonPlayerMarker(plate)
     local marker = nonPlayerMarkers[plate]
     if marker then return marker end
@@ -494,14 +475,6 @@ local function NonPlayerMarker(plate)
             petCombatEngaged = false
         end
         local cfg = Config()
-        if not self.isPet and cfg and cfg.npcEnabled ~= false then
-            local title = NPCSubtitle(unit)
-            self.owner:SetText(title or "")
-            self.owner:SetShown(title ~= nil)
-            local icon = cfg.npcIcons and NPCServiceIcon(title)
-            if icon then self.icon:SetTexture(icon) end
-            self.iconAnchor:SetShown(icon ~= nil)
-        end
         if cfg and cfg.petIconVisibility == "combat" and self.isOwnPet then
             -- Combat begins on an actual attack or hit, not an attack order.
             self.iconAnchor:SetShown(cfg.petShowIcon == true
@@ -576,7 +549,6 @@ UpdateNonPlayerPlate = function(unit, plate, cfg)
     -- Only the player's own pet can ever display a portrait-style icon.
     local myPet = pet and UnitIsUnit(unit, "pet")
     marker.isOwnPet = myPet
-    marker.isPet = pet
     local iconVisible = myPet and cfg.petShowIcon == true
         and (cfg.petIconVisibility ~= "combat" or petCombatEngaged)
     marker.iconAnchor:SetSize(cfg.friendlySize or 28, cfg.friendlySize or 28)
@@ -584,13 +556,6 @@ UpdateNonPlayerPlate = function(unit, plate, cfg)
     marker.iconMask:SetSize((cfg.friendlySize or 28) * 0.95, (cfg.friendlySize or 28) * 0.95)
     marker.rim:SetSize((cfg.friendlySize or 28) * 1.08, (cfg.friendlySize or 28) * 1.08)
     marker.rimMask:SetSize((cfg.friendlySize or 28) * 1.08, (cfg.friendlySize or 28) * 1.08)
-    if not pet then
-        local npcIcon = cfg.npcIcons and NPCServiceIcon(ownerText)
-        if npcIcon then marker.icon:SetTexture(npcIcon) end
-        iconVisible = npcIcon ~= nil
-    else
-        marker.icon:SetTexture("Interface\\Icons\\Ability_Hunter_BeastCall")
-    end
     marker.iconAnchor:SetShown(iconVisible)
     -- NPC icons are deliberately not guessed from NPC names or creature types.
     -- Only expose an icon when the client provides a reliable service marker.
@@ -728,19 +693,6 @@ end
 function M:Initialize()
     if self.initialized then return end
     self.initialized = true
-    if GameTooltip and GameTooltip.HookScript then
-        GameTooltip:HookScript("OnTooltipSetUnit", function(tip)
-            local _, unit = tip:GetUnit()
-            if not unit or not UnitExists(unit) or UnitIsPlayer(unit) or IsPetUnit(unit) then return end
-            local guid = UnitGUID and UnitGUID(unit)
-            if not guid then return end
-            local line = _G.GameTooltipTextLeft2
-            local ok, title = pcall(function()
-                return CleanNPCSubtitle(line and line:GetText())
-            end)
-            if ok and title then npcTooltipByGUID[guid] = title end
-        end)
-    end
     eventFrame:RegisterEvent("NAME_PLATE_UNIT_ADDED")
     eventFrame:RegisterEvent("NAME_PLATE_UNIT_REMOVED")
     eventFrame:RegisterEvent("GROUP_ROSTER_UPDATE")
