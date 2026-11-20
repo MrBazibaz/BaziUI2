@@ -84,6 +84,7 @@ local function makeStats()
     -- Its border is a separate child of the cluster in Bazi UI.
     local anchor = addon.Minimap and addon.Minimap.Border or _G.Minimap or cluster
     local holder = CreateFrame("Frame", nil, anchor)
+    holder:EnableMouse(false) -- Stats overlay must not intercept minimap quest hovers.
     holder:SetAllPoints(anchor)
     holder:SetFrameStrata("HIGH")
     holder:SetFrameLevel(math.max(anchor:GetFrameLevel() + 5, 15))
