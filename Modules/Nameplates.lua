@@ -202,26 +202,26 @@ local function UpdatePlate(unit)
         marker.guild:SetShadowOffset(0, 0)
         marker.guild:SetJustifyH("CENTER")
         marker.guild:SetPoint("TOP", marker.name, "BOTTOM", 0, 0)
-        -- Same-color weight experiment: a slightly larger text layer behind
-        -- the original. WoW's OUTLINE flag is black and cannot be recolored.
+        -- Same-size, same-color weight experiment. A tiny horizontal offset
+        -- adds subtle weight without differing glyph widths or black outlines.
         marker.nameWeight = marker:CreateFontString(nil, "ARTWORK")
         marker.nameWeight:SetFontObject(marker.name:GetFontObject() or GameFontNormal)
         local nameWeightFont, _, nameWeightFlags = marker.name:GetFont()
         if nameWeightFont then
-            marker.nameWeight:SetFont(nameWeightFont, 14.6, nameWeightFlags or "")
+            marker.nameWeight:SetFont(nameWeightFont, 14, nameWeightFlags or "")
         end
         marker.nameWeight:SetTextColor(0.36, 0.37, 0.88, 1)
         marker.nameWeight:SetJustifyH("CENTER")
-        marker.nameWeight:SetPoint("CENTER", marker.name, "CENTER", 0, 0)
+        marker.nameWeight:SetPoint("CENTER", marker.name, "CENTER", 0.35, 0)
         marker.guildWeight = marker:CreateFontString(nil, "ARTWORK")
         marker.guildWeight:SetFontObject(marker.guild:GetFontObject() or GameFontNormal)
         local guildWeightFont, _, guildWeightFlags = marker.guild:GetFont()
         if guildWeightFont then
-            marker.guildWeight:SetFont(guildWeightFont, 14.6, guildWeightFlags or "")
+            marker.guildWeight:SetFont(guildWeightFont, 14, guildWeightFlags or "")
         end
         marker.guildWeight:SetTextColor(0.36, 0.37, 0.88, 1)
         marker.guildWeight:SetJustifyH("CENTER")
-        marker.guildWeight:SetPoint("CENTER", marker.guild, "CENTER", 0, 0)
+        marker.guildWeight:SetPoint("CENTER", marker.guild, "CENTER", 0.35, 0)
         active[plate] = marker
     end
     local valid = false
