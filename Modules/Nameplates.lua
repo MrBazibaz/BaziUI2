@@ -683,9 +683,10 @@ UpdateNonPlayerPlate = function(unit, plate, cfg)
         marker:SetPoint("TOP", plate, "TOP", cfg.friendlyTextX or 0,
             18 + (cfg.friendlyTextY or 0))
     else
-        -- NPC text must not inherit the nameplate's distance-dependent scale.
-        -- Its anchor is updated in UIParent coordinates by the marker updater.
-        marker:SetPoint("CENTER", UIParent, "BOTTOMLEFT", 0, 0)
+        -- Seed a visible position before the OnUpdate screen-space tracking.
+        -- Anchoring at (0,0) could make IsShown() false and stop the updater.
+        marker:SetPoint("TOP", plate, "TOP", cfg.friendlyTextX or 0,
+            18 + (cfg.friendlyTextY or 0))
     end
     marker.name:ClearAllPoints()
     marker.name:SetPoint("TOP", marker, "TOP", 0, 0)
