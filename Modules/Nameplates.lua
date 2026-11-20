@@ -5,6 +5,43 @@ local addon = BaziUI
 addon.Nameplates = addon.Nameplates or {}
 local M = addon.Nameplates
 local active = {}
+local hiddenNames = {} -- FontStrings changed by this experiment, with original alpha.
+
+local function RestoreName(plate)
+    local saved = hiddenNames[plate]
+    if saved then
+        for fontString, alpha in pairs(saved) do
+            if fontString and fontString.SetAlpha then fontString:SetAlpha(alpha) end
+        end
+        hiddenNames[plate] = nil
+    end
+end
+
+local function HideName(plate, unit)
+    -- Experimental: hide only the Blizzard nameplate's player-name text.
+    -- Do not hide the plate or UnitFrame: our icon must remain attached.
+    local frame = plate.UnitFrame
+    if not frame then return end
+    local name = UnitName(unit)
+    if not name then return end
+    local candidates = {frame.name, frame.Name, frame.nameText, frame.NameText}
+    if frame.GetRegions then
+        for _, region in ipairs({frame:GetRegions()}) do
+            if region and region.IsObjectType and region:IsObjectType("FontString") then
+                candidates[#candidates + 1] = region
+            end
+        end
+    end
+    local saved = hiddenNames[plate] or {}
+    for _, region in ipairs(candidates) do
+        if region and region.IsObjectType and region:IsObjectType("FontString")
+            and region.GetText and region:GetText() == name then
+            if saved[region] == nil then saved[region] = region:GetAlpha() end
+            region:SetAlpha(0)
+        end
+    end
+    if next(saved) then hiddenNames[plate] = saved end
+end
 local eventFrame = CreateFrame("Frame")
 
 local function Config()
@@ -67,6 +104,7 @@ end
 local function HidePlate(plate)
     local marker = active[plate]
     if marker then marker:Hide() end
+    RestoreName(plate)
 end
 
 local function UpdatePlate(unit)
@@ -112,12 +150,14 @@ local function UpdatePlate(unit)
     marker:SetPoint("BOTTOM", anchor, "TOP", cfg.friendlyX or 0, cfg.friendlyY or 20)
     marker:SetSize(cfg.friendlySize or 28, cfg.friendlySize or 28)
     marker:Show()
+    HideName(plate, unit)
 end
 
 function M:Apply()
     local cfg = Config()
     if not cfg or not cfg.enabled then
         for plate in pairs(active) do HidePlate(plate) end
+        for plate in pairs(hiddenNames) do RestoreName(plate) end
         return
     end
     if C_NamePlate and C_NamePlate.GetNamePlates then
