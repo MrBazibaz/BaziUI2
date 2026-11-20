@@ -15,9 +15,11 @@ local distanceElapsed = 0
 -- World names shrink with distance. Prefer real coordinates if exposed by
 -- this client; do not guess a precise distance from nameplate screen position.
 local function UnitDistance(unit)
+    -- Some Forever builds return zero for every nameplate unit. Treat that
+    -- as unavailable unless the unit really is our own player.
     if type(UnitDistanceSquared) == "function" then
         local ok, squared = pcall(UnitDistanceSquared, unit)
-        if ok and type(squared) == "number" and squared >= 0 then
+        if ok and type(squared) == "number" and squared > 0 then
             return math.sqrt(squared)
         end
     end
@@ -28,21 +30,40 @@ local function UnitDistance(unit)
             and type(px) == "number" and type(py) == "number"
             and map and map == pmap then
             local dx, dy = x - px, y - py
-            return math.sqrt(dx * dx + dy * dy)
+            local squared = dx * dx + dy * dy
+            if squared > 0 then return math.sqrt(squared) end
         end
     end
     return nil
 end
 
+local function ApproximateDistanceScale(unit)
+    -- WoW does not expose the native world-name perspective transform.
+    -- Use supported range checks as a fallback, with interpolation in
+    -- OnUpdate so the text changes smoothly without resizing the icon.
+    -- CheckInteractDistance indices: 3 ~= 10 yd, 2 ~= 11 yd, 4 ~= 28 yd.
+    if type(CheckInteractDistance) == "function" then
+        local ok, near = pcall(CheckInteractDistance, unit, 3)
+        if ok and near then return 1 end
+        local ok2, middle = pcall(CheckInteractDistance, unit, 2)
+        if ok2 and middle then return 0.93 end
+        local ok3, far = pcall(CheckInteractDistance, unit, 4)
+        if ok3 and far then return 0.74 end
+        if ok3 then return 0.52 end
+    end
+    if type(UnitInRange) == "function" then
+        local ok, inRange, checked = pcall(UnitInRange, unit)
+        if ok and checked then return inRange and 0.82 or 0.52 end
+    end
+    return 1
+end
+
 local function TextDistanceScale(unit)
     local distance = UnitDistance(unit)
     if distance then
-        -- Full size within 8 yards; gradually reduce toward nameplate range.
         return math.max(0.48, math.min(1, 1 - (distance - 8) * 0.016))
     end
-    -- No reliable distance API: preserve current appearance rather than
-    -- pretending screen coordinates represent world distance.
-    return 1
+    return ApproximateDistanceScale(unit)
 end
 
 local function RestoreName(plate)
