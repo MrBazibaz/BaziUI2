@@ -208,12 +208,12 @@ local function UpdatePlate(unit)
         marker = CreateFrame("Frame", nil, plate)
         marker:SetFrameLevel(plate:GetFrameLevel() + 10)
         marker.icon = marker:CreateTexture(nil, "OVERLAY")
-        marker.icon:SetPoint("CENTER", marker, "CENTER", 0, 0)
+        marker.icon:SetPoint("CENTER", marker, "CENTER", 0, 1)
         -- MiniMarkers-style circular clipping with a subtle ring.
         -- Use Blizzard's built-in portrait mask to avoid shipping third-party artwork.
         marker.iconMask = marker:CreateMaskTexture()
         marker.iconMask:SetTexture("Interface\\CHARACTERFRAME\\TempPortraitAlphaMask")
-        marker.iconMask:SetPoint("CENTER", marker, "CENTER", 0, 0)
+        marker.iconMask:SetPoint("CENTER", marker, "CENTER", 0, 1)
         marker.icon:AddMaskTexture(marker.iconMask)
         -- Reuse the exact portrait ring atlas and crop used by UnitFrames.
         -- The icon sits inside it so only the inner part of the gold rim shows.
