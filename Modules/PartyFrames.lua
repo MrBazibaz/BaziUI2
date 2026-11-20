@@ -1028,20 +1028,45 @@ local function updatePartyCast(f,preview)
     if type(UnitCastingInfo)=="function" then
         name,_,_,startTime,endTime,_,_,notInterruptible=UnitCastingInfo(f.unit)
     end
+    -- On Forever, casting API results can be secret while addon execution is
+    -- tainted. Never branch on secret strings, numbers or booleans.
+    local function secret(value)
+        return type(issecretvalue)=="function" and issecretvalue(value)
+    end
+    if secret(name) or secret(startTime) or secret(endTime) then
+        cast:Hide()
+        cast.startTime=nil
+        cast.endTime=nil
+        return
+    end
     if not name and type(UnitChannelInfo)=="function" then
         name,_,_,startTime,endTime,_,notInterruptible=UnitChannelInfo(f.unit)
         channel=true
     end
+    if secret(name) or secret(startTime) or secret(endTime) then
+        cast:Hide()
+        cast.startTime=nil
+        cast.endTime=nil
+        return
+    end
     if not name or not startTime or not endTime then
         cast:Hide()
         cast.startTime=nil
+        cast.endTime=nil
         return
     end
     cast.startTime=startTime
     cast.endTime=endTime
     cast.channel=channel
     cast.label:SetText(name)
-    cast:SetStatusBarColor(notInterruptible and .5 or .72,notInterruptible and .5 or .43,notInterruptible and .5 or .20)
+    -- A secret interruptibility flag cannot be used in a Lua condition.
+    -- Use the normal cast color rather than risking a blocked action.
+    if secret(notInterruptible) then
+        cast:SetStatusBarColor(.72,.43,.20)
+    else
+        cast:SetStatusBarColor(notInterruptible and .5 or .72,
+            notInterruptible and .5 or .43,notInterruptible and .5 or .20)
+    end
     cast:SetMinMaxValues(0,1)
     cast:Show()
 end
