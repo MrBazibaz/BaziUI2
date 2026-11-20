@@ -284,10 +284,16 @@ local function UpdatePlate(unit)
     local iconSize = cfg.friendlySize or 28
     local rimSize = iconSize * 1.08
     -- Restore original artwork size and center both artwork and mask.
-    marker.icon:SetSize(iconSize * 0.95, iconSize * 0.95)
-    marker.iconMask:SetSize(iconSize * 0.95, iconSize * 0.95)
+    -- Dungeon Finder role atlases already contain their own circular gold rim.
+    -- Draw them at the same outer diameter and center as class icons, without
+    -- stacking Bazi's separate rim on top of the embedded role rim.
+    local rolePortrait = iconMode == "role" and valid
+    local artworkSize = rolePortrait and rimSize or (iconSize * 0.95)
+    marker.icon:SetSize(artworkSize, artworkSize)
+    marker.iconMask:SetSize(artworkSize, artworkSize)
     marker.rim:SetSize(rimSize, rimSize)
     marker.rimMask:SetSize(rimSize, rimSize)
+    marker.rim:SetShown(not rolePortrait)
     -- Keep the approved single-layer appearance. The user selected size 20.
     -- FontString text inherits the nameplate's frame transforms.
     for _, label in ipairs({marker.name, marker.guild}) do
