@@ -467,38 +467,63 @@ local function NPCSubtitle(unit)
     return npcTitles[guid]
 end
 
--- Initial, deliberately narrow title-based service icons. No guessing
--- repair, quest or unknown NPC functions from their names.
--- Prefer the same icon textures the minimap tracking menu uses.
--- This API describes tracking categories, NOT individual NPC service flags.
--- Native minimap tracking textures are directly addressable even when
--- GetTrackingInfo / GetNumTrackingTypes do not exist on Forever.
+-- BaziUI's original 64x64 TGA NPC service artwork. Keep the approved
+-- 28x28 presentation, icon positioning and pet/player nameplates unchanged.
+local NPC_ICON_ROOT = "Interface\\\\AddOns\\\\BaziUI\\\\Assets\\\\Icons\\\\NPC\\\\NPC_"
+local function NPCIcon(name)
+    return NPC_ICON_ROOT .. name .. ".tga"
+end
 local NPC_SERVICE_TEXTURES = {
-    repair = "Interface\\Minimap\\Tracking\\Repair",
-    flight = "Interface\\Minimap\\Tracking\\FlightMaster",
-    inn = "Interface\\Minimap\\Tracking\\Innkeeper",
-    bank = "Interface\\Minimap\\Tracking\\Banker",
-    vendor = "Interface\\CURSOR\\Buy",
-    trainer = "Interface\\Icons\\INV_Misc_Book_09",
+    repair = NPCIcon("Repair"),
+    flight = NPCIcon("FlightMaster"),
+    inn = NPCIcon("Innkeeper"),
+    bank = NPCIcon("Banker"),
+    vendor = NPCIcon("Vendor"),
+    trainer = NPCIcon("Trainer"), -- Shared class/profession trainer book.
+    auction = NPCIcon("Auctioneer"),
+    stable = NPCIcon("StableMaster"),
+    battlemaster = NPCIcon("Battlemaster"),
+    guild = NPCIcon("GuildMaster"),
+    tabard = NPCIcon("TabardDesigner"),
+    weapon = NPCIcon("WeaponMaster"),
+    pet = NPCIcon("PetTrainer"),
+    spirit = NPCIcon("SpiritHealer"),
+    transmog = NPCIcon("Transmogrifier"),
+    barber = NPCIcon("Barber"),
 }
 local function NPCServiceIcon(title, unit)
     local registry = BaziUI.NPCServices
     local roles = registry and registry.Get and registry:Get(unit)
     if roles then
-        -- A repair-capable merchant gets the anvil rather than the bag.
-        for _, key in ipairs({"repair", "flight", "trainer", "inn", "bank", "vendor"}) do
+        -- Specific services win over generic vendor flags. Some trainers,
+        -- auctioneers and stable masters are also marked as vendors.
+        for _, key in ipairs({"repair", "flight", "auction", "stable", "trainer",
+            "inn", "bank", "vendor"}) do
             if roles[key] then return NPC_SERVICE_TEXTURES[key] end
         end
     end
-    -- For NPCs missing from the pilot database, only explicit service
-    -- subtitles qualify. Never guess repair from "Bowyer".
+    -- Subtitle fallback for services absent from the NPC-ID database.
     if type(title) ~= "string" then return nil end
     local value = title:lower()
     if value:find("flight master", 1, true) or value:find("gryphon master", 1, true)
         or value:find("wind rider", 1, true) then return NPC_SERVICE_TEXTURES.flight end
     if value:find("innkeeper", 1, true) then return NPC_SERVICE_TEXTURES.inn end
+    if value:find("auctioneer", 1, true) then return NPC_SERVICE_TEXTURES.auction end
+    if value:find("stable master", 1, true) then return NPC_SERVICE_TEXTURES.stable end
     if value:find("banker", 1, true) then return NPC_SERVICE_TEXTURES.bank end
-    if value:find("repair", 1, true) then return NPC_SERVICE_TEXTURES.repair end
+    if value:find("repair", 1, true) or value:find("blacksmith", 1, true)
+        then return NPC_SERVICE_TEXTURES.repair end
+    if value:find("battlemaster", 1, true) or value:find("battle master", 1, true)
+        then return NPC_SERVICE_TEXTURES.battlemaster end
+    if value:find("guild master", 1, true) or value:find("guild services", 1, true)
+        then return NPC_SERVICE_TEXTURES.guild end
+    if value:find("tabard", 1, true) then return NPC_SERVICE_TEXTURES.tabard end
+    if value:find("weapon master", 1, true) then return NPC_SERVICE_TEXTURES.weapon end
+    if value:find("pet trainer", 1, true) then return NPC_SERVICE_TEXTURES.pet end
+    if value:find("spirit healer", 1, true) then return NPC_SERVICE_TEXTURES.spirit end
+    if value:find("transmogrifier", 1, true) or value:find("transmogrification", 1, true)
+        then return NPC_SERVICE_TEXTURES.transmog end
+    if value:find("barber", 1, true) then return NPC_SERVICE_TEXTURES.barber end
     if value:find("trainer", 1, true) then return NPC_SERVICE_TEXTURES.trainer end
     return nil
 end
