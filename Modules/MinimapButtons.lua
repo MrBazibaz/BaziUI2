@@ -37,7 +37,7 @@ local function makeLauncher()
     -- and Blizzard's round tracking border (rather than a square highlight).
     local emblem = b:CreateTexture(nil, "ARTWORK")
     emblem:SetSize(25, 25)
-    emblem:SetPoint("CENTER", b, "CENTER", 0, 0)
+    emblem:SetPoint("CENTER", b, "CENTER", -4, 2)
     emblem:SetTexture("Interface\\AddOns\\BaziUI\\Assets\\Icons\\BaziUI_Emblem_64.png")
     local border = b:CreateTexture(nil, "OVERLAY")
     border:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder")
@@ -244,7 +244,10 @@ function M:Initialize()
         local settings = db()
         local menu = settings and settings.microMenu and true or false
         local ownPings = squareStyle and not InBattleground()
-        surface:EnableMouse(ownPings)
+        -- The overlay covered the entire minimap and intercepted Blizzard's
+        -- quest-blob hover hit testing. Native map handles clicks and hover;
+        -- our middle-click menu already uses GLOBAL_MOUSE_DOWN below.
+        surface:EnableMouse(false)
         if surface.SetPassThroughButtons and not InCombatLockdown() then
             local through = { "Button4", "Button5" }
             if not ownPings then through[#through + 1] = "LeftButton"; through[#through + 1] = "RightButton" end
@@ -268,7 +271,7 @@ function M:Initialize()
         if surface.SetMouseMotionEnabled then surface:SetMouseMotionEnabled(false) end
         if surface.SetPropagateMouseMotion then surface:SetPropagateMouseMotion(true) end
         if squareStyle then
-            surface:EnableMouseWheel(true)
+            surface:EnableMouseWheel(false)
             surface:SetScript("OnMouseWheel", function(_, delta)
                 if delta > 0 then Minimap_ZoomIn() elseif delta < 0 then Minimap_ZoomOut() end
             end)
