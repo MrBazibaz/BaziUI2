@@ -65,6 +65,27 @@ local function run()
         if ok then out("mouse focus: " .. name(frame)) end
     end
 end
+-- Inspect anonymous mouse focus frames without mutating them.
+local function focusDetails(frame)
+    if not frame then return "nil" end
+    local function read(fn)
+        local ok, value = pcall(fn)
+        return ok and tostring(value) or "unavailable"
+    end
+    local chain, current = {}, frame
+    for i = 1, 5 do
+        if not current then break end
+        local item = current
+        local kind = read(function() return item.GetObjectType and item:GetObjectType() end)
+        chain[#chain + 1] = name(item) .. "[" .. kind .. "]"
+        local ok, parent = pcall(function() return item.GetParent and item:GetParent() end)
+        if not ok or parent == item then break end
+        current = parent
+    end
+    local mouse = read(function() return frame.IsMouseEnabled and frame:IsMouseEnabled() end)
+    local level = read(function() return frame.GetFrameLevel and frame:GetFrameLevel() end)
+    return table.concat(chain, " <- ") .. " mouse=" .. mouse .. " level=" .. level
+end
 -- Sample hover without opening chat. Prints changes and a summary after 10 seconds.
 local sampler = CreateFrame("Frame")
 local elapsed, remaining, previous, samples, hovered, tips = 0, 0, nil, 0, 0, 0
@@ -72,12 +93,12 @@ local function mouseFocusName()
     if GetMouseFoci then
         local ok, frames = pcall(GetMouseFoci)
         if ok and type(frames) == "table" and frames[1] then
-            return name(frames[1])
+            return focusDetails(frames[1])
         end
     end
     if GetMouseFocus then
         local ok, frame = pcall(GetMouseFocus)
-        if ok then return name(frame) end
+        if ok then return focusDetails(frame) end
     end
     return "unknown"
 end
@@ -155,15 +176,62 @@ local function showMarks()
             markCenter(region, color, "Texture " .. i)
         end
     end
-    out("Crosshairs: white button; red emblem; green border; blue highlight. /bazidebug clear to hide.")
+    out("Crosshairs mark texture geometry, not the visible painted pixels.")
+    out("White=button; red=emblem; green=border; blue=highlight.")
+    out("Use /bazidebug bounds for texture rectangles; /bazidebug clear to hide.")
+end
+local function showBounds()
+    clearMarks()
+    local button = _G.BaziUIMinimapButton
+    if not button then out("Launcher missing"); return end
+    local function outline(target, label, color)
+        local ok, left, right, top, bottom = pcall(function()
+            return target:GetLeft(), target:GetRight(), target:GetTop(), target:GetBottom()
+        end)
+        if not ok or type(left) ~= "number" or type(right) ~= "number"
+            or type(top) ~= "number" or type(bottom) ~= "number" then
+            out(label .. ": bounds unavailable"); return
+        end
+        local parent = CreateFrame("Frame", nil, UIParent)
+        parent:SetFrameStrata("TOOLTIP")
+        parent:SetFrameLevel(100)
+        parent:SetSize(right - left, top - bottom)
+        parent:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", left, bottom)
+        parent:EnableMouse(false)
+        local function edge(width, height, point)
+            local t = parent:CreateTexture(nil, "OVERLAY")
+            t:SetColorTexture(color[1], color[2], color[3], 1)
+            t:SetSize(width, height)
+            t:SetPoint(point)
+        end
+        edge(right - left, 1, "TOP")
+        edge(right - left, 1, "BOTTOM")
+        edge(1, top - bottom, "LEFT")
+        edge(1, top - bottom, "RIGHT")
+        marks[#marks + 1] = parent
+        out(label .. " bounds=" .. num(left) .. "," .. num(bottom)
+            .. " to " .. num(right) .. "," .. num(top))
+    end
+    outline(button, "Button", {1, 1, 1})
+    local regions = {button:GetRegions()}
+    local colors = {{1, 0, 0}, {0, 1, 0}, {0, 0.5, 1}}
+    local count = 0
+    for _, region in ipairs(regions) do
+        if region and region.IsObjectType and region:IsObjectType("Texture") then
+            count = count + 1
+            outline(region, "Texture " .. count, colors[count] or {1, 0, 1})
+        end
+    end
+    out("Bounds show texture rectangles, not visible artwork pixels.")
 end
 SLASH_BAZIDEBUG1 = "/bazidebug"
 SlashCmdList.BAZIDEBUG = function(arg)
     if arg == "hover" then startHover(); return end
     if arg == "marks" then showMarks(); return end
+    if arg == "bounds" then showBounds(); return end
     if arg == "clear" then clearMarks(); stopHover(); return end
     if arg ~= "minimap" then
-        out("Usage: /bazidebug minimap | hover | marks | clear")
+        out("Usage: /bazidebug minimap | hover | marks | bounds | clear")
         return
     end
     local ok, err = pcall(run)
