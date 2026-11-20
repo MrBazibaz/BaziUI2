@@ -169,6 +169,7 @@ local function RestoreUnitFrame(plate)
     end
 end
 
+local nonPlayerMarkers = {} -- separate, reversible pet/NPC overlays
 local function HidePlate(plate)
     RestoreUnitFrame(plate)
     local marker = active[plate]
@@ -177,9 +178,9 @@ local function HidePlate(plate)
         if marker.textAnchor then marker.textAnchor:Hide() end
     end
     RestoreName(plate)
+    if nonPlayerMarkers[plate] then nonPlayerMarkers[plate]:Hide() end
 end
 
-local nonPlayerMarkers = {} -- separate, reversible pet/NPC overlays
 local UpdateNonPlayerPlate -- defined below; separate from approved Friendly Player logic
 local function UpdatePlate(unit)
     if not (C_NamePlate and C_NamePlate.GetNamePlateForUnit) then return end
