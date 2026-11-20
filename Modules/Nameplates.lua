@@ -478,7 +478,7 @@ local NPC_SERVICE_TEXTURES = {
     flight = "Interface\\Minimap\\Tracking\\FlightMaster",
     inn = "Interface\\Minimap\\Tracking\\Innkeeper",
     bank = "Interface\\Minimap\\Tracking\\Banker",
-    vendor = "Interface\\Icons\\INV_Misc_Bag_08",
+    vendor = "Interface\\CURSOR\\Buy",
     trainer = "Interface\\Icons\\INV_Misc_Book_09",
 }
 local function NPCServiceIcon(title, unit)
