@@ -525,6 +525,27 @@ local function NPCServiceIcon(title)
     return nil
 end
 
+-- Nameplate effective scale can change with camera distance. NPC text
+-- should stay at 16 UI pixels rather than inheriting that distance zoom.
+local function RefreshNPCFontScale(marker, plate)
+    if not marker or not marker.isNPC then return end
+    if not (plate.GetEffectiveScale and UIParent.GetEffectiveScale) then return end
+    local plateScale = plate:GetEffectiveScale()
+    local uiScale = UIParent:GetEffectiveScale()
+    if not plateScale or plateScale <= 0 or not uiScale or uiScale <= 0 then return end
+    local size = 16 * uiScale / plateScale
+    if marker.npcFontSize and math.abs(marker.npcFontSize - size) < 0.05 then return end
+    local font = UNIT_NAME_FONT
+    for _, label in ipairs({marker.name, marker.owner}) do
+        local ok, applied = pcall(label.SetFont, label, font, size, "")
+        if not ok or applied == false then
+            local fallback = GameFontNormal and select(1, GameFontNormal:GetFont())
+            if fallback then pcall(label.SetFont, label, fallback, size, "") end
+        end
+    end
+    marker.npcFontSize = size
+end
+
 local function NonPlayerMarker(plate)
     local marker = nonPlayerMarkers[plate]
     if marker then return marker end
@@ -583,6 +604,7 @@ local function NonPlayerMarker(plate)
         end
         local cfg = Config()
         if self.isNPC and cfg and cfg.npcEnabled ~= false then
+            RefreshNPCFontScale(self, plate)
             local title = NPCSubtitle(unit)
             self.owner:SetText(title or "")
             self.owner:SetShown(title ~= nil)
@@ -637,15 +659,6 @@ UpdateNonPlayerPlate = function(unit, plate, cfg)
         frame:SetAlpha(0)
     end
     local size = pet and (cfg.friendlyTextSize or 20) or 16
-    if not pet and plate.GetEffectiveScale and UIParent.GetEffectiveScale then
-        -- Font sizes are measured in the plate's scaled coordinates. Keep
-        -- NPC text at 16 effective UI pixels even when native plates scale up.
-        local plateScale = plate:GetEffectiveScale()
-        local uiScale = UIParent:GetEffectiveScale()
-        if plateScale and plateScale > 0 and uiScale and uiScale > 0 then
-            size = 16 * uiScale / plateScale
-        end
-    end
     for _, label in ipairs({marker.name, marker.owner}) do
         local font = UNIT_NAME_FONT
         local ok, applied = pcall(label.SetFont, label, font, size, "")
@@ -675,6 +688,10 @@ UpdateNonPlayerPlate = function(unit, plate, cfg)
     local myPet = pet and UnitIsUnit(unit, "pet")
     marker.isOwnPet = myPet
     marker.isNPC = not pet
+    if not pet then
+        marker.npcFontSize = nil
+        RefreshNPCFontScale(marker, plate)
+    end
     local iconVisible = myPet and cfg.petShowIcon == true
         and (cfg.petIconVisibility ~= "combat" or petCombatEngaged)
     marker.iconAnchor:SetSize(cfg.friendlySize or 28, cfg.friendlySize or 28)
