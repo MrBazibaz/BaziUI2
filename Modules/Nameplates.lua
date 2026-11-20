@@ -157,8 +157,23 @@ local function RoleTexture(icon, role)
     if not icon.SetAtlas then return false end
     local ok = pcall(icon.SetAtlas, icon, atlas, false)
     if not ok then return false end
-    -- Reset UVs left over when a recycled nameplate previously showed a class.
-    icon:SetTexCoord(0, 1, 0, 1)
+    -- The Dungeon Finder artwork includes its own thick rim and four corner
+    -- shadows. Crop those away so Bazi's existing portrait rim can be reused.
+    -- Atlas UVs are texture-sheet coordinates, NOT always 0..1.
+    local info
+    if C_Texture and C_Texture.GetAtlasInfo then
+        info = C_Texture.GetAtlasInfo(atlas)
+    elseif type(GetAtlasInfo) == "function" then
+        info = GetAtlasInfo(atlas)
+    end
+    if info and info.leftTexCoord and info.rightTexCoord
+        and info.topTexCoord and info.bottomTexCoord then
+        local inset = 0.18
+        local l, r = info.leftTexCoord, info.rightTexCoord
+        local t, b = info.topTexCoord, info.bottomTexCoord
+        icon:SetTexCoord(l + (r-l)*inset, r - (r-l)*inset,
+            t + (b-t)*inset, b - (b-t)*inset)
+    end
     return true
 end
 
@@ -288,15 +303,12 @@ local function UpdatePlate(unit)
     -- Draw them at the same outer diameter and center as class icons, without
     -- stacking Bazi's separate rim on top of the embedded role rim.
     local rolePortrait = iconMode == "role" and valid
-    -- Dungeon Finder role art has substantial transparent padding. Enlarge
-    -- only its artwork, while clipping to the same outer circle as class icons.
-    local artworkSize = rolePortrait and (rimSize * 1.40) or (iconSize * 0.95)
-    local maskSize = rolePortrait and rimSize or (iconSize * 0.95)
-    marker.icon:SetSize(artworkSize, artworkSize)
-    marker.iconMask:SetSize(maskSize, maskSize)
+    -- Both icon modes now share the same artwork size, mask and gold rim.
+    marker.icon:SetSize(iconSize * 0.95, iconSize * 0.95)
+    marker.iconMask:SetSize(iconSize * 0.95, iconSize * 0.95)
     marker.rim:SetSize(rimSize, rimSize)
     marker.rimMask:SetSize(rimSize, rimSize)
-    marker.rim:SetShown(not rolePortrait)
+    marker.rim:Show()
     -- Keep the approved single-layer appearance. The user selected size 20.
     -- FontString text inherits the nameplate's frame transforms.
     for _, label in ipairs({marker.name, marker.guild}) do
