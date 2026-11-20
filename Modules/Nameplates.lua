@@ -495,10 +495,18 @@ local function TrackingTexture(key)
     return ok and result or nil
 end
 
-local function NPCServiceIcon(title)
-    if not title then return nil end
-    local value = title:lower()
+local function NPCServiceIcon(title, unit)
+    local registry = BaziUI.NPCServices
+    local roles = registry and registry.Get and registry:Get(unit)
     local service
+    if roles then
+        for _, key in ipairs({"repair", "flight", "trainer", "inn", "bank", "vendor"}) do
+            if roles[key] then service = key; break end
+        end
+    end
+    if not service and not title then return nil end
+    local value = title and title:lower() or ""
+    if not service then
     if value:find("flight master", 1, true) or value:find("gryphon master", 1, true)
         or value:find("wind rider master", 1, true) then
         service = "flight"
@@ -511,10 +519,11 @@ local function NPCServiceIcon(title)
         service = "inn"
     elseif value:find("banker", 1, true) then
         service = "bank"
-    elseif value:find("supplies", 1, true) or value:find("bowyer", 1, true)
+    elseif value:find("supplies", 1, true)
         or value:find("vendor", 1, true) or value:find("merchant", 1, true)
         or value:find("goods", 1, true) then
         service = "vendor"
+    end
     end
     if not service then return nil end
     local native = TrackingTexture(service)
@@ -608,7 +617,7 @@ local function NonPlayerMarker(plate)
             local title = NPCSubtitle(unit)
             self.owner:SetText(title or "")
             self.owner:SetShown(title ~= nil)
-            local texture = cfg.npcIcons and NPCServiceIcon(title)
+            local texture = cfg.npcIcons and NPCServiceIcon(title, unit)
             if texture then self.npcIcon:SetTexture(texture) end
             self.npcIcon:SetShown(texture ~= nil)
             self.iconAnchor:SetShown(texture ~= nil)
@@ -703,7 +712,7 @@ UpdateNonPlayerPlate = function(unit, plate, cfg)
         -- Keep all pet-only circular portrait artwork hidden on NPC plates.
         marker.icon:Hide()
         marker.rim:Hide()
-        local texture = cfg.npcIcons and NPCServiceIcon(ownerText)
+        local texture = cfg.npcIcons and NPCServiceIcon(ownerText, unit)
         if texture then marker.npcIcon:SetTexture(texture) end
         marker.npcIcon:SetSize(28, 28)
         marker.npcIcon:SetShown(texture ~= nil)
