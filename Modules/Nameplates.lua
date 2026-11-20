@@ -207,16 +207,16 @@ local function UpdatePlate(unit)
     if not marker then
         marker = CreateFrame("Frame", nil, plate)
         marker:SetFrameLevel(plate:GetFrameLevel() + 10)
-        marker.icon = marker:CreateTexture(nil, "OVERLAY")
-        marker.icon:SetPoint("CENTER", marker, "CENTER", -1, 2)
+        marker.icon = marker:CreateTexture(nil, "OVERLAY", nil, 2)
+        marker.icon:SetPoint("CENTER", marker, "CENTER", 0, 0)
         -- MiniMarkers-style circular clipping with a subtle ring.
         -- Use Blizzard's built-in portrait mask to avoid shipping third-party artwork.
         marker.iconMask = marker:CreateMaskTexture()
         marker.iconMask:SetTexture("Interface\\CHARACTERFRAME\\TempPortraitAlphaMask")
-        marker.iconMask:SetPoint("CENTER", marker, "CENTER", -1, 2)
+        marker.iconMask:SetPoint("CENTER", marker, "CENTER", 0, 0)
         marker.icon:AddMaskTexture(marker.iconMask)
         -- Reuse the exact portrait ring atlas and crop used by UnitFrames.
-        -- The icon sits inside it so only the inner part of the gold rim shows.
+        -- Keep the ring behind the icon, so the artwork is not obscured.
         marker.rim = marker:CreateTexture(nil, "OVERLAY", nil, 1)
         marker.rim:SetAtlas("UI-HUD-UnitFrame-Target-PortraitOn")
         marker.rim:SetTexCoord(252.78 / 384, 375 / 384, 1.67 / 134, 123.89 / 134)
@@ -271,10 +271,9 @@ local function UpdatePlate(unit)
     -- to its edge, showing roughly half the previous visible gold border.
     local iconSize = cfg.friendlySize or 28
     local rimSize = iconSize * 1.08
-    -- Slightly enlarge the artwork inside the existing portrait ring.
-    -- All layers share the same center to avoid offsets from frame edges.
-    marker.icon:SetSize(iconSize * 1.06, iconSize * 1.06)
-    marker.iconMask:SetSize(iconSize * 1.06, iconSize * 1.06)
+    -- Restore original artwork size and center both artwork and mask.
+    marker.icon:SetSize(iconSize, iconSize)
+    marker.iconMask:SetSize(iconSize, iconSize)
     marker.rim:SetSize(rimSize, rimSize)
     marker.rimMask:SetSize(rimSize, rimSize)
     -- Keep the approved single-layer appearance. The user selected size 20.
