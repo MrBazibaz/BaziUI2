@@ -11,6 +11,7 @@ local styledNames = {}
 local hiddenUnitFrames = {} -- reversible alpha override for the nameplate test
 local nativeNameTest = false -- session-only experiment; never saved to profile
 local distanceElapsed = 0
+local textScaleTargets = {} -- sampled range targets; render interpolation runs every frame
 
 -- World names shrink with distance. Prefer real coordinates if exposed by
 -- this client; do not guess a precise distance from nameplate screen position.
@@ -197,6 +198,7 @@ local function HidePlate(plate)
     RestoreUnitFrame(plate)
     local marker = active[plate]
     if marker then marker:Hide() end
+    textScaleTargets[plate] = nil
     RestoreName(plate)
 end
 
@@ -304,7 +306,11 @@ local function UpdatePlate(unit)
         if marker.guild then marker.guild:Hide() end
     end
     marker:Show()
-    marker.textAnchor:SetScale(TextDistanceScale(unit))
+    if marker.scaleUnit ~= unit then
+        marker.scaleUnit = unit
+        marker.textAnchor:SetScale(TextDistanceScale(unit))
+    end
+    textScaleTargets[plate] = TextDistanceScale(unit)
     -- Do not restyle hidden nameplate text in this experiment.
 end
 
@@ -364,20 +370,25 @@ function M:Initialize()
     end)
     eventFrame:SetScript("OnUpdate", function(_, elapsed)
         distanceElapsed = distanceElapsed + elapsed
-        if distanceElapsed < 0.12 then return end
-        local dt = distanceElapsed
-        distanceElapsed = 0
+        local sample = distanceElapsed >= 0.12
+        if sample then distanceElapsed = 0 end
         local cfg = Config()
         if not cfg or not cfg.enabled then return end
+        -- Sample discrete range bands at a modest rate, but animate the
+        -- resulting text scale every rendered frame. Previously both ran
+        -- every 120ms, making individual size increments plainly visible.
+        local fraction = 1 - math.exp(-math.min(elapsed, 0.1) * 4)
         for plate, marker in pairs(active) do
             local unit = plateUnits[plate]
             if unit and marker:IsShown() and UnitExists(unit)
                 and C_NamePlate and C_NamePlate.GetNamePlateForUnit
                 and C_NamePlate.GetNamePlateForUnit(unit) == plate then
-                local target = TextDistanceScale(unit)
+                if sample or textScaleTargets[plate] == nil then
+                    textScaleTargets[plate] = TextDistanceScale(unit)
+                end
+                local target = textScaleTargets[plate]
                 local current = marker.textAnchor:GetScale()
-                local fraction = math.min(1, dt * 7)
-                if math.abs(target - current) > 0.002 then
+                if math.abs(target - current) > 0.0001 then
                     marker.textAnchor:SetScale(current + (target - current) * fraction)
                 end
             end
