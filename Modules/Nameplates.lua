@@ -269,7 +269,7 @@ local function UpdatePlate(unit)
     -- which is drawn on sublevel 2 above the gold rim on sublevel 1.
     local rolePortrait = iconMode == "role" and valid
     local visibleSize = iconSize * 0.95
-    local roleSize = iconSize * 1.16
+    local roleSize = iconSize * 0.99
     local artworkSize = rolePortrait and roleSize or visibleSize
     marker.icon:SetSize(artworkSize, artworkSize)
     marker.iconMask:SetSize(artworkSize, artworkSize)
@@ -367,8 +367,8 @@ local function RefreshFriendlyPreview()
             115+(cfg.friendlyY or 20))
         frame:SetSize(size,size)
         -- Match the real friendly role nameplate, including front-of-rim layering.
-        frame.icon:SetSize(size*1.16,size*1.16)
-        frame.mask:SetSize(size*1.16,size*1.16)
+        frame.icon:SetSize(size*.99,size*.99)
+        frame.mask:SetSize(size*.99,size*.99)
         frame.rim:SetSize(size*1.08,size*1.08)
         frame.rimMask:SetSize(size*1.08,size*1.08)
         RoleTexture(frame.icon,role)
