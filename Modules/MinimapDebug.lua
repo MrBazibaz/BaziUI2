@@ -85,6 +85,44 @@ local function focusDetails(frame)
     local mouse = read(function() return frame.IsMouseEnabled and frame:IsMouseEnabled() end)
     local level = read(function() return frame.GetFrameLevel and frame:GetFrameLevel() end)
     return table.concat(chain, " <- ") .. " mouse=" .. mouse .. " level=" .. level
+        .. " identity=" .. focusIdentity(frame)
+end
+-- Compare mouse focus by object identity with known minimap frames.
+local function focusIdentity(frame)
+    if not frame then return "nil" end
+    local mm = addon and addon.Minimap
+    local known = {
+        {"Minimap", _G.Minimap},
+        {"MinimapCluster", _G.MinimapCluster},
+        {"BaziBorder", mm and mm.Border},
+        {"BaziLauncher", _G.BaziUIMinimapButton},
+        {"MinimapContainer", _G.MinimapCluster and _G.MinimapCluster.MinimapContainer},
+    }
+    local result = {}
+    for _, entry in ipairs(known) do
+        if frame == entry[2] then result[#result + 1] = entry[1] end
+    end
+    if mm and mm.Border and mm.Border.GetChildren then
+        local children = {mm.Border:GetChildren()}
+        for i, child in ipairs(children) do
+            if frame == child then result[#result + 1] = "BaziBorderChild" .. i end
+        end
+    end
+    local parent = frame
+    for depth = 1, 4 do
+        local ok, nextParent = pcall(function()
+            return parent and parent.GetParent and parent:GetParent()
+        end)
+        if not ok or not nextParent then break end
+        parent = nextParent
+        for _, entry in ipairs(known) do
+            if parent == entry[2] then
+                result[#result + 1] = "ancestor" .. depth .. ":" .. entry[1]
+            end
+        end
+    end
+    if #result == 0 then return "no-known-match" end
+    return table.concat(result, ",")
 end
 -- Sample hover without opening chat. Prints changes and a summary after 10 seconds.
 local sampler = CreateFrame("Frame")
@@ -223,6 +261,20 @@ local function showBounds()
         end
     end
     out("Bounds show texture rectangles, not visible artwork pixels.")
+    local regions = {button:GetRegions()}
+    for i, region in ipairs(regions) do
+        if region and region.IsObjectType and region:IsObjectType("Texture") then
+            local ok, point, relative, relativePoint, x, y = pcall(function()
+                return region:GetPoint(1)
+            end)
+            if ok then
+                out("Texture " .. i .. " anchor=" .. tostring(point)
+                    .. " relative=" .. name(relative)
+                    .. " relativePoint=" .. tostring(relativePoint)
+                    .. " offset=" .. num(x) .. "," .. num(y))
+            end
+        end
+    end
 end
 SLASH_BAZIDEBUG1 = "/bazidebug"
 SlashCmdList.BAZIDEBUG = function(arg)
