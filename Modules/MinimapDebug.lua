@@ -66,28 +66,6 @@ local function run()
     end
 end
 -- Inspect anonymous mouse focus frames without mutating them.
-local function focusDetails(frame)
-    if not frame then return "nil" end
-    local function read(fn)
-        local ok, value = pcall(fn)
-        return ok and tostring(value) or "unavailable"
-    end
-    local chain, current = {}, frame
-    for i = 1, 5 do
-        if not current then break end
-        local item = current
-        local kind = read(function() return item.GetObjectType and item:GetObjectType() end)
-        chain[#chain + 1] = name(item) .. "[" .. kind .. "]"
-        local ok, parent = pcall(function() return item.GetParent and item:GetParent() end)
-        if not ok or parent == item then break end
-        current = parent
-    end
-    local mouse = read(function() return frame.IsMouseEnabled and frame:IsMouseEnabled() end)
-    local level = read(function() return frame.GetFrameLevel and frame:GetFrameLevel() end)
-    return table.concat(chain, " <- ") .. " mouse=" .. mouse .. " level=" .. level
-        .. " identity=" .. focusIdentity(frame)
-end
--- Compare mouse focus by object identity with known minimap frames.
 local function focusIdentity(frame)
     if not frame then return "nil" end
     local mm = addon and addon.Minimap
@@ -124,6 +102,28 @@ local function focusIdentity(frame)
     if #result == 0 then return "no-known-match" end
     return table.concat(result, ",")
 end
+local function focusDetails(frame)
+    if not frame then return "nil" end
+    local function read(fn)
+        local ok, value = pcall(fn)
+        return ok and tostring(value) or "unavailable"
+    end
+    local chain, current = {}, frame
+    for i = 1, 5 do
+        if not current then break end
+        local item = current
+        local kind = read(function() return item.GetObjectType and item:GetObjectType() end)
+        chain[#chain + 1] = name(item) .. "[" .. kind .. "]"
+        local ok, parent = pcall(function() return item.GetParent and item:GetParent() end)
+        if not ok or parent == item then break end
+        current = parent
+    end
+    local mouse = read(function() return frame.IsMouseEnabled and frame:IsMouseEnabled() end)
+    local level = read(function() return frame.GetFrameLevel and frame:GetFrameLevel() end)
+    return table.concat(chain, " <- ") .. " mouse=" .. mouse .. " level=" .. level
+        .. " identity=" .. focusIdentity(frame)
+end
+-- Compare mouse focus by object identity with known minimap frames.
 -- Sample hover without opening chat. Prints changes and a summary after 10 seconds.
 local sampler = CreateFrame("Frame")
 local elapsed, remaining, previous, samples, hovered, tips = 0, 0, nil, 0, 0, 0
