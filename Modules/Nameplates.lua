@@ -201,32 +201,21 @@ local function UpdatePlate(unit)
     marker:ClearAllPoints()
     marker:SetPoint("BOTTOM", anchor, "TOP", cfg.friendlyX or 0, cfg.friendlyY or 20)
     marker:SetSize(cfg.friendlySize or 28, cfg.friendlySize or 28)
-    -- Apply editable friendly-world-name appearance to existing markers live.
-    local fontChoice = cfg.friendlyTextFont or "world"
-    local fontPath = UNIT_NAME_FONT
-    if fontChoice == "friz" then fontPath = "Fonts\\FRIZQT__.TTF"
-    elseif fontChoice == "arial" then fontPath = "Fonts\\ARIALN.TTF" end
-    local size = math.max(8, math.min(32, tonumber(cfg.friendlyTextSize) or 14))
-    local red = math.max(0, math.min(255, tonumber(cfg.friendlyTextR) or 135)) / 255
-    local green = math.max(0, math.min(255, tonumber(cfg.friendlyTextG) or 135)) / 255
-    local blue = math.max(0, math.min(255, tonumber(cfg.friendlyTextB) or 255)) / 255
-    local x = math.max(-300, math.min(300, tonumber(cfg.friendlyTextX) or 0))
-    local y = math.max(-300, math.min(300, tonumber(cfg.friendlyTextY) or -2))
-    for _, key in ipairs({"name", "guild"}) do
-        local label = marker[key]
-        -- Use the client's working world-name font, then a known Blizzard
-        -- font object as a fallback. Never reset the requested size.
-        local ok, applied = pcall(label.SetFont, label, fontPath, size, "")
+    -- Keep the approved single-layer appearance. The user selected size 20.
+    -- FontString text inherits the nameplate's frame transforms.
+    for _, label in ipairs({marker.name, marker.guild}) do
+        local font = UNIT_NAME_FONT
+        local ok, applied = pcall(label.SetFont, label, font, 20, "")
         if not ok or applied == false then
             local fallback = GameFontNormal and select(1, GameFontNormal:GetFont())
-            if fallback then pcall(label.SetFont, label, fallback, size, "") end
+            if fallback then pcall(label.SetFont, label, fallback, 20, "") end
         end
-        label:SetTextColor(red, green, blue, 1)
+        label:SetTextColor(135 / 255, 135 / 255, 1, 1)
         label:SetShadowColor(0, 0, 0, 0.35)
         label:SetShadowOffset(0, 0)
     end
     marker.name:ClearAllPoints()
-    marker.name:SetPoint("TOP", marker, "BOTTOM", x, y)
+    marker.name:SetPoint("TOP", marker, "BOTTOM", 0, -2)
     marker.guild:ClearAllPoints()
     marker.guild:SetPoint("TOP", marker.name, "BOTTOM", 0, 0)
     local displayName = UnitName(unit)
