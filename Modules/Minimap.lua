@@ -332,7 +332,8 @@ function MM:Initialize()
     self.initialized = true
     local cfg = db()
     if not cfg or not cfg.enabled or not map then return end
-    square = cfg.style == "square"\n    watchScanOffsets()
+    square = cfg.style == "square"
+    watchScanOffsets()
     if square then
         layout()
         if EventUtil and EventUtil.ContinueOnAddOnLoaded then
