@@ -182,6 +182,30 @@ local function RestoreUnitFrame(plate)
 end
 
 local nonPlayerMarkers = {} -- separate, reversible pet/NPC overlays
+-- React immediately when Blizzard resets native plate opacity, instead of
+-- waiting for the next 50ms pet marker update. Only pet/NPC overlays opt in.
+local nativeAlphaHooks = setmetatable({}, {__mode = "k"})
+local nativeAlphaReentry = setmetatable({}, {__mode = "k"})
+local function KeepNativePlateHidden(plate)
+    local frame = plate and plate.UnitFrame
+    if not frame or nativeAlphaHooks[frame] then return end
+    if type(hooksecurefunc) ~= "function" then return end
+    nativeAlphaHooks[frame] = true
+    hooksecurefunc(frame, "SetAlpha", function(self)
+        if nativeAlphaReentry[self] then return end
+        local marker = nonPlayerMarkers[plate]
+        if not marker or not marker:IsShown() or hiddenUnitFrames[plate] == nil then return end
+        local unit = plateUnits[plate]
+        if not unit or not UnitExists(unit) or UnitIsPlayer(unit) then return end
+        if C_NamePlate and C_NamePlate.GetNamePlateForUnit
+            and C_NamePlate.GetNamePlateForUnit(unit) ~= plate then return end
+        if self:GetAlpha() ~= 0 then
+            nativeAlphaReentry[self] = true
+            self:SetAlpha(0)
+            nativeAlphaReentry[self] = nil
+        end
+    end)
+end
 local function HidePlate(plate)
     RestoreUnitFrame(plate)
     local marker = active[plate]
@@ -471,6 +495,7 @@ UpdateNonPlayerPlate = function(unit, plate, cfg)
     local frame = plate.UnitFrame
     if frame and frame.SetAlpha then
         if hiddenUnitFrames[plate] == nil then hiddenUnitFrames[plate] = frame:GetAlpha() end
+        KeepNativePlateHidden(plate)
         frame:SetAlpha(0)
     end
     local size = cfg.friendlyTextSize or 20
