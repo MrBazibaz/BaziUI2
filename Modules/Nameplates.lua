@@ -283,7 +283,7 @@ local function UpdatePlate(unit)
         label:SetShadowOffset(0, 0)
     end
     marker.textAnchor:ClearAllPoints()
-    marker.textAnchor:SetPoint("TOP", plate, "TOP", cfg.friendlyTextX or 0, (cfg.friendlyTextY or 18))
+    marker.textAnchor:SetPoint("TOP", plate, "TOP", cfg.friendlyTextX or 0, 18 + (cfg.friendlyTextY or 0))
     marker.name:ClearAllPoints()
     marker.name:SetPoint("TOP", marker.textAnchor, "TOP", 0, 0)
     marker.guild:ClearAllPoints()
