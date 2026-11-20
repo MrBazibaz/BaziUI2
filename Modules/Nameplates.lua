@@ -613,7 +613,6 @@ local function NonPlayerMarker(plate)
         end
         local cfg = Config()
         if self.isNPC and cfg and cfg.npcEnabled ~= false then
-            RefreshNPCFontScale(self, plate)
             local title = NPCSubtitle(unit)
             self.owner:SetText(title or "")
             self.owner:SetShown(title ~= nil)
@@ -697,9 +696,18 @@ UpdateNonPlayerPlate = function(unit, plate, cfg)
     local myPet = pet and UnitIsUnit(unit, "pet")
     marker.isOwnPet = myPet
     marker.isNPC = not pet
+    -- NPC presentation lives on UIParent so distance scaling of the native
+    -- nameplate does not magnify the text or service icon. Its anchor still
+    -- follows the nameplate's position. Pets retain their approved parent.
+    local parent = pet and plate or UIParent
+    if marker:GetParent() ~= parent then marker:SetParent(parent) end
     if not pet then
+        marker:SetFrameStrata("HIGH")
+        marker:SetFrameLevel(100)
         marker.npcFontSize = nil
-        RefreshNPCFontScale(marker, plate)
+    else
+        marker:SetFrameStrata(plate:GetFrameStrata())
+        marker:SetFrameLevel(plate:GetFrameLevel() + 11)
     end
     local iconVisible = myPet and cfg.petShowIcon == true
         and (cfg.petIconVisibility ~= "combat" or petCombatEngaged)
