@@ -288,9 +288,12 @@ local function UpdatePlate(unit)
     -- Draw them at the same outer diameter and center as class icons, without
     -- stacking Bazi's separate rim on top of the embedded role rim.
     local rolePortrait = iconMode == "role" and valid
-    local artworkSize = rolePortrait and rimSize or (iconSize * 0.95)
+    -- Dungeon Finder role art has substantial transparent padding. Enlarge
+    -- only its artwork, while clipping to the same outer circle as class icons.
+    local artworkSize = rolePortrait and (rimSize * 1.40) or (iconSize * 0.95)
+    local maskSize = rolePortrait and rimSize or (iconSize * 0.95)
     marker.icon:SetSize(artworkSize, artworkSize)
-    marker.iconMask:SetSize(artworkSize, artworkSize)
+    marker.iconMask:SetSize(maskSize, maskSize)
     marker.rim:SetSize(rimSize, rimSize)
     marker.rimMask:SetSize(rimSize, rimSize)
     marker.rim:SetShown(not rolePortrait)
