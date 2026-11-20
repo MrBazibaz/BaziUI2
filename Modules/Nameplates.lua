@@ -591,7 +591,9 @@ local function NonPlayerMarker(plate)
         local cfg = Config()
         if self.isNPC and self:GetParent() == UIParent then
             local ok, x, top = pcall(function()
-                return plate:GetCenter(), plate:GetTop()
+                local centerX = plate:GetCenter()
+                local plateTop = plate:GetTop()
+                return centerX, plateTop
             end)
             if ok and type(x) == "number" and type(top) == "number" then
                 local scale = UIParent:GetEffectiveScale()
