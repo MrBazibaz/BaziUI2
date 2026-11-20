@@ -335,7 +335,7 @@ local function RefreshFriendlyPreview()
         return
     end
     local size = cfg.friendlySize or 28
-    for i, role in ipairs({"TANK", "HEALER", "DAMAGER"}) do
+    for i, role in ipairs({"TANK", "HEALER", "DAMAGER", "CLASS"}) do
         local frame = friendlyPreview[i]
         if not frame then
             frame = CreateFrame("Frame", nil, UIParent)
@@ -361,15 +361,20 @@ local function RefreshFriendlyPreview()
         end
         frame:ClearAllPoints()
         frame:SetPoint("CENTER", UIParent, "CENTER",
-            (i-2)*math.max(85,size*2.5)+(cfg.friendlyX or 0),
+            (i-2.5)*math.max(85,size*2.5)+(cfg.friendlyX or 0),
             115+(cfg.friendlyY or 20))
         frame:SetSize(size,size)
-        -- Match the real friendly role nameplate, including front-of-rim layering.
-        frame.icon:SetSize(size*.95*1.0815,size*.95*1.0815)
-        frame.mask:SetSize(size*.95*1.0815,size*.95*1.0815)
+        -- Compare roles against the exact class artwork sizing used by live plates.
+        local artworkSize = role == "CLASS" and size*.95 or size*.95*1.0815
+        frame.icon:SetSize(artworkSize,artworkSize)
+        frame.mask:SetSize(artworkSize,artworkSize)
         frame.rim:SetSize(size*1.08,size*1.08)
         frame.rimMask:SetSize(size*1.08,size*1.08)
-        RoleTexture(frame.icon,role)
+        if role == "CLASS" then
+            ClassTexture(frame.icon,"player")
+        else
+            RoleTexture(frame.icon,role)
+        end
         frame.label:SetText(role == "DAMAGER" and "DPS" or role)
         frame:Show()
     end
