@@ -407,9 +407,47 @@ end
 -- Read it only for the matching mouseover unit; never inspect protected
 -- Blizzard nameplate FontStrings or register unsupported tooltip scripts.
 local npcTitles = {}
+local npcScanTooltip
 local function NPCSubtitle(unit)
     local guid = UnitGUID and UnitGUID(unit)
     if not guid then return nil end
+    -- Try the unit's tooltip data directly when its nameplate appears.
+    -- This does not depend on mouseover and does not touch Blizzard plates.
+    if not npcTitles[guid] and C_TooltipInfo and C_TooltipInfo.GetUnit then
+        local ok, title = pcall(function()
+            local data = C_TooltipInfo.GetUnit(unit)
+            local line = data and data.lines and data.lines[2]
+            local value = line and line.leftText
+            if type(value) ~= "string" then return nil end
+            if issecretvalue and issecretvalue(value) then return nil end
+            value = value:match("^%s*(.-)%s*$")
+            if not value or value == "" or value:match("^Level%s")
+                or value:match("^%d+%s") then return nil end
+            return value:match("^<(.+)>$") and value or ("<" .. value .. ">")
+        end)
+        if ok and title then npcTitles[guid] = title end
+    end
+    -- Older clients may expose unit tooltip data only through SetUnit.
+    -- Scan on nameplate activation; never do this in combat.
+    if not npcTitles[guid] and not InCombatLockdown() then
+        local ok, title = pcall(function()
+            if not npcScanTooltip then
+                npcScanTooltip = CreateFrame("GameTooltip", "BaziUINPCScanTooltip", UIParent, "GameTooltipTemplate")
+                npcScanTooltip:SetOwner(UIParent, "ANCHOR_NONE")
+            end
+            npcScanTooltip:ClearLines()
+            npcScanTooltip:SetUnit(unit)
+            local line = _G.BaziUINPCScanTooltipTextLeft2
+            local value = line and line:GetText()
+            if type(value) ~= "string" then return nil end
+            if issecretvalue and issecretvalue(value) then return nil end
+            value = value:match("^%s*(.-)%s*$")
+            if not value or value == "" or value:match("^Level%s")
+                or value:match("^%d+%s") then return nil end
+            return value:match("^<(.+)>$") and value or ("<" .. value .. ">")
+        end)
+        if ok and title then npcTitles[guid] = title end
+    end
     if GameTooltip and GameTooltip.IsShown and GameTooltip:IsShown()
         and UnitExists("mouseover") and UnitIsUnit(unit, "mouseover") then
         local ok, title = pcall(function()
