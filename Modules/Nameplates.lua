@@ -132,16 +132,33 @@ local function Friendly(unit)
 end
 
 local function RoleTexture(icon, role)
-    -- Same Blizzard role atlas and UVs as Bazi UI's GroupFrames.
-    local coords = {
-        TANK = {0, 0.25, 0.25, 0.5},
-        HEALER = {0.25, 0.5, 0, 0.25},
-        DAMAGER = {0.25, 0.5, 0.25, 0.5},
-    }
-    local uv = coords[role]
-    if not uv then return false end
-    icon:SetTexture("Interface\\LFGFrame\\UI-LFG-ICON-PORTRAITROLES")
-    icon:SetTexCoord(unpack(uv))
+    -- Match the full-size Dungeon Finder role portraits in PartyFrames.lua,
+    -- not the low-resolution UI-LFG-ICON-PORTRAITROLES indicator sheet.
+    if role ~= "TANK" and role ~= "HEALER" and role ~= "DAMAGER" then
+        return false
+    end
+    local atlas
+    if type(GetIconForRole) == "function" then
+        local ok, value = pcall(GetIconForRole, role, false)
+        if ok and type(value) == "string" then atlas = value end
+    end
+    if not atlas then
+        local known = {
+            TANK = "UI-LFG-RoleIcon-Tank",
+            HEALER = "UI-LFG-RoleIcon-Healer",
+            DAMAGER = "UI-LFG-RoleIcon-DPS",
+        }
+        atlas = known[role]
+    end
+    if type(GetAtlasInfo) == "function" then
+        local ok, info = pcall(GetAtlasInfo, atlas)
+        if not ok or not info then return false end
+    end
+    if not icon.SetAtlas then return false end
+    local ok = pcall(icon.SetAtlas, icon, atlas, false)
+    if not ok then return false end
+    -- Reset UVs left over when a recycled nameplate previously showed a class.
+    icon:SetTexCoord(0, 1, 0, 1)
     return true
 end
 
