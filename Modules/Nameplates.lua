@@ -265,11 +265,14 @@ local function UpdatePlate(unit)
     -- to its edge, showing roughly half the previous visible gold border.
     local iconSize = cfg.friendlySize or 28
     local rimSize = iconSize * 1.08
-    -- Friendly role and class portraits share identical dimensions and mask.
-    -- Our role PNGs have no Blizzard atlas shadow or built-in gold rim.
+    -- Keep approved class icons untouched. Enlarge only the role artwork,
+    -- which is drawn on sublevel 2 above the gold rim on sublevel 1.
+    local rolePortrait = iconMode == "role" and valid
     local visibleSize = iconSize * 0.95
-    marker.icon:SetSize(visibleSize, visibleSize)
-    marker.iconMask:SetSize(visibleSize, visibleSize)
+    local roleSize = iconSize * 1.16
+    local artworkSize = rolePortrait and roleSize or visibleSize
+    marker.icon:SetSize(artworkSize, artworkSize)
+    marker.iconMask:SetSize(artworkSize, artworkSize)
     marker.rim:SetSize(rimSize, rimSize)
     marker.rimMask:SetSize(rimSize, rimSize)
     marker.rim:Show()
@@ -363,8 +366,9 @@ local function RefreshFriendlyPreview()
             (i-2)*math.max(85,size*2.5)+(cfg.friendlyX or 0),
             115+(cfg.friendlyY or 20))
         frame:SetSize(size,size)
-        frame.icon:SetSize(size*.95,size*.95)
-        frame.mask:SetSize(size*.95,size*.95)
+        -- Match the real friendly role nameplate, including front-of-rim layering.
+        frame.icon:SetSize(size*1.16,size*1.16)
+        frame.mask:SetSize(size*1.16,size*1.16)
         frame.rim:SetSize(size*1.08,size*1.08)
         frame.rimMask:SetSize(size*1.08,size*1.08)
         RoleTexture(frame.icon,role)
