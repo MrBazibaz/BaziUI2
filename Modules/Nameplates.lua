@@ -403,25 +403,45 @@ local function NativeOwnerLabel()
     return nil
 end
 
--- NPC subtitles are server-provided titles (for example <Weaponsmith>).
--- Tooltip data is optional on Forever; never read Blizzard nameplate text,
--- which can be a protected secret value on this client.
+-- The tooltip's second line is plain NPC title text on Forever.
+-- Read it only for the matching mouseover unit; never inspect protected
+-- Blizzard nameplate FontStrings or register unsupported tooltip scripts.
+local npcTitles = {}
 local function NPCSubtitle(unit)
-    if not (C_TooltipInfo and C_TooltipInfo.GetUnit) then return nil end
-    local ok, title = pcall(function()
-        local data = C_TooltipInfo.GetUnit(unit)
-        if not data or type(data.lines) ~= "table" then return nil end
-        for i = 2, math.min(#data.lines, 5) do
-            local line = data.lines[i]
-            local value = line and line.leftText
-            if type(value) == "string" then
-                local cleaned = value:match("^%s*<([^<>]+)>%s*$")
-                if cleaned and cleaned ~= "" then return "<" .. cleaned .. ">" end
-            end
-        end
-        return nil
-    end)
-    if ok then return title end
+    local guid = UnitGUID and UnitGUID(unit)
+    if not guid then return nil end
+    if GameTooltip and GameTooltip.IsShown and GameTooltip:IsShown()
+        and UnitExists("mouseover") and UnitIsUnit(unit, "mouseover") then
+        local ok, title = pcall(function()
+            local _, tooltipUnit = GameTooltip:GetUnit()
+            if not tooltipUnit or not UnitIsUnit(tooltipUnit, unit) then return nil end
+            local line = _G.GameTooltipTextLeft2
+            local value = line and line:GetText()
+            if type(value) ~= "string" then return nil end
+            if issecretvalue and issecretvalue(value) then return nil end
+            value = value:match("^%s*(.-)%s*$")
+            if not value or value == "" or value:match("^Level%s")
+                or value:match("^%d+%s") then return nil end
+            return value:match("^<(.+)>$") and value or ("<" .. value .. ">")
+        end)
+        if ok and title then npcTitles[guid] = title end
+    end
+    return npcTitles[guid]
+end
+
+-- Initial, deliberately narrow title-based service icons. No guessing
+-- repair, quest or unknown NPC functions from their names.
+local function NPCServiceIcon(title)
+    if not title then return nil end
+    local value = title:lower()
+    if value:find("trainer", 1, true) then
+        return "Interface\\Icons\\INV_Misc_Book_09"
+    end
+    if value:find("supplies", 1, true) or value:find("bowyer", 1, true)
+        or value:find("vendor", 1, true) or value:find("merchant", 1, true)
+        or value:find("goods", 1, true) then
+        return "Interface\\Icons\\INV_Misc_Bag_10"
+    end
     return nil
 end
 
@@ -475,6 +495,14 @@ local function NonPlayerMarker(plate)
             petCombatEngaged = false
         end
         local cfg = Config()
+        if self.isNPC and cfg and cfg.npcEnabled ~= false then
+            local title = NPCSubtitle(unit)
+            self.owner:SetText(title or "")
+            self.owner:SetShown(title ~= nil)
+            local texture = cfg.npcIcons and NPCServiceIcon(title)
+            if texture then self.icon:SetTexture(texture) end
+            self.iconAnchor:SetShown(texture ~= nil)
+        end
         if cfg and cfg.petIconVisibility == "combat" and self.isOwnPet then
             -- Combat begins on an actual attack or hit, not an attack order.
             self.iconAnchor:SetShown(cfg.petShowIcon == true
@@ -549,6 +577,7 @@ UpdateNonPlayerPlate = function(unit, plate, cfg)
     -- Only the player's own pet can ever display a portrait-style icon.
     local myPet = pet and UnitIsUnit(unit, "pet")
     marker.isOwnPet = myPet
+    marker.isNPC = not pet
     local iconVisible = myPet and cfg.petShowIcon == true
         and (cfg.petIconVisibility ~= "combat" or petCombatEngaged)
     marker.iconAnchor:SetSize(cfg.friendlySize or 28, cfg.friendlySize or 28)
@@ -556,9 +585,15 @@ UpdateNonPlayerPlate = function(unit, plate, cfg)
     marker.iconMask:SetSize((cfg.friendlySize or 28) * 0.95, (cfg.friendlySize or 28) * 0.95)
     marker.rim:SetSize((cfg.friendlySize or 28) * 1.08, (cfg.friendlySize or 28) * 1.08)
     marker.rimMask:SetSize((cfg.friendlySize or 28) * 1.08, (cfg.friendlySize or 28) * 1.08)
+    if not pet then
+        local texture = cfg.npcIcons and NPCServiceIcon(ownerText)
+        if texture then marker.icon:SetTexture(texture) end
+        iconVisible = texture ~= nil
+    else
+        marker.icon:SetTexture("Interface\\Icons\\Ability_Hunter_BeastCall")
+    end
     marker.iconAnchor:SetShown(iconVisible)
-    -- NPC icons are deliberately not guessed from NPC names or creature types.
-    -- Only expose an icon when the client provides a reliable service marker.
+    -- NPC icons use only known service titles, not inferred unit names.
     marker:Show()
 end
 
