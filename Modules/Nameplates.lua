@@ -414,14 +414,20 @@ local function NonPlayerMarker(plate)
     -- Reapply only for an actively styled pet/NPC, never for locked player plates.
     local elapsedSinceCheck = 0
     marker:SetScript("OnUpdate", function(self, elapsed)
-        elapsedSinceCheck = elapsedSinceCheck + elapsed
-        if elapsedSinceCheck < 0.05 then return end
-        elapsedSinceCheck = 0
         if not self:IsShown() then return end
         local unit = plateUnits[plate]
         if not unit or not UnitExists(unit) or UnitIsPlayer(unit) then return end
         if C_NamePlate and C_NamePlate.GetNamePlateForUnit
             and C_NamePlate.GetNamePlateForUnit(unit) ~= plate then return end
+        -- Blizzard may restore native alpha during combat transitions.
+        -- Hide it on every frame; throttle only the pet icon state checks.
+        local frame = plate.UnitFrame
+        if frame and frame.GetAlpha and frame.SetAlpha and frame:GetAlpha() ~= 0 then
+            frame:SetAlpha(0)
+        end
+        elapsedSinceCheck = elapsedSinceCheck + elapsed
+        if elapsedSinceCheck < 0.05 then return end
+        elapsedSinceCheck = 0
         -- UNIT_COMBAT can arrive after PLAYER_REGEN_ENABLED. Clear stale
         -- engagement once neither the player nor their pet is fighting.
         if petCombatEngaged and not UnitAffectingCombat("player")
@@ -433,10 +439,6 @@ local function NonPlayerMarker(plate)
             -- Combat begins on an actual attack or hit, not an attack order.
             self.iconAnchor:SetShown(cfg.petShowIcon == true
                 and petCombatEngaged)
-        end
-        local frame = plate.UnitFrame
-        if frame and frame.GetAlpha and frame.SetAlpha and frame:GetAlpha() ~= 0 then
-            frame:SetAlpha(0)
         end
     end)
     return marker
