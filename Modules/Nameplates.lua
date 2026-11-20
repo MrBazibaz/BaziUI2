@@ -197,7 +197,10 @@ end
 local function HidePlate(plate)
     RestoreUnitFrame(plate)
     local marker = active[plate]
-    if marker then marker:Hide() end
+    if marker then
+        marker:Hide()
+        marker.scaleUnit = nil -- reused nameplate must initialize text scale again
+    end
     textScaleTargets[plate] = nil
     RestoreName(plate)
 end
@@ -305,12 +308,15 @@ local function UpdatePlate(unit)
         if marker.name then marker.name:Hide() end
         if marker.guild then marker.guild:Hide() end
     end
-    marker:Show()
-    if marker.scaleUnit ~= unit then
-        marker.scaleUnit = unit
-        marker.textAnchor:SetScale(TextDistanceScale(unit))
+    -- Set the correct distance scale BEFORE making the marker visible.
+    -- Nameplate frames are recycled and may retain a near-player scale.
+    local initialScale = TextDistanceScale(unit)
+    if marker.scaleUnit ~= unit or not marker:IsShown() or textScaleTargets[plate] == nil then
+        marker.textAnchor:SetScale(initialScale)
     end
-    textScaleTargets[plate] = TextDistanceScale(unit)
+    marker.scaleUnit = unit
+    textScaleTargets[plate] = initialScale
+    marker:Show()
     -- Do not restyle hidden nameplate text in this experiment.
 end
 
