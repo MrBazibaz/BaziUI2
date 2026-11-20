@@ -215,11 +215,14 @@ local function UpdatePlate(unit)
         marker.iconMask:SetTexture("Interface\\CHARACTERFRAME\\TempPortraitAlphaMask")
         marker.iconMask:SetAllPoints(marker.icon)
         marker.icon:AddMaskTexture(marker.iconMask)
-        marker.border = marker:CreateTexture(nil, "BACKGROUND")
-        marker.border:SetTexture("Interface\\CHARACTERFRAME\\TempPortraitAlphaMask")
-        marker.border:SetPoint("CENTER", marker, "CENTER", 0, 0)
-        marker.border:SetVertexColor(0.30, 0.26, 0.20, 0.80)
-        marker.border:SetSize(30, 30)
+        -- Draw an actual thin ring, not a filled circle behind the icon.
+        -- Short rotated line segments form a clean border without extra assets.
+        marker.borderSegments = {}
+        for i = 1, 48 do
+            local segment = marker:CreateTexture(nil, "OVERLAY", nil, 1)
+            segment:SetColorTexture(0.38, 0.30, 0.18, 0.90)
+            marker.borderSegments[i] = segment
+        end
         marker.textAnchor = CreateFrame("Frame", nil, plate)
         -- Keep text fully opaque even when the nameplate fades at range.
         -- The icon remains a normal child and retains Blizzard fading.
@@ -259,7 +262,16 @@ local function UpdatePlate(unit)
     marker:ClearAllPoints()
     marker:SetPoint("BOTTOM", anchor, "TOP", cfg.friendlyX or 0, cfg.friendlyY or 20)
     marker:SetSize(cfg.friendlySize or 28, cfg.friendlySize or 28)
-    marker.border:SetSize((cfg.friendlySize or 28) + 2, (cfg.friendlySize or 28) + 2)
+    local radius = (cfg.friendlySize or 28) / 2 + 0.5
+    local segmentLength = (2 * math.pi * radius / #marker.borderSegments) * 1.15
+    for i, segment in ipairs(marker.borderSegments) do
+        local angle = (i - 1) * 2 * math.pi / #marker.borderSegments
+        segment:ClearAllPoints()
+        segment:SetPoint("CENTER", marker, "CENTER",
+            math.cos(angle) * radius, math.sin(angle) * radius)
+        segment:SetSize(segmentLength, 1.5)
+        segment:SetRotation(angle + math.pi / 2)
+    end
     -- Keep the approved single-layer appearance. The user selected size 20.
     -- FontString text inherits the nameplate's frame transforms.
     for _, label in ipairs({marker.name, marker.guild}) do
