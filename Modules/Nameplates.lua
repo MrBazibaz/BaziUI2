@@ -132,9 +132,9 @@ local function Friendly(unit)
 end
 
 local ROLE_TEXTURES = {
-    TANK = "Interface\\AddOns\\BaziUI\\Assets\\Icons\\Roles\\Role_Tank",
-    HEALER = "Interface\\AddOns\\BaziUI\\Assets\\Icons\\Roles\\Role_Healer",
-    DAMAGER = "Interface\\AddOns\\BaziUI\\Assets\\Icons\\Roles\\Role_DPS",
+    TANK = "Interface\\AddOns\\BaziUI\\Assets\\Icons\\Roles\\Role_Tank.tga",
+    HEALER = "Interface\\AddOns\\BaziUI\\Assets\\Icons\\Roles\\Role_Healer.tga",
+    DAMAGER = "Interface\\AddOns\\BaziUI\\Assets\\Icons\\Roles\\Role_DPS.tga",
 }
 local function RoleTexture(icon, role)
     local texture = ROLE_TEXTURES[role]
