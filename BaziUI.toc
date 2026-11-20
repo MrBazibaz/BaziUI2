@@ -19,6 +19,7 @@ Modules\ChatLinkHover.lua
 Modules\Minimap.lua
 Modules\MinimapInfo.lua
 Modules\MinimapButtons.lua
+Modules\MinimapDebug.lua
 Modules\QoLSounds.lua
 Modules\WindowResize.lua
 Modules\UnitFrames.lua
