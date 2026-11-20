@@ -174,34 +174,10 @@ local function UpdatePlate(unit)
         marker:SetFrameLevel(plate:GetFrameLevel() + 10)
         marker.icon = marker:CreateTexture(nil, "OVERLAY")
         marker.icon:SetAllPoints()
-        -- UNIT_NAME_FONT may not be a valid SetFont file path on this client.
-        -- Always keep a known working fallback to avoid breaking nameplates.
-        local function SetWorldNameFont(label)
-            local candidate = UNIT_NAME_FONT
-            local applied = false
-            if type(candidate) == "string" and candidate ~= "" then
-                local ok, success = pcall(label.SetFont, label, candidate, 14, "")
-                applied = ok and success ~= false
-            end
-            if not applied then
-                label:SetFont("Fonts\\FRIZQT__.TTF", 14, "")
-            end
-        end
-        -- Recreate the restrained in-world name style beneath our icon.
         marker.name = marker:CreateFontString(nil, "OVERLAY")
-        SetWorldNameFont(marker.name)
-        marker.name:SetTextColor(135 / 255, 135 / 255, 1, 1.0)
-        marker.name:SetShadowColor(0, 0, 0, 0.35)
-        marker.name:SetShadowOffset(0, 0)
         marker.name:SetJustifyH("CENTER")
-        marker.name:SetPoint("TOP", marker, "BOTTOM", 0, -2)
         marker.guild = marker:CreateFontString(nil, "OVERLAY")
-        SetWorldNameFont(marker.guild)
-        marker.guild:SetTextColor(135 / 255, 135 / 255, 1, 1.0)
-        marker.guild:SetShadowColor(0, 0, 0, 0.35)
-        marker.guild:SetShadowOffset(0, 0)
         marker.guild:SetJustifyH("CENTER")
-        marker.guild:SetPoint("TOP", marker.name, "BOTTOM", 0, 0)
         active[plate] = marker
     end
     local valid = false
@@ -225,6 +201,31 @@ local function UpdatePlate(unit)
     marker:ClearAllPoints()
     marker:SetPoint("BOTTOM", anchor, "TOP", cfg.friendlyX or 0, cfg.friendlyY or 20)
     marker:SetSize(cfg.friendlySize or 28, cfg.friendlySize or 28)
+    -- Apply editable friendly-world-name appearance to existing markers live.
+    local fontChoice = cfg.friendlyTextFont or "world"
+    local fontPath = UNIT_NAME_FONT
+    if fontChoice == "friz" then fontPath = "Fonts\\\\FRIZQT__.TTF"
+    elseif fontChoice == "arial" then fontPath = "Fonts\\\\ARIALN.TTF" end
+    local size = math.max(8, math.min(32, tonumber(cfg.friendlyTextSize) or 14))
+    local red = math.max(0, math.min(255, tonumber(cfg.friendlyTextR) or 135)) / 255
+    local green = math.max(0, math.min(255, tonumber(cfg.friendlyTextG) or 135)) / 255
+    local blue = math.max(0, math.min(255, tonumber(cfg.friendlyTextB) or 255)) / 255
+    local x = math.max(-300, math.min(300, tonumber(cfg.friendlyTextX) or 0))
+    local y = math.max(-300, math.min(300, tonumber(cfg.friendlyTextY) or -2))
+    for _, label in ipairs({marker.name, marker.guild}) do
+        local ok, applied = pcall(label.SetFont, label, fontPath, size, "")
+        if not ok or applied == false then
+            -- Preserve a working font object if this client rejects a path.
+            label:SetFontObject(GameFontNormal)
+        end
+        label:SetTextColor(red, green, blue, 1)
+        label:SetShadowColor(0, 0, 0, 0.35)
+        label:SetShadowOffset(0, 0)
+    end
+    marker.name:ClearAllPoints()
+    marker.name:SetPoint("TOP", marker, "BOTTOM", x, y)
+    marker.guild:ClearAllPoints()
+    marker.guild:SetPoint("TOP", marker.name, "BOTTOM", 0, 0)
     local displayName = UnitName(unit)
     if marker.name then
         marker.name:SetText(displayName or "")
