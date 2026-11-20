@@ -105,15 +105,13 @@ end
 local eventFrame = CreateFrame("Frame")
 -- An attack order can flag player combat before either unit actually fights.
 local petCombatEngaged = false
-local function PetCombatLogInteraction(...)
-    local _, subevent, _, sourceGUID, _, _, _, destGUID = ...
-    if type(subevent) ~= "string" then return end
-    if not (subevent:match("_DAMAGE$") or subevent:match("_MISSED$")
-        or subevent == "SPELL_INTERRUPT") then return end
-    local playerGUID = UnitGUID("player")
-    local petGUID = UnitExists("pet") and UnitGUID("pet") or nil
-    if (sourceGUID and (sourceGUID == playerGUID or sourceGUID == petGUID))
-        or (destGUID and (destGUID == playerGUID or destGUID == petGUID)) then
+-- UNIT_COMBAT reports actual combat interactions without accessing protected
+-- combat-log payloads. It may not report an outgoing pet hit immediately.
+local function PetUnitCombatInteraction(unit, action)
+    if unit ~= "player" and unit ~= "pet" then return end
+    if action == "WOUND" or action == "MISS" or action == "DODGE"
+        or action == "PARRY" or action == "BLOCK" or action == "RESIST"
+        or action == "IMMUNE" then
         petCombatEngaged = true
     end
 end
@@ -650,14 +648,11 @@ function M:Initialize()
     eventFrame:RegisterEvent("PLAYER_REGEN_DISABLED")
     eventFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
     eventFrame:RegisterEvent("UNIT_PET")
-    -- Diagnostic: combat-log registration temporarily disabled to isolate taint.
+    -- Unlike COMBAT_LOG_EVENT_UNFILTERED, UNIT_COMBAT does not require protected log data.
+    eventFrame:RegisterEvent("UNIT_COMBAT")
     eventFrame:SetScript("OnEvent", function(_, event, unit, ...)
-        if event == "COMBAT_LOG_EVENT_UNFILTERED" then
-            if type(CombatLogGetCurrentEventInfo) == "function" then
-                PetCombatLogInteraction(CombatLogGetCurrentEventInfo())
-            else
-                PetCombatLogInteraction(unit, ...)
-            end
+        if event == "UNIT_COMBAT" then
+            PetUnitCombatInteraction(unit, ...)
             return
         elseif event == "PLAYER_REGEN_ENABLED" or event == "PLAYER_ENTERING_WORLD" then
             petCombatEngaged = false
