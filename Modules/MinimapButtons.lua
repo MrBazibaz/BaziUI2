@@ -264,32 +264,11 @@ function M:Initialize()
         if not squareStyle and math.sqrt(x * x + y * y) >= MinimapFrame:GetWidth() / 2 then return end
         pcall(MinimapFrame.PingLocation, MinimapFrame, x, y)
     end
-    local function CreateMapSurface()
-        surface = CreateFrame("Frame", nil, MinimapFrame)
-        surface:SetAllPoints(MinimapFrame)
-        surface:SetFrameLevel(MinimapFrame:GetFrameLevel() + 10)
-        if surface.SetMouseMotionEnabled then surface:SetMouseMotionEnabled(false) end
-        if surface.SetPropagateMouseMotion then surface:SetPropagateMouseMotion(true) end
-        if squareStyle then
-            surface:EnableMouseWheel(false)
-            surface:SetScript("OnMouseWheel", function(_, delta)
-                if delta > 0 then Minimap_ZoomIn() elseif delta < 0 then Minimap_ZoomOut() end
-            end)
-        end
-        surface:SetScript("OnMouseUp", function(_, button)
-            local settings = db()
-            if button == "MiddleButton" then return end
-            if squareStyle and not InBattleground() then Ping() end
-        end)
-        UpdateMapMouse()
-        local events = CreateFrame("Frame")
-        events:RegisterEvent("PLAYER_ENTERING_WORLD")
-        events:RegisterEvent("ZONE_CHANGED_NEW_AREA")
-        events:RegisterEvent("PLAYER_REGEN_ENABLED")
-        events:SetScript("OnEvent", UpdateMapMouse)
-    end
-    M.UpdateMapMouse = UpdateMapMouse
-    CreateMapSurface()
+    -- Do not create an invisible full-minimap overlay. Blizzard owns
+    -- quest-area hover hit testing, map zoom and ordinary mouse input.
+    -- The micro menu uses GLOBAL_MOUSE_DOWN independently below.
+    M.UpdateMapMouse = function() end
+
     -- Temporary isolated diagnostics. /bazimouse reports runtime state;
     -- /bazimouse menu tests the menu without relying on mouse events.
     SLASH_BAZIMOUSE1 = "/bazimouse"
