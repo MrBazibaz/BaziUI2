@@ -422,6 +422,12 @@ local function NonPlayerMarker(plate)
         if not unit or not UnitExists(unit) or UnitIsPlayer(unit) then return end
         if C_NamePlate and C_NamePlate.GetNamePlateForUnit
             and C_NamePlate.GetNamePlateForUnit(unit) ~= plate then return end
+        -- UNIT_COMBAT can arrive after PLAYER_REGEN_ENABLED. Clear stale
+        -- engagement once neither the player nor their pet is fighting.
+        if petCombatEngaged and not UnitAffectingCombat("player")
+            and (not UnitExists("pet") or not UnitAffectingCombat("pet")) then
+            petCombatEngaged = false
+        end
         local cfg = Config()
         if cfg and cfg.petIconVisibility == "combat" and self.isOwnPet then
             -- Combat begins on an actual attack or hit, not an attack order.
