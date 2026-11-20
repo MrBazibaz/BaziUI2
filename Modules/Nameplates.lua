@@ -528,26 +528,9 @@ local function NPCServiceIcon(title, unit)
     return nil
 end
 
--- Nameplate effective scale can change with camera distance. NPC text
--- should stay at 16 UI pixels rather than inheriting that distance zoom.
-local function RefreshNPCFontScale(marker, plate)
-    if not marker or not marker.isNPC then return end
-    if not (plate.GetEffectiveScale and UIParent.GetEffectiveScale) then return end
-    local plateScale = plate:GetEffectiveScale()
-    local uiScale = UIParent:GetEffectiveScale()
-    if not plateScale or plateScale <= 0 or not uiScale or uiScale <= 0 then return end
-    local size = 16 * uiScale / plateScale
-    if marker.npcFontSize and math.abs(marker.npcFontSize - size) < 0.05 then return end
-    local font = UNIT_NAME_FONT
-    for _, label in ipairs({marker.name, marker.owner}) do
-        local ok, applied = pcall(label.SetFont, label, font, size, "")
-        if not ok or applied == false then
-            local fallback = GameFontNormal and select(1, GameFontNormal:GetFont())
-            if fallback then pcall(label.SetFont, label, fallback, size, "") end
-        end
-    end
-    marker.npcFontSize = size
-end
+-- NPC labels are intentionally fixed at 16 UI points. Never compensate
+-- for nameplate distance by changing their font size.
+local NPC_FONT_SIZE = 16
 
 local function NonPlayerMarker(plate)
     local marker = nonPlayerMarkers[plate]
@@ -660,7 +643,7 @@ UpdateNonPlayerPlate = function(unit, plate, cfg)
         KeepNativePlateHidden(plate)
         frame:SetAlpha(0)
     end
-    local size = pet and (cfg.friendlyTextSize or 20) or 16
+    local size = pet and (cfg.friendlyTextSize or 20) or NPC_FONT_SIZE
     for _, label in ipairs({marker.name, marker.owner}) do
         local font = UNIT_NAME_FONT
         local ok, applied = pcall(label.SetFont, label, font, size, "")
@@ -695,10 +678,11 @@ UpdateNonPlayerPlate = function(unit, plate, cfg)
     -- follows the nameplate's position. Pets retain their approved parent.
     local parent = pet and plate or UIParent
     if marker:GetParent() ~= parent then marker:SetParent(parent) end
+    -- Keep NPC presentation at UIParent's fixed scale, not nameplate distance.
+    if not pet and marker:GetScale() ~= 1 then marker:SetScale(1) end
     if not pet then
         marker:SetFrameStrata("HIGH")
         marker:SetFrameLevel(100)
-        marker.npcFontSize = nil
     else
         marker:SetFrameStrata(plate:GetFrameStrata())
         marker:SetFrameLevel(plate:GetFrameLevel() + 11)
