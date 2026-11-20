@@ -9,7 +9,7 @@ local defaults = {
     enabled = false, -- Vanilla nameplates until Bazi UI is explicitly enabled.
     friendlyIcon = "role", friendlyScope = "group", raidRoles = true,
     friendlyX = 0, friendlyY = 20, friendlySize = 28,
-    friendlyTextX = 0, friendlyTextY = 0,
+    friendlyTextX = 0, friendlyTextY = 0, friendlyTextSize = 20,
     enemyWidth = 160, enemyHeight = 16, enemyScale = 1,
     enemyName = true, enemyLevel = true, enemyQuest = true,
     enemyThreat = true, enemyDebuffs = true, enemyCastbar = true,
@@ -442,10 +442,11 @@ function addon.NameplatesOptions:CreatePage(parent)
     Heading(friendly, "NAME AND GUILD TEXT", -355)
     Numeric(friendly, "TEXT X OFFSET", -390, db, "friendlyTextX", -300, 300, 1)
     Numeric(friendly, "TEXT Y OFFSET", -438, db, "friendlyTextY", -300, 300, 1)
+    Slider(friendly, "TEXT FONT SIZE", -495, db, "friendlyTextSize", 6, 32, 1)
     local note = Label(friendly,
         "In raids: only tank and healer role icons. Class icons and DPS icons are hidden.",
         "GameFontHighlightSmall")
-    note:SetPoint("TOPLEFT", friendly, "TOPLEFT", 14, -505)
+    note:SetPoint("TOPLEFT", friendly, "TOPLEFT", 14, -570)
     note:SetWidth(400)
     note:SetJustifyH("LEFT")
     note:SetTextColor(0.66, 0.63, 0.59, 1)
