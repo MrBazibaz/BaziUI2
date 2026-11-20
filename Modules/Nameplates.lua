@@ -10,6 +10,40 @@ local plateUnits = {} -- NAME_PLATE_UNIT_ADDED is the reliable source of unit to
 local styledNames = {}
 local hiddenUnitFrames = {} -- reversible alpha override for the nameplate test
 local nativeNameTest = false -- session-only experiment; never saved to profile
+local distanceElapsed = 0
+
+-- World names shrink with distance. Prefer real coordinates if exposed by
+-- this client; do not guess a precise distance from nameplate screen position.
+local function UnitDistance(unit)
+    if type(UnitDistanceSquared) == "function" then
+        local ok, squared = pcall(UnitDistanceSquared, unit)
+        if ok and type(squared) == "number" and squared >= 0 then
+            return math.sqrt(squared)
+        end
+    end
+    if type(UnitPosition) == "function" then
+        local okA, x, y, _, map = pcall(UnitPosition, unit)
+        local okB, px, py, _, pmap = pcall(UnitPosition, "player")
+        if okA and okB and type(x) == "number" and type(y) == "number"
+            and type(px) == "number" and type(py) == "number"
+            and map and map == pmap then
+            local dx, dy = x - px, y - py
+            return math.sqrt(dx * dx + dy * dy)
+        end
+    end
+    return nil
+end
+
+local function TextDistanceScale(unit)
+    local distance = UnitDistance(unit)
+    if distance then
+        -- Full size within 8 yards; gradually reduce toward nameplate range.
+        return math.max(0.48, math.min(1, 1 - (distance - 8) * 0.016))
+    end
+    -- No reliable distance API: preserve current appearance rather than
+    -- pretending screen coordinates represent world distance.
+    return 1
+end
 
 local function RestoreName(plate)
     local saved = styledNames[plate]
@@ -174,9 +208,11 @@ local function UpdatePlate(unit)
         marker:SetFrameLevel(plate:GetFrameLevel() + 10)
         marker.icon = marker:CreateTexture(nil, "OVERLAY")
         marker.icon:SetAllPoints()
-        marker.name = marker:CreateFontString(nil, "OVERLAY")
+        marker.textAnchor = CreateFrame("Frame", nil, marker)
+        marker.textAnchor:SetSize(1, 1)
+        marker.name = marker.textAnchor:CreateFontString(nil, "OVERLAY")
         marker.name:SetJustifyH("CENTER")
-        marker.guild = marker:CreateFontString(nil, "OVERLAY")
+        marker.guild = marker.textAnchor:CreateFontString(nil, "OVERLAY")
         marker.guild:SetJustifyH("CENTER")
         active[plate] = marker
     end
@@ -214,8 +250,10 @@ local function UpdatePlate(unit)
         label:SetShadowColor(0, 0, 0, 0.35)
         label:SetShadowOffset(0, 0)
     end
+    marker.textAnchor:ClearAllPoints()
+    marker.textAnchor:SetPoint("TOP", marker, "BOTTOM", 0, -2)
     marker.name:ClearAllPoints()
-    marker.name:SetPoint("TOP", marker, "BOTTOM", 0, -2)
+    marker.name:SetPoint("TOP", marker.textAnchor, "TOP", 0, 0)
     marker.guild:ClearAllPoints()
     marker.guild:SetPoint("TOP", marker.name, "BOTTOM", 0, 0)
     local displayName = UnitName(unit)
@@ -245,6 +283,7 @@ local function UpdatePlate(unit)
         if marker.guild then marker.guild:Hide() end
     end
     marker:Show()
+    marker.textAnchor:SetScale(TextDistanceScale(unit))
     -- Do not restyle hidden nameplate text in this experiment.
 end
 
@@ -300,6 +339,27 @@ function M:Initialize()
             end
         else
             M:Apply()
+        end
+    end)
+    eventFrame:SetScript("OnUpdate", function(_, elapsed)
+        distanceElapsed = distanceElapsed + elapsed
+        if distanceElapsed < 0.12 then return end
+        local dt = distanceElapsed
+        distanceElapsed = 0
+        local cfg = Config()
+        if not cfg or not cfg.enabled then return end
+        for plate, marker in pairs(active) do
+            local unit = plateUnits[plate]
+            if unit and marker:IsShown() and UnitExists(unit)
+                and C_NamePlate and C_NamePlate.GetNamePlateForUnit
+                and C_NamePlate.GetNamePlateForUnit(unit) == plate then
+                local target = TextDistanceScale(unit)
+                local current = marker.textAnchor:GetScale()
+                local fraction = math.min(1, dt * 7)
+                if math.abs(target - current) > 0.002 then
+                    marker.textAnchor:SetScale(current + (target - current) * fraction)
+                end
+            end
         end
     end)
     self:Apply()
