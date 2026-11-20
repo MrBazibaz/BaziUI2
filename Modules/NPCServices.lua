@@ -6,6 +6,12 @@
 -- This file is independent of Questie and other addons.
 BaziUI.NPCServices = BaziUI.NPCServices or {}
 BaziUI.NPCServices.byID = BaziUI.NPCServices.byID or {}
+-- Small, independently verifiable pilot set (NPC IDs / service flags).
+-- Reference: NpcIcons v1.0.2 Forever, NpcData.lua (QuestieDB-derived).
+-- Do not bulk-copy GPL-3.0 datasets into BaziUI without a license decision.
+BaziUI.NPCServices.byID[843] = { vendor = true } -- Gina MacGregor
+BaziUI.NPCServices.byID[1668] = { vendor = true, repair = true } -- William MacGregor
+BaziUI.NPCServices.byID[1670] = { vendor = true } -- Mike Miller
 
 function BaziUI.NPCServices:Get(unit)
     if not UnitGUID then return nil end
