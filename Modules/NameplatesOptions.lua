@@ -104,13 +104,13 @@ local function NumberBox(parent, width, initial, commit)
     edit:SetText(tostring(initial))
     edit:SetScript("OnEditFocusGained", function(self) self:HighlightText() end)
     local function Save()
-        local n = tonumber((edit:GetText() or ""):gsub(",", "."))
+        local n = tonumber(((edit:GetText() or ""):gsub(",", ".")))
         if n then commit(n) end
         edit:ClearFocus()
     end
     edit:SetScript("OnEnterPressed", Save)
     edit:SetScript("OnEditFocusLost", function()
-        local n = tonumber((edit:GetText() or ""):gsub(",", "."))
+        local n = tonumber(((edit:GetText() or ""):gsub(",", ".")))
         if n then commit(n) end
     end)
     edit:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
