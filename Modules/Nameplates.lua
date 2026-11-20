@@ -355,3 +355,60 @@ SlashCmdList.BAZINPDEBUG = function()
     local ok, err = pcall(function() M:DebugNameplates() end)
     if not ok then addon:Print("Nameplate debug failed: " .. tostring(err)) end
 end
+
+
+-- Read-only diagnostic for native world names (pet) versus addon FontStrings.
+-- World-space names are rendered by the game engine and are generally not
+-- exposed as FontString objects. This command reports what Lua can actually see.
+-- Usage: /baziname
+function M:DebugWorldName()
+    local lines = {}
+    local function Add(value)
+        lines[#lines + 1] = tostring(value)
+        addon:Print(tostring(value))
+    end
+    Add("World name diagnostic (pet vs addon)")
+    local pet = "pet"
+    Add("pet exists=" .. tostring(UnitExists(pet))
+        .. " name=" .. tostring(UnitName(pet))
+        .. " visible=" .. tostring(UnitIsVisible and UnitIsVisible(pet)))
+    local nameCVars = {
+        "UnitNameOwn", "UnitNameFriendlyPetName", "UnitNameFriendlyPlayerName",
+        "UnitNameFriendlyNPCName", "UnitNameEnemyPetName",
+        "nameplateShowFriends", "nameplateShowFriendlyPets",
+        "nameplateMaxDistance",
+    }
+    for _, key in ipairs(nameCVars) do
+        local ok, value = pcall(function() return GetCVar and GetCVar(key) end)
+        Add("CVar " .. key .. "=" .. (ok and tostring(value) or "unavailable"))
+    end
+    local plate = C_NamePlate and C_NamePlate.GetNamePlateForUnit
+        and C_NamePlate.GetNamePlateForUnit(pet)
+    Add("pet nameplate=" .. tostring(plate))
+    Add("native world name FontString=not exposed by this addon/API")
+    local markerCount = 0
+    for frame, marker in pairs(active) do
+        if marker:IsShown() and marker.name then
+            markerCount = markerCount + 1
+            local font, size, flags = marker.name:GetFont()
+            local r, g, b, a = marker.name:GetTextColor()
+            Add("Bazi name=" .. tostring(marker.name:GetText())
+                .. " font=" .. tostring(font)
+                .. " size=" .. tostring(size)
+                .. " flags=" .. tostring(flags)
+                .. " rgba=" .. string.format("%.2f,%.2f,%.2f,%.2f", r or 0, g or 0, b or 0, a or 0))
+            if markerCount >= 3 then break end
+        end
+    end
+    Add("Bazi visible markers inspected=" .. markerCount)
+    -- Saved variables are flushed on reload/logout.
+    BaziUIDB = BaziUIDB or {}
+    BaziUIDB.worldNameDebug = lines
+    Add("Saved in BaziUIDB.worldNameDebug (run /reload to write file)")
+end
+
+SLASH_BAZIWORLDNAME1 = "/baziname"
+SlashCmdList.BAZIWORLDNAME = function()
+    local ok, err = pcall(function() M:DebugWorldName() end)
+    if not ok then addon:Print("World name diagnostic failed: " .. tostring(err)) end
+end
