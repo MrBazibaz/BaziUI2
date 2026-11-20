@@ -1320,34 +1320,19 @@ local samples={
     {name="Shadowstep",class="ROGUE",hp=100,power=35,icon="Ability_Rogue_SinisterCalling"},
     {name="Stormcaller",class="MAGE",hp=43,power=61,icon="Spell_Frost_FrostBolt02"},
 }
--- Dungeon Finder's role artwork, not the tiny 64px portrait-role sprite.
--- GetIconForRole is Blizzard's own role-button atlas selector on supported clients.
--- If an atlas is unavailable, keep the normal character portrait rather than
--- stretching the old low-resolution sprite.
-local function dungeonFinderRoleAtlas(role)
-    if not role or role=="NONE" then return nil end
-    local atlas
-    if type(GetIconForRole)=="function" then
-        local ok,value=pcall(GetIconForRole,role,false)
-        if ok and type(value)=="string" then atlas=value end
-    end
-    if not atlas then
-        local known={TANK="UI-LFG-RoleIcon-Tank",HEALER="UI-LFG-RoleIcon-Healer",DAMAGER="UI-LFG-RoleIcon-DPS"}
-        atlas=known[role]
-    end
-    if atlas and type(GetAtlasInfo)=="function" then
-        local ok,info=pcall(GetAtlasInfo,atlas)
-        if not ok or not info then return nil end
-    end
-    return atlas
-end
+-- Use Bazi UI's dedicated role portraits. Keep the approved portrait frame,
+-- mask, sizing and position unchanged.
+local ROLE_PORTRAITS = {
+    TANK = "Interface\\AddOns\\BaziUI\\Assets\\Icons\\Roles\\Role_Tank",
+    HEALER = "Interface\\AddOns\\BaziUI\\Assets\\Icons\\Roles\\Role_Healer",
+    DAMAGER = "Interface\\AddOns\\BaziUI\\Assets\\Icons\\Roles\\Role_DPS",
+}
 local function showRaidRolePortrait(f,role)
-    if not f or not f.portrait then return false end
-    local atlas=dungeonFinderRoleAtlas(role)
-    if not atlas then return false end
-    local ok=f.roleArt and pcall(f.roleArt.SetAtlas,f.roleArt,atlas,false)
-    if not ok then return false end
-    -- SetAtlas already supplies correct UV coordinates.
+    if not f or not f.portrait or not f.roleArt then return false end
+    local texture = ROLE_PORTRAITS[role]
+    if not texture then return false end
+    f.roleArt:SetTexture(texture)
+    f.roleArt:SetTexCoord(0,1,0,1)
     if f.model then f.model:Hide() end
     f.portrait:Hide()
     f.roleArt:Show()
