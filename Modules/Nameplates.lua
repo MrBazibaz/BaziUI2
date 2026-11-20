@@ -10,8 +10,6 @@ local plateUnits = {} -- NAME_PLATE_UNIT_ADDED is the reliable source of unit to
 local styledNames = {}
 local hiddenUnitFrames = {} -- reversible alpha override for the nameplate test
 local nativeNameTest = false -- session-only experiment; never saved to profile
-local distanceElapsed = 0
-local textScaleTargets = {} -- sampled range targets; render interpolation runs every frame
 
 -- World names shrink with distance. Prefer real coordinates if exposed by
 -- this client; do not guess a precise distance from nameplate screen position.
@@ -38,42 +36,11 @@ local function UnitDistance(unit)
     return nil
 end
 
-local function ApproximateDistanceScale(unit)
-    -- WoW does not expose the native world-name perspective transform.
-    -- Use supported range checks as a fallback, with interpolation in
-    -- OnUpdate so the text changes smoothly without resizing the icon.
-    -- CheckInteractDistance indices: 3 ~= 10 yd, 2 ~= 11 yd, 4 ~= 28 yd.
-    if type(CheckInteractDistance) == "function" then
-        local ok, near = pcall(CheckInteractDistance, unit, 3)
-        if ok and near then return 1 end
-        local ok2, middle = pcall(CheckInteractDistance, unit, 2)
-        if ok2 and middle then return 0.88 end
-        local ok3, far = pcall(CheckInteractDistance, unit, 4)
-        if ok3 and far then return 0.69 end
-        if ok3 then return 0.38 end
-    end
-    if type(UnitInRange) == "function" then
-        local ok, inRange, checked = pcall(UnitInRange, unit)
-        if ok and checked then return inRange and 0.70 or 0.38 end
-    end
-    return 1
-end
-
-local function TextDistanceScale(unit)
-    local distance = UnitDistance(unit)
-    if distance then
-        return math.max(0.38, math.min(1, 1 - (distance - 8) * 0.019))
-    end
-    return ApproximateDistanceScale(unit)
-end
-
--- Keep the user's text offsets independent from the icon, while raising
--- name/guild together as their distance scale increases.
-local function PositionFriendlyText(plate, marker, cfg, scale)
-    local rise = math.max(0, scale - 0.38) * (cfg.friendlyTextRise or 160)
+-- Text is deliberately fixed-size; its anchor is independent of the icon.
+local function PositionFriendlyText(plate, marker, cfg)
     marker.textAnchor:ClearAllPoints()
     marker.textAnchor:SetPoint("TOP", plate, "TOP",
-        cfg.friendlyTextX or 0, 18 + (cfg.friendlyTextY or 0) + rise)
+        cfg.friendlyTextX or 0, 18 + (cfg.friendlyTextY or 0))
 end
 
 local function RestoreName(plate)
@@ -209,9 +176,7 @@ local function HidePlate(plate)
     if marker then
         marker:Hide()
         if marker.textAnchor then marker.textAnchor:Hide() end
-        marker.scaleUnit = nil -- reused nameplate must initialize text scale again
     end
-    textScaleTargets[plate] = nil
     RestoreName(plate)
 end
 
@@ -291,7 +256,7 @@ local function UpdatePlate(unit)
         label:SetShadowColor(0, 0, 0, 0.35)
         label:SetShadowOffset(0, 0)
     end
-    PositionFriendlyText(plate, marker, cfg, marker.textAnchor:GetScale())
+    PositionFriendlyText(plate, marker, cfg)
     marker.name:ClearAllPoints()
     marker.name:SetPoint("TOP", marker.textAnchor, "TOP", 0, 0)
     marker.guild:ClearAllPoints()
@@ -322,15 +287,7 @@ local function UpdatePlate(unit)
         if marker.name then marker.name:Hide() end
         if marker.guild then marker.guild:Hide() end
     end
-    -- Set the correct distance scale BEFORE making the marker visible.
-    -- Nameplate frames are recycled and may retain a near-player scale.
-    local initialScale = TextDistanceScale(unit)
-    if marker.scaleUnit ~= unit or not marker:IsShown() or textScaleTargets[plate] == nil then
-        marker.textAnchor:SetScale(initialScale)
-    end
-    marker.scaleUnit = unit
-    textScaleTargets[plate] = initialScale
-    PositionFriendlyText(plate, marker, cfg, marker.textAnchor:GetScale())
+    marker.textAnchor:SetScale(1)
     marker:Show()
     marker.textAnchor:Show()
     -- Do not restyle hidden nameplate text in this experiment.
@@ -388,39 +345,6 @@ function M:Initialize()
             end
         else
             M:Apply()
-        end
-    end)
-    eventFrame:SetScript("OnUpdate", function(_, elapsed)
-        distanceElapsed = distanceElapsed + elapsed
-        local sample = distanceElapsed >= 0.12
-        if sample then distanceElapsed = 0 end
-        local cfg = Config()
-        if not cfg or not cfg.enabled then return end
-        -- Sample discrete range bands at a modest rate, but animate the
-        -- resulting text scale every rendered frame. Previously both ran
-        -- every 120ms, making individual size increments plainly visible.
-        local fraction = 1 - math.exp(-math.min(elapsed, 0.1) * 1.7)
-        for plate, marker in pairs(active) do
-            local unit = plateUnits[plate]
-            if unit and marker:IsShown() and UnitExists(unit)
-                and C_NamePlate and C_NamePlate.GetNamePlateForUnit
-                and C_NamePlate.GetNamePlateForUnit(unit) == plate then
-                if sample or textScaleTargets[plate] == nil then
-                    textScaleTargets[plate] = TextDistanceScale(unit)
-                end
-                local target = textScaleTargets[plate]
-                local current = marker.textAnchor:GetScale()
-                if math.abs(target - current) > 0.0001 then
-                    -- Cap per-frame growth so a range-band boundary never
-                    -- produces a sudden large jump in the rendered text.
-                    local delta = (target - current) * fraction
-                    local maxDelta = math.min(elapsed, 0.1) * 0.24
-                    delta = math.max(-maxDelta, math.min(maxDelta, delta))
-                    local newScale = current + delta
-                    marker.textAnchor:SetScale(newScale)
-                    PositionFriendlyText(plate, marker, cfg, newScale)
-                end
-            end
         end
     end)
     self:Apply()
