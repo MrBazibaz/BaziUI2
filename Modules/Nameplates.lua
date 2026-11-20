@@ -513,6 +513,12 @@ local function NonPlayerMarker(plate)
         "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
     marker.rimMask:SetPoint("CENTER", marker.iconAnchor, "CENTER", 0, 0)
     marker.rim:AddMaskTexture(marker.rimMask)
+    -- NPCs have their own unmasked artwork. Pet portrait, mask and gold rim
+    -- remain untouched and are never reused for NPC service markers.
+    marker.npcIcon = marker.iconAnchor:CreateTexture(nil, "OVERLAY", nil, 3)
+    marker.npcIcon:SetPoint("CENTER", marker.iconAnchor, "CENTER")
+    marker.npcIcon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+    marker.npcIcon:Hide()
     nonPlayerMarkers[plate] = marker
     -- Blizzard may reset UnitFrame alpha after NAME_PLATE_UNIT_ADDED.
     -- Reapply only for an actively styled pet/NPC, never for locked player plates.
@@ -538,7 +544,8 @@ local function NonPlayerMarker(plate)
             self.owner:SetText(title or "")
             self.owner:SetShown(title ~= nil)
             local texture = cfg.npcIcons and NPCServiceIcon(title)
-            if texture then self.icon:SetTexture(texture) end
+            if texture then self.npcIcon:SetTexture(texture) end
+            self.npcIcon:SetShown(texture ~= nil)
             self.iconAnchor:SetShown(texture ~= nil)
         end
         if cfg and cfg.petIconVisibility == "combat" and self.isOwnPet then
@@ -624,10 +631,18 @@ UpdateNonPlayerPlate = function(unit, plate, cfg)
     marker.rim:SetSize((cfg.friendlySize or 28) * 1.08, (cfg.friendlySize or 28) * 1.08)
     marker.rimMask:SetSize((cfg.friendlySize or 28) * 1.08, (cfg.friendlySize or 28) * 1.08)
     if not pet then
+        -- Keep all pet-only circular portrait artwork hidden on NPC plates.
+        marker.icon:Hide()
+        marker.rim:Hide()
         local texture = cfg.npcIcons and NPCServiceIcon(ownerText)
-        if texture then marker.icon:SetTexture(texture) end
+        if texture then marker.npcIcon:SetTexture(texture) end
+        marker.npcIcon:SetSize((cfg.friendlySize or 28) * 0.85, (cfg.friendlySize or 28) * 0.85)
+        marker.npcIcon:SetShown(texture ~= nil)
         iconVisible = texture ~= nil
     else
+        marker.npcIcon:Hide()
+        marker.icon:Show()
+        marker.rim:Show()
         marker.icon:SetTexture("Interface\\Icons\\Ability_Hunter_BeastCall")
     end
     marker.iconAnchor:SetShown(iconVisible)
