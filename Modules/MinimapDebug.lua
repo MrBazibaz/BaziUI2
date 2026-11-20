@@ -276,14 +276,35 @@ local function showBounds()
         end
     end
 end
+-- Controlled, reversible test: disable mouse input on the decorative border.
+-- Does not alter visuals or persist after reload.
+local borderMouseOriginal
+local borderTestActive = false
+local function borderMouseTest()
+    local border = addon and addon.Minimap and addon.Minimap.Border
+    if not border then out("Bazi border missing"); return end
+    if not borderTestActive then
+        borderMouseOriginal = border:IsMouseEnabled()
+        border:EnableMouse(false)
+        borderTestActive = true
+        out("TEST ON: border mouse disabled; original=" .. tostring(borderMouseOriginal)
+            .. " current=" .. tostring(border:IsMouseEnabled()))
+        out("Hover a quest area now. Use /bazidebug border again to restore.")
+    else
+        border:EnableMouse(borderMouseOriginal and true or false)
+        borderTestActive = false
+        out("TEST OFF: border mouse restored=" .. tostring(border:IsMouseEnabled()))
+    end
+end
 SLASH_BAZIDEBUG1 = "/bazidebug"
 SlashCmdList.BAZIDEBUG = function(arg)
+    if arg == "border" then borderMouseTest(); return end
     if arg == "hover" then startHover(); return end
     if arg == "marks" then showMarks(); return end
     if arg == "bounds" then showBounds(); return end
     if arg == "clear" then clearMarks(); stopHover(); return end
     if arg ~= "minimap" then
-        out("Usage: /bazidebug minimap | hover | marks | bounds | clear")
+        out("Usage: /bazidebug minimap | hover | border | marks | bounds | clear")
         return
     end
     local ok, err = pcall(run)
