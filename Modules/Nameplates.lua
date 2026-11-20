@@ -175,9 +175,10 @@ local function UpdatePlate(unit)
         marker.icon:SetAllPoints()
         -- Recreate the restrained in-world name style beneath our icon.
         marker.name = marker:CreateFontString(nil, "OVERLAY")
-        marker.name:SetFont("Fonts\\FRIZQT__.TTF", 14, "")
+        marker.name:SetFont("Fonts\\FRIZQT__.TTF", 14, "OUTLINE")
         marker.name:SetTextColor(0.60, 0.60, 1.0, 1.0)
-        marker.name:SetShadowOffset(0, 0)
+        marker.name:SetShadowColor(0, 0, 0, 0.65)
+        marker.name:SetShadowOffset(1, -1)
         marker.name:SetJustifyH("CENTER")
         marker.name:SetPoint("TOP", marker, "BOTTOM", 0, -2)
         active[plate] = marker
