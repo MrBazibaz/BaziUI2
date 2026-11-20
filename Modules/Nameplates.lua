@@ -654,7 +654,12 @@ function M:Initialize()
         if event == "UNIT_COMBAT" then
             PetUnitCombatInteraction(unit, ...)
             return
-        elseif event == "PLAYER_REGEN_ENABLED" or event == "PLAYER_ENTERING_WORLD" then
+        elseif event == "PLAYER_REGEN_ENABLED" then
+            -- Pet overlays update their icon in OnUpdate. Avoid a full plate
+            -- rebuild at combat end, which can briefly reveal Blizzard's plate.
+            petCombatEngaged = false
+            return
+        elseif event == "PLAYER_ENTERING_WORLD" then
             petCombatEngaged = false
         end
         if event == "NAME_PLATE_UNIT_ADDED" then
