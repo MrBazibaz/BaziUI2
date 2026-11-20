@@ -535,3 +535,40 @@ SlashCmdList.BAZIFONT = function()
     BaziUIDB.worldFontDebug = lines
     addon:Print("Font debug saved to BaziUIDB.worldFontDebug; run /reload to write it.")
 end
+
+-- Diagnostic: check whether the client exposes usable distance or plate scale.
+-- Stand beside a friendly player and use /bazidistance, then repeat farther away.
+SLASH_BAZIDISTANCE1 = "/bazidistance"
+SlashCmdList.BAZIDISTANCE = function()
+    local function Print(line)
+        if addon.Print then addon:Print(line)
+        elseif DEFAULT_CHAT_FRAME then DEFAULT_CHAT_FRAME:AddMessage("Bazi UI: " .. line) end
+    end
+    local found = 0
+    for plate, unit in pairs(plateUnits) do
+        if found >= 3 then break end
+        if unit and Friendly(unit) and C_NamePlate and C_NamePlate.GetNamePlateForUnit
+            and C_NamePlate.GetNamePlateForUnit(unit) == plate then
+            found = found + 1
+            local marker = active[plate]
+            local distance = UnitDistance(unit)
+            local squared = "unavailable"
+            if type(UnitDistanceSquared) == "function" then
+                local ok, value = pcall(UnitDistanceSquared, unit)
+                if ok then squared = tostring(value) end
+            end
+            local position = "unavailable"
+            if type(UnitPosition) == "function" then
+                local ok, x, y, z, map = pcall(UnitPosition, unit)
+                if ok then position = tostring(x) .. "," .. tostring(y) .. "," .. tostring(z) .. " map=" .. tostring(map) end
+            end
+            Print(tostring(UnitName(unit)) .. " distance=" .. tostring(distance)
+                .. " squared=" .. squared .. " position=" .. position)
+            Print("plate scale=" .. tostring(plate:GetScale())
+                .. " effective=" .. tostring(plate:GetEffectiveScale())
+                .. " marker scale=" .. tostring(marker and marker:GetScale())
+                .. " text scale=" .. tostring(marker and marker.textAnchor and marker.textAnchor:GetScale()))
+        end
+    end
+    if found == 0 then Print("No friendly nameplates tracked. Stand near a friendly player.") end
+end
