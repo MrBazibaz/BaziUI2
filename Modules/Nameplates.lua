@@ -593,7 +593,7 @@ UpdateNonPlayerPlate = function(unit, plate, cfg)
         KeepNativePlateHidden(plate)
         frame:SetAlpha(0)
     end
-    local size = cfg.friendlyTextSize or 20
+    local size = pet and (cfg.friendlyTextSize or 20) or 16
     for _, label in ipairs({marker.name, marker.owner}) do
         local font = UNIT_NAME_FONT
         local ok, applied = pcall(label.SetFont, label, font, size, "")
