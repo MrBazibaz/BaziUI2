@@ -225,16 +225,16 @@ local function UpdatePlate(unit)
         marker.icon:AddMaskTexture(marker.iconMask)
         -- Reuse the exact portrait ring atlas and crop used by UnitFrames.
         -- Keep the ring behind the icon, so the artwork is not obscured.
-        marker.rim = marker.iconAnchor:CreateTexture(nil, "OVERLAY", nil, 1)
+        marker.rim = marker:CreateTexture(nil, "OVERLAY", nil, 1)
         marker.rim:SetAtlas("UI-HUD-UnitFrame-Target-PortraitOn")
         marker.rim:SetTexCoord(252.78 / 384, 375 / 384, 1.67 / 134, 123.89 / 134)
         marker.rim:SetPoint("CENTER", marker, "CENTER")
         -- The portrait implementation also masks the ring itself.
         -- Without this, the atlas crop exposes a rectangular strip on the left.
-        marker.rimMask = marker.iconAnchor:CreateMaskTexture()
+        marker.rimMask = marker:CreateMaskTexture()
         marker.rimMask:SetTexture("Interface\\CHARACTERFRAME\\TempPortraitAlphaMask",
             "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
-        marker.rimMask:SetPoint("CENTER", marker.iconAnchor, "CENTER", 0, 0)
+        marker.rimMask:SetPoint("CENTER", marker.rim, "CENTER")
         marker.rim:AddMaskTexture(marker.rimMask)
         marker.textAnchor = CreateFrame("Frame", nil, plate)
         -- Keep text fully opaque even when the nameplate fades at range.
