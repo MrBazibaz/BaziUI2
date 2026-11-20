@@ -9,6 +9,9 @@ local defaults = {
     enabled = false, -- Vanilla nameplates until Bazi UI is explicitly enabled.
     friendlyIcon = "role", friendlyScope = "group", raidRoles = true,
     friendlyX = 0, friendlyY = 20, friendlySize = 28,
+    friendlyTextFont = "world", friendlyTextSize = 14,
+    friendlyTextX = 0, friendlyTextY = -2,
+    friendlyTextR = 135, friendlyTextG = 135, friendlyTextB = 255,
     enemyWidth = 160, enemyHeight = 16, enemyScale = 1,
     enemyName = true, enemyLevel = true, enemyQuest = true,
     enemyThreat = true, enemyDebuffs = true, enemyCastbar = true,
@@ -332,7 +335,7 @@ function addon.NameplatesOptions:CreatePage(parent)
         main:ClearAllPoints()
         main:SetPoint("TOPLEFT", page, "TOPLEFT", 12, -100)
         main:SetPoint("TOPRIGHT", page, "TOPRIGHT", -12, -100)
-        main:SetHeight(math.min(activeTab == "Friendly" and 430 or 650, available))
+        main:SetHeight(math.min(activeTab == "Friendly" and 650 or 650, available))
         local viewport = tabPanels[activeTab]
         if viewport then viewport:SetVerticalScroll(0) end
     end
@@ -426,7 +429,7 @@ function addon.NameplatesOptions:CreatePage(parent)
         return panel
     end
 
-    local friendly = NewTab("Friendly", 450)
+    local friendly = NewTab("Friendly", 1040)
     Dropdown(friendly, "ICON TYPE", -4, db, "friendlyIcon", {
         {"off", "Disabled"}, {"class", "Class Icon"}, {"role", "Role Icon"},
     })
@@ -438,11 +441,22 @@ function addon.NameplatesOptions:CreatePage(parent)
     Slider(friendly, "ICON SIZE", -195, db, "friendlySize", 12, 64, 1)
     Numeric(friendly, "ICON X OFFSET", -255, db, "friendlyX", -300, 300, 1)
     Numeric(friendly, "ICON Y OFFSET", -303, db, "friendlyY", -300, 300, 1)
+    Heading(friendly, "FRIENDLY PLAYER TEXT", -365)
+    Dropdown(friendly, "FONT", -401, db, "friendlyTextFont", {
+        {"world", "World Name (Default)"}, {"friz", "Friz Quadrata"}, {"arial", "Arial Narrow"},
+    })
+    Numeric(friendly, "FONT SIZE", -449, db, "friendlyTextSize", 8, 32, 1)
+    Numeric(friendly, "TEXT X OFFSET", -497, db, "friendlyTextX", -300, 300, 1)
+    Numeric(friendly, "TEXT Y OFFSET", -545, db, "friendlyTextY", -300, 300, 1)
+    Heading(friendly, "NAME AND GUILD COLOR (RGB)", -608)
+    Numeric(friendly, "RED (0-255)", -646, db, "friendlyTextR", 0, 255, 1)
+    Numeric(friendly, "GREEN (0-255)", -694, db, "friendlyTextG", 0, 255, 1)
+    Numeric(friendly, "BLUE (0-255)", -742, db, "friendlyTextB", 0, 255, 1)
     local note = Label(friendly,
-        "In raids: only tank and healer role icons. Class icons and DPS icons are hidden.",
+        "Changes apply live to friendly player names and guild names. No reload needed.",
         "GameFontHighlightSmall")
-    note:SetPoint("TOPLEFT", friendly, "TOPLEFT", 14, -365)
-    note:SetWidth(400)
+    note:SetPoint("TOPLEFT", friendly, "TOPLEFT", 14, -806)
+    note:SetWidth(420)
     note:SetJustifyH("LEFT")
     note:SetTextColor(0.66, 0.63, 0.59, 1)
 
