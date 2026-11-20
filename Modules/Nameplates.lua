@@ -179,12 +179,17 @@ local function HidePlate(plate)
     RestoreName(plate)
 end
 
+local UpdateNonPlayerPlate -- defined below; separate from approved Friendly Player logic
 local function UpdatePlate(unit)
     if not (C_NamePlate and C_NamePlate.GetNamePlateForUnit) then return end
     local plate = C_NamePlate.GetNamePlateForUnit(unit)
     if not plate then return end
     plateUnits[plate] = unit
     local cfg = Config()
+    if cfg and cfg.enabled and UnitExists(unit) and not UnitIsPlayer(unit) then
+        UpdateNonPlayerPlate(unit, plate, cfg)
+        return
+    end
     if not cfg or not cfg.enabled or cfg.friendlyIcon == "off" or not Friendly(unit) then
         HidePlate(plate)
         return
@@ -325,6 +330,166 @@ local function UpdatePlate(unit)
     -- Do not restyle hidden nameplate text in this experiment.
 end
 
+-- Pet and NPC text-only plates. Friendly player rendering above is unchanged.
+local nonPlayerMarkers = {}
+local function PetOwner(unit)
+    if UnitIsUnit(unit, "pet") then return "player" end
+    for i = 1, 4 do
+        local owner = "party" .. i
+        if UnitExists(owner .. "pet") and UnitIsUnit(unit, owner .. "pet") then return owner end
+    end
+    for i = 1, 40 do
+        local owner = "raid" .. i
+        if UnitExists(owner .. "pet") and UnitIsUnit(unit, owner .. "pet") then return owner end
+    end
+    if type(UnitCreator) == "function" then
+        local ok, owner = pcall(UnitCreator, unit)
+        if ok and type(owner) == "string" and UnitExists(owner) then return owner end
+    end
+    return nil
+end
+
+local function IsPetUnit(unit)
+    if UnitIsUnit(unit, "pet") then return true end
+    if type(UnitIsOtherPlayersPet) == "function" and UnitIsOtherPlayersPet(unit) then return true end
+    if type(UnitPlayerControlled) == "function" and UnitPlayerControlled(unit) then return true end
+    return PetOwner(unit) ~= nil
+end
+
+local function NativeOwnerLabel(plate, petName)
+    -- Preserve Blizzard's exact '<Owner's Pet>' string when the client exposes it.
+    local root = plate and plate.UnitFrame
+    if not root then return nil end
+    local seen = {}
+    local function Scan(frame, depth)
+        if not frame or depth > 6 or seen[frame] then return nil end
+        seen[frame] = true
+        if frame.GetRegions then
+            for _, region in ipairs({frame:GetRegions()}) do
+                if region.IsObjectType and region:IsObjectType("FontString") then
+                    local value = region:GetText()
+                    if type(value) == "string" and value ~= petName
+                        and value:match("^<.+>$") and value:find("[Pp]et") then
+                        return value
+                    end
+                end
+            end
+        end
+        if frame.GetChildren then
+            for _, child in ipairs({frame:GetChildren()}) do
+                local found = Scan(child, depth + 1)
+                if found then return found end
+            end
+        end
+        return nil
+    end
+    return Scan(root, 0)
+end
+
+local function NonPlayerMarker(plate)
+    local marker = nonPlayerMarkers[plate]
+    if marker then return marker end
+    marker = CreateFrame("Frame", nil, plate)
+    marker:SetFrameLevel(plate:GetFrameLevel() + 11)
+    marker:SetSize(1, 1)
+    if marker.SetIgnoreParentAlpha then marker:SetIgnoreParentAlpha(true) end
+    marker.name = marker:CreateFontString(nil, "OVERLAY")
+    marker.name:SetJustifyH("CENTER")
+    marker.owner = marker:CreateFontString(nil, "OVERLAY")
+    marker.owner:SetJustifyH("CENTER")
+    marker.owner:SetPoint("TOP", marker.name, "BOTTOM", 0, 0)
+    marker.icon = marker:CreateTexture(nil, "OVERLAY", nil, 2)
+    marker.icon:SetPoint("BOTTOM", marker.name, "TOP", 0, 4)
+    marker.icon:SetTexture("Interface\\Icons\\Ability_Hunter_BeastCall")
+    marker.iconMask = marker:CreateMaskTexture()
+    marker.iconMask:SetTexture("Interface\\CHARACTERFRAME\\TempPortraitAlphaMask")
+    marker.iconMask:SetPoint("CENTER", marker.icon, "CENTER")
+    marker.icon:AddMaskTexture(marker.iconMask)
+    marker.rim = marker:CreateTexture(nil, "OVERLAY", nil, 1)
+    marker.rim:SetAtlas("UI-HUD-UnitFrame-Target-PortraitOn")
+    marker.rim:SetTexCoord(252.78 / 384, 375 / 384, 1.67 / 134, 123.89 / 134)
+    marker.rim:SetPoint("CENTER", marker.icon, "CENTER")
+    marker.rimMask = marker:CreateMaskTexture()
+    marker.rimMask:SetTexture("Interface\\CHARACTERFRAME\\TempPortraitAlphaMask",
+        "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
+    marker.rimMask:SetPoint("CENTER", marker.rim, "CENTER")
+    marker.rim:AddMaskTexture(marker.rimMask)
+    nonPlayerMarkers[plate] = marker
+    return marker
+end
+
+UpdateNonPlayerPlate = function(unit, plate, cfg)
+    local pet = IsPetUnit(unit)
+    if (pet and cfg.petEnabled == false) or (not pet and cfg.npcEnabled == false)
+        or not UnitIsFriend("player", unit) or UnitIsEnemy("player", unit) then
+        HidePlate(plate)
+        local previous = nonPlayerMarkers[plate]
+        if previous then previous:Hide() end
+        return
+    end
+    -- Never treat a non-player as a friendly player: the player path is locked.
+    local previous = active[plate]
+    if previous then
+        previous:Hide()
+        if previous.textAnchor then previous.textAnchor:Hide() end
+    end
+    RestoreName(plate)
+    local marker = NonPlayerMarker(plate)
+    local sourceName = UnitName(unit) or ""
+    local owner = pet and PetOwner(unit) or nil
+    local ownerText = pet and NativeOwnerLabel(plate, sourceName) or nil
+    if pet and not ownerText and owner then
+        local ownerName = UnitName(owner)
+        if ownerName and ownerName ~= "" then
+            ownerText = "<" .. ownerName .. "'s Pet>"
+        end
+    end
+    local frame = plate.UnitFrame
+    if frame and frame.SetAlpha then
+        if hiddenUnitFrames[plate] == nil then hiddenUnitFrames[plate] = frame:GetAlpha() end
+        frame:SetAlpha(0)
+    end
+    local size = cfg.friendlyTextSize or 20
+    for _, label in ipairs({marker.name, marker.owner}) do
+        local font = UNIT_NAME_FONT
+        local ok, applied = pcall(label.SetFont, label, font, size, "")
+        if not ok or applied == false then
+            local fallback = GameFontNormal and select(1, GameFontNormal:GetFont())
+            if fallback then pcall(label.SetFont, label, fallback, size, "") end
+        end
+        if pet then
+            label:SetTextColor(115 / 255, 115 / 255, 217 / 255, 1)
+        else
+            label:SetTextColor(0.20, 0.90, 0.30, 1)
+        end
+        label:SetShadowColor(0, 0, 0, 0.35)
+        label:SetShadowOffset(0, 0)
+    end
+    marker:ClearAllPoints()
+    marker:SetPoint("TOP", plate, "TOP", cfg.friendlyTextX or 0,
+        18 + (cfg.friendlyTextY or 0))
+    marker.name:ClearAllPoints()
+    marker.name:SetPoint("TOP", marker, "TOP", 0, 0)
+    marker.name:SetWidth(math.max(160, (cfg.friendlySize or 28) * 4))
+    marker.name:SetText(sourceName)
+    marker.owner:SetWidth(math.max(200, (cfg.friendlySize or 28) * 5))
+    marker.owner:SetText(ownerText or "")
+    marker.owner:SetShown(pet and ownerText ~= nil and ownerText ~= "")
+    -- Only the player's own pet can ever display a portrait-style icon.
+    local myPet = pet and UnitIsUnit(unit, "pet")
+    local iconVisible = myPet and cfg.petShowIcon == true
+        and (cfg.petIconVisibility ~= "combat" or UnitAffectingCombat("player"))
+    marker.icon:SetSize((cfg.friendlySize or 28) * 0.95, (cfg.friendlySize or 28) * 0.95)
+    marker.iconMask:SetSize((cfg.friendlySize or 28) * 0.95, (cfg.friendlySize or 28) * 0.95)
+    marker.rim:SetSize((cfg.friendlySize or 28) * 1.08, (cfg.friendlySize or 28) * 1.08)
+    marker.rimMask:SetSize((cfg.friendlySize or 28) * 1.08, (cfg.friendlySize or 28) * 1.08)
+    marker.icon:SetShown(iconVisible)
+    marker.rim:SetShown(iconVisible)
+    -- NPC icons are deliberately not guessed from NPC names or creature types.
+    -- Only expose an icon when the client provides a reliable service marker.
+    marker:Show()
+end
+
 -- Session-only visual preview. These are UI frames, not spoofed unit nameplates.
 local friendlyPreviewEnabled = false
 local friendlyPreview = {}
@@ -461,6 +626,9 @@ function M:Initialize()
     eventFrame:RegisterEvent("GROUP_ROSTER_UPDATE")
     eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
     eventFrame:RegisterEvent("PLAYER_ROLES_ASSIGNED")
+    eventFrame:RegisterEvent("PLAYER_REGEN_DISABLED")
+    eventFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
+    eventFrame:RegisterEvent("UNIT_PET")
     eventFrame:SetScript("OnEvent", function(_, event, unit)
         if event == "NAME_PLATE_UNIT_ADDED" then
             UpdatePlate(unit)
