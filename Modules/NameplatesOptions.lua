@@ -12,8 +12,6 @@ local defaults = {
     friendlyTextFont = "world", friendlyTextSize = 14,
     friendlyTextX = 0, friendlyTextY = -2,
     friendlyTextR = 135, friendlyTextG = 135, friendlyTextB = 255,
-    friendlyTextOutline = false, friendlyOutlineR = 0,
-    friendlyOutlineG = 0, friendlyOutlineB = 0,
     enemyWidth = 160, enemyHeight = 16, enemyScale = 1,
     enemyName = true, enemyLevel = true, enemyQuest = true,
     enemyThreat = true, enemyDebuffs = true, enemyCastbar = true,
@@ -431,7 +429,7 @@ function addon.NameplatesOptions:CreatePage(parent)
         return panel
     end
 
-    local friendly = NewTab("Friendly", 1220)
+    local friendly = NewTab("Friendly", 1040)
     Dropdown(friendly, "ICON TYPE", -4, db, "friendlyIcon", {
         {"off", "Disabled"}, {"class", "Class Icon"}, {"role", "Role Icon"},
     })
@@ -454,15 +452,10 @@ function addon.NameplatesOptions:CreatePage(parent)
     Numeric(friendly, "RED (0-255)", -646, db, "friendlyTextR", 0, 255, 1)
     Numeric(friendly, "GREEN (0-255)", -694, db, "friendlyTextG", 0, 255, 1)
     Numeric(friendly, "BLUE (0-255)", -742, db, "friendlyTextB", 0, 255, 1)
-    Heading(friendly, "CUSTOM TEXT OUTLINE", -802)
-    Toggle(friendly, "ENABLE OUTLINE", -842, db, "friendlyTextOutline")
-    Numeric(friendly, "OUTLINE RED (0-255)", -890, db, "friendlyOutlineR", 0, 255, 1)
-    Numeric(friendly, "OUTLINE GREEN (0-255)", -938, db, "friendlyOutlineG", 0, 255, 1)
-    Numeric(friendly, "OUTLINE BLUE (0-255)", -986, db, "friendlyOutlineB", 0, 255, 1)
     local note = Label(friendly,
         "Changes apply live to friendly player names and guild names. No reload needed.",
         "GameFontHighlightSmall")
-    note:SetPoint("TOPLEFT", friendly, "TOPLEFT", 14, -1050)
+    note:SetPoint("TOPLEFT", friendly, "TOPLEFT", 14, -806)
     note:SetWidth(420)
     note:SetJustifyH("LEFT")
     note:SetTextColor(0.66, 0.63, 0.59, 1)
