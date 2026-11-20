@@ -202,6 +202,18 @@ local function UpdatePlate(unit)
         marker.guild:SetShadowOffset(0, 0)
         marker.guild:SetJustifyH("CENTER")
         marker.guild:SetPoint("TOP", marker.name, "BOTTOM", 0, 0)
+        -- Same-color weight experiment: a slightly larger text layer behind
+        -- the original. WoW's OUTLINE flag is black and cannot be recolored.
+        marker.nameWeight = marker:CreateFontString(nil, "ARTWORK")
+        marker.nameWeight:SetFont("Fonts\\\\FRIZQT__.TTF", 14.6, "")
+        marker.nameWeight:SetTextColor(0.36, 0.37, 0.88, 1)
+        marker.nameWeight:SetJustifyH("CENTER")
+        marker.nameWeight:SetPoint("CENTER", marker.name, "CENTER", 0, 0)
+        marker.guildWeight = marker:CreateFontString(nil, "ARTWORK")
+        marker.guildWeight:SetFont("Fonts\\\\FRIZQT__.TTF", 14.6, "")
+        marker.guildWeight:SetTextColor(0.36, 0.37, 0.88, 1)
+        marker.guildWeight:SetJustifyH("CENTER")
+        marker.guildWeight:SetPoint("CENTER", marker.guild, "CENTER", 0, 0)
         active[plate] = marker
     end
     local valid = false
@@ -228,6 +240,9 @@ local function UpdatePlate(unit)
     local displayName = UnitName(unit)
     if marker.name then
         marker.name:SetText(displayName or "")
+        marker.nameWeight:SetText(displayName or "")
+        marker.nameWeight:SetWidth(math.max(160, (cfg.friendlySize or 28) * 4))
+        marker.nameWeight:Show()
         marker.name:SetWidth(math.max(160, (cfg.friendlySize or 28) * 4))
         marker.name:Show()
     end
@@ -237,10 +252,15 @@ local function UpdatePlate(unit)
         local guildName = GetGuildInfo and GetGuildInfo(unit)
         if type(guildName) == "string" and guildName ~= "" then
             marker.guild:SetText("<" .. guildName .. ">")
+            marker.guildWeight:SetText("<" .. guildName .. ">")
+            marker.guildWeight:SetWidth(math.max(200, (cfg.friendlySize or 28) * 5))
+            marker.guildWeight:Show()
             marker.guild:SetWidth(math.max(200, (cfg.friendlySize or 28) * 5))
             marker.guild:Show()
         else
             marker.guild:SetText("")
+            marker.guildWeight:SetText("")
+            marker.guildWeight:Hide()
             marker.guild:Hide()
         end
     end
@@ -249,7 +269,9 @@ local function UpdatePlate(unit)
     -- renders its normal world-space player name independently.
     if nativeNameTest then
         if marker.name then marker.name:Hide() end
+        if marker.nameWeight then marker.nameWeight:Hide() end
         if marker.guild then marker.guild:Hide() end
+        if marker.guildWeight then marker.guildWeight:Hide() end
     end
     marker:Show()
     -- Do not restyle hidden nameplate text in this experiment.
