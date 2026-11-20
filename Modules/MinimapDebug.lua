@@ -65,10 +65,105 @@ local function run()
         if ok then out("mouse focus: " .. name(frame)) end
     end
 end
+-- Sample hover without opening chat. Prints changes and a summary after 10 seconds.
+local sampler = CreateFrame("Frame")
+local elapsed, remaining, previous, samples, hovered, tips = 0, 0, nil, 0, 0, 0
+local function mouseFocusName()
+    if GetMouseFoci then
+        local ok, frames = pcall(GetMouseFoci)
+        if ok and type(frames) == "table" and frames[1] then
+            return name(frames[1])
+        end
+    end
+    if GetMouseFocus then
+        local ok, frame = pcall(GetMouseFocus)
+        if ok then return name(frame) end
+    end
+    return "unknown"
+end
+local function stopHover()
+    sampler:SetScript("OnUpdate", nil)
+    out("Hover summary: samples=" .. samples .. " overMap=" .. hovered
+        .. " tooltipShown=" .. tips)
+end
+local function startHover()
+    if sampler:GetScript("OnUpdate") then stopHover() end
+    elapsed, remaining, previous, samples, hovered, tips = 0, 10, nil, 0, 0, 0
+    out("Hover sampling started (10 seconds). Move cursor over quest area NOW.")
+    sampler:SetScript("OnUpdate", function(_, dt)
+        elapsed = elapsed + dt
+        remaining = remaining - dt
+        if elapsed >= 0.2 then
+            elapsed = 0
+            local map = _G.Minimap
+            local over = map and map:IsMouseOver() or false
+            local tip = GameTooltip and GameTooltip:IsShown() or false
+            local focus = mouseFocusName()
+            samples = samples + 1
+            if over then hovered = hovered + 1 end
+            if tip then tips = tips + 1 end
+            local state = tostring(over) .. "/" .. tostring(tip) .. "/" .. focus
+            if state ~= previous then
+                out("hover map=" .. tostring(over) .. " tooltip=" .. tostring(tip)
+                    .. " focus=" .. focus)
+                previous = state
+            end
+        end
+        if remaining <= 0 then stopHover() end
+    end)
+end
+
+-- Marker overlays are debug-only and do not accept mouse input.
+local marks = {}
+local function clearMarks()
+    for _, mark in ipairs(marks) do mark:Hide() end
+    marks = {}
+end
+local function markCenter(target, color, label)
+    if not target then return end
+    local ok, x, y = pcall(function() return target:GetCenter() end)
+    if not ok or type(x) ~= "number" or type(y) ~= "number" then
+        out(label .. ": center unavailable")
+        return
+    end
+    local overlay = CreateFrame("Frame", nil, UIParent)
+    overlay:SetFrameStrata("TOOLTIP")
+    overlay:SetSize(16, 16)
+    overlay:EnableMouse(false)
+    overlay:SetPoint("CENTER", UIParent, "BOTTOMLEFT", x, y)
+    local horizontal = overlay:CreateTexture(nil, "OVERLAY")
+    horizontal:SetColorTexture(color[1], color[2], color[3], 1)
+    horizontal:SetSize(16, 2)
+    horizontal:SetPoint("CENTER")
+    local vertical = overlay:CreateTexture(nil, "OVERLAY")
+    vertical:SetColorTexture(color[1], color[2], color[3], 1)
+    vertical:SetSize(2, 16)
+    vertical:SetPoint("CENTER")
+    marks[#marks + 1] = overlay
+    out(label .. " center=" .. num(x) .. "," .. num(y))
+end
+local function showMarks()
+    clearMarks()
+    local button = _G.BaziUIMinimapButton
+    if not button then out("Launcher missing"); return end
+    markCenter(button, {1, 1, 1}, "Button (white)")
+    local regions = {button:GetRegions()}
+    local colors = {{1, 0, 0}, {0, 1, 0}, {0, 0.5, 1}}
+    for i, region in ipairs(regions) do
+        if region and region.IsObjectType and region:IsObjectType("Texture") then
+            local color = colors[#marks] or {1, 0, 1}
+            markCenter(region, color, "Texture " .. i)
+        end
+    end
+    out("Crosshairs: white button; red emblem; green border; blue highlight. /bazidebug clear to hide.")
+end
 SLASH_BAZIDEBUG1 = "/bazidebug"
 SlashCmdList.BAZIDEBUG = function(arg)
+    if arg == "hover" then startHover(); return end
+    if arg == "marks" then showMarks(); return end
+    if arg == "clear" then clearMarks(); stopHover(); return end
     if arg ~= "minimap" then
-        out("Usage: /bazidebug minimap")
+        out("Usage: /bazidebug minimap | hover | marks | clear")
         return
     end
     local ok, err = pcall(run)
