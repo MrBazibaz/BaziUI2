@@ -164,33 +164,42 @@ local function Toggle(parent, title, y, db, key)
 end
 local function Dropdown(parent, title, y, db, key, choices)
     local row = Row(parent, title, y)
+    -- Exact dimensions, fill, text alignment and menu geometry from
+    -- Config/Options.lua's Minimap Select() control.
     local button = CreateFrame("Button", nil, row)
-    button:SetSize(174, 25)
+    button:SetSize(156, 24)
     button:SetPoint("RIGHT", row, "RIGHT", -14, 0)
-    Background(button)
-    local caption = Label(button, "")
-    caption:SetPoint("LEFT", 9, 0)
+    local fill = button:CreateTexture(nil, "BACKGROUND")
+    fill:SetAllPoints()
+    fill:SetColorTexture(0.12, 0.07, 0.045, 1)
+    local caption = Label(button, "", "GameFontNormal")
+    caption:SetPoint("CENTER")
     local arrow = Label(button, "v", "GameFontHighlightSmall")
-    arrow:SetPoint("RIGHT", -8, 0)
+    arrow:SetPoint("RIGHT", -6, 0)
     local menu = CreateFrame("Frame", nil, button)
     menu:SetFrameStrata("FULLSCREEN_DIALOG")
     menu:SetFrameLevel(button:GetFrameLevel() + 20)
     menu:SetPoint("TOPRIGHT", button, "BOTTOMRIGHT", 0, -2)
-    menu:SetSize(174, #choices * 25 + 4)
-    Background(menu)
+    menu:SetSize(156, #choices * 24 + 4)
+    local background = menu:CreateTexture(nil, "BACKGROUND")
+    background:SetAllPoints()
+    background:SetColorTexture(0.12, 0.07, 0.045, 1)
     local function Refresh()
         for _, choice in ipairs(choices) do
-            if db[key] == choice[1] then caption:SetText(choice[2]); return end
+            if db[key] == choice[1] then
+                caption:SetText(choice[2])
+                return
+            end
         end
         caption:SetText("Select...")
     end
     for i, choice in ipairs(choices) do
         local item = CreateFrame("Button", nil, menu)
-        item:SetPoint("TOPLEFT", menu, "TOPLEFT", 2, -2 - (i - 1) * 25)
-        item:SetPoint("TOPRIGHT", menu, "TOPRIGHT", -2, -2 - (i - 1) * 25)
-        item:SetHeight(25)
+        item:SetPoint("TOPLEFT", menu, "TOPLEFT", 2, -2 - (i - 1) * 24)
+        item:SetPoint("TOPRIGHT", menu, "TOPRIGHT", -2, -2 - (i - 1) * 24)
+        item:SetHeight(24)
         local text = Label(item, choice[2], "GameFontHighlightSmall")
-        text:SetPoint("LEFT", 9, 0)
+        text:SetPoint("LEFT", 8, 0)
         item:SetScript("OnClick", function()
             db[key] = choice[1]
             Refresh()
@@ -203,6 +212,7 @@ local function Dropdown(parent, title, y, db, key, choices)
     Refresh()
     return row
 end
+
 local function Slider(parent, title, y, db, key, low, high, step)
     local row = Row(parent, title, y, 50)
     local box
