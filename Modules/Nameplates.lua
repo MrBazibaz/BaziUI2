@@ -173,6 +173,13 @@ local function UpdatePlate(unit)
         marker:SetFrameLevel(plate:GetFrameLevel() + 10)
         marker.icon = marker:CreateTexture(nil, "OVERLAY")
         marker.icon:SetAllPoints()
+        -- Recreate the restrained in-world name style beneath our icon.
+        marker.name = marker:CreateFontString(nil, "OVERLAY")
+        marker.name:SetFont("Fonts\\FRIZQT__.TTF", 11, "")
+        marker.name:SetTextColor(0.55, 0.55, 0.85, 0.9)
+        marker.name:SetShadowOffset(0, 0)
+        marker.name:SetJustifyH("CENTER")
+        marker.name:SetPoint("TOP", marker, "BOTTOM", 0, -2)
         active[plate] = marker
     end
     local valid = false
@@ -196,6 +203,12 @@ local function UpdatePlate(unit)
     marker:ClearAllPoints()
     marker:SetPoint("BOTTOM", anchor, "TOP", cfg.friendlyX or 0, cfg.friendlyY or 20)
     marker:SetSize(cfg.friendlySize or 28, cfg.friendlySize or 28)
+    local displayName = UnitName(unit)
+    if marker.name then
+        marker.name:SetText(displayName or "")
+        marker.name:SetWidth(math.max(120, (cfg.friendlySize or 28) * 3))
+        marker.name:Show()
+    end
     marker:Show()
     -- Do not restyle hidden nameplate text in this experiment.
 end
