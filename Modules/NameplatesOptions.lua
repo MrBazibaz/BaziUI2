@@ -10,6 +10,8 @@ local defaults = {
     friendlyIcon = "role", friendlyScope = "group", raidRoles = true,
     friendlyX = 0, friendlyY = 20, friendlySize = 28,
     friendlyTextX = 0, friendlyTextY = 0, friendlyTextSize = 20,
+    petEnabled = true, petShowIcon = false, petIconVisibility = "always",
+    npcEnabled = true, npcIcons = false,
     enemyWidth = 160, enemyHeight = 16, enemyScale = 1,
     enemyName = true, enemyLevel = true, enemyQuest = true,
     enemyThreat = true, enemyDebuffs = true, enemyCastbar = true,
@@ -310,7 +312,7 @@ function addon.NameplatesOptions:CreatePage(parent)
     local tabBar = CreateFrame("Frame", nil, page)
     tabBar:SetPoint("TOPLEFT", main, "TOPRIGHT", 25, 0)
     tabBar:SetFrameStrata("FULLSCREEN_DIALOG")
-    tabBar:SetSize(108, 58)
+    tabBar:SetSize(108, 116)
     local tabButtons, tabPanels = {}, {}
     local activeTab = "Friendly"
 
@@ -338,7 +340,7 @@ function addon.NameplatesOptions:CreatePage(parent)
         if viewport then viewport:SetVerticalScroll(0) end
     end
 
-    for i, name in ipairs({"Friendly", "Enemy"}) do
+    for i, name in ipairs({"Friendly", "Friendly Pet", "NPC", "Enemy"}) do
         local b = CreateFrame("Button", nil, tabBar)
         b:SetSize(108, 29)
         b:SetPoint("TOPLEFT", tabBar, "TOPLEFT", 0, -(i - 1) * 29)
@@ -450,6 +452,33 @@ function addon.NameplatesOptions:CreatePage(parent)
     note:SetWidth(400)
     note:SetJustifyH("LEFT")
     note:SetTextColor(0.66, 0.63, 0.59, 1)
+
+    local pet = NewTab("Friendly Pet", 540)
+    Toggle(pet, "ENABLE FRIENDLY PET NAMEPLATES", -4, db, "petEnabled")
+    Toggle(pet, "SHOW ICON ON MY PET", -52, db, "petShowIcon")
+    Dropdown(pet, "MY PET ICON VISIBILITY", -100, db, "petIconVisibility", {
+        {"always", "Always"}, {"combat", "Only in Combat"},
+    })
+    Heading(pet, "NAME AND OWNER TEXT", -166)
+    local petNote = Label(pet,
+        "Same blue-purple font, size and offsets as Friendly players.\nOwner shown below name in <Owner's Pet> format.\nOther players' pets never display an icon.",
+        "GameFontHighlightSmall")
+    petNote:SetPoint("TOPLEFT", pet, "TOPLEFT", 14, -209)
+    petNote:SetWidth(450)
+    petNote:SetJustifyH("LEFT")
+    petNote:SetTextColor(0.66, 0.63, 0.59, 1)
+
+    local npc = NewTab("NPC", 460)
+    Toggle(npc, "ENABLE FRIENDLY NPC NAMEPLATES", -4, db, "npcEnabled")
+    Toggle(npc, "ENABLE NPC ICONS", -52, db, "npcIcons")
+    Heading(npc, "NAME TEXT", -120)
+    local npcNote = Label(npc,
+        "Same name layout as Friendly players, with green text.\nService and quest icons require reliable client identification;\nunknown NPC types remain text-only.",
+        "GameFontHighlightSmall")
+    npcNote:SetPoint("TOPLEFT", npc, "TOPLEFT", 14, -165)
+    npcNote:SetWidth(450)
+    npcNote:SetJustifyH("LEFT")
+    npcNote:SetTextColor(0.66, 0.63, 0.59, 1)
 
     local enemy = NewTab("Enemy", 1530)
     Heading(enemy, "HEALTH BARS", -12)
