@@ -120,6 +120,12 @@ local function createArt()
     map:HookScript("OnShow", function() holder:Show() end)
     map:HookScript("OnHide", function() holder:Hide() end)
     holder:SetShown(map:IsShown())
+    -- The decorative frame must never intercept Blizzard quest-area hovers.
+    -- Reassert after setup because other UI code may enable mouse input.
+    holder:EnableMouse(false)
+    holder:HookScript("OnShow", function(self)
+        self:EnableMouse(false)
+    end)
 end
 -- FlareUI's header approach: reuse Forever's own zone, tracking, calendar
 -- and clock widgets; only their anchors and the shared plate are changed.
@@ -291,6 +297,9 @@ local function layout()
     setSquareMask()
     headerLayout()
     placeSun()
+    -- Header/layout updates can reactivate the decorative holder's mouse.
+    -- This is the exact frame isolated by /bazidebug border.
+    if MM.Border then MM.Border:EnableMouse(false) end
     applying = false
 end
 local function queueLayout()
