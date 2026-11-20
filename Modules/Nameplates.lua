@@ -374,34 +374,11 @@ local function IsPetUnit(unit)
     return PetOwner(unit) ~= nil
 end
 
-local function NativeOwnerLabel(plate, petName)
-    -- Preserve Blizzard's exact '<Owner's Pet>' string when the client exposes it.
-    local root = plate and plate.UnitFrame
-    if not root then return nil end
-    local seen = {}
-    local function Scan(frame, depth)
-        if not frame or depth > 6 or seen[frame] then return nil end
-        seen[frame] = true
-        if frame.GetRegions then
-            for _, region in ipairs({frame:GetRegions()}) do
-                if region.IsObjectType and region:IsObjectType("FontString") then
-                    local value = region:GetText()
-                    if type(value) == "string" and value ~= petName
-                        and value:match("^<.+>$") and value:find("[Pp]et") then
-                        return value
-                    end
-                end
-            end
-        end
-        if frame.GetChildren then
-            for _, child in ipairs({frame:GetChildren()}) do
-                local found = Scan(child, depth + 1)
-                if found then return found end
-            end
-        end
-        return nil
-    end
-    return Scan(root, 0)
+-- Blizzard nameplate FontString:GetText() can return protected secret strings.
+-- Do not scan or compare those values from addon code. PetOwner() provides
+-- the owner label when a safe unit token is available.
+local function NativeOwnerLabel()
+    return nil
 end
 
 local function NonPlayerMarker(plate)
