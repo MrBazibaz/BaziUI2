@@ -199,6 +199,7 @@ local function HidePlate(plate)
     local marker = active[plate]
     if marker then
         marker:Hide()
+        if marker.textAnchor then marker.textAnchor:Hide() end
         marker.scaleUnit = nil -- reused nameplate must initialize text scale again
     end
     textScaleTargets[plate] = nil
@@ -234,8 +235,9 @@ local function UpdatePlate(unit)
         marker:SetFrameLevel(plate:GetFrameLevel() + 10)
         marker.icon = marker:CreateTexture(nil, "OVERLAY")
         marker.icon:SetAllPoints()
-        marker.textAnchor = CreateFrame("Frame", nil, marker)
+        marker.textAnchor = CreateFrame("Frame", nil, plate)
         marker.textAnchor:SetSize(1, 1)
+        marker.textAnchor:SetFrameLevel(plate:GetFrameLevel() + 11)
         marker.name = marker.textAnchor:CreateFontString(nil, "OVERLAY")
         marker.name:SetJustifyH("CENTER")
         marker.guild = marker.textAnchor:CreateFontString(nil, "OVERLAY")
@@ -249,7 +251,11 @@ local function UpdatePlate(unit)
         role = role or Role(unit)
         valid = RoleTexture(marker.icon, role)
     end
-    if not valid then marker:Hide(); return end
+    if not valid then
+        marker:Hide()
+        if marker.textAnchor then marker.textAnchor:Hide() end
+        return
+    end
     -- Test: hide Blizzard nameplate presentation while keeping its parent
     -- visible as the marker anchor. Alpha is restored on disable/removal.
     local unitFrame = plate.UnitFrame
@@ -277,7 +283,7 @@ local function UpdatePlate(unit)
         label:SetShadowOffset(0, 0)
     end
     marker.textAnchor:ClearAllPoints()
-    marker.textAnchor:SetPoint("TOP", marker, "BOTTOM", cfg.friendlyTextX or 0, (cfg.friendlyTextY or 0) - 2)
+    marker.textAnchor:SetPoint("TOP", plate, "TOP", cfg.friendlyTextX or 0, (cfg.friendlyTextY or 18))
     marker.name:ClearAllPoints()
     marker.name:SetPoint("TOP", marker.textAnchor, "TOP", 0, 0)
     marker.guild:ClearAllPoints()
@@ -317,6 +323,7 @@ local function UpdatePlate(unit)
     marker.scaleUnit = unit
     textScaleTargets[plate] = initialScale
     marker:Show()
+    marker.textAnchor:Show()
     -- Do not restyle hidden nameplate text in this experiment.
 end
 
