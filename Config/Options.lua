@@ -6,6 +6,7 @@ local optionsFrame
 local contentFrame
 local navButtons = {}
 local pages = {}
+local pageFactories = {}
 
 local ASSET = "Interface\\AddOns\\BaziUI\\Assets\\"
 
@@ -191,6 +192,11 @@ local function CreateSlider(parent, labelText, description, minValue, maxValue, 
 end
 
 local function ShowPage(pageName)
+    -- Build each settings page only when first selected. Existing page builders
+    -- and module behavior remain unchanged; created pages are cached.
+    if not pages[pageName] and pageFactories[pageName] then
+        pageFactories[pageName]()
+    end
     for name, page in pairs(pages) do
         page:SetShown(name == pageName)
     end
@@ -3407,20 +3413,24 @@ function addon.Options:Create()
     search:SetScript("OnEditFocusLost", UpdateSearch)
     UpdateSearch()
 
-    CreateGeneralPage()
-    CreateVersionHistoryPage()
-    CreateQoLPage()
-    CreatePlaceholderPage("Profiles", "Profile management is not implemented yet. Your current settings are preserved.")
-    CreateUnitFramesPage()
-    CreatePlaceholderPage("Nameplates")
-    CreatePlaceholderPage("ActionBars")
-    CreatePlaceholderPage("Chat")
-    CreatePlaceholderPage("Quest")
-    CreatePlaceholderPage("Gathering")
-    CreateMinimapPage()
-    CreateTooltipPage()
-    CreatePlaceholderPage("Combat")
-    CreatePlaceholderPage("BugTab")
+    -- Only General is built for the initial /bazi open. All other pages are
+    -- created on first selection, then retained for the rest of the session.
+    pageFactories.General = CreateGeneralPage
+    pageFactories["Version History"] = CreateVersionHistoryPage
+    pageFactories["Quality of Life"] = CreateQoLPage
+    pageFactories.Profiles = function()
+        CreatePlaceholderPage("Profiles", "Profile management is not implemented yet. Your current settings are preserved.")
+    end
+    pageFactories.UnitFrames = CreateUnitFramesPage
+    pageFactories.Nameplates = function() CreatePlaceholderPage("Nameplates") end
+    pageFactories.ActionBars = function() CreatePlaceholderPage("ActionBars") end
+    pageFactories.Chat = function() CreatePlaceholderPage("Chat") end
+    pageFactories.Quest = function() CreatePlaceholderPage("Quest") end
+    pageFactories.Gathering = function() CreatePlaceholderPage("Gathering") end
+    pageFactories.Minimap = CreateMinimapPage
+    pageFactories.Tooltip = CreateTooltipPage
+    pageFactories.Combat = function() CreatePlaceholderPage("Combat") end
+    pageFactories.BugTab = function() CreatePlaceholderPage("BugTab") end
 
     ShowPage("General")
 end
