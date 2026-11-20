@@ -289,9 +289,12 @@ local function UpdatePlate(unit)
     -- Draw them at the same outer diameter and center as class icons, without
     -- stacking Bazi's separate rim on top of the embedded role rim.
     local rolePortrait = iconMode == "role" and valid
-    -- Both icon modes now share the same artwork size, mask and gold rim.
-    marker.icon:SetSize(iconSize * 0.95, iconSize * 0.95)
-    marker.iconMask:SetSize(iconSize * 0.95, iconSize * 0.95)
+    -- Role atlases have more internal padding than class artwork.
+    -- Enlarge only the role texture, clipping it to the unchanged icon circle.
+    local visibleSize = iconSize * 0.95
+    local artworkSize = rolePortrait and (visibleSize * 1.25) or visibleSize
+    marker.icon:SetSize(artworkSize, artworkSize)
+    marker.iconMask:SetSize(visibleSize, visibleSize)
     marker.rim:SetSize(rimSize, rimSize)
     marker.rimMask:SetSize(rimSize, rimSize)
     marker.rim:Show()
