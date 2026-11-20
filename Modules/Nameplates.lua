@@ -8,6 +8,7 @@ local active = {}
 local plateUnits = {} -- NAME_PLATE_UNIT_ADDED is the reliable source of unit tokens.
 -- Save original text presentation so disabling Bazi UI restores Blizzard styling.
 local styledNames = {}
+local hiddenUnitFrames = {} -- reversible alpha override for the nameplate test
 
 local function RestoreName(plate)
     local saved = styledNames[plate]
@@ -127,7 +128,17 @@ local function ClassTexture(icon, unit)
     return true
 end
 
+local function RestoreUnitFrame(plate)
+    local frame = plate and plate.UnitFrame
+    local original = hiddenUnitFrames[plate]
+    if original ~= nil then
+        if frame and frame.SetAlpha then frame:SetAlpha(original) end
+        hiddenUnitFrames[plate] = nil
+    end
+end
+
 local function HidePlate(plate)
+    RestoreUnitFrame(plate)
     local marker = active[plate]
     if marker then marker:Hide() end
     RestoreName(plate)
@@ -172,12 +183,21 @@ local function UpdatePlate(unit)
         valid = RoleTexture(marker.icon, role)
     end
     if not valid then marker:Hide(); return end
-    local anchor = plate.UnitFrame and plate.UnitFrame:IsVisible() and plate.UnitFrame or plate
+    -- Test: hide Blizzard nameplate presentation while keeping its parent
+    -- visible as the marker anchor. Alpha is restored on disable/removal.
+    local unitFrame = plate.UnitFrame
+    if unitFrame and unitFrame.SetAlpha then
+        if hiddenUnitFrames[plate] == nil then
+            hiddenUnitFrames[plate] = unitFrame:GetAlpha()
+        end
+        unitFrame:SetAlpha(0)
+    end
+    local anchor = plate
     marker:ClearAllPoints()
     marker:SetPoint("BOTTOM", anchor, "TOP", cfg.friendlyX or 0, cfg.friendlyY or 20)
     marker:SetSize(cfg.friendlySize or 28, cfg.friendlySize or 28)
     marker:Show()
-    StyleName(plate, unit)
+    -- Do not restyle hidden nameplate text in this experiment.
 end
 
 function M:Apply()
@@ -185,6 +205,7 @@ function M:Apply()
     if not cfg or not cfg.enabled then
         for plate in pairs(active) do HidePlate(plate) end
         for plate in pairs(styledNames) do RestoreName(plate) end
+        for plate in pairs(hiddenUnitFrames) do RestoreUnitFrame(plate) end
         return
     end
     -- A nameplate frame does not reliably expose namePlateUnitToken on this
