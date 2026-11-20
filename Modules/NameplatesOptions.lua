@@ -6,6 +6,7 @@ addon.NameplatesOptions = addon.NameplatesOptions or {}
 local ASSET = "Interface\\AddOns\\BaziUI\\Assets\\"
 
 local defaults = {
+    enabled = false, -- Vanilla nameplates until Bazi UI is explicitly enabled.
     friendlyIcon = "role", friendlyScope = "group", raidRoles = true,
     friendlyX = 0, friendlyY = 20, friendlySize = 28,
     enemyWidth = 160, enemyHeight = 16, enemyScale = 1,
@@ -82,7 +83,23 @@ local function NumberBox(parent, width, initial, commit)
     edit:SetTextColor(1, 0.81, 0.45)
     edit:SetJustifyH("CENTER")
     edit:SetTextInsets(3, 3, 0, 0)
-    Background(edit)
+    -- Match the dark input fields and thin bronze outline used by Bazi UI.
+    local fill = edit:CreateTexture(nil, "BACKGROUND")
+    fill:SetAllPoints(edit)
+    fill:SetColorTexture(0.12, 0.07, 0.045, 0.98)
+    for _, edge in ipairs({"TOP", "BOTTOM", "LEFT", "RIGHT"}) do
+        local border = edit:CreateTexture(nil, "ARTWORK")
+        border:SetColorTexture(0.70, 0.50, 0.27, 0.85)
+        if edge == "TOP" then
+            border:SetPoint("TOPLEFT"); border:SetPoint("TOPRIGHT"); border:SetHeight(1)
+        elseif edge == "BOTTOM" then
+            border:SetPoint("BOTTOMLEFT"); border:SetPoint("BOTTOMRIGHT"); border:SetHeight(1)
+        elseif edge == "LEFT" then
+            border:SetPoint("TOPLEFT"); border:SetPoint("BOTTOMLEFT"); border:SetWidth(1)
+        else
+            border:SetPoint("TOPRIGHT"); border:SetPoint("BOTTOMRIGHT"); border:SetWidth(1)
+        end
+    end
     edit:SetText(tostring(initial))
     edit:SetScript("OnEditFocusGained", function(self) self:HighlightText() end)
     local function Save()
@@ -98,17 +115,6 @@ local function NumberBox(parent, width, initial, commit)
     edit:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
     return edit
 end
-local function StepButton(parent, text, anchor, onClick)
-    local b = CreateFrame("Button", nil, parent)
-    b:SetSize(23, 23)
-    b:SetPoint("RIGHT", anchor, "LEFT", -4, 0)
-    Background(b)
-    local glyph = Label(b, text, "GameFontNormalLarge")
-    glyph:SetPoint("CENTER")
-    glyph:SetTextColor(1, 0.82, 0.46)
-    b:SetScript("OnClick", onClick)
-    return b
-end
 local function Numeric(parent, title, y, db, key, low, high, step)
     local row = Row(parent, title, y)
     local function Clamp(v)
@@ -121,25 +127,27 @@ local function Numeric(parent, title, y, db, key, low, high, step)
         Notify()
     end)
     box:SetPoint("RIGHT", row, "RIGHT", -14, 0)
-    local minus = StepButton(row, "-", box, function()
-        db[key] = Clamp(db[key] - step)
-        box:SetText(string.format("%g", db[key]))
-        Notify()
-    end)
-    local plus = CreateFrame("Button", nil, row)
-    plus:SetSize(23, 23)
-    plus:SetPoint("RIGHT", minus, "LEFT", -4, 0)
-    Background(plus)
-    local sign = Label(plus, "+", "GameFontNormalLarge")
-    sign:SetPoint("CENTER")
-    sign:SetTextColor(1, 0.82, 0.46)
-    plus:SetScript("OnClick", function()
-        db[key] = Clamp(db[key] + step)
-        box:SetText(string.format("%g", db[key]))
-        Notify()
-    end)
+
+    -- Same vertically stacked +/- controls as the UnitFrames offset editor.
+    for i, delta in ipairs({1, -1}) do
+        local button = CreateFrame("Button", nil, row)
+        button:SetSize(22, 13)
+        button:SetPoint("TOPRIGHT", box, "TOPLEFT", -4, -(i - 1) * 13)
+        local bg = button:CreateTexture(nil, "BACKGROUND")
+        bg:SetAllPoints()
+        bg:SetColorTexture(0.23, 0.12, 0.065, 1)
+        local glyph = Label(button, delta == 1 and "+" or "-", "GameFontNormalSmall")
+        glyph:SetPoint("CENTER")
+        glyph:SetTextColor(1, 0.79, 0.42)
+        button:SetScript("OnClick", function()
+            db[key] = Clamp(db[key] + delta * step)
+            box:SetText(string.format("%g", db[key]))
+            Notify()
+        end)
+    end
     return row
 end
+
 local function Toggle(parent, title, y, db, key)
     local row = Row(parent, title, y)
     local check = CreateFrame("CheckButton", nil, row, "UICheckButtonTemplate")
@@ -265,6 +273,18 @@ function addon.NameplatesOptions:CreatePage(parent)
     local heading = Label(headingPanel, "NAMEPLATES", "GameFontNormalLarge")
     heading:SetPoint("TOPLEFT", headingPanel, "TOPLEFT", 22, -12)
     heading:SetTextColor(1, 0.79, 0.42)
+    -- Match Minimap's enable checkbox in the header, without changing
+    -- Blizzard nameplates until the runtime module is implemented.
+    local enabled = CreateFrame("CheckButton", nil, headingPanel, "UICheckButtonTemplate")
+    enabled:SetSize(25, 25)
+    enabled:SetPoint("TOPLEFT", headingPanel, "TOPLEFT", 16, -41)
+    enabled:SetChecked(db.enabled)
+    local enabledLabel = Label(headingPanel, "Enable Bazi UI Nameplates", "GameFontHighlight")
+    enabledLabel:SetPoint("LEFT", enabled, "RIGHT", 5, 0)
+    enabled:SetScript("OnClick", function(self)
+        db.enabled = not not self:GetChecked()
+        Notify()
+    end)
 
     local main = CreateFrame("Frame", nil, page)
     main:SetPoint("TOPLEFT", page, "TOPLEFT", 12, -100)
