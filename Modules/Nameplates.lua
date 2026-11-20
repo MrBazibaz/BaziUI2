@@ -174,16 +174,29 @@ local function UpdatePlate(unit)
         marker:SetFrameLevel(plate:GetFrameLevel() + 10)
         marker.icon = marker:CreateTexture(nil, "OVERLAY")
         marker.icon:SetAllPoints()
-        -- Use the client world-name font reference, not a guessed UI font.\n        -- The engine may still render world names differently from FontStrings.\n        local worldNameFont = (type(UNIT_NAME_FONT) == "string" and UNIT_NAME_FONT ~= "")\n            and UNIT_NAME_FONT or "Fonts\\\\FRIZQT__.TTF"\n        -- Recreate the restrained in-world name style beneath our icon.
+        -- UNIT_NAME_FONT may not be a valid SetFont file path on this client.
+        -- Always keep a known working fallback to avoid breaking nameplates.
+        local function SetWorldNameFont(label)
+            local candidate = UNIT_NAME_FONT
+            local applied = false
+            if type(candidate) == "string" and candidate ~= "" then
+                local ok, success = pcall(label.SetFont, label, candidate, 14, "")
+                applied = ok and success ~= false
+            end
+            if not applied then
+                label:SetFont("Fonts\\\\FRIZQT__.TTF", 14, "")
+            end
+        end
+        -- Recreate the restrained in-world name style beneath our icon.
         marker.name = marker:CreateFontString(nil, "OVERLAY")
-        marker.name:SetFont(worldNameFont, 14, "")
+        SetWorldNameFont(marker.name)
         marker.name:SetTextColor(0.43, 0.45, 1.0, 1.0)
         marker.name:SetShadowColor(0, 0, 0, 0.35)
         marker.name:SetShadowOffset(0, 0)
         marker.name:SetJustifyH("CENTER")
         marker.name:SetPoint("TOP", marker, "BOTTOM", 0, -2)
         marker.guild = marker:CreateFontString(nil, "OVERLAY")
-        marker.guild:SetFont(worldNameFont, 14, "")
+        SetWorldNameFont(marker.guild)
         marker.guild:SetTextColor(0.43, 0.45, 1.0, 1.0)
         marker.guild:SetShadowColor(0, 0, 0, 0.35)
         marker.guild:SetShadowOffset(0, 0)
