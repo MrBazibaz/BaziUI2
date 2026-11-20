@@ -241,11 +241,13 @@ local function UpdatePlate(unit)
         local guildName = GetGuildInfo and GetGuildInfo(unit)
         if type(guildName) == "string" and guildName ~= "" then
             marker.guild:SetText("<" .. guildName .. ">")
-                marker.guild:SetWidth(math.max(200, (cfg.friendlySize or 28) * 5))
+            marker.guild:SetWidth(math.max(200, (cfg.friendlySize or 28) * 5))
             marker.guild:Show()
         else
             marker.guild:SetText("")
+            marker.guild:Hide()
         end
+    end
     -- Native-name experiment: keep the nameplate anchor and class icon,
     -- but remove all addon-generated text to reveal whether the engine
     -- renders its normal world-space player name independently.
