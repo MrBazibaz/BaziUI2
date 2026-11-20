@@ -372,6 +372,41 @@ local function RefreshFriendlyPreview()
         frame:Show()
     end
 end
+-- Raw texture diagnostic, deliberately outside the nameplate mask/rim.
+-- /bazinptexture displays one Blizzard control and all three addon TGAs.
+local textureDiagnostic
+SLASH_BAZINPTEXTURE1 = "/bazinptexture"
+SlashCmdList.BAZINPTEXTURE = function()
+    if textureDiagnostic then
+        textureDiagnostic:Hide()
+        textureDiagnostic = nil
+        addon:Print("Nameplate texture diagnostic OFF")
+        return
+    end
+    local panel = CreateFrame("Frame", nil, UIParent)
+    panel:SetFrameStrata("TOOLTIP")
+    panel:SetSize(360, 125)
+    panel:SetPoint("CENTER", UIParent, "CENTER", 0, -120)
+    local paths = {
+        {"BLIZZARD", "Interface\\Icons\\INV_Misc_QuestionMark"},
+        {"TANK", ROLE_TEXTURES.TANK},
+        {"HEALER", ROLE_TEXTURES.HEALER},
+        {"DPS", ROLE_TEXTURES.DAMAGER},
+    }
+    for i, item in ipairs(paths) do
+        local icon = panel:CreateTexture(nil, "ARTWORK")
+        icon:SetSize(64,64)
+        icon:SetPoint("TOPLEFT", panel, "TOPLEFT", (i-1)*90+12, -8)
+        icon:SetTexture(item[2])
+        icon:SetTexCoord(0,1,0,1)
+        local label = panel:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        label:SetPoint("TOP", icon, "BOTTOM", 0, -5)
+        label:SetText(item[1])
+    end
+    textureDiagnostic = panel
+    addon:Print("Texture diagnostic ON: Blizzard control + 3 raw TGA textures, no masks.")
+end
+
 SLASH_BAZINPTEST1 = "/bazinptest"
 SlashCmdList.BAZINPTEST = function()
     friendlyPreviewEnabled = not friendlyPreviewEnabled
