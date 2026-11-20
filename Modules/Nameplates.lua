@@ -1148,5 +1148,6 @@ SlashCmdList.BAZIDISTANCE = function(arg)
                 and CaptureDistance(plate, unit) then count = count + 1 end
         end
     end
-    -- Sampling intentionally stays silent; /bazidistance status shows totals.
+    addon:Print("Distance: captured " .. count .. " nameplate(s). Total samples: "
+        .. #distanceLog .. ". Use /bazidistance status to check saved data.")
 end
