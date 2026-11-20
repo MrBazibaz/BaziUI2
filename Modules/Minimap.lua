@@ -37,7 +37,8 @@ local function setSquareMask()
     if not map or not map.SetMaskTexture then return end
     map:SetMaskTexture(SQUARE_MASK)
     if map.SetArchBlobRingScalar then map:SetArchBlobRingScalar(0) end
-    if map.SetQuestBlobRingScalar then map:SetQuestBlobRingScalar(0) end
+    -- Preserve Blizzard quest-area blob hit testing and hover tooltips.
+    -- A zero quest ring scalar can collapse the interactive quest overlay.
     if map.SetTaskBlobRingScalar then map:SetTaskBlobRingScalar(0) end
     _G.GetMinimapShape = function() return "SQUARE" end
     local hybrid = _G.HybridMinimap
