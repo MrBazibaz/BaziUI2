@@ -603,15 +603,13 @@ local function layout(f, settings)
     f.portrait:ClearAllPoints()
     f.portrait:SetPoint("CENTER",f.portraitAnchor,"CENTER",2,-1)
     if f.roleArt then
-        local raw=tonumber(settings.rolePortraitScale) or 150
-        local percent=raw<=5 and raw*100 or raw
-        local scale=math.max(50,math.min(250,percent))/100
-        f.roleArt:SetSize(innerSize*scale,innerSize*scale)
+        -- Match the normal/class portrait exactly: no 150% zoom or offset mismatch.
+        f.roleArt:SetSize(innerSize,innerSize)
         f.roleArt:ClearAllPoints()
-        f.roleArt:SetPoint("CENTER",f.portraitAnchor,"CENTER",tonumber(settings.roleX) or 2,tonumber(settings.roleY) or -2)
+        f.roleArt:SetPoint("CENTER",f.portraitAnchor,"CENTER",2,-1)
         f.roleMask:SetSize(innerSize,innerSize)
         f.roleMask:ClearAllPoints()
-        f.roleMask:SetPoint("CENTER",f.portraitAnchor,"CENTER",-1,0)
+        f.roleMask:SetPoint("CENTER",f.roleArt,"CENTER")
     end
     f.portraitBack:SetSize(backSize, backSize)
     -- The model is a genuine 3D render surface, not a masked texture.
