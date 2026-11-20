@@ -157,23 +157,9 @@ local function RoleTexture(icon, role)
     if not icon.SetAtlas then return false end
     local ok = pcall(icon.SetAtlas, icon, atlas, false)
     if not ok then return false end
-    -- The Dungeon Finder artwork includes its own thick rim and four corner
-    -- shadows. Crop those away so Bazi's existing portrait rim can be reused.
-    -- Atlas UVs are texture-sheet coordinates, NOT always 0..1.
-    local info
-    if C_Texture and C_Texture.GetAtlasInfo then
-        info = C_Texture.GetAtlasInfo(atlas)
-    elseif type(GetAtlasInfo) == "function" then
-        info = GetAtlasInfo(atlas)
-    end
-    if info and info.leftTexCoord and info.rightTexCoord
-        and info.topTexCoord and info.bottomTexCoord then
-        local inset = 0.18
-        local l, r = info.leftTexCoord, info.rightTexCoord
-        local t, b = info.topTexCoord, info.bottomTexCoord
-        icon:SetTexCoord(l + (r-l)*inset, r - (r-l)*inset,
-            t + (b-t)*inset, b - (b-t)*inset)
-    end
+    -- SetAtlas already supplies the atlas's correct texture coordinates.
+    -- Do not crop them: zooming the baked role portrait hid its central symbol.
+    -- The shared circular mask and Bazi gold rim handle the outer silhouette.
     return true
 end
 
