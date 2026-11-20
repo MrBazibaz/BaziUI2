@@ -215,14 +215,12 @@ local function UpdatePlate(unit)
         marker.iconMask:SetTexture("Interface\\CHARACTERFRAME\\TempPortraitAlphaMask")
         marker.iconMask:SetAllPoints(marker.icon)
         marker.icon:AddMaskTexture(marker.iconMask)
-        -- Draw an actual thin ring, not a filled circle behind the icon.
-        -- Short rotated line segments form a clean border without extra assets.
-        marker.borderSegments = {}
-        for i = 1, 48 do
-            local segment = marker:CreateTexture(nil, "OVERLAY", nil, 1)
-            segment:SetColorTexture(0.38, 0.30, 0.18, 0.90)
-            marker.borderSegments[i] = segment
-        end
+        -- Reuse the exact portrait ring atlas and crop used by UnitFrames.
+        -- The icon sits inside it so only the inner part of the gold rim shows.
+        marker.rim = marker:CreateTexture(nil, "OVERLAY", nil, 1)
+        marker.rim:SetAtlas("UI-HUD-UnitFrame-Target-PortraitOn")
+        marker.rim:SetTexCoord(252.78 / 384, 375 / 384, 1.67 / 134, 123.89 / 134)
+        marker.rim:SetPoint("CENTER", marker, "CENTER")
         marker.textAnchor = CreateFrame("Frame", nil, plate)
         -- Keep text fully opaque even when the nameplate fades at range.
         -- The icon remains a normal child and retains Blizzard fading.
@@ -262,16 +260,10 @@ local function UpdatePlate(unit)
     marker:ClearAllPoints()
     marker:SetPoint("BOTTOM", anchor, "TOP", cfg.friendlyX or 0, cfg.friendlyY or 20)
     marker:SetSize(cfg.friendlySize or 28, cfg.friendlySize or 28)
-    local radius = (cfg.friendlySize or 28) / 2 + 0.5
-    local segmentLength = (2 * math.pi * radius / #marker.borderSegments) * 1.15
-    for i, segment in ipairs(marker.borderSegments) do
-        local angle = (i - 1) * 2 * math.pi / #marker.borderSegments
-        segment:ClearAllPoints()
-        segment:SetPoint("CENTER", marker, "CENTER",
-            math.cos(angle) * radius, math.sin(angle) * radius)
-        segment:SetSize(segmentLength, 1.5)
-        segment:SetRotation(angle + math.pi / 2)
-    end
+    -- The unit-frame ring is 62 px around a 48 px portrait.
+    -- Slightly reduce that ratio for nameplate icons to keep the rim subtle.
+    marker.rim:SetSize((cfg.friendlySize or 28) * 1.16,
+        (cfg.friendlySize or 28) * 1.16)
     -- Keep the approved single-layer appearance. The user selected size 20.
     -- FontString text inherits the nameplate's frame transforms.
     for _, label in ipairs({marker.name, marker.guild}) do
