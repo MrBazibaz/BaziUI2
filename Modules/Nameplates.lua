@@ -558,8 +558,8 @@ local function NonPlayerMarker(plate)
     -- remain untouched and are never reused for NPC service markers.
     marker.npcIcon = marker.iconAnchor:CreateTexture(nil, "OVERLAY", nil, 3)
     marker.npcIcon:SetPoint("CENTER", marker.iconAnchor, "CENTER")
-    -- Crop the built-in item icon border; the artwork itself is still a fallback.
-    marker.npcIcon:SetTexCoord(0.16, 0.84, 0.16, 0.84)
+    -- Blizzard tracking textures are complete icons, not cropped item portraits.
+    marker.npcIcon:SetTexCoord(0, 1, 0, 1)
     marker.npcIcon:Hide()
     nonPlayerMarkers[plate] = marker
     -- Blizzard may reset UnitFrame alpha after NAME_PLATE_UNIT_ADDED.
