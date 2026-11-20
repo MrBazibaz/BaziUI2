@@ -716,7 +716,7 @@ UpdateNonPlayerPlate = function(unit, plate, cfg)
         marker.rim:Hide()
         local texture = cfg.npcIcons and NPCServiceIcon(ownerText, unit)
         if texture then marker.npcIcon:SetTexture(texture) end
-        marker.npcIcon:SetSize(28, 28)
+        marker.npcIcon:SetSize(36, 36)
         marker.npcIcon:SetShown(texture ~= nil)
         iconVisible = texture ~= nil
     else
