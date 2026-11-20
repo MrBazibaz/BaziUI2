@@ -225,16 +225,16 @@ local function UpdatePlate(unit)
         marker.icon:AddMaskTexture(marker.iconMask)
         -- Reuse the exact portrait ring atlas and crop used by UnitFrames.
         -- Keep the ring behind the icon, so the artwork is not obscured.
-        marker.rim = marker:CreateTexture(nil, "OVERLAY", nil, 1)
+        marker.rim = marker.iconAnchor:CreateTexture(nil, "OVERLAY", nil, 1)
         marker.rim:SetAtlas("UI-HUD-UnitFrame-Target-PortraitOn")
         marker.rim:SetTexCoord(252.78 / 384, 375 / 384, 1.67 / 134, 123.89 / 134)
         marker.rim:SetPoint("CENTER", marker, "CENTER")
         -- The portrait implementation also masks the ring itself.
         -- Without this, the atlas crop exposes a rectangular strip on the left.
-        marker.rimMask = marker:CreateMaskTexture()
+        marker.rimMask = marker.iconAnchor:CreateMaskTexture()
         marker.rimMask:SetTexture("Interface\\CHARACTERFRAME\\TempPortraitAlphaMask",
             "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
-        marker.rimMask:SetPoint("CENTER", marker.rim, "CENTER")
+        marker.rimMask:SetPoint("CENTER", marker.iconAnchor, "CENTER", 0, 0)
         marker.rim:AddMaskTexture(marker.rimMask)
         marker.textAnchor = CreateFrame("Frame", nil, plate)
         -- Keep text fully opaque even when the nameplate fades at range.
@@ -402,23 +402,42 @@ local function NonPlayerMarker(plate)
     marker.owner = marker:CreateFontString(nil, "OVERLAY")
     marker.owner:SetJustifyH("CENTER")
     marker.owner:SetPoint("TOP", marker.name, "BOTTOM", 0, 0)
-    marker.icon = marker:CreateTexture(nil, "OVERLAY", nil, 2)
-    marker.icon:SetPoint("BOTTOM", marker.name, "TOP", 0, 4)
+    marker.iconAnchor = CreateFrame("Frame", nil, marker)
+    marker.iconAnchor:SetPoint("BOTTOM", marker.name, "TOP", 0, 4)
+    marker.icon = marker.iconAnchor:CreateTexture(nil, "OVERLAY", nil, 2)
+    marker.icon:SetPoint("CENTER", marker.iconAnchor, "CENTER", 0, 0)
     marker.icon:SetTexture("Interface\\Icons\\Ability_Hunter_BeastCall")
-    marker.iconMask = marker:CreateMaskTexture()
+    marker.iconMask = marker.iconAnchor:CreateMaskTexture()
     marker.iconMask:SetTexture("Interface\\CHARACTERFRAME\\TempPortraitAlphaMask")
-    marker.iconMask:SetPoint("CENTER", marker.icon, "CENTER")
+    marker.iconMask:SetPoint("CENTER", marker.iconAnchor, "CENTER", 0, 0)
     marker.icon:AddMaskTexture(marker.iconMask)
     marker.rim = marker:CreateTexture(nil, "OVERLAY", nil, 1)
     marker.rim:SetAtlas("UI-HUD-UnitFrame-Target-PortraitOn")
     marker.rim:SetTexCoord(252.78 / 384, 375 / 384, 1.67 / 134, 123.89 / 134)
-    marker.rim:SetPoint("CENTER", marker.icon, "CENTER")
+    marker.rim:SetPoint("CENTER", marker.iconAnchor, "CENTER", 0, 0)
     marker.rimMask = marker:CreateMaskTexture()
     marker.rimMask:SetTexture("Interface\\CHARACTERFRAME\\TempPortraitAlphaMask",
         "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
     marker.rimMask:SetPoint("CENTER", marker.rim, "CENTER")
     marker.rim:AddMaskTexture(marker.rimMask)
     nonPlayerMarkers[plate] = marker
+    -- Blizzard may reset UnitFrame alpha after NAME_PLATE_UNIT_ADDED.
+    -- Reapply only for an actively styled pet/NPC, never for locked player plates.
+    local elapsedSinceCheck = 0
+    marker:SetScript("OnUpdate", function(self, elapsed)
+        elapsedSinceCheck = elapsedSinceCheck + elapsed
+        if elapsedSinceCheck < 0.05 then return end
+        elapsedSinceCheck = 0
+        if not self:IsShown() then return end
+        local unit = plateUnits[plate]
+        if not unit or not UnitExists(unit) or UnitIsPlayer(unit) then return end
+        if C_NamePlate and C_NamePlate.GetNamePlateForUnit
+            and C_NamePlate.GetNamePlateForUnit(unit) ~= plate then return end
+        local frame = plate.UnitFrame
+        if frame and frame.GetAlpha and frame.SetAlpha and frame:GetAlpha() ~= 0 then
+            frame:SetAlpha(0)
+        end
+    end)
     return marker
 end
 
@@ -483,12 +502,12 @@ UpdateNonPlayerPlate = function(unit, plate, cfg)
     local myPet = pet and UnitIsUnit(unit, "pet")
     local iconVisible = myPet and cfg.petShowIcon == true
         and (cfg.petIconVisibility ~= "combat" or UnitAffectingCombat("player"))
+    marker.iconAnchor:SetSize(cfg.friendlySize or 28, cfg.friendlySize or 28)
     marker.icon:SetSize((cfg.friendlySize or 28) * 0.95, (cfg.friendlySize or 28) * 0.95)
     marker.iconMask:SetSize((cfg.friendlySize or 28) * 0.95, (cfg.friendlySize or 28) * 0.95)
     marker.rim:SetSize((cfg.friendlySize or 28) * 1.08, (cfg.friendlySize or 28) * 1.08)
     marker.rimMask:SetSize((cfg.friendlySize or 28) * 1.08, (cfg.friendlySize or 28) * 1.08)
-    marker.icon:SetShown(iconVisible)
-    marker.rim:SetShown(iconVisible)
+    marker.iconAnchor:SetShown(iconVisible)
     -- NPC icons are deliberately not guessed from NPC names or creature types.
     -- Only expose an icon when the client provides a reliable service marker.
     marker:Show()
