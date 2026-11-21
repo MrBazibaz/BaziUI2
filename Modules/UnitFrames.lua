@@ -1201,7 +1201,13 @@ local function syncOriginal(key, settings)
         originalState[key] = nil
     end
 end
+local pendingCombatRefresh = false
 function M:Refresh()
+    if InCombatLockdown and InCombatLockdown() then
+        pendingCombatRefresh = true
+        return
+    end
+    pendingCombatRefresh = false
     local settings = cfg()
     if not settings then return end
     for key, spec in pairs(units) do
@@ -1578,7 +1584,12 @@ function M:Initialize()
     events:RegisterEvent("PLAYER_ENTERING_WORLD")
     events:RegisterEvent("ADDON_LOADED")
     events:SetScript("OnEvent", function(eventFrame, event)
-        if event == "PLAYER_REGEN_ENABLED" then M:Refresh() else M:Refresh() end
+        if event == "PLAYER_REGEN_ENABLED" then
+            -- Only rebuild layout when a settings change was deferred in combat.
+            if pendingCombatRefresh then M:Refresh() end
+        elseif event == "PLAYER_ENTERING_WORLD" then
+            M:Refresh()
+        end
     end)
     self:Refresh()
 end
