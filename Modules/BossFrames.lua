@@ -4,6 +4,27 @@
 local addon = BaziUI
 addon.BossFrames = addon.BossFrames or {}
 local M = addon.BossFrames
+
+-- Overlay shading follows the filled texture; original bar colors remain intact.
+local function applyBarGradient(bar, direction)
+    if not bar then return end
+    if not bar.baziShade then
+        local shade = bar:CreateTexture(nil, "ARTWORK", nil, 1)
+        shade:SetAllPoints(bar:GetStatusBarTexture())
+        bar.baziShade = shade
+    end
+    local shade = bar.baziShade
+    if shade.SetGradient and CreateColor then
+        if direction == "LEFT" then
+            shade:SetGradient("HORIZONTAL", CreateColor(0,0,0,0.26), CreateColor(0,0,0,0))
+        else
+            shade:SetGradient("HORIZONTAL", CreateColor(0,0,0,0), CreateColor(0,0,0,0.26))
+        end
+        shade:Show()
+    else
+        shade:Hide()
+    end
+end
 local function cfg()
     local db=addon.db and addon.db.profile and addon.db.profile.unitframes
     if not db then return nil end
@@ -735,6 +756,8 @@ local function layout(f, settings)
     end
     tint(f.value, settings.hpFontColor)
     tint(f.powerText, settings.powerFontColor)
+    applyBarGradient(f.health, settings.gradientDirection or "RIGHT")
+    applyBarGradient(f.power, settings.gradientDirection or "RIGHT")
     f.barBorder:ClearAllPoints()
     f.barBorder:SetPoint("TOPLEFT", f.health, "TOPLEFT", -2, 2)
     f.barBorder:SetPoint("BOTTOMRIGHT", f.power, "BOTTOMRIGHT", 2, -2)
