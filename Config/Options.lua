@@ -1792,6 +1792,18 @@ local function CreateUnitFramesPage()
                     if addon.UnitFrames then addon.UnitFrames:Refresh() end
                 end)
                 refreshers[#refreshers+1] = function() threatToggle:SetChecked(own.showThreat ~= false) end
+                local previewToggle = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
+                previewToggle:SetSize(24, 24)
+                previewToggle:SetPoint("TOPLEFT", panel, "TOPLEFT", 265, -468)
+                local previewLabel = CreateLabel(panel, "Preview Threat (75%)", "GameFontHighlight")
+                previewLabel:SetPoint("LEFT", previewToggle, "RIGHT", 5, 0)
+                previewToggle:SetScript("OnClick", function(self)
+                    own.previewThreat = self:GetChecked() == true
+                    if addon.UnitFrames then addon.UnitFrames:Refresh() end
+                end)
+                refreshers[#refreshers+1] = function()
+                    previewToggle:SetChecked(own.previewThreat == true)
+                end
                 offsetEditor("threatX", "THREAT X", 20, -505)
                 offsetEditor("threatY", "THREAT Y", 180, -505)
                 -- Reuse the existing styled numeric slider with live value updates.
