@@ -5,31 +5,16 @@ local addon = BaziUI
 addon.UnitFrames = addon.UnitFrames or {}
 local M = addon.UnitFrames
 
--- Overlay shading follows the filled texture; original bar colors remain intact.
+-- Use a grayscale gradient as the actual StatusBar fill, like FlareUI.
+-- Tinting stays with the existing health/power code; no extra overlay layers.
 local function applyBarGradient(bar, direction)
     if not bar then return end
-    if not bar.baziShade then
-        -- A separate higher-level frame guarantees the shade renders above
-        -- the statusbar's colored fill, regardless of its texture draw layer.
-        local overlay = CreateFrame("Frame", nil, bar)
-        overlay:SetAllPoints(bar)
-        overlay:SetFrameLevel(bar:GetFrameLevel() + 2)
-        overlay:EnableMouse(false)
-        local shade = overlay:CreateTexture(nil, "OVERLAY")
-        shade:SetAllPoints(bar:GetStatusBarTexture())
-        bar.baziShade = shade
-        bar.baziShadeOverlay = overlay
-    end
-    local shade = bar.baziShade
-    if shade.SetGradient and CreateColor then
-        if direction == "LEFT" then
-            shade:SetGradient("HORIZONTAL", CreateColor(0,0,0,0.26), CreateColor(0,0,0,0))
-        else
-            shade:SetGradient("HORIZONTAL", CreateColor(0,0,0,0), CreateColor(0,0,0,0.26))
-        end
-        shade:Show()
-    else
-        shade:Hide()
+    local texture = direction == "LEFT"
+        and "Interface\\AddOns\\BaziUI\\Assets\\Bars\\BaziGradientLeft.tga"
+        or "Interface\\AddOns\\BaziUI\\Assets\\Bars\\BaziGradientRight.tga"
+    if bar.baziGradientTexture ~= texture then
+        bar:SetStatusBarTexture(texture)
+        bar.baziGradientTexture = texture
     end
 end
 local function cfg()
