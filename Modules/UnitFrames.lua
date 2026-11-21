@@ -4,6 +4,27 @@
 local addon = BaziUI
 addon.UnitFrames = addon.UnitFrames or {}
 local M = addon.UnitFrames
+
+-- Overlay shading follows the filled texture; original bar colors remain intact.
+local function applyBarGradient(bar, direction)
+    if not bar then return end
+    if not bar.baziShade then
+        local shade = bar:CreateTexture(nil, "ARTWORK", nil, 1)
+        shade:SetAllPoints(bar:GetStatusBarTexture())
+        bar.baziShade = shade
+    end
+    local shade = bar.baziShade
+    if shade.SetGradient and CreateColor then
+        if direction == "LEFT" then
+            shade:SetGradient("HORIZONTAL", CreateColor(0,0,0,0.26), CreateColor(0,0,0,0))
+        else
+            shade:SetGradient("HORIZONTAL", CreateColor(0,0,0,0), CreateColor(0,0,0,0.26))
+        end
+        shade:Show()
+    else
+        shade:Hide()
+    end
+end
 local function cfg()
     return addon.db and addon.db.profile and addon.db.profile.unitframes
 end
@@ -76,7 +97,7 @@ function M:SetMoveMode(value)
     return true
 end
 function M:IsMoveMode() return moving end
-local layoutKeys = {"indicatorSize", "indicatorX", "indicatorY","barWidth", "hpHeight", "powerHeight", "portraitSize", "portraitX", "portraitY", "flipPortrait", "showPvP", "showLeader", "showRaidMarker", "showRole", "showClassification", "showHappiness", "hpText", "powerText", "fontSize", "nameFontSize", "hpFontSize", "powerFontSize", "fontFace", "showName", "hpTextX", "hpTextY", "powerTextX", "powerTextY", "hpFontColor", "powerFontColor", "hpTextAnchor", "powerTextAnchor", "levelFontSize", "levelTextX", "levelTextY"}
+local layoutKeys = {"gradientDirection","indicatorSize", "indicatorX", "indicatorY","barWidth", "hpHeight", "powerHeight", "portraitSize", "portraitX", "portraitY", "flipPortrait", "showPvP", "showLeader", "showRaidMarker", "showRole", "showClassification", "showHappiness", "hpText", "powerText", "fontSize", "nameFontSize", "hpFontSize", "powerFontSize", "fontFace", "showName", "hpTextX", "hpTextY", "powerTextX", "powerTextY", "hpFontColor", "powerFontColor", "hpTextAnchor", "powerTextAnchor", "levelFontSize", "levelTextX", "levelTextY"}
 local function unitSettings(settings, key)
     settings.frames = settings.frames or {}
     local own = settings.frames[key]
@@ -613,6 +634,16 @@ local function layout(f, settings)
     end
     tint(f.value, settings.hpFontColor)
     tint(f.powerText, f.unit == "player" and "white" or settings.powerFontColor)
+    applyBarGradient(f.health, settings.gradientDirection or "RIGHT")
+    applyBarGradient(f.power, settings.gradientDirection or "RIGHT")
+    if f.baziThreat then
+        local threat = f.baziThreat
+        threat:ClearAllPoints()
+        threat:SetPoint("CENTER", f, "CENTER", tonumber(settings.threatX) or 0, tonumber(settings.threatY) or -40)
+        local font = settings.fontFace == "arial" and "Fonts\\ARIALN.TTF" or "Fonts\\FRIZQT__.TTF"
+        threat:SetFont(font, math.max(7, math.min(40, tonumber(settings.threatFontSize) or 14)), "OUTLINE")
+        if settings.showThreat == false then threat:Hide() end
+    end
     f.barBorder:ClearAllPoints()
     f.barBorder:SetPoint("TOPLEFT", f.health, "TOPLEFT", -2, 2)
     f.barBorder:SetPoint("BOTTOMRIGHT", f.power, "BOTTOMRIGHT", 2, -2)
@@ -862,6 +893,38 @@ local function createPetExtras(f)
     xp:Hide()
     cast:Hide()
 end
+
+-- Target-only aggro warning. The scaled percentage reaches 100 at the
+-- melee/ranged pull threshold. Protected values are never inspected by Lua.
+local function updateTargetThreat(f)
+    local text = f and f.baziThreat
+    if not text then return end
+    local settings = cfg()
+    local own = settings and settings.frames and settings.frames.target
+    if not own or own.showThreat == false or not UnitExists("target")
+        or not UnitCanAttack("player", "target")
+        or not UnitDetailedThreatSituation then
+        text:Hide()
+        return
+    end
+    local _, _, scaled = UnitDetailedThreatSituation("player", "target")
+    if type(scaled) ~= "number" or (issecretvalue and issecretvalue(scaled))
+        or (canaccessvalue and not canaccessvalue(scaled)) then
+        text:Hide()
+        return
+    end
+    local pct = math.max(0, math.floor(scaled + 0.5))
+    text:SetText(pct .. "%")
+    if pct >= 90 then
+        text:SetTextColor(1, 0.13, 0.10)
+    elseif pct >= 50 then
+        local t = math.min(1, (pct - 50) / 40)
+        text:SetTextColor(1, 0.92 - 0.48*t, 0.12 - 0.08*t)
+    else
+        text:SetTextColor(1, 1, 1)
+    end
+    text:Show()
+end
 local function create(key, spec)
     if frames[key] or (InCombatLockdown and InCombatLockdown()) then return end
     local f = CreateFrame("Button", "BaziUI_Unit_" .. key, UIParent, "SecureUnitButtonTemplate")
@@ -873,6 +936,13 @@ local function create(key, spec)
     applyPosition(f, cfg() or {}, key)
     f:SetFrameStrata("MEDIUM")
     f.unit = spec.unit
+    if key == "target" then
+        local threat = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        threat:SetDrawLayer("OVERLAY", 7)
+        threat:SetTextColor(1, 1, 1)
+        threat:Hide()
+        f.baziThreat = threat
+    end
     f.portraitSide = (key == "player" or key == "pet") and "LEFT" or "RIGHT"
     local bg = f:CreateTexture(nil, "BACKGROUND")
     bg:SetPoint("TOPLEFT", f, "TOPLEFT", (key == "player" or key == "pet") and 49 or 4, -4)
@@ -1050,11 +1120,15 @@ local function create(key, spec)
         self.healthColorElapsed = self.healthColorElapsed + elapsed
         if self.healthColorElapsed < 0.05 then return end
         self.healthColorElapsed = 0
-        if self:IsShown() then updateHealthColor(self) end
+        if self:IsShown() then
+            updateHealthColor(self)
+            if self.baziThreat then updateTargetThreat(self) end
+        end
     end)
     f:SetScript("OnEvent", function(self, event, unit)
         if not unit or unit == self.unit or event == "PLAYER_TARGET_CHANGED" or event == "PLAYER_FOCUS_CHANGED" or event == "PLAYER_ENTERING_WORLD" or event == "UNIT_PET" or event == "GROUP_ROSTER_UPDATE" or event == "RAID_TARGET_UPDATE" then
             update(self)
+            if self.baziThreat then updateTargetThreat(self) end
         end
     end)
     if key == "pet" then
