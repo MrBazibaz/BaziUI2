@@ -9,9 +9,16 @@ local M = addon.UnitFrames
 local function applyBarGradient(bar, direction)
     if not bar then return end
     if not bar.baziShade then
-        local shade = bar:CreateTexture(nil, "ARTWORK", nil, 1)
+        -- A separate higher-level frame guarantees the shade renders above
+        -- the statusbar's colored fill, regardless of its texture draw layer.
+        local overlay = CreateFrame("Frame", nil, bar)
+        overlay:SetAllPoints(bar)
+        overlay:SetFrameLevel(bar:GetFrameLevel() + 2)
+        overlay:EnableMouse(false)
+        local shade = overlay:CreateTexture(nil, "OVERLAY")
         shade:SetAllPoints(bar:GetStatusBarTexture())
         bar.baziShade = shade
+        bar.baziShadeOverlay = overlay
     end
     local shade = bar.baziShade
     if shade.SetGradient and CreateColor then
@@ -901,19 +908,34 @@ local function updateTargetThreat(f)
     if not text then return end
     local settings = cfg()
     local own = settings and settings.frames and settings.frames.target
-    if not own or own.showThreat == false or not UnitExists("target")
-        or not UnitCanAttack("player", "target")
-        or not UnitDetailedThreatSituation then
+    if not own or own.showThreat == false then
         text:Hide()
         return
     end
-    local _, _, scaled = UnitDetailedThreatSituation("player", "target")
-    if type(scaled) ~= "number" or (issecretvalue and issecretvalue(scaled))
-        or (canaccessvalue and not canaccessvalue(scaled)) then
+    local pct
+    if own.previewThreat == true then
+        pct = 75
+    elseif UnitExists("target") and UnitCanAttack("player", "target") then
+        local scaled
+        if UnitDetailedThreatSituation then
+            local _, _, value = UnitDetailedThreatSituation("player", "target")
+            scaled = value
+        end
+        -- nil means no threat table yet; display zero while acquiring aggro.
+        if scaled == nil then
+            pct = 0
+        elseif (issecretvalue and issecretvalue(scaled))
+            or (canaccessvalue and not canaccessvalue(scaled))
+            or type(scaled) ~= "number" then
+            text:Hide()
+            return
+        else
+            pct = math.max(0, math.floor(scaled + 0.5))
+        end
+    else
         text:Hide()
         return
     end
-    local pct = math.max(0, math.floor(scaled + 0.5))
     text:SetText(pct .. "%")
     if pct >= 90 then
         text:SetTextColor(1, 0.13, 0.10)
