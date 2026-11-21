@@ -9,9 +9,16 @@ local M = addon.BossFrames
 local function applyBarGradient(bar, direction)
     if not bar then return end
     if not bar.baziShade then
-        local shade = bar:CreateTexture(nil, "ARTWORK", nil, 1)
+        -- A separate higher-level frame guarantees the shade renders above
+        -- the statusbar's colored fill, regardless of its texture draw layer.
+        local overlay = CreateFrame("Frame", nil, bar)
+        overlay:SetAllPoints(bar)
+        overlay:SetFrameLevel(bar:GetFrameLevel() + 2)
+        overlay:EnableMouse(false)
+        local shade = overlay:CreateTexture(nil, "OVERLAY")
         shade:SetAllPoints(bar:GetStatusBarTexture())
         bar.baziShade = shade
+        bar.baziShadeOverlay = overlay
     end
     local shade = bar.baziShade
     if shade.SetGradient and CreateColor then
