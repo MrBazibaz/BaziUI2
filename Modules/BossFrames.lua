@@ -1441,9 +1441,15 @@ local function updateSample(f,index)
     end
     -- No miniature role overlay: Show Role controls the portrait itself.
 end
+local pendingCombatRefresh = false
 function M:Refresh()
+    if InCombatLockdown and InCombatLockdown() then
+        pendingCombatRefresh = true
+        return
+    end
+    pendingCombatRefresh = false
     local settings=cfg()
-    if not settings or (InCombatLockdown and InCombatLockdown()) then return end
+    if not settings then return end
     for i=1,5 do
         local key="boss"..i
         local spec=units[key]
@@ -1485,6 +1491,12 @@ function M:Initialize()
     self.initialized=true
     local events=CreateFrame("Frame")
     for _,event in ipairs({"PLAYER_ENTERING_WORLD","GROUP_ROSTER_UPDATE","PLAYER_REGEN_ENABLED"}) do events:RegisterEvent(event) end
-    events:SetScript("OnEvent",function() M:Refresh() end)
+    events:SetScript("OnEvent",function(_,event)
+        if event == "PLAYER_REGEN_ENABLED" then
+            if pendingCombatRefresh then M:Refresh() end
+        else
+            M:Refresh()
+        end
+    end)
     self:Refresh()
 end
