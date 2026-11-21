@@ -264,6 +264,9 @@ local function CreateUnitFramesPage()
     local enabled = CreateFrame("CheckButton", nil, headingPanel, "UICheckButtonTemplate")
     enabled:SetSize(25, 25)
     enabled:SetPoint("TOPLEFT", headingPanel, "TOPLEFT", 16, -41)
+    -- Set the initial state immediately: OnShow is not guaranteed to fire
+    -- when this page is constructed while already visible.
+    enabled:SetChecked(db.enabled ~= false)
     local enabledLabel = CreateLabel(headingPanel, "Enable Unit Frames", "GameFontHighlight")
     enabledLabel:SetPoint("LEFT", enabled, "RIGHT", 5, 0)
     enabled:SetScript("OnClick", function(self)
