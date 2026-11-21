@@ -917,6 +917,7 @@ local function CreateUnitFramesPage()
                 local function anchorButton(canvas,label,field,x,y)
                     partyDropdown(canvas,label,field,{{"LEFT","Left"},{"CENTER","Center"},{"RIGHT","Right"},{"HIDDEN","Hidden"}},x,y,190,"CENTER")
                 end
+                partyDropdown(sections.Layout,"BAR GRADIENT DARK SIDE","gradientDirection",{{"RIGHT","Right"},{"LEFT","Left"}},260,-730,190,"RIGHT")
                 partyDropdown(sections.Layout,"PORTRAIT SIDE","portraitSide",{{"LEFT","Left"},{"RIGHT","Right"}},16,-730,190,selectedMember<=2 and "LEFT" or "RIGHT")
                 if key~="boss" then coordinate(sections.Indicators,"ROLE PORTRAIT X","roleX",16,-910)
                 coordinate(sections.Indicators,"ROLE PORTRAIT Y","roleY",260,-910)
@@ -1085,7 +1086,7 @@ local function CreateUnitFramesPage()
                 local canvas = CreateFrame("Frame", nil, rootPanel)
                 canvas:SetPoint("TOPLEFT", rootPanel, "TOPLEFT", 0, -49)
                 canvas:SetPoint("TOPRIGHT", rootPanel, "TOPRIGHT", 0, -49)
-                canvas:SetHeight(category == "Indicators" and (name == "Pet" and 930 or 590) or (category == "Buffs / Debuffs" and 510 or 520))
+                canvas:SetHeight(category == "Indicators" and (name == "Pet" and 930 or 590) or (category == "Buffs / Debuffs" and 510 or (category == "Bar Text" and name == "Target" and 690 or 520)))
                 canvas:Hide()
                 groups[category] = canvas
             end
@@ -1099,7 +1100,7 @@ local function CreateUnitFramesPage()
                         label == category and 0.18 or 0.12,
                         label == category and 0.26 or 0.07, 1)
                 end
-                rootPanel:SetHeight(category == "Indicators" and (name == "Pet" and 950 or 610) or (category == "Buffs / Debuffs" and 550 or (category == "Layout" and 540 or 490)))
+                rootPanel:SetHeight(category == "Indicators" and (name == "Pet" and 950 or 610) or (category == "Buffs / Debuffs" and 550 or (category == "Bar Text" and name == "Target" and 730 or (category == "Layout" and 540 or 490))))
                 viewport:SetVerticalScroll(0)
             end
             for i, category in ipairs({"Layout", "Indicators", "Bar Text", "Fonts", "Buffs / Debuffs"}) do
@@ -1778,6 +1779,30 @@ local function CreateUnitFramesPage()
                 end
                 button:SetScript("OnClick", function() menu:SetShown(not menu:IsShown()) end)
                 refreshers[#refreshers+1] = function() menu:Hide(); refresh() end
+            end
+            unitDropdown("gradientDirection", "BAR GRADIENT DARK SIDE", {{"RIGHT","Right"},{"LEFT","Left"}}, 20, -405, 170)
+            if key == "target" then
+                local threatToggle = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
+                threatToggle:SetSize(24,24)
+                threatToggle:SetPoint("TOPLEFT", panel, "TOPLEFT", 20, -468)
+                local threatLabel = CreateLabel(panel, "Show aggro threat %", "GameFontHighlight")
+                threatLabel:SetPoint("LEFT", threatToggle, "RIGHT", 5, 0)
+                threatToggle:SetScript("OnClick", function(self)
+                    own.showThreat = self:GetChecked() == true
+                    if addon.UnitFrames then addon.UnitFrames:Refresh() end
+                end)
+                refreshers[#refreshers+1] = function() threatToggle:SetChecked(own.showThreat ~= false) end
+                offsetEditor("threatX", "THREAT X", 20, -505)
+                offsetEditor("threatY", "THREAT Y", 180, -505)
+                -- Reuse the existing styled numeric slider with live value updates.
+                local threatSize = CreateSlider(panel, "THREAT FONT SIZE", "Aggro percentage text size",
+                    7, 40, 1, own.threatFontSize or 14, -578, function(value)
+                        own.threatFontSize = value
+                        if addon.UnitFrames then addon.UnitFrames:Refresh() end
+                    end, false)
+                refreshers[#refreshers+1] = function()
+                    threatSize:SetValue(own.threatFontSize or 14)
+                end
             end
             unitDropdown("hpTextAnchor", "HP TEXT ANCHOR", {{"RIGHT","Right"},{"CENTER","Center"},{"LEFT","Left"}}, 355, -180, 130)
             unitDropdown("powerTextAnchor", "POWER TEXT ANCHOR", {{"RIGHT","Right"},{"CENTER","Center"},{"LEFT","Left"}}, 355, -250, 130)
