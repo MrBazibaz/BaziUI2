@@ -5658,6 +5658,10 @@ function addon.Options:OpenBugTab()
     ShowPage("BugTab")
 end
 
+function addon.Options:OpenMovers(selected)
+    if addon.Movers.Open(true, selected) and optionsFrame then optionsFrame:Hide() end
+end
+
 function addon.Options:CreateDashboardPage()
     local D = addon.Dashboard
     local cfg = D.Settings()
@@ -6019,13 +6023,14 @@ function addon.Options:Create()
     close:SetScript("OnClick", function() optionsFrame:Hide() end)
     optionsFrame.baziClose = close
     local previous
-    for _, tab in ipairs({{"General", "Settings", 79}, {"Profiles", "Profiles", 79}, {"Export", "Export", 76}, {"Version History", "What's New", 91}}) do
+    for _, tab in ipairs({{"General", "Settings", 79}, {"Movers", "Movers", 79}, {"Export", "Export", 76}, {"Version History", "What's New", 91}}) do
         local pageName, caption, width = unpack(tab)
         local button = addon.Theme:CreateButton(optionsFrame, caption, width, 29)
         if previous then button:SetPoint("LEFT", previous, "RIGHT", 8, 0)
         else button:SetPoint("LEFT", header, "LEFT", 199, 0) end
         button:SetScript("OnClick", function()
-            if pageName == "Export" then ShowPage("Profiles", "Export") else ShowPage(pageName) end
+            if pageName == "Movers" then self:OpenMovers()
+            elseif pageName == "Export" then ShowPage("Profiles", "Export") else ShowPage(pageName) end
         end)
         headerButtons[pageName] = button
         previous = button

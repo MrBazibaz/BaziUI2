@@ -77,6 +77,7 @@ local function applyPosition(f, settings, key)
     f:ClearAllPoints()
     f:SetPoint("CENTER", UIParent, "CENTER", own.x, own.y)
 end
+
 function M:SetPosition(key, x, y)
     local settings = cfg()
     if not settings or not units[key] or (InCombatLockdown and InCombatLockdown()) then return false end
@@ -108,6 +109,13 @@ local function unitSettings(settings, key)
         if own[name] == nil then own[name] = settings[name] end
     end
     return own
+end
+function M.GetMoverSettings(key)
+    local settings = cfg()
+    if settings and units[key] then
+        unitSettings(settings, key)
+        return position(settings, key)
+    end
 end
 -- Blizzard-managed aura containers. Never read protected aura payloads in addon code.
 local auraAvailable

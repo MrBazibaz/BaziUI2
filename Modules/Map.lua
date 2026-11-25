@@ -483,6 +483,8 @@ local function restorePosition()
     end
 end
 
+map.ApplyMoverPosition = restorePosition
+
 local function createMapMenu(parent, getChoices)
     local button = CreateFrame("Button", nil, parent)
     button:SetHeight(22)

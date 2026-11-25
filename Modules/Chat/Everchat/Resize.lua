@@ -152,6 +152,7 @@ end
 local function Apply(chatFrame)
 	local layout = GetLayout()
 	if not layout or IsEditing() or movingWindow == chatFrame or sizingTarget == chatFrame
+		or (BaziUI.Movers and BaziUI.Movers.IsDragging(chatFrame))
 		or (InCombatLockdown() and chatFrame:IsProtected()) then
 		return
 	end
@@ -181,6 +182,11 @@ local function Save(chatFrame)
 		-- Where Blizzard keeps a floating window's size and place.
 		FCF_SavePositionAndDimensions(chatFrame)
 	end
+end
+
+function Resize.ApplyMoverLayout(layout)
+	SetLayout(layout)
+	if ns.active then Apply(DEFAULT_CHAT_FRAME) end
 end
 
 -- Hands the main window's size and position back to Edit Mode.

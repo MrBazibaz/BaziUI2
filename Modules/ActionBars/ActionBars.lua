@@ -347,7 +347,7 @@ local function watchPetLayout(frame, def)
     if state.watchingPetLayout then return end
     state.watchingPetLayout = true
     local function queue()
-        if state.settingPosition or state.petLayoutQueued then return end
+        if state.settingPosition or state.petLayoutQueued or addon.Movers and addon.Movers.IsDragging(frame) then return end
         state.petLayoutQueued = true
         C_Timer.After(0, function()
             state.petLayoutQueued = nil

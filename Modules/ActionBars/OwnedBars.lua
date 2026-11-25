@@ -2,6 +2,7 @@ local module = BaziUI.ActionBars
 
 local pages = {1, 6, 5, 3, 4, 13, 14, 15}
 local bars = {}
+function module.GetOwnedMoverFrame(index) return bars[index] end
 local nativeParents = {}
 local nativeHolder
 local bindingMode = false

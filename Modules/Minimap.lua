@@ -115,7 +115,7 @@ local function initMail()
     if not mailFrame then return end
     mailState = {}
     local function queue()
-        if mailQueued or placingMail then return end
+        if mailQueued or placingMail or addon.Movers and addon.Movers.IsDragging(mailFrame) then return end
         mailQueued = true
         C_Timer.After(0, function()
             mailQueued = nil
@@ -581,7 +581,7 @@ function MM:SetPositioningPreview(active)
 end
 
 local function queuePosition()
-    if changingPosition or positionQueued then return end
+    if changingPosition or positionQueued or addon.Movers and addon.Movers.IsDragging(cluster) then return end
     local cfg = db()
     if not originalClusterMouse and not (cfg and cfg.enabled and (square or ownsPosition(cfg))) then return end
     positionQueued = true

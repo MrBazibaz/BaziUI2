@@ -1,6 +1,7 @@
 local inventory = BaziUI.Inventory
 local container = C_Container
 local frame, content, emptyLabel, scroll, scrollbar, protectedButton
+function inventory.GetCleanupMoverFrame() return frame end
 local origin, pendingLoot, target
 local protected = {[7005] = true, [2901] = true, [5956] = true, [6219] = true,
     [6256] = true, [6218] = true, [6339] = true, [11130] = true, [11145] = true, [16207] = true,

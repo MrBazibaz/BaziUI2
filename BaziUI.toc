@@ -110,5 +110,7 @@ Modules\Dashboard.lua
 Modules\DashboardProgress.lua
 Modules\DashboardActivity.lua
 Modules\DashboardPreview.lua
+Modules\Movers.lua
+Modules\MoverModules.lua
 Config\Options.lua
 Core\Commands.lua

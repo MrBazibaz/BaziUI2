@@ -3,6 +3,7 @@ local chat = addon.Chat
 local toasts = {}
 chat.FriendToasts = toasts
 local preview, frame, original, positioning, queued
+function toasts.GetMoverFrame() return frame end
 local friendOnline, friendOffline = 1, 2
 local onlineHeight = 63
 

@@ -193,6 +193,12 @@ local function RestoreUnitFrame(plate)
 end
 
 local nonPlayerMarkers = {} -- separate, reversible pet/NPC overlays
+function M.GetMoverFrame(npc)
+    local markers = npc and nonPlayerMarkers or active
+    for _, marker in pairs(markers) do
+        if marker:IsVisible() and (not npc or marker.isNPC) then return marker end
+    end
+end
 -- React immediately when Blizzard resets native plate opacity, instead of
 -- waiting for the next marker update.
 local nativeAlphaHooks = setmetatable({}, {__mode = "k"})
@@ -691,7 +697,7 @@ local function NonPlayerMarker(plate)
             petCombatEngaged = false
         end
         local cfg = Config()
-        if self.isNPC and self:GetParent() == UIParent then
+        if self.isNPC and self:GetParent() == UIParent and (not addon.Movers or not addon.Movers.IsDragging(self)) then
             local ok, x, top = pcall(function()
                 local centerX = plate:GetCenter()
                 local plateTop = plate:GetTop()

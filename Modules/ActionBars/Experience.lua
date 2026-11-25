@@ -12,6 +12,7 @@ local restedPreviewColor = {0.18, 0.39, 0.71}
 local questColor = {181 / 255, 138 / 255, 18 / 255}
 local backgroundColor = {0.075, 0.048, 0.031}
 local bar, options, reputationBar
+function module.GetExperienceMoverFrame(reputation) return reputation and reputationBar or (not reputation and bar) end
 local nativeBar, nativeAlpha
 local nativeInput = {}
 local nativeHooks = {}

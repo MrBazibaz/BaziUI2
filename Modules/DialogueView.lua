@@ -1,6 +1,7 @@
 local addon = BaziUI
 local dialogue, voice = addon.Dialogue, addon.Dialogue.Voice
 local main, reader, current, hidden, preview
+function dialogue.GetMoverFrame(compact) return compact and reader or (not compact and main) end
 local queueIndex = 1
 local refreshQueued, elapsed, readerAfter = nil, nil, 0
 local interactionTypes = Enum and Enum.PlayerInteractionType

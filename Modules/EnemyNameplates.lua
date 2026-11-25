@@ -37,6 +37,9 @@ local texture = "Interface\\AddOns\\BaziUI\\Assets\\Bars\\BaziGradientRight.tga"
 local white = "Interface\\Buttons\\WHITE8X8"
 local fonts = {friz = "Fonts\\FRIZQT__.TTF", arial = "Fonts\\ARIALN.TTF"}
 local overlays, units = {}, {}
+function M.GetMoverFrame()
+    for _, frame in pairs(units) do if frame:IsVisible() then return frame end end
+end
 local preview
 local nativeOwners, nativeHooks = {}, setmetatable({}, {__mode = "k"})
 local configured

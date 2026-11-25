@@ -1,6 +1,7 @@
 local addon = BaziUI
 local inventory = addon.Inventory
 local frame, content, historyButton, guide, guideFrame, emptyLabel, closeBar
+function inventory.GetRollMoverFrame() return frame end
 local active, demo, history, rows = {}, {}, {}, {}
 local historyMode, demoMode
 local resultDuration = 5

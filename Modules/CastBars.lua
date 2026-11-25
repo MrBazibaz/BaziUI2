@@ -3,6 +3,7 @@ local hud = addon.HUD
 local cast = {}
 addon.CastBars = cast
 local bars, native, hooked = {}, {}, {}
+function cast.GetMoverFrame(key) return bars[key] end
 local keys = {"player", "target", "breath", "fatigue"}
 local mirrorKeys = {BREATH = "breath", EXHAUSTION = "fatigue"}
 local mirrorLabels = {breath = "Breath", fatigue = "Fatigue"}

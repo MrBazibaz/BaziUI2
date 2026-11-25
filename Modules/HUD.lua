@@ -32,6 +32,7 @@ local native = setmetatable({}, {__mode = "k"})
 local preview, queued, pending, moving
 local vehiclePreview
 local function place(frame, cfg)
+    if addon.Movers and addon.Movers.IsDragging(frame) then return end
     local point, parent, relative, x, y = frame:GetPoint(1)
     if frame:GetNumPoints() == 1 and point == "CENTER" and parent == UIParent
         and relative == "CENTER" and x == cfg.x and y == cfg.y then return end
@@ -55,7 +56,9 @@ local function refreshFrame(frame, key)
     if active and not state then
         state = {}
         native[frame] = state
-        hooksecurefunc(frame, "SetPoint", queue)
+        hooksecurefunc(frame, "SetPoint", function()
+            if not addon.Movers or not addon.Movers.IsDragging(frame) then queue() end
+        end)
         frame:HookScript("OnShow", queue)
         if frame.OnEditModeEnter then hooksecurefunc(frame, "OnEditModeEnter", queue) end
         if frame.OnEditModeExit then hooksecurefunc(frame, "OnEditModeExit", queue) end

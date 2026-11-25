@@ -126,10 +126,18 @@ function tracker.GetPosition()
 end
 
 function tracker.SetPosition(axis, value)
-    local db = tracker.Settings()
     local x, y = tracker.GetPosition()
     if axis == "x" then x = value else y = value end
+    tracker.SetCoordinates(x, y)
+end
+
+function tracker.SetCoordinates(x, y)
+    local db = tracker.Settings()
     db.position = relativePosition(db.growUp, x, y, db.width)
+    tracker.RefreshPosition()
+end
+
+function tracker.RefreshPosition()
     positionDirty = true
     tracker.Refresh()
     if tracker.OnPositionChanged then tracker.OnPositionChanged() end

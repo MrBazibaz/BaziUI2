@@ -73,6 +73,7 @@ local TIMER_PAUSED = 0.12
 local EVENTS = { CHAT_MSG_WHISPER = true, CHAT_MSG_BN_WHISPER = true }
 
 local toast
+function Whispers.GetMoverFrame() return toast end
 local convs, active = {}, nil
 local timeLeft, timeTotal = 0, 1
 local byID = {}
@@ -259,6 +260,10 @@ function Whispers.AnchorOpen()
 	open:ClearAllPoints()
 	open:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", left, top - HEADER)
 	open:SetPoint("BOTTOMRIGHT", UIParent, "BOTTOMLEFT", right, bottom)
+end
+
+function Whispers.ApplyMoverPosition()
+    if toast then Place(); Whispers.AnchorOpen() end
 end
 
 function Whispers.ResetPosition()
