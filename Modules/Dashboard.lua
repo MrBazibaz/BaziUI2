@@ -164,11 +164,16 @@ local function makeFrame()
     frame.closeButton:SetScript("OnClick", function()
         if preview then D.Preview(nil) else D.Settings().enabled = false; D.Refresh() end
     end)
-    header:HookScript("OnDragStart", function()
-        if D.Settings().locked or InCombatLockdown() then frame:StopMovingOrSizing() end
-    end)
-    header:HookScript("OnDragStop", function()
+    header:SetScript("OnDragStart", function()
         if D.Settings().locked or InCombatLockdown() then return end
+        frame.baziMoving = true
+        frame:StartMoving()
+    end)
+    header:SetScript("OnDragStop", function()
+        if not frame.baziMoving then return end
+        frame:StopMovingOrSizing()
+        frame.baziMoving = nil
+        if InCombatLockdown() then D.Render(); return end
         local cfg = D.Settings()
         local x = frame:GetLeft()
         local y = cfg.growUp and frame:GetBottom() or frame:GetTop()
@@ -178,6 +183,9 @@ local function makeFrame()
                 math.floor(y * ratio - UIParent:GetHeight() / 2 + 0.5)
             D.Render()
         end
+    end)
+    frame:HookScript("OnHide", function()
+        if frame.baziMoving then frame:StopMovingOrSizing(); frame.baziMoving = nil end
     end)
     return frame
 end
@@ -216,7 +224,7 @@ end
 
 function D.Render()
     if not addon.db or not (active or preview or layoutMode) then if frame then frame:Hide() end; return end
-    if addon.Movers and addon.Movers.IsDragging and addon.Movers.IsDragging(frame) then return end
+    if frame and (frame.baziMoving == true or addon.Movers and addon.Movers.IsDragging(frame)) then return end
     local cfg = D.Settings()
     if not preview and not layoutMode and ((cfg.combat == "hide" and motionInCombat) or (cfg.combat == "only" and not motionInCombat)) then
         if frame then frame:Hide() end

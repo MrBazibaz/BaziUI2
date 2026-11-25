@@ -78,7 +78,11 @@ for _, group in ipairs({{"Party", "party", 4}, {"Raid", "raid", 40}, {"Boss", "b
     spec(name .. " group", groupFrame, settings, apply,
         {{"spacing", "Spacing", 0, 80}, {"verticalSpacing", "Row spacing", 0, 80}, {"columns", "Columns", 1, 8},
             {"scale", "Scale %", 50, 175, 100}},
-        {related = related, overlayWhenSelected = true, invertY = key == "raid", scaled = true})
+        {related = related, overlayWhenSelected = true, invertY = key == "raid", scaled = true, position = function()
+            local cfg = settings() or {}
+            return cfg.x or (key == "boss" and 300 or key == "raid" and 80 or 0),
+                cfg.y or (key == "boss" and 180 or key == "raid" and 150 or 0)
+        end})
     for index = 1, count do
         spec(name .. " " .. index, prefix .. index, function()
             local groupSettings = settings()
