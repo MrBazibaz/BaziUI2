@@ -1,6 +1,7 @@
 -- Tooltip fonts only. No tooltip text, inspect, anchor or health-bar changes.
 local addon = BaziUI
 local tooltip = GameTooltip
+addon.TooltipFonts = addon.TooltipFonts or {}
 local fonts = {
     FRIZQT = "Fonts\\FRIZQT__.TTF",
     ARIAL = "Fonts\\ARIALN.TTF",
@@ -40,7 +41,9 @@ local function applyLine(fs, config, profile, key)
     local shadow
     path, size, flags, shadow = addon.Typography.Resolve(key, path, size, flags, config.font == "GLOBAL")
     local ok, currentPath, currentSize, currentFlags = pcall(fs.GetFont, fs)
-    if not ok or not valid(currentPath) or not valid(currentSize) or not valid(currentFlags) then return end
+    if issecretvalue and issecretvalue(currentFlags) then return end
+    if not ok or not valid(currentPath) or not valid(currentSize) or (currentFlags ~= nil and not valid(currentFlags)) then return end
+    currentFlags = currentFlags or ""
     if currentPath ~= path or currentSize ~= size or currentFlags ~= flags then
         pcall(fs.SetFont, fs, path, size, flags)
     end
@@ -51,16 +54,36 @@ local function applyLine(fs, config, profile, key)
         fs:SetShadowOffset(0, 0)
     end
 end
+function addon.TooltipFonts.GetDetailFont(db)
+    local value = db.healthPercentSize
+    local size = valid(value) and tonumber(value) or 10
+    size = math.floor(math.max(7, math.min(24, size)))
+    local font = GameFontHighlightSmall:GetFont()
+    return font, size, "OUTLINE"
+end
+
+function addon.TooltipFonts.StyleDetailHint(line, db)
+    if not line or (line.IsForbidden and line:IsForbidden()) then return end
+    pcall(line.SetFont, line, addon.TooltipFonts.GetDetailFont(db))
+    line:SetShadowColor(0, 0, 0, 0.85)
+    line:SetShadowOffset(1, -1)
+end
+
 local function apply()
     local profile, db = settings()
-    if not db then return end
+    if not db or (tooltip.IsForbidden and tooltip:IsForbidden()) then return end
     for i = 1, tooltip:NumLines() do
         local config = i == 1 and db.titleFont or db.textFont
-        applyLine(_G["GameTooltipTextLeft" .. i], config, profile, i == 1 and "Tooltip:Title" or "Tooltip:Body")
+        local left = _G["GameTooltipTextLeft" .. i]
+        local text = left and (not left.IsForbidden or not left:IsForbidden()) and left:GetText()
+        if valid(text) and text == "Shift for details" then
+            addon.TooltipFonts.StyleDetailHint(left, db)
+        else
+            applyLine(left, config, profile, i == 1 and "Tooltip:Title" or "Tooltip:Body")
+        end
         applyLine(_G["GameTooltipTextRight" .. i], config, profile, i == 1 and "Tooltip:Title" or "Tooltip:Body")
     end
 end
-addon.TooltipFonts = addon.TooltipFonts or {}
 addon.TooltipFonts.Apply = apply
 local frame = CreateFrame("Frame")
 frame:RegisterEvent("PLAYER_LOGIN")

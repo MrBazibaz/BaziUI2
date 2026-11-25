@@ -70,12 +70,16 @@ local function makeRow(i)
     row:SetPoint("RIGHT", content, "RIGHT")
     row:SetHeight(43)
     row:EnableMouse(true)
-    local bg = row:CreateTexture(nil, "BACKGROUND")
-    bg:SetAllPoints()
-    bg:SetColorTexture(0.29, 0.17, 0.09, 0.65)
+    row.card = addon.Theme:RoundedCard(row)
+    row.card:SetAllPoints()
+    row.card:SetFrameLevel(row:GetFrameLevel())
     row.icon = row:CreateTexture(nil, "ARTWORK")
     row.icon:SetSize(31, 31)
     row.icon:SetPoint("LEFT", 5, 0)
+    row.quality = row:CreateTexture(nil, "OVERLAY")
+    row.quality:SetAllPoints(row.icon)
+    row.quality:SetTexture("Interface\\AddOns\\BaziUI\\Assets\\Bars\\BaziActionGold.tga")
+    row.quality:SetDesaturated(true)
     row.title = inventory.Label(row)
     row.title:SetPoint("TOPLEFT", 42, -5)
     row.title:SetPoint("RIGHT", -104, 0)
@@ -92,11 +96,13 @@ local function makeRow(i)
     row.mine:SetSize(20, 20)
     row.mine:SetPoint("LEFT", row.result, "RIGHT", 9, 0)
     row.timer = CreateFrame("StatusBar", nil, row)
-    row.timer:SetPoint("BOTTOMLEFT")
-    row.timer:SetPoint("BOTTOMRIGHT")
-    row.timer:SetHeight(2)
+    row.timer:SetPoint("BOTTOMLEFT", 5, 3)
+    row.timer:SetPoint("BOTTOMRIGHT", -5, 3)
+    row.timer:SetHeight(3)
     row.timer:SetStatusBarTexture("Interface\\Buttons\\WHITE8X8")
-    row.timer:SetStatusBarColor(0.79, 0.58, 0.25)
+    local timerTrack = row.timer:CreateTexture(nil, "BACKGROUND")
+    timerTrack:SetAllPoints()
+    timerTrack:SetColorTexture(0.43, 0.41, 0.40, 0.47)
     row:SetScript("OnEnter", tooltip)
     row:SetScript("OnLeave", function() GameTooltip:Hide() end)
     row.buttons = {}
@@ -159,21 +165,23 @@ local function build()
     end)
     historyButton:SetPoint("RIGHT", -4, 0)
     guideFrame = CreateFrame("Frame", nil, frame)
-    guideFrame:SetPoint("TOPLEFT", 9, -31)
-    guideFrame:SetPoint("TOPRIGHT", -10, -31)
-    guideFrame:SetHeight(67)
+    guideFrame:SetPoint("TOPLEFT", frame, "TOPRIGHT", 6, 0)
+    guideFrame:SetSize(246, 116)
+    guideFrame.card = addon.Theme:RoundedCard(guideFrame)
+    guideFrame.card:SetAllPoints()
+    guideFrame.card:SetFrameLevel(guideFrame:GetFrameLevel())
     guide = inventory.Label(guideFrame)
-    guide:SetPoint("TOPLEFT", 0, -1)
-    guide:SetPoint("TOPRIGHT", 0, -1)
+    guide:SetPoint("TOPLEFT", 10, -10)
+    guide:SetPoint("TOPRIGHT", -10, -10)
     guide:SetJustifyH("LEFT")
-    guide:SetText("|cffffd366Need|r · Main spec upgrade.\n|cffffd366Greed|r · Off-spec or something you might use.\n|cffffd366Pass|r · Let someone else have it. Need beats Greed.")
+    guide:SetText("|A:" .. rollAtlases[1] .. ":14:14|a Need · Main spec upgrade.\n|A:" .. rollAtlases[2] .. ":14:14|a Greed · Off-spec or something you might use.\n|A:" .. rollAtlases[0] .. ":14:14|a Pass · Let someone else have it. Need beats Greed.")
     local dismiss = addon.Theme:CreateCheckbox(guideFrame)
     dismiss:SetSize(20, 20)
     dismiss:SetScript("OnClick", function(self)
         inventory.Settings().hideRollGuide = not not self:GetChecked()
         inventory.RefreshRolls()
     end)
-    dismiss:SetPoint("BOTTOMLEFT", -3, 0)
+    dismiss:SetPoint("BOTTOMLEFT", 7, 4)
     local hint = inventory.Label(guideFrame)
     hint:SetPoint("LEFT", dismiss, "RIGHT", 3, 0)
     hint:SetText("Don't show again")
@@ -185,9 +193,7 @@ local function build()
     closeBar:SetHeight(3)
     closeBar:SetMinMaxValues(0, resultDuration)
     closeBar:Hide()
-    local scroll
-    content, scroll = inventory.Scroll(frame, -83, 8)
-    frame.scroll = scroll
+    content = inventory.Scroll(frame, -34, 8, true)
     emptyLabel = inventory.Label(content)
     emptyLabel:SetPoint("TOPLEFT", 5, -4)
     emptyLabel:SetText("No loot rolls")
@@ -238,8 +244,12 @@ function inventory.RefreshRolls()
     if not demoMode and (not db.enabled or not db.rolls) then frame:Hide(); return end
     frame:ApplyStyle()
     guideFrame:SetShown(not db.hideRollGuide)
-    local inset = db.hideRollGuide and 34 or 103
-    frame.scroll:SetPoint("TOPLEFT", 8, -inset)
+    addon.Theme:PaintWindowEdge(guideFrame.card)
+    guideFrame.card:SetBackdropColor(0.045, 0.026, 0.012, (db.rollGuideOpacity or db.rollOpacity or db.opacity) / 100)
+    inventory.GeneralFont(guide, -2)
+    guideFrame:SetHeight(math.max(84, math.ceil(guide:GetStringHeight()) + 38))
+    local inset = 34
+    closeBar:SetStatusBarColor(addon.Theme:Accent())
     historyButton:SetText(historyMode and "Active" or "History")
     local drops = {}
     if historyMode then
@@ -271,11 +281,9 @@ function inventory.RefreshRolls()
     if closeAt then closeBar:SetValue(resultDuration - math.max(0, closeAt - GetTime())) end
     for i, drop in ipairs(drops) do
         local row = rows[i] or makeRow(i)
+        addon.Theme:PaintQuestCard(row.card)
         local new = row.drop ~= drop
         row.drop = drop
-        if addon.EquipmentAdvisor then
-            addon.EquipmentAdvisor.PaintIndicator(row, not (drop.demo or drop.winner) and drop.link, "rolls", "TOPRIGHT", -103, -4)
-        end
         row.icon:SetTexture(drop.icon)
         row.title:SetText(drop.name or drop.link or "Loot")
         row.winner:SetText(drop.winner and winnerName(drop.winner) or "")
@@ -287,6 +295,8 @@ function inventory.RefreshRolls()
         row.title:SetPoint("RIGHT", drop.winner and -196 or -104, 0)
         local color = ITEM_QUALITY_COLORS[drop.quality or 1] or ITEM_QUALITY_COLORS[1]
         row.title:SetTextColor(color.r, color.g, color.b)
+        row.quality:SetVertexColor(color.r, color.g, color.b, 0.9)
+        row.timer:SetStatusBarColor(addon.Theme:Accent())
         local totals = {[0] = 0, [1] = 0, [2] = 0}
         local ownChoice = drop.choice
         for _, player in ipairs(drop.players or {}) do
@@ -336,6 +346,10 @@ function inventory.RefreshRolls()
     frame:SetHeight(inset + 8 + math.max(26, math.min(6, #drops) * 46))
 end
 
+function inventory.RollsVisible()
+    return frame and frame:IsShown()
+end
+
 function inventory.OpenRolls(test, automatic)
     local db = inventory.Settings()
     if not test and (not db.enabled or not db.rolls) then return end
@@ -361,6 +375,7 @@ function inventory.OpenRolls(test, automatic)
     end
     historyMode = false
     frame:Show()
+    if inventory.RefreshLoot then inventory.RefreshLoot() end
     frame:Raise()
     inventory.RefreshRolls()
 end

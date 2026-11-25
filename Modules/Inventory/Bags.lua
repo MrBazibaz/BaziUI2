@@ -1,6 +1,8 @@
 local inventory = BaziUI.Inventory
 local frame, caption, search, content, viewport, scrollBar, guildTabs, viewToggle, wallet
-local bagToggle, bagStrip
+local bagToggle, bagStrip, combatBagControls
+local revealUpgrade, scrollToUpgrade
+local moversOpenedBags
 local mode, atBank, atGuild = "bags", false, false
 local cells, headings, dividers, known, knownSlots, fresh = {}, {}, {}, {}, {}, {}
 local draggedCategory, draggingItem
@@ -16,6 +18,7 @@ local bagInset, scrollbarSpace = 8, 18
 local function slotKey(item) return item.bag .. ":" .. item.slot end
 local sortBags = container.SortBags or SortBags
 local sortBank = container.SortBankBags or SortBankBags
+local merchantLayout = false
 if container.SortBank and Enum and Enum.BankType and Enum.BankType.Character then
     sortBank = function() container.SortBank(Enum.BankType.Character) end
 end
@@ -38,7 +41,7 @@ local function updateCharacter()
     if wallet then wallet.text:SetText(inventory.Money(GetMoney())) end
 end
 
-local function itemsForView()
+local function itemsForView(hideEmpty)
     local items = {}
     if mode == "guild" then
         local tab = GetCurrentGuildBankTab()
@@ -83,7 +86,7 @@ local function itemsForView()
             local item = inventory.Item(bag, slot)
             if item then
                 items[#items + 1] = item
-            else
+            elseif not hideEmpty then
                 local stack = emptyByKind[kind]
                 if not stack then
                     local texture
@@ -150,12 +153,60 @@ local function acceptsTarget(item, feeding)
         or (C_Item.DoesItemMatchTargetEnchantingSpell and C_Item.DoesItemMatchTargetEnchantingSpell(location))
 end
 
+local function atMerchant()
+    return mode == "bags" and MerchantFrame and MerchantFrame:IsShown()
+end
+
+local function slotGUID(item)
+    if not (C_Item and C_Item.GetItemGUID and ItemLocation and ItemLocation.CreateFromBagAndSlot) then return end
+    local ok, guid = pcall(C_Item.GetItemGUID, ItemLocation:CreateFromBagAndSlot(item.bag, item.slot))
+    if ok and type(guid) == "string" and (not issecretvalue or not issecretvalue(guid)) then return guid end
+end
+
+local function merchantSlot(button)
+    local item = button.item
+    if button.vendorVacant or not item or item.empty then return end
+    local live = container.GetContainerItemInfo(item.bag, item.slot)
+    if live and live.itemID == item.itemID and (not item.hyperlink or live.hyperlink == item.hyperlink)
+        and (not button.vendorGUID or slotGUID(item) == button.vendorGUID) then
+        return live
+    end
+    button.vendorVacant = true
+    if not InCombatLockdown() then button:Disable() end
+    button.icon:SetColorTexture(0.14, 0.08, 0.04)
+    button.icon:SetVertexColor(0.53, 0.53, 0.53, 1)
+    button.text:SetText("")
+    button.level:SetText("")
+    button.questGlow:Hide()
+    button.upgrade:Hide()
+    button:SetRecentPulse(false)
+    if GameTooltip:IsOwned(button) then GameTooltip:Hide() end
+end
+
+local function readable(value)
+    return (not issecretvalue or not issecretvalue(value)) and (not canaccessvalue or canaccessvalue(value))
+end
+
+local function currentBagItem(item)
+    if not item or item.empty or item.tab then return end
+    local live = container.GetContainerItemInfo(item.bag, item.slot)
+    if not live or not readable(live) or not readable(live.itemID) or not readable(item.itemID)
+        or live.itemID ~= item.itemID or not readable(item.hyperlink) then return end
+    if item.hyperlink and (not readable(live.hyperlink) or live.hyperlink ~= item.hyperlink) then return end
+    return live
+end
+
 local function showItemTooltip(button)
     local item = button.item
     if not item or item.empty then
         if GameTooltip:IsOwned(button) then GameTooltip:Hide() end
         return
     end
+    if InCombatLockdown() and not currentBagItem(item) then
+        if GameTooltip:IsOwned(button) then GameTooltip:Hide() end
+        return
+    end
+    if atMerchant() and not merchantSlot(button) then return end
     GameTooltip:SetOwner(button, "ANCHOR_RIGHT")
     if item.tab then GameTooltip:SetGuildBankItem(item.tab, item.slot)
     else GameTooltip:SetBagItem(item.bag, item.slot) end
@@ -176,6 +227,28 @@ local function assignCursor(category)
     ClearCursor()
     inventory.RefreshBags()
     return true
+end
+
+local function dragBagItem(button)
+    local item = button.item
+    if not item or item.empty or hasItemTarget() then return end
+    if InCombatLockdown() then
+        if mode ~= "bags" or atMerchant() or button.vendorVacant then return end
+        local cursorType = GetCursorInfo()
+        if not readable(cursorType) or cursorType ~= nil then return end
+        -- The secure bag window keeps its last layout in combat. Check the
+        -- live slot before picking up an item from that layout.
+        local live = currentBagItem(item)
+        if live and readable(live.isLocked) and not live.isLocked then
+            container.PickupContainerItem(item.bag, item.slot)
+        end
+        return
+    end
+    if item.isLocked or (atMerchant() and not merchantSlot(button)) then return end
+    draggingItem = true
+    pickup(item)
+    draggingItem = GetCursorInfo() == "item"
+    inventory.RefreshBags()
 end
 
 local function cell(index)
@@ -214,6 +287,22 @@ local function cell(index)
     button.text:SetPoint("BOTTOMRIGHT", -2, 2)
     button.level = inventory.Label(button)
     button.level:SetPoint("TOPLEFT", 2, -2)
+    button.upgrade = CreateFrame("Frame", nil, button)
+    button.upgrade:SetPoint("TOPRIGHT", -1, -1)
+    button.upgrade:SetSize(17, 19)
+    button.upgrade:EnableMouse(false)
+    local upgradeBackground = button.upgrade:CreateTexture(nil, "BACKGROUND")
+    upgradeBackground:SetAllPoints()
+    upgradeBackground:SetColorTexture(0.025, 0.09, 0.035, 0.94)
+    for index = 1, 2 do
+        local arrow = button.upgrade:CreateTexture(nil, "OVERLAY")
+        arrow:SetTexture("Interface\\AddOns\\BaziUI\\Assets\\Icons\\Bazi\\ChevronUp.tga")
+        arrow:SetTexCoord(4/32, 28/32, 7/32, 24/32)
+        arrow:SetVertexColor(0.41, 1, 0.30)
+        arrow:SetSize(15, 9)
+        arrow:SetPoint("TOP", 0, 2 - index * 6)
+    end
+    button.upgrade:Hide()
     button.addMark = inventory.Label(button)
     button.addMark:SetPoint("CENTER")
     button.addMark:SetText("+")
@@ -253,6 +342,7 @@ local function cell(index)
     flash:Hide()
     button:HookScript("OnHide", function(self) self:SetRecentPulse(false) end)
     button:SetScript("OnEnter", function(self)
+        if self.item and self.item.dropTarget then self.icon:SetColorTexture(BaziUI.Theme:AccentInk(0.56)) end
         local item = self.item
         if not item or item.empty then return end
         local recent = mode == "bags" and fresh[slotKey(item)]
@@ -262,16 +352,14 @@ local function cell(index)
         end
         showItemTooltip(self)
     end)
-    button:SetScript("OnLeave", function() GameTooltip:Hide() end)
-    button:SetScript("OnDragStart", function(self)
-        if self.item.empty or self.item.isLocked or InCombatLockdown() or hasItemTarget() then return end
-        draggingItem = true
-        pickup(self.item)
-        draggingItem = GetCursorInfo() == "item"
-        inventory.RefreshBags()
+    button:SetScript("OnLeave", function(self)
+        if self.item and self.item.dropTarget then self.icon:SetColorTexture(BaziUI.Theme:AccentInk(0.13)) end
+        GameTooltip:Hide()
     end)
+    button:SetScript("OnDragStart", dragBagItem)
     button:SetScript("OnReceiveDrag", function(self)
         if InCombatLockdown() or hasItemTarget() then return end
+        if atMerchant() and (self.vendorVacant or not self.item.empty and not merchantSlot(self)) then return end
         if draggingItem and assignCursor(self.category) then return end
         if self.item.dropTarget then return end
         pickup(self.item)
@@ -279,8 +367,18 @@ local function cell(index)
     button:HookScript("PreClick", function(self, mouse)
         if InCombatLockdown() then return end
         self.targetClick = mode == "bags" and (feedingPet or hasItemTarget())
-        self.vendorClick = mode == "bags" and MerchantFrame and MerchantFrame:IsShown()
+        self.vendorClick = atMerchant()
+        self.vendorBlocked = false
         self.mailClick = mode == "bags" and MailFrame and MailFrame:IsShown()
+        if self.vendorClick and not self.item.empty then
+            local live = merchantSlot(self)
+            if not live or live.isLocked then
+                self.vendorBlocked = true
+                self:SetAttribute("type1", nil)
+                self:SetAttribute("type2", nil)
+                return
+            end
+        end
         if mouse == "LeftButton" then
             local allowed = self.targetClick and acceptsTarget(self.item, feedingPet)
             local nativeTarget = allowed and hasItemTarget()
@@ -294,17 +392,21 @@ local function cell(index)
         end
     end)
     button:HookScript("OnClick", function(self, mouse)
-        if InCombatLockdown() or self.targetClick then return end
+        if InCombatLockdown() or self.targetClick or self.vendorBlocked then return end
         local item = self.item
         if mouse == "RightButton" then
-            if not item or item.empty or item.tab or item.isLocked then return end
+            if not item or item.empty or item.tab or (item.isLocked and not self.vendorClick) then return end
             if self.mailClick and MailFrame:IsShown() then
                 if SendMailFrame and not SendMailFrame:IsVisible() and MailFrameTab2 and MailFrameTab2:IsVisible() then
                     MailFrameTab2:Click()
                 end
                 if SendMailFrame and SendMailFrame:IsVisible() then container.UseContainerItem(item.bag, item.slot) end
             elseif self.vendorClick and MerchantFrame:IsShown() and MerchantFrame.selectedTab ~= 2 then
-                container.UseContainerItem(item.bag, item.slot)
+                local live = merchantSlot(self)
+                if live and not live.isLocked then
+                    container.UseContainerItem(item.bag, item.slot)
+                    merchantSlot(self)
+                end
             end
             return
         end
@@ -316,10 +418,16 @@ local function cell(index)
     return button
 end
 
+local collapsedCategories = {}
 local function heading(index)
     if headings[index] then return headings[index] end
     local button = CreateFrame("Button", nil, content)
-    button:SetHeight(20)
+    button:SetHeight(21)
+    local card = BaziUI.Theme:RoundedCard(content)
+    card:SetFrameLevel(content:GetFrameLevel())
+    card:EnableMouse(false)
+    card:SetBackdropColor(0.14, 0.105, 0.13, 0.37)
+    button.card = card
     local area = CreateFrame("Button", nil, content)
     area:SetFrameLevel(content:GetFrameLevel())
     button.dropArea = area
@@ -327,7 +435,12 @@ local function heading(index)
     area:SetScript("OnClick", function() if draggingItem then assignCursor(button.category) end end)
     button:RegisterForDrag("LeftButton")
     button.text = inventory.Label(button, "GameFontNormal")
-    button.text:SetPoint("LEFT")
+    button.text:SetPoint("LEFT", 6, 0)
+    button.text:SetJustifyH("LEFT")
+    button.text:SetWordWrap(false)
+    button.count = inventory.Label(button)
+    button.count:SetPoint("RIGHT", -6, 0)
+    button.text:SetPoint("RIGHT", button.count, "LEFT", -6, 0)
     button:SetScript("OnDragStart", function(self) draggedCategory = self.category end)
     button:SetScript("OnDragStop", function(self)
         local from = draggedCategory
@@ -344,7 +457,7 @@ local function heading(index)
                 if oldIndex and newIndex then
                     table.remove(categories, oldIndex)
                     table.insert(categories, newIndex, from)
-                    inventory.RefreshBags()
+                    inventory.RefreshBags(true)
                 end
                 break
             end
@@ -352,13 +465,47 @@ local function heading(index)
     end)
     local function assign(self) assignCursor(self.category) end
     button:SetScript("OnReceiveDrag", assign)
-    button:SetScript("OnClick", assign)
+    button:SetScript("OnClick", function(self)
+        if InCombatLockdown() then return end
+        if draggingItem then assign(self); return end
+        collapsedCategories[self.category] = not collapsedCategories[self.category]
+        inventory.RefreshBags(true)
+    end)
     headings[index] = button
     return button
 end
 
-function inventory.RefreshBags()
-    if not frame or not frame:IsShown() or InCombatLockdown() then return end
+local function isRevealedUpgrade(item)
+    local upgrades = BaziUI.LootUpgrades
+    return revealUpgrade and upgrades and upgrades.Mark(item) and upgrades.MatchesLink(item.hyperlink, revealUpgrade)
+end
+
+local function applyUpgradeMark(button)
+    local upgrades = BaziUI.LootUpgrades
+    button.upgrade:SetShown(not not (mode == "bags" and not button.vendorVacant and upgrades and upgrades.Mark(button.item)))
+end
+
+function inventory.RefreshUpgradeMarks()
+    if not frame or mode ~= "bags" then return end
+    if revealUpgrade and frame:IsShown() and not InCombatLockdown() then
+        inventory.RefreshBags()
+        return
+    end
+    for _, button in ipairs(cells) do
+        if button:IsShown() then applyUpgradeMark(button) end
+    end
+end
+
+function inventory.RefreshBags(rebuildMerchantLayout, prepareHidden)
+    if not frame or (not frame:IsShown() and not prepareHidden) or InCombatLockdown() then return end
+    local merchant = atMerchant()
+    if merchant and merchantLayout and not rebuildMerchantLayout then
+        for _, button in ipairs(cells) do
+            if button:IsShown() then merchantSlot(button) end
+        end
+        return
+    end
+    merchantLayout = not not merchant
     local db = inventory.Settings()
     local moveToEdge = frame.grewUp ~= db.growUp or frame.opening
     local keepBottom = db.growUp and viewport:GetVerticalScrollRange() - viewport:GetVerticalScroll() < 2
@@ -369,8 +516,9 @@ function inventory.RefreshBags()
     caption:SetText(mode == "bank" and "Bank" or mode == "guild" and "Guild Bank" or "Inventory")
     inventory.GeneralFont(wallet.text, -2)
     frame.closeButton:SetShown(not db.growUp)
-    bagToggle:SetShown(mode == "bags" and IsAltKeyDown())
-    local showBagStrip = mode == "bags" and frame.bagStripOpen
+    local bagsVisible = mode == "bags" and (not db.bagsOnAlt or IsAltKeyDown())
+    bagToggle:SetShown(bagsVisible)
+    local showBagStrip = bagsVisible and frame.bagStripOpen == true
     bagStrip:SetShown(not not showBagStrip)
     if showBagStrip then
         for _, button in ipairs(bagStrip.buttons) do
@@ -379,97 +527,120 @@ function inventory.RefreshBags()
     end
     guildTabs:SetShown(mode == "guild")
     viewToggle:SetShown(atBank or atGuild)
+    local capacity, free = 0, 0
+    if mode == "bags" then
+        for _, bag in ipairs(inventory.BagIDs()) do
+            capacity = capacity + container.GetContainerNumSlots(bag)
+            free = free + (container.GetContainerNumFreeSlots(bag) or 0)
+        end
+    end
+    frame.capacity:SetShown(capacity > 0)
+    frame.capacity.bar:SetMinMaxValues(0, math.max(1, capacity))
+    frame.capacity.bar:SetValue(capacity - free)
+    frame.capacity.bar:SetStatusBarColor(BaziUI.Theme:Accent())
+    inventory.GeneralFont(frame.capacity.count, 0, "OUTLINE", "Inventory:Capacity", db.capacityFontSize)
+    frame.capacity.count:SetFormattedText("%d / %d", capacity - free, capacity)
+    local capacityHeight = math.max(4, math.ceil(frame.capacity.count:GetStringHeight()) - 8)
+    frame.capacity:SetHeight(capacityHeight)
     local query = search:GetText():lower()
     local grouped, categoryNames = {}, {}
     for _, name in ipairs(db.categories) do categoryNames[name:lower()] = name end
-    for _, item in ipairs(itemsForView()) do
+    local hideEmpty = mode == "bags" and db.hideEmptyCategory
+    local items = itemsForView(hideEmpty)
+    if revealUpgrade then
+        local found
+        for _, item in ipairs(items) do
+            if isRevealedUpgrade(item) then found = true; break end
+        end
+        if not found then revealUpgrade, scrollToUpgrade = nil, nil end
+    end
+    for _, item in ipairs(items) do
         local category = groupFor(item, db)
         category = categoryNames[category:lower()] or category
+        if isRevealedUpgrade(item) then collapsedCategories[category] = nil end
         local name = item.name or item.hyperlink or ""
-        local advisor = BaziUI.EquipmentAdvisor
-        local upgrades = query == "upgrade:" and advisor and BaziUI.Adventure.Settings("advisor").enabled
-        local visible
-        if upgrades then
-            visible = advisor.IsUpgrade(item.hyperlink)
-        else
-            visible = query == "" or name:lower():find(query, 1, true) or category:lower():find(query, 1, true)
-        end
-        if visible then
+        if query == "" or name:lower():find(query, 1, true) or category:lower():find(query, 1, true) then
             grouped[category] = grouped[category] or {}
             table.insert(grouped[category], item)
         end
     end
     local order = {unpack(db.categories)}
-    if db.emptyTop then table.insert(order, 1, "Empty") else order[#order + 1] = "Empty" end
-    if grouped.Recent then table.insert(order, db.growUp and #order + 1 or 1, "Recent") end
-    local y, cellIndex, headingIndex, column, shelfHeight, dividerIndex = 0, 0, 0, 0, 0, 0
-    local function divider()
-        dividerIndex = dividerIndex + 1
-        local line = dividers[dividerIndex]
-        if not line then
-            line = content:CreateTexture(nil, "ARTWORK")
-            line:SetColorTexture(0.72, 0.58, 0.37, 0.5)
-            if line.SetSnapToPixelGrid then line:SetSnapToPixelGrid(false) end
-            if line.SetTexelSnappingBias then line:SetTexelSnappingBias(0) end
-            dividers[dividerIndex] = line
-        end
-        local pixel = PixelUtil and PixelUtil.GetPixelToUIUnitFactor
-            and PixelUtil.GetPixelToUIUnitFactor() / frame:GetEffectiveScale() or 1
-        line:ClearAllPoints()
-        line:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -y - 19)
-        line:SetPoint("TOPRIGHT", content, "TOPRIGHT", 0, -y - 19)
-        line:SetHeight(pixel)
-        line:Show()
+    if not hideEmpty then
+        if db.emptyTop then table.insert(order, 1, "Empty") else order[#order + 1] = "Empty" end
     end
+    if grouped.Recent then table.insert(order, db.growUp and #order + 1 or 1, "Recent") end
+    local y, cellIndex, headingIndex, shelfX, shelfHeight = 0, 0, 0, 0, 0
+    local upgradeOffset
+    local step = size + gap
+    local cardPadding, cardGap = 6, 5
+    local shelfWidth = columns * step - gap + 2 * cardPadding
     for _, category in ipairs(order) do
         local items = grouped[category]
+        local collapsed = collapsedCategories[category] and not draggingItem and query == ""
+        local itemCount = items and #items or 0
         if draggingItem and category ~= "Recent" and category ~= "Empty" then
             items = items or {}
             items[#items + 1] = {empty = true, dropTarget = true}
         end
         if items then
-            local width = (category == "Empty" or category == "Recent") and columns
-                or math.min(columns, math.max(#items, math.ceil((#category * 7 + 6) / (size + gap))))
-            if column + width > columns then
-                y, column, shelfHeight = y + shelfHeight, 0, 0
-            end
-            if column == 0 then divider() end
             headingIndex = headingIndex + 1
             local bar = heading(headingIndex)
-            bar:ClearAllPoints()
-            local x = column * (size + gap)
-            bar:SetPoint("TOPLEFT", x, -y)
-            bar:SetWidth(width * (size + gap) - gap)
             bar.category = category
-            bar.text:SetText(category)
+            bar.text:SetText((collapsed and "+ " or "") .. category)
+            inventory.GeneralFont(bar.text, 0)
+            bar.text:SetTextColor(BaziUI.Headers.Text(frame.headerStyleKey or "inventory", 1, 0.82, 0.49))
+            bar.count:SetText(itemCount)
+            local measure = bar.text.GetUnboundedStringWidth or bar.text.GetStringWidth
+            local labelWidth = math.ceil(measure(bar.text) + measure(bar.count) + 26)
+            local width = collapsed and 1 or math.max(1, math.min(#items, columns))
+            local itemWidth = width * step - gap + 2 * cardPadding
+            local cardWidth = math.min(shelfWidth, math.max(itemWidth, labelWidth))
+            if cardWidth > shelfWidth - shelfX then
+                y, shelfX, shelfHeight = y + shelfHeight, 0, 0
+            end
+            bar:ClearAllPoints()
+            local x = shelfX
+            bar:SetPoint("TOPLEFT", x, -y)
+            bar:SetWidth(cardWidth)
+            bar.count:SetTextColor(BaziUI.Theme:Accent())
             bar:Show()
-            local blockHeight = 23 + math.ceil(#items / width) * (size + gap)
+            local blockHeight = 25 + (collapsed and 0 or math.ceil(#items / width) * (size + gap))
+            bar.card:ClearAllPoints()
+            bar.card:SetPoint("TOPLEFT", bar, "TOPLEFT", -1, 0)
+            bar.card:SetPoint("BOTTOMRIGHT", bar, "TOPRIGHT", 0, -blockHeight + 2)
+            bar.card:SetBackdropBorderColor(BaziUI.Theme:AccentInk(0.13))
+            bar.card:Show()
             bar.dropArea:ClearAllPoints()
             bar.dropArea:SetPoint("TOPLEFT", content, "TOPLEFT", x, -y - 20)
             bar.dropArea:SetSize(bar:GetWidth(), math.max(size, blockHeight - 23))
             bar.dropArea:SetShown(not not draggingItem and #items > 0)
-            for j, item in ipairs(items or {}) do
+            for j, item in ipairs(not collapsed and items or {}) do
                 cellIndex = cellIndex + 1
                 local button = cell(cellIndex)
                 button.item = item
-                if BaziUI.EquipmentAdvisor then
-                    BaziUI.EquipmentAdvisor.PaintIndicator(button, not item.empty and item.hyperlink, "bags", "BOTTOMLEFT", 3, 3)
-                end
+                button.vendorVacant = nil
+                button.vendorGUID = merchant and not item.empty and slotGUID(item) or nil
+                button:Enable()
                 button.category = category
                 local itemSlot = not item.empty and not item.tab and ("%d %d"):format(item.bag, item.slot) or nil
                 local targeting = mode == "bags" and (feedingPet or targetingItem)
                 local matches = targeting and acceptsTarget(item, feedingPet)
+                local revealed = not targeting and isRevealedUpgrade(item)
+                local dim = targeting and not matches or not targeting and revealUpgrade and not revealed
                 button:SetAttribute("item2", itemSlot)
-                button:SetAlpha(targeting and not matches and 0.32 or 1)
+                button:SetAlpha(dim and 0.32 or 1)
                 button:ClearAllPoints()
                 button:SetSize(size, size)
                 button:SetPoint("TOPLEFT", content, "TOPLEFT",
-                    x + ((j - 1) % width) * (size + gap), -y - 23 - math.floor((j - 1) / width) * (size + gap))
+                    x + cardPadding + ((j - 1) % width) * (size + gap), -y - 23 - math.floor((j - 1) / width) * (size + gap))
+                if scrollToUpgrade and revealed and not upgradeOffset then
+                    upgradeOffset = y + 23 + math.floor((j - 1) / width) * (size + gap)
+                end
                 button.icon:SetColorTexture(0.14, 0.08, 0.04)
                 if item.iconFileID and not db.hideIcons then button.icon:SetTexture(item.iconFileID) end
-                local unusable = db.unusable and item.hyperlink and IsUsableItem and not IsUsableItem(item.hyperlink)
+                local unusable = not revealed and db.unusable and item.hyperlink and IsUsableItem and not IsUsableItem(item.hyperlink)
                     and (item.class == 2 or item.class == 4)
-                button.icon:SetDesaturated((targeting and not matches) or item.empty or db.junk and item.quality == 0)
+                button.icon:SetDesaturated(dim or item.empty or not revealed and db.junk and item.quality == 0)
                 local shade = item.empty and 0.53 or 1
                 button.icon:SetVertexColor(shade, unusable and 0.33 or shade, unusable and 0.33 or shade,
                     item.isLocked and 0.45 or 1)
@@ -494,34 +665,43 @@ function inventory.RefreshBags()
                 button.text:SetText(item.dropTarget and "" or text)
                 button.addMark:SetShown(not not item.dropTarget)
                 if item.dropTarget then button.addMark:SetFont(font, size * 0.67, "OUTLINE") end
-                button.edge:SetVertexColor(0.79, 0.65, 0.46, 1)
+                if item.dropTarget then
+                    button.edge:SetTexture("Interface\\AddOns\\BaziUI\\Assets\\Icons\\Bazi\\Ghost.tga")
+                    button.edge:SetVertexColor(BaziUI.Theme:Accent())
+                    button.icon:SetColorTexture(BaziUI.Theme:AccentInk(0.13))
+                    button.questGlow:Hide()
+                    button.addMark:Hide()
+                else
+                    button.edge:SetAtlas(slotAtlas)
+                    button.edge:SetVertexColor(0.79, 0.65, 0.46, 1)
+                end
                 local level = db.quality and (item.class == 2 or item.class == 4)
                     and BaziUI.ItemLevel.GetItemLevel(item.hyperlink or item.itemID)
                 button.level:SetText(level or "")
                 button.level:SetTextColor(color and color.r or 1, color and color.g or 1, color and color.b or 1)
+                applyUpgradeMark(button)
                 button:Show()
                 local recent = category == "Recent" and fresh[slotKey(item)]
                 button:SetRecentPulse(recent and not recent.seen)
             end
             shelfHeight = math.max(shelfHeight, blockHeight)
-            column = column + width
+            shelfX = shelfX + cardWidth + cardGap
         end
     end
     for i = cellIndex + 1, #cells do cells[i]:Hide() end
-    for i = headingIndex + 1, #headings do headings[i]:Hide(); headings[i].dropArea:Hide() end
-    for i = dividerIndex + 1, #dividers do dividers[i]:Hide() end
+    for i = headingIndex + 1, #headings do
+        headings[i]:Hide(); headings[i].dropArea:Hide(); headings[i].card:Hide()
+    end
     local contentHeight = math.max(1, y + shelfHeight - gap)
-    content:SetHeight(contentHeight)
     local controls = (mode == "guild" and 60 or 35) + search:GetHeight() + bagInset
+        + (mode == "bags" and (capacityHeight + 7) or 0)
     local topInset = db.growUp and (bagInset - 4) or controls
     local bottomInset = db.growUp and controls or 27
-    if showBagStrip then
-        if db.growUp then topInset = topInset + 31 else bottomInset = bottomInset + 11 end
-    end
     local wantedHeight = contentHeight + topInset + bottomInset
     local height = math.min(UIParent:GetHeight() * 0.85, math.max(105, wantedHeight))
-    local rightInset = bagInset + (wantedHeight > height and scrollbarSpace or 0)
-    frame:SetWidth(math.max(325, columns * (size + gap) - gap + bagInset + rightInset))
+    local needsScroll = wantedHeight - height > 0.5
+    local rightInset = bagInset + (needsScroll and scrollbarSpace or 0)
+    frame:SetWidth(math.max(325, shelfWidth + bagInset + rightInset))
     frame:SetHeight(height)
     frame.backgroundKey = mode == "guild" and "guildBankOpacity" or mode == "bank" and "bankOpacity" or nil
     frame.headerStyleKey = mode == "guild" and "guildBank" or mode == "bank" and "bank" or "inventory"
@@ -540,18 +720,30 @@ function inventory.RefreshBags()
         guildTabs:SetPoint(up and "BOTTOMRIGHT" or "TOPRIGHT", -12, up and 60 or -60)
         wallet:ClearAllPoints()
         wallet:SetPoint("BOTTOMRIGHT", -10, up and 6 or 4)
+        viewport:ClearAllPoints()
         viewport:SetPoint("TOPLEFT", frame, "TOPLEFT", bagInset, -topInset)
         viewport:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -rightInset, bottomInset)
         bagStrip:ClearAllPoints()
-        bagStrip:SetPoint(up and "TOPLEFT" or "BOTTOMLEFT", bagInset, up and -4 or 4)
+        bagStrip:SetPoint("TOPRIGHT", frame, "TOPLEFT", -5, -8)
+        frame.capacity:ClearAllPoints()
+        frame.capacity:SetPoint(up and "BOTTOMLEFT" or "TOPLEFT", search, up and "TOPLEFT" or "BOTTOMLEFT", 0, up and 4 or -4)
+        frame.capacity:SetPoint(up and "BOTTOMRIGHT" or "TOPRIGHT", search, up and "TOPRIGHT" or "BOTTOMRIGHT",
+            frame.sort:GetWidth() + 6, up and 4 or -4)
         frame.grewUp, frame.controls, frame.rightInset, frame.showBagStrip = up, controls, rightInset, showBagStrip
     end
-    if moveToEdge or keepBottom then
+    viewport.baziAllowScroll = needsScroll
+    content:SetHeight(contentHeight)
+    viewport:UpdateScrollChildRect()
+    scrollBar:SyncRange()
+    if upgradeOffset then
+        scrollToUpgrade = nil
+        scrollBar:SetValue(math.max(0, math.min(viewport:GetVerticalScrollRange(), upgradeOffset - (viewport:GetHeight() - size) / 2)))
+    elseif needsScroll and (moveToEdge or keepBottom) then
         if not db.growUp then
             scrollBar:SetValue(0)
         else
             C_Timer.After(0, function()
-                if frame:IsShown() and inventory.Settings().growUp then
+                if (frame:IsShown() or prepareHidden and mode == "bags") and inventory.Settings().growUp then
                     scrollBar:SetValue(viewport:GetVerticalScrollRange())
                 end
             end)
@@ -563,7 +755,30 @@ local function createBag()
     local window, header, title = inventory.Window("BaziUIInventory", "Inventory", 375, 400, "x", "y")
     local frame = window
     frame.inventoryGrowth = true
+    local controls = CreateFrame("Button", "BaziUICombatBagToggle", UIParent, "SecureHandlerClickTemplate,SecureHandlerStateTemplate")
+    controls:RegisterForClicks("LeftButtonUp")
+    controls:SetFrameRef("bagWindow", frame)
+    controls:SetAttribute("UpdateBagBindings", [[
+        self:ClearBindings()
+        if self:GetAttribute("state-bazibagwindow") ~= "combat" then return end
+        if not self:GetAttribute("bagMode") then self:GetFrameRef("bagWindow"):Hide(); return end
+        if not self:GetAttribute("enabled") then return end
+        for index = 1, self:GetAttribute("keyCount") or 0 do
+            self:SetBindingClick(false, self:GetAttribute("key" .. index), self:GetName(), "LeftButton")
+        end
+    ]])
+    controls:SetAttribute("_onstate-bazibagwindow", [[ self:RunAttribute("UpdateBagBindings") ]])
+    controls:SetAttribute("_onclick", [[
+        if not self:GetAttribute("enabled") or not self:GetAttribute("bagMode") then return end
+        local window = self:GetFrameRef("bagWindow")
+        if window:IsShown() then window:Hide() else window:Show() end
+    ]])
     frame.closeButton:SetScript("OnClick", function() if not InCombatLockdown() then frame:Hide() end end)
+    SecureHandlerWrapScript(frame.closeButton, "OnClick", controls, [[
+        if control:GetAttribute("state-bazibagwindow") == "combat" then control:GetFrameRef("bagWindow"):Hide() end
+    ]])
+    RegisterStateDriver(controls, "bazibagwindow", "[combat] combat; ready")
+    combatBagControls = controls
     bagToggle = CreateFrame("Button", nil, header)
     bagToggle:SetSize(20, 20)
     bagToggle:SetPoint("LEFT", 7, 0)
@@ -577,8 +792,9 @@ local function createBag()
         title:SetPoint("LEFT", header, "LEFT", 10, 0)
     end)
     bagToggle:SetScript("OnClick", function()
+        if InCombatLockdown() then return end
         frame.bagStripOpen = not frame.bagStripOpen
-        inventory.RefreshBags()
+        inventory.RefreshBags(true)
     end)
     bagToggle:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_TOP")
@@ -587,7 +803,7 @@ local function createBag()
     end)
     bagToggle:SetScript("OnLeave", function() GameTooltip:Hide() end)
     bagStrip = CreateFrame("Frame", nil, frame)
-    bagStrip:SetSize(155, 28)
+    bagStrip:SetSize(28, 155)
     bagStrip.buttons = {}
     bagStrip:Hide()
     for _, bag in ipairs(inventory.BagIDs(true)) do
@@ -595,7 +811,7 @@ local function createBag()
         if slot and slot > 0 then
             local button = CreateFrame("Button", nil, bagStrip)
             button:SetSize(26, 26)
-            button:SetPoint("LEFT", #bagStrip.buttons * 30, 0)
+            button:SetPoint("TOP", 0, -#bagStrip.buttons * 30)
             button.slot = slot
             button:RegisterForDrag("LeftButton")
             button.icon = button:CreateTexture(nil, "ARTWORK")
@@ -632,15 +848,36 @@ local function createBag()
     search:SetAutoFocus(false)
     search:SetPoint("TOPLEFT", 13, -35)
     search:SetSize(120, 22)
-    search:SetTextInsets(4, 4, 0, 0)
+    search:SetTextInsets(22, 4, 0, 0)
+    local glass = search:CreateTexture(nil, "ARTWORK")
+    glass:SetTexture("Interface\\AddOns\\BaziUI\\Assets\\Icons\\Bazi\\Search.tga")
+    glass:SetSize(14, 14)
+    glass:SetPoint("LEFT", 5, 0)
+    glass:SetVertexColor(0.75, 0.63, 0.44)
+    frame.capacity = CreateFrame("Frame", nil, frame)
+    local capacityBar = CreateFrame("StatusBar", nil, frame.capacity)
+    capacityBar:SetHeight(4)
+    capacityBar:SetPoint("LEFT")
+    capacityBar:SetPoint("RIGHT")
+    capacityBar:SetStatusBarTexture("Interface\\Buttons\\WHITE8X8")
+    frame.capacity.bar = capacityBar
+    local capacityTrack = capacityBar:CreateTexture(nil, "BACKGROUND")
+    capacityTrack:SetAllPoints()
+    capacityTrack:SetColorTexture(0.18, 0.14, 0.12, 1)
+    frame.capacity.count = inventory.Label(capacityBar)
+    frame.capacity.count:SetPoint("RIGHT", frame.capacity, "RIGHT")
     local placeholder = inventory.Label(search)
-    placeholder:SetPoint("LEFT", 7, 0)
+    placeholder:SetPoint("LEFT", 22, 0)
     placeholder:SetText("Search items")
     placeholder:SetTextColor(0.59, 0.54, 0.48)
     local function updatePlaceholder()
         placeholder:SetShown(search:GetText() == "" and not search:HasFocus())
     end
-    search:SetScript("OnTextChanged", function() updatePlaceholder(); inventory.RefreshBags() end)
+    search:SetScript("OnTextChanged", function(_, userInput)
+        updatePlaceholder()
+        if userInput then revealUpgrade, scrollToUpgrade = nil, nil end
+        if not revealUpgrade then inventory.RefreshBags(true) end
+    end)
     search:SetScript("OnEditFocusGained", updatePlaceholder)
     search:SetScript("OnEditFocusLost", updatePlaceholder)
     search:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
@@ -720,6 +957,10 @@ local function createBag()
     end)
     wallet:SetScript("OnLeave", function() GameTooltip:Hide() end)
     frame:SetScript("OnHide", function()
+        revealUpgrade, scrollToUpgrade = nil, nil
+        frame.bagStripOpen = false
+        if InCombatLockdown() then return end
+        bagStrip:Hide()
         search:ClearFocus()
     end)
     return window, title
@@ -730,11 +971,67 @@ function inventory.OpenBags(requested)
     if not frame then frame, caption = createBag() end
     frame.opening = not frame:IsShown() or mode ~= (requested or "bags")
     mode = requested or "bags"
+    if mode ~= "bags" then revealUpgrade, scrollToUpgrade = nil, nil end
+    if scrollToUpgrade then
+        search:SetText("")
+        search:ClearFocus()
+    end
+    combatBagControls:SetAttribute("bagMode", mode == "bags")
     frame.sort:SetEnabled(mode == "bags" and sortBags ~= nil or mode == "bank" and sortBank ~= nil)
     updateCharacter()
     frame:Show()
     frame:Raise()
-    inventory.RefreshBags()
+    inventory.RefreshBags(true)
+end
+
+function inventory.RevealUpgrade(link)
+    if InCombatLockdown() or not inventory.Settings().enabled or MerchantFrame and MerchantFrame:IsShown() then return end
+    revealUpgrade, scrollToUpgrade = link, true
+    inventory.OpenBags("bags")
+end
+
+function inventory.MoversLayout(enabled)
+    if InCombatLockdown() then return end
+    if enabled then
+        if inventory.Settings().enabled and not (frame and frame:IsShown()) then
+            inventory.OpenBags("bags")
+            moversOpenedBags = frame and frame:IsShown()
+        end
+    elseif moversOpenedBags then
+        moversOpenedBags = nil
+        if frame and mode == "bags" then frame:Hide() end
+    end
+end
+
+local bagBindingCommands = {"TOGGLEBACKPACK", "OPENALLBAGS", "TOGGLEBAG1", "TOGGLEBAG2", "TOGGLEBAG3",
+    "TOGGLEBAG4", "TOGGLEREAGENTBAG", "TOGGLEKEYRING"}
+local function syncCombatBagBindings(enabled)
+    if not combatBagControls or InCombatLockdown() then return end
+    local keys, count = {}, 0
+    for _, command in ipairs(bagBindingCommands) do
+        for _, key in ipairs({GetBindingKey(command)}) do
+            if not keys[key] then
+                keys[key], count = true, count + 1
+                combatBagControls:SetAttribute("key" .. count, key)
+            end
+        end
+    end
+    combatBagControls:SetAttribute("keyCount", count)
+    combatBagControls:SetAttribute("bagMode", mode == "bags")
+    combatBagControls:SetAttribute("enabled", enabled)
+end
+
+local function prepareBagWindow()
+    if InCombatLockdown() then return end
+    local enabled = inventory.Settings().enabled
+    if enabled and not frame then frame, caption = createBag() end
+    if (mode == "bank" and not atBank) or (mode == "guild" and not atGuild) then mode = "bags" end
+    if enabled then
+        inventory.RefreshBags(nil, mode == "bags")
+    elseif frame then
+        frame:Hide()
+    end
+    syncCombatBagBindings(enabled)
 end
 
 local function refreshItemTarget()
@@ -762,41 +1059,84 @@ local function toggle()
     else inventory.OpenBags("bags") end
 end
 
-local bindings = {ToggleBackpack = toggle, ToggleAllBags = toggle, ToggleBag = toggle,
-    OpenAllBags = inventory.OpenBags, OpenBackpack = inventory.OpenBags, OpenBag = inventory.OpenBags,
-    CloseAllBags = function() if frame and not InCombatLockdown() then frame:Hide() end end,
-    CloseBackpack = function() if frame and not InCombatLockdown() then frame:Hide() end end}
+local pendingBagAction, closingNativeBags
+local bagActionPriority = {close = 1, open = 2, toggle = 3}
+local concealedBags = {}
+
+local function restoreNativeBags()
+    for bag, alpha in pairs(concealedBags) do bag:SetAlpha(alpha) end
+    wipe(concealedBags)
+end
+
+local function concealNativeBag(bag)
+    if bag and bag:IsShown() and concealedBags[bag] == nil then
+        concealedBags[bag] = bag:GetAlpha()
+        bag:SetAlpha(0)
+    end
+end
+
+local function queueBagAction(action)
+    if closingNativeBags or InCombatLockdown() or not inventory.Settings().enabled then return end
+    if action ~= "close" then
+        concealNativeBag(ContainerFrameCombinedBags)
+        for i = 1, NUM_CONTAINER_FRAMES or 13 do concealNativeBag(_G["ContainerFrame" .. i]) end
+    end
+    if pendingBagAction then
+        if bagActionPriority[action] >= bagActionPriority[pendingBagAction] then pendingBagAction = action end
+        return
+    end
+    pendingBagAction = action
+    C_Timer.After(0, function()
+        local requested = pendingBagAction
+        pendingBagAction = nil
+        if InCombatLockdown() or not inventory.Settings().enabled then
+            restoreNativeBags()
+            return
+        end
+        if requested == "close" then
+            if frame then frame:Hide() end
+            return
+        end
+        if CloseAllBags then
+            closingNativeBags = true
+            CloseAllBags()
+            closingNativeBags = false
+        end
+        restoreNativeBags()
+        if requested == "toggle" then toggle()
+        else inventory.OpenBags("bags") end
+    end)
+end
+
+local bindings = {ToggleBackpack = "toggle", ToggleAllBags = "toggle", ToggleBag = "toggle",
+    OpenAllBags = "open", OpenBackpack = "open", OpenBag = "open",
+    CloseAllBags = "close", CloseBackpack = "close"}
 
 local events = CreateFrame("Frame")
-for _, event in ipairs({"PLAYER_LOGIN", "PLAYER_MONEY", "PLAYER_LOGOUT", "BAG_UPDATE_DELAYED", "ITEM_LOCK_CHANGED", "GET_ITEM_INFO_RECEIVED",
-    "MERCHANT_SHOW", "BANKFRAME_OPENED", "BANKFRAME_CLOSED", "AUCTION_HOUSE_SHOW",
+for _, event in ipairs({"PLAYER_LOGIN", "PLAYER_ENTERING_WORLD", "UPDATE_BINDINGS", "PLAYER_MONEY", "PLAYER_LOGOUT", "BAG_UPDATE_DELAYED", "ITEM_LOCK_CHANGED", "GET_ITEM_INFO_RECEIVED",
+    "MERCHANT_SHOW", "MERCHANT_CLOSED", "BANKFRAME_OPENED", "BANKFRAME_CLOSED", "AUCTION_HOUSE_SHOW",
     "GUILDBANKFRAME_OPENED", "GUILDBANKFRAME_CLOSED", "GUILDBANKBAGSLOTS_CHANGED", "CURSOR_CHANGED",
     "MODIFIER_STATE_CHANGED", "PLAYER_EQUIPMENT_CHANGED", "PLAYER_REGEN_ENABLED", "CURRENT_SPELL_CAST_CHANGED"}) do
     pcall(events.RegisterEvent, events, event)
 end
 events:SetScript("OnEvent", function(_, event)
+    if event == "UPDATE_BINDINGS" then
+        syncCombatBagBindings(inventory.Settings().enabled)
+        return
+    end
+    if event == "PLAYER_ENTERING_WORLD" then prepareBagWindow(); return end
     if event == "MODIFIER_STATE_CHANGED" then
         if frame and frame:IsShown() and not InCombatLockdown() then
-            bagToggle:SetShown(mode == "bags" and IsAltKeyDown())
+            local db = inventory.Settings()
+            bagToggle:SetShown(mode == "bags" and (not db.bagsOnAlt or IsAltKeyDown()))
         end
         return
     end
     if event == "PLAYER_LOGIN" then
-        for name, handler in pairs(bindings) do
-            local original = _G[name]
-            if original then
-                _G[name] = function(...)
-                    if inventory.Settings().enabled and not InCombatLockdown() then return handler() end
-                    return original(...)
-                end
-            end
-        end
-        for i = 0, NUM_CONTAINER_FRAMES or 13 do
-            local bag = i == 0 and ContainerFrameCombinedBags or _G["ContainerFrame" .. i]
-            if bag then
-                bag:HookScript("OnShow", function(self)
-                    if inventory.Settings().enabled and not InCombatLockdown() then self:Hide() end
-                end)
+        -- Let Blizzard's binding run securely, including when combat starts mid-click.
+        for name, action in pairs(bindings) do
+            if type(_G[name]) == "function" then
+                hooksecurefunc(name, function() queueBagAction(action) end)
             end
         end
     end
@@ -813,11 +1153,17 @@ events:SetScript("OnEvent", function(_, event)
         return
     end
     if event == "PLAYER_REGEN_ENABLED" then
+        if moversOpenedBags and not (BaziUI.Movers and BaziUI.Movers.IsActive()) then inventory.MoversLayout(false) end
         refreshItemTarget()
         inventory.UpdateWindows()
         return
     end
     local db = inventory.Settings()
+    if event == "MERCHANT_CLOSED" then
+        merchantLayout = false
+        inventory.RefreshBags(true)
+        return
+    end
     if db.enabled and (event == "PLAYER_MONEY" or event == "PLAYER_LOGOUT"
         or event == "BAG_UPDATE_DELAYED" or event == "PLAYER_LOGIN") then updateCharacter() end
     if event == "PLAYER_LOGOUT" or event == "PLAYER_MONEY" then return end
@@ -826,13 +1172,19 @@ events:SetScript("OnEvent", function(_, event)
         if db.bank then inventory.OpenBags("bank") end
     elseif event == "BANKFRAME_CLOSED" then
         atBank = false
-        if mode == "bank" and frame and not InCombatLockdown() then frame:Hide() end
+        if mode == "bank" and not InCombatLockdown() then
+            frame:Hide()
+            prepareBagWindow()
+        end
     elseif event == "GUILDBANKFRAME_OPENED" then
         atGuild = true
         if db.guild then inventory.OpenBags("guild") end
     elseif event == "GUILDBANKFRAME_CLOSED" then
         atGuild = false
-        if mode == "guild" and frame and not InCombatLockdown() then frame:Hide() end
+        if mode == "guild" and not InCombatLockdown() then
+            frame:Hide()
+            prepareBagWindow()
+        end
     elseif event == "MERCHANT_SHOW" and db.merchant or event == "AUCTION_HOUSE_SHOW" and db.auction then
         inventory.OpenBags("bags")
     elseif event == "BAG_UPDATE_DELAYED" or event == "PLAYER_LOGIN" then
@@ -877,7 +1229,11 @@ events:SetScript("OnEvent", function(_, event)
         end
         known, knownSlots = current, slots
     end
-    inventory.RefreshBags()
+    if event == "PLAYER_LOGIN" then
+        prepareBagWindow()
+    else
+        inventory.RefreshBags(nil, db.enabled and mode == "bags" and event == "BAG_UPDATE_DELAYED")
+    end
     if (event == "PLAYER_EQUIPMENT_CHANGED" or event == "BAG_UPDATE_DELAYED") and GameTooltip:IsShown() then
         local owner = GameTooltip:GetOwner()
         for _, button in ipairs(cells) do
@@ -890,8 +1246,7 @@ events:SetScript("OnEvent", function(_, event)
 end)
 
 function inventory.UpdateWindows()
-    if frame and not inventory.Settings().enabled and not InCombatLockdown() then frame:Hide() end
-    inventory.RefreshBags()
+    prepareBagWindow()
     if inventory.RefreshRolls then inventory.RefreshRolls() end
     if inventory.RefreshCleanup then inventory.RefreshCleanup() end
     if inventory.RefreshLoot then inventory.RefreshLoot() end

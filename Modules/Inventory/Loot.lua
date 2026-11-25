@@ -90,22 +90,17 @@ local function styleRow(row, incoming)
     end
     local data = row.GetElementData and row:GetElementData()
     local isIncoming = incoming and data and data.slotIndex == incoming.slot
-    if addon.EquipmentAdvisor then
-        local index = data and data.slotIndex
-        local link = not isIncoming and type(index) == "number" and addon.Adventure.Call(GetLootSlotLink, index)
-        addon.EquipmentAdvisor.PaintIndicator(row, link, "loot", "RIGHT", -6, 0)
-    end
     if isIncoming and not row.baziCleanupPrice then
         row.baziCleanupPrice = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
         row.baziCleanupPrice:SetPoint("RIGHT", -8, 0)
         row.baziCleanupAccent = row:CreateTexture(nil, "BACKGROUND", nil, 2)
         row.baziCleanupAccent:SetAllPoints()
-        row.baziCleanupAccent:SetColorTexture(0.78, 0.48, 0.12, 0.30)
     end
     if row.baziCleanupPrice then
         row.baziCleanupPrice:SetShown(not not isIncoming)
         row.baziCleanupAccent:SetShown(not not isIncoming)
         if isIncoming then
+            row.baziCleanupAccent:SetColorTexture(addon.Theme:AccentInk(0.32))
             inventory.GeneralFont(row.baziCleanupPrice, -2, "OUTLINE")
             row.baziCleanupPrice:SetText(inventory.Money(incoming.total))
             if row.Text then row.Text:SetPoint("RIGHT", row.baziCleanupPrice, "LEFT", -8, 0) end
@@ -143,7 +138,6 @@ function inventory.RefreshLoot()
         for _, border in pairs(qualityBorders) do border:Hide() end
         if loot.ScrollBox and loot.ScrollBox.ForEachFrame then
             loot.ScrollBox:ForEachFrame(function(row)
-                if row.baziAdvisor then row.baziAdvisor:Hide() end
                 if row.baziCleanupPrice then
                     row.baziCleanupPrice:Hide()
                     row.baziCleanupAccent:Hide()
@@ -171,7 +165,18 @@ function inventory.RefreshLoot()
     end
     if loot:IsShown() then
         if not nativeWidth then nativeWidth, nativeHeight = loot:GetSize() end
-        loot:SetWidth(db.lootWidth)
+        local incoming = inventory.CleanupLootTarget()
+        local width = (incoming or inventory.RollsVisible()) and db.lootWidth or 205
+        font(skin.measure)
+        for slot = 1, GetNumLootItems() do
+            local _, name = GetLootSlotInfo(slot)
+            if type(name) == "string" and (not issecretvalue or not issecretvalue(name))
+                and (not canaccessvalue or canaccessvalue(name)) then
+                skin.measure:SetText(name)
+                width = math.max(width, math.ceil(skin.measure:GetStringWidth()) + (incoming and incoming.slot == slot and 150 or 85))
+            end
+        end
+        loot:SetWidth(math.min(UIParent:GetWidth() * 0.9, width))
         anchor(loot, "TOP", inventory.LootAnchor(), "TOP", 0, 0)
         local provider = loot.ScrollBox and loot.ScrollBox.GetDataProvider and loot.ScrollBox:GetDataProvider()
         if provider and provider.RemoveByPredicate and next(clearedSlots) then
@@ -268,6 +273,8 @@ local function install()
     skin.title:Hide()
     skin.title:SetText(ITEMS or "Items")
     skin.title:SetTextColor(1, 0.82, 0.49)
+    skin.measure = skin:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    skin.measure:Hide()
     skin.border = addon.Theme:CreateFrameBorder(skin, skin, skin)
     addon.Theme:AddDropShadow("Inventory", skin, skin.border)
     loot:HookScript("OnShow", function()

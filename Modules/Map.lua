@@ -29,12 +29,20 @@ map.pointOptions = {
 for _, option in ipairs(map.pointOptions) do defaults[option[1]] = true end
 local world, header, border, grip, readout, drag
 local questCount, continentButton, zoneButton
+local closeControl, displayControl, fullscreenControls
 local initialFit = true
 local initialViewport
 local opacity, tick = 1, 0
 local overlayTiles, outlines, markers = {}, {}, {}
 local hiddenPins = setmetatable({}, {__mode = "k"})
 local queued, explorationPin = false, nil
+local skinQuestList
+local skinQuestPins
+local sidebarWidth, sidebarMaximized
+local viewportNeedsLayout, previousMapStrata
+local applyingChrome
+local iconPath = "Interface\\AddOns\\BaziUI\\Assets\\Icons\\Bazi\\"
+local questArt = iconPath .. "Quest.tga"
 
 local function settings()
     local profile = addon.db.profile
@@ -256,14 +264,22 @@ local function drawPoints(mapID, config)
             markers[count] = button
         end
         button.point = point
-        local size = map.GetOption("pointSize")
+        local size = map.GetOption("pointSize") * (kind == "Arrow" and 1.25 or 1)
         button:SetSize(size, size)
         button:SetFrameLevel(level)
         local atlas = atlases[kind]
-        if atlas and (not C_Texture or not C_Texture.GetAtlasInfo or C_Texture.GetAtlasInfo(atlas)) then
+        button.icon:SetVertexColor(1, 1, 1)
+        button.icon:SetDesaturated(false)
+        if kind == "QuestOffer" then
+            button.icon:SetTexture(questArt)
+            button.icon:SetTexCoord(0, 1, 0, 1)
+            button.icon:SetVertexColor(addon.Theme:Accent())
+        elseif atlas and (not C_Texture or not C_Texture.GetAtlasInfo or C_Texture.GetAtlasInfo(atlas)) then
             button.icon:SetAtlas(atlas)
-        elseif kind == "QuestOffer" then
-            button.icon:SetTexture(132048)
+            if kind == "Arrow" then
+                button.icon:SetDesaturated(true)
+                button.icon:SetVertexColor(addon.Theme:Accent())
+            end
         else
             button.icon:SetTexture("Interface\\Icons\\INV_Misc_Map_01")
         end
@@ -330,6 +346,7 @@ function map.RefreshHeaderStyle()
     header.fill:SetColorTexture(addon.Headers.Fill("map", headerColor()))
     local r, g, b = addon.Headers.Text("map", 1, 0.82, 0.49)
     for _, button in ipairs({continentButton, zoneButton}) do button:GetFontString():SetTextColor(r, g, b) end
+    if readout then readout:SetTextColor(r, g, b) end
     if questCount then
         questCount:SetTextColor(r, g, b)
         local _, count = C_QuestLog.GetNumQuestLogEntries()
@@ -351,8 +368,7 @@ local function refreshHeader(mapID)
     for _, button in ipairs({continentButton, zoneButton}) do
         addon.Typography.Apply(button:GetFontString(), "Map:Header", file, size, flags, true)
     end
-    file, size, flags = GameFontHighlightSmall:GetFont()
-    addon.Typography.Apply(readout, "Map:Coordinates", file, size, flags, true)
+    addon.Typography.Apply(readout, "Map:Header", file, size, flags, true)
     continentButton:SetPoint("LEFT", questCount, "RIGHT", 13, 0)
     local continent = continentOf(mapID)
     local info = C_Map.GetMapInfo(mapID)
@@ -419,7 +435,11 @@ function map.Refresh()
         if not world:IsShown() then return end
         local mapID = world:GetMapID()
         if not mapID then return end
-        fitViewport(mapID)
+        local resized = fitViewport(mapID)
+        if viewportNeedsLayout and not InCombatLockdown() then
+            viewportNeedsLayout = nil
+            if not resized and world.OnFrameSizeChanged then world:OnFrameSizeChanged() end
+        end
         local config = {}
         for _, option in ipairs(map.options) do config[option[1]] = map.GetOption(option[1]) end
         drawExploration(mapID, config)
@@ -427,6 +447,8 @@ function map.Refresh()
         sizeMarkers()
         refreshHeader(mapID)
         refreshReadout(mapID)
+        skinQuestPins()
+        skinQuestList()
     end)
 end
 
@@ -451,7 +473,7 @@ local function update(_, elapsed)
     local speed = GetUnitSpeed("player")
     local moving = type(speed) == "number" and (not issecretvalue or not issecretvalue(speed))
         and (not canaccessvalue or canaccessvalue(speed)) and speed > 0
-    local alpha = moving and math.max(0.75, opacity - elapsed * (0.25 / 0.65)) or 1
+    local alpha = moving and not world:IsMaximized() and math.max(0.75, opacity - elapsed * (0.25 / 0.65)) or 1
     if alpha ~= opacity then world:SetAlpha(alpha); opacity = alpha end
     if drag then
         if not IsMouseButtonDown("LeftButton") or not canMove() then
@@ -461,7 +483,11 @@ local function update(_, elapsed)
             local delta = ((x - drag.x) * drag.width - (y - drag.y) * drag.height)
                 / (drag.width * drag.width + drag.height * drag.height)
             local scale = math.max(0.55, math.min(1.6, drag.scale * (1 + delta)))
-            if scale ~= world:GetScale() then world:SetScale(scale); settings().scale = scale end
+            if scale ~= world:GetScale() then
+                world:SetScale(scale)
+                settings().scale = scale
+                map.Refresh()
+            end
         end
     end
     tick = tick + elapsed
@@ -527,35 +553,555 @@ local function mapChoices(continent)
     return choices
 end
 
-local function flatControl(button, glyph)
-    if not button or button.baziMapIcon then return end
-    if glyph == "×" then
-        button.baziMapIcon = addon.Theme:CloseGlyph(button, 15)
-        return
+local function flatControl(button, iconName, size)
+    if not button or not button.CreateTexture then return end
+    if not button.baziMapIcon then
+        button.baziMapSurface = addon.Theme:Surface(button, "Button", 10, "BACKGROUND", 1)
+        local icon = button:CreateTexture(nil, "OVERLAY", nil, 5)
+        icon:SetPoint("CENTER")
+        icon:SetVertexColor(1, 0.83, 0.56)
+        button.baziMapIcon = icon
+        button:HookScript("OnEnter", function(self)
+            addon.Theme:SetSurface(self.baziMapSurface, "ButtonHover", 10)
+        end)
+        button:HookScript("OnLeave", function(self)
+            addon.Theme:SetSurface(self.baziMapSurface, "Button", 10)
+        end)
     end
-    local icon = button:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-    icon:SetText(glyph)
-    icon:SetTextColor(1, 0.82, 0.49)
-    icon:SetPoint("CENTER", 0, 0)
-    button.baziMapIcon = icon
+    local icon = button.baziMapIcon
+    icon:SetTexture(iconPath .. iconName .. ".tga")
+    icon:SetSize(size or 13, size or 13)
+    icon:SetShown(true)
+    for _, region in ipairs({button:GetRegions()}) do
+        if region ~= icon and region ~= button.baziMapSurface and region:IsObjectType("Texture") then region:SetAlpha(0) end
+    end
 end
 
-local function hideControlArt(button)
-    if not button or not button.baziMapIcon then return end
-    for _, region in ipairs({button:GetRegions()}) do
-        if region ~= button.baziMapIcon and region:IsObjectType("Texture") then region:SetAlpha(0) end
+local function silenceMapButtonArt(button)
+    for _, getter in ipairs({"GetNormalTexture", "GetPushedTexture", "GetHighlightTexture",
+        "GetDisabledTexture", "GetCheckedTexture", "GetDisabledCheckedTexture"}) do
+        local art = button[getter] and button[getter](button)
+        if type(art) == "table" and art.SetAlpha then art:SetAlpha(0) end
     end
+    for _, art in pairs({button.border, button.lit, button.glyph, button.bar, button.CheckMark}) do
+        if type(art) == "table" and art.SetAlpha then art:SetAlpha(0) end
+    end
+end
+
+local function paintMapPlayerControl(button, icon)
+    flatControl(button, icon, 15)
+    button.baziMapSurface:SetDrawLayer("ARTWORK", 3)
+    silenceMapButtonArt(button)
+end
+
+local function updateMapCheck(box)
+    silenceMapButtonArt(box)
+    local checked
+    if box.CheckMark then checked = box.CheckMark:IsShown()
+    else checked = box:GetChecked() end
+    if issecretvalue and issecretvalue(checked) then return end
+    checked = checked == true or checked == 1
+    addon.Theme:SetSurface(box.baziMapSurface, checked and "ButtonActive" or "Button", 10)
+    box.baziMapIcon:SetShown(checked)
+end
+
+local function paintMapTrackingButton(box)
+    if not box or not (box.CheckMark or box.GetChecked) then return end
+    paintMapPlayerControl(box, "Check")
+    updateMapCheck(box)
+    if not box.baziMapTrackingHook then
+        if box.CheckMark then
+            hooksecurefunc(box.CheckMark, "SetShown", function() updateMapCheck(box) end)
+        elseif box.SetChecked then
+            hooksecurefunc(box, "SetChecked", updateMapCheck)
+        end
+        box:HookScript("OnLeave", updateMapCheck)
+        box.baziMapTrackingHook = true
+    end
+end
+
+local function mapPlaybackIcon(state)
+    if state == "stop" then return "Stop" end
+    if state == "pause" then return "Pause" end
+    if state == "queue" or state == "queued" then return "Queue" end
+    return "Play"
+end
+
+local function placeQuestTags(row, control, reservedWidth)
+    reservedWidth = reservedWidth or 0
+    if row.TagTexture then row.TagTexture:SetPoint("RIGHT", control, "LEFT", -4 - reservedWidth, 0) end
+    local tag = row.TagText
+    if tag and tag:IsShown() then
+        tag:ClearAllPoints()
+        tag:SetPoint("TOPRIGHT", control, "TOPLEFT", -6 - reservedWidth, -1)
+        if row.Text then row.Text:SetPoint("RIGHT", tag, "LEFT", -4, 0) end
+    end
+end
+
+local function paintMapPlayback(parent, rows)
+    for _, button in ipairs({parent:GetChildren()}) do
+        if button.MatchBox and button.SetState and button.glyph and button:IsShown() then
+            local row = rows[button.questID or (button.soundData and button.soundData.questID)]
+            if not row then
+                local _, anchor = button:GetPoint()
+                row = rows[anchor]
+            end
+            if row and row.Checkbox then
+                button:ClearAllPoints()
+                button:SetPoint("RIGHT", row.Checkbox, "LEFT", -4, 0)
+                placeQuestTags(row, button)
+                paintMapPlayerControl(button, mapPlaybackIcon(button.state))
+                if not button.baziMapPlaybackHook then
+                    hooksecurefunc(button, "SetState", function(self, state)
+                        self.baziMapIcon:SetTexture(iconPath .. mapPlaybackIcon(state) .. ".tga")
+                        silenceMapButtonArt(self)
+                    end)
+                    for _, script in ipairs({"OnEnter", "OnLeave", "OnEnable", "OnDisable"}) do
+                        button:HookScript(script, function(self)
+                            silenceMapButtonArt(self)
+                            self.baziMapIcon:SetAlpha(self:IsEnabled() and 1 or 0.4)
+                        end)
+                    end
+                    button.baziMapPlaybackHook = true
+                end
+                button.baziMapIcon:SetAlpha(button:IsEnabled() and 1 or 0.4)
+            end
+        end
+    end
+end
+
+local function getMapObjectives(questID)
+    local objectives = C_QuestLog.GetQuestObjectives and C_QuestLog.GetQuestObjectives(questID) or {}
+    if not (GetNumQuestLeaderBoards and GetQuestLogLeaderBoard and C_QuestLog.GetLogIndexForQuestID) then return objectives end
+    local index = C_QuestLog.GetLogIndexForQuestID(questID)
+    if not index or index <= 0 then return objectives end
+    local count = GetNumQuestLeaderBoards(index)
+    if type(count) ~= "number" or count <= #objectives then return objectives end
+    local legacy = {}
+    for i = 1, count do
+        local text, _, finished = GetQuestLogLeaderBoard(i, index)
+        legacy[i] = objectives[i] or {text = text, finished = finished}
+    end
+    return legacy
+end
+
+local function mapObjectiveText(text)
+    if type(text) ~= "string" or (issecretvalue and issecretvalue(text)) then return "" end
+    return (text:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("^%s*%-?%s*", "")
+        :gsub("^•%s*", ""):gsub("%s+$", ""))
+end
+
+local function objectiveProgress(label, objectives)
+    local have, need = label:match("(%d+)%s*/%s*(%d+)")
+    have, need = tonumber(have), tonumber(need)
+    if have and need and need > 0 then return math.min(1, have / need) end
+    for _, objective in ipairs(objectives) do
+        if label == mapObjectiveText(objective.text) then
+            have, need = objective.numFulfilled, objective.numRequired
+            if type(have) == "number" and type(need) == "number"
+                and (not issecretvalue or not issecretvalue(have) and not issecretvalue(need)) and need > 0 then
+                return math.max(0, math.min(1, have / need))
+            end
+        end
+    end
+end
+
+local function questMarkerID(button)
+    local id = button.GetQuestID and button:GetQuestID() or button.questID
+    if type(id) == "number" and (not issecretvalue or not issecretvalue(id)) and id > 0 then return id end
+end
+
+local function paintQuestBadge(button, questID)
+    local badge = button.baziQuestBadge
+    local styles = POIButtonUtil and POIButtonUtil.Style
+    local style = styles and button.GetStyle and button:GetStyle()
+    if style and style ~= styles.QuestInProgress and style ~= styles.QuestComplete then questID = nil end
+    if not questID then
+        if badge then
+            badge:Hide()
+            for region, alpha in pairs(badge.originalAlpha) do region:SetAlpha(alpha) end
+            wipe(badge.originalAlpha)
+        end
+        return
+    end
+    if not badge then
+        badge = button:CreateTexture(nil, "ARTWORK", nil, 5)
+        badge:SetAllPoints(button)
+        badge.originalAlpha = {}
+        button.baziQuestBadge = badge
+        if button.UpdateButtonAlpha then
+            hooksecurefunc(button, "UpdateButtonAlpha", function()
+                if not badge:IsShown() or questMarkerID(button) ~= badge.questID then return end
+                for region in pairs(badge.originalAlpha) do region:SetAlpha(0) end
+            end)
+        end
+    end
+    local ready = C_QuestLog.ReadyForTurnIn and C_QuestLog.ReadyForTurnIn(questID)
+    if (not issecretvalue or not issecretvalue(ready)) and not ready and C_QuestLog.IsComplete then
+        ready = C_QuestLog.IsComplete(questID)
+    end
+    local complete = styles and style == styles.QuestComplete
+        or (not issecretvalue or not issecretvalue(ready)) and (ready == true or ready == 1)
+    badge.questID = questID
+    badge:SetTexture(iconPath .. (complete and "QuestTurnIn" or "QuestProgress") .. ".tga")
+    badge:Show()
+    for _, region in pairs({button.NormalTexture or (button.GetNormalTexture and button:GetNormalTexture()),
+        button.PushedTexture or (button.GetPushedTexture and button:GetPushedTexture()), button.Display}) do
+        if badge.originalAlpha[region] == nil then badge.originalAlpha[region] = region:GetAlpha() end
+        region:SetAlpha(0)
+    end
+end
+
+skinQuestPins = function()
+    if not world.ExecuteOnAllPins or InCombatLockdown() then return end
+    world:ExecuteOnAllPins(function(pin)
+        local button = pin.POIButton or pin
+        if not (button:IsObjectType("Button") or button.NormalTexture or button.baziQuestBadge) then return end
+        local id = questMarkerID(button) or (button ~= pin and questMarkerID(pin))
+        local index = id and C_QuestLog.GetLogIndexForQuestID and C_QuestLog.GetLogIndexForQuestID(id)
+        paintQuestBadge(button, type(index) == "number" and (not issecretvalue or not issecretvalue(index))
+            and index > 0 and id or nil)
+    end)
+end
+
+local function alignQuestCard(card, row, list, inset)
+    local listLeft, listRight, rowLeft = list:GetLeft(), list:GetRight(), row:GetLeft()
+    card:ClearAllPoints()
+    if listLeft and listRight and rowLeft then
+        card:SetPoint("TOPLEFT", row, "TOPLEFT", listLeft - rowLeft, -inset)
+        card:SetPoint("BOTTOMRIGHT", row, "BOTTOMLEFT", listRight - rowLeft, inset)
+    else
+        card:SetPoint("TOPLEFT", row, "TOPLEFT", 0, -inset)
+        card:SetPoint("BOTTOMRIGHT", row, "BOTTOMRIGHT", 0, inset)
+    end
+end
+
+local questListRows = setmetatable({}, {__mode = "k"})
+local layingOutQuestList
+local function decorateQuestRow(row, list, activeRows, playbackParents)
+    if not row:IsShown() then return end
+    local questID = row.questID or row.QuestID
+    if type(questID) ~= "number" and row.GetElementData then
+        local info = row:GetElementData()
+        questID = type(info) == "table" and info.questID
+    end
+    if type(questID) ~= "number" and row.questLogIndex and C_QuestLog.GetInfo then
+        local info = C_QuestLog.GetInfo(row.questLogIndex)
+        questID = info and info.questID
+    end
+    local display = questListRows[row]
+    if type(questID) ~= "number" or (issecretvalue and issecretvalue(questID)) or questID <= 0 then
+        if display then
+            display.back:Hide()
+        end
+        return
+    end
+    if not display then
+        local back = addon.Theme:RoundedCard(row)
+        back:SetFrameLevel(row:GetFrameLevel())
+        display = {back = back}
+        questListRows[row] = display
+    end
+    alignQuestCard(display.back, row, list, 1)
+    addon.Theme:PaintQuestCard(display.back)
+    activeRows[questID], activeRows[row] = row, row
+    playbackParents[row:GetParent()] = true
+    if row.Checkbox then
+        activeRows[row.Checkbox] = row
+        row.Checkbox:ClearAllPoints()
+        row.Checkbox:SetPoint("TOPRIGHT", display.back, "TOPRIGHT", -6, -5)
+        placeQuestTags(row, row.Checkbox, 24)
+        paintMapTrackingButton(row.Checkbox)
+    end
+    if row.POIButton then paintQuestBadge(row.POIButton, questID) end
+    display.back:Show()
+end
+
+local objectiveBars = setmetatable({}, {__mode = "k"})
+local function addMapProgress(list, rows)
+    local pool = list.objectiveFramePool
+    local contents = list.Contents
+    if not (pool and pool.EnumerateActive and contents and contents.Layout) then return false end
+    local config = addon.QuestTracker.Settings()
+    local trackerFrame = _G.BaziUIQuestTracker or UIParent
+    local thickness = config.progressThickness * trackerFrame:GetEffectiveScale() / list:GetEffectiveScale()
+    local rowsWithBars, objectiveRows, objectivesByQuest, active = {}, {}, {}, {}
+    local changed = false
+    for objective in pool:EnumerateActive() do
+        local id = objective.questID
+        local row = id and rows[id]
+        local label = objective.Text
+        local bar = objectiveBars[objective]
+        if row and label and objective:IsShown() then objectiveRows[objective] = row end
+        if row and label and objective:IsShown() and config.progressBars then
+            local objectives = objectivesByQuest[id]
+            if not objectives then
+                objectives = getMapObjectives(id)
+                objectivesByQuest[id] = objectives
+            end
+            local progress = objectiveProgress(mapObjectiveText(label:GetText()), objectives)
+            if progress then
+                active[objective] = true
+                if not bar then
+                    bar = CreateFrame("StatusBar", nil, objective)
+                    bar:SetStatusBarTexture("Interface\\Buttons\\WHITE8X8")
+                    bar:SetMinMaxValues(0, 1)
+                    bar:EnableMouse(false)
+                    local track = bar:CreateTexture(nil, "BACKGROUND")
+                    track:SetAllPoints()
+                    track:SetColorTexture(0.43, 0.41, 0.40, 0.47)
+                    objectiveBars[objective] = bar
+                end
+                bar:ClearAllPoints()
+                bar:SetPoint("TOPLEFT", label, "BOTTOMLEFT", 0, -2)
+                local left, right = label:GetLeft(), questListRows[row].back:GetRight()
+                bar:SetWidth(left and right and math.max(1, right - left - 6) or label:GetWidth())
+                bar:SetHeight(thickness)
+                bar:SetStatusBarColor(addon.Theme:Accent())
+                bar:SetValue(progress)
+                bar:Show()
+
+                local extra = thickness + 4
+                local height = math.ceil(label:GetStringHeight()) + extra
+                if objective:GetHeight() ~= height then objective:SetHeight(height); changed = true end
+                rowsWithBars[row] = true
+            end
+        end
+    end
+    for objective, bar in pairs(objectiveBars) do
+        if not active[objective] and bar:IsShown() then
+            bar:Hide()
+            if objective:IsShown() and objective.Text then
+                objective:SetHeight(objective.Text:GetStringHeight())
+                changed = true
+            end
+        end
+    end
+    local bottomByRow = {}
+    for objective, row in pairs(objectiveRows) do
+        local bottom = objective:GetBottom()
+        if bottom and rowsWithBars[row] then
+            bottomByRow[row] = math.min(bottomByRow[row] or bottom, bottom)
+        end
+    end
+    for row, display in pairs(questListRows) do
+        if rows[row] then
+            local height = row:GetHeight()
+            display.nativeHeight = display.nativeHeight or height
+            local top, bottom = row:GetTop(), bottomByRow[row]
+            local target = top and bottom and math.max(30, top - bottom + 4) or display.nativeHeight
+            if math.abs(target - height) > 0.01 then row:SetHeight(target); changed = true end
+        else
+            display.nativeHeight = nil
+        end
+    end
+    return changed
+end
+
+local function paintMapCategory(row, list, names)
+    if not row:IsShown() or row.questID or row.QuestID or row.Checkbox then return end
+    local function isCategoryLabel(label)
+        if not (label and label.GetText and label.SetTextColor) then return false end
+        local text = label:GetText()
+        if type(text) ~= "string" or (issecretvalue and issecretvalue(text)) then return false end
+        local name = text:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):match("^%s*(.-)%s*$")
+        return names[name] == true
+    end
+    local text = row.Text or row.Title or row.HeaderText or (row.GetFontString and row:GetFontString())
+    if not isCategoryLabel(text) then
+        text = nil
+        for _, region in ipairs({row:GetRegions()}) do
+            if region:IsObjectType("FontString") and isCategoryLabel(region) then text = region; break end
+        end
+    end
+    if not text then return end
+    if not row.baziCategory then
+        local card = addon.Theme:RoundedCard(row)
+        card:SetFrameLevel(row:GetFrameLevel())
+        row.baziCategory = card
+    end
+    local card = row.baziCategory
+    alignQuestCard(card, row, list, 2)
+    card:SetBackdropColor(addon.Headers.Fill("map", 0.20, 0.15, 0.105, 0.96))
+    card:SetBackdropBorderColor(addon.Theme:AccentInk(0.24))
+    for _, region in ipairs({row:GetRegions()}) do
+        if region:IsObjectType("Texture") and region:GetWidth() > row:GetWidth() * 0.55 then region:SetAlpha(0) end
+    end
+    for _, region in pairs({row.NineSlice, row.Bg, row.Background}) do region:SetAlpha(0) end
+    local font, size, flags = GameFontNormal:GetFont()
+    addon.Typography.Apply(text, "Map:Header", font, size, flags, true)
+    text:SetTextColor(addon.Headers.Text("map", 1, 0.82, 0.49))
+    card:Show()
+end
+
+local function mapQuestScrollbar(list, scroll)
+    return list.ScrollBar or scroll.ScrollBar or _G.QuestScrollFrameScrollBar
+end
+
+local function skinMapQuestScrollbar(bar, scroll)
+    local track = bar.baziRail
+    if not track then
+        track = bar:CreateTexture(nil, "BACKGROUND")
+        track:SetPoint("TOP")
+        track:SetPoint("BOTTOM")
+        track:SetWidth(1)
+        bar.baziRail = track
+    end
+    local thumb = bar.GetThumbTexture and bar:GetThumbTexture()
+    local range = scroll.GetVerticalScrollRange and scroll:GetVerticalScrollRange()
+    local available = range == nil or range > 0.5
+    if thumb and range then addon.Theme:PaintScrollRail(track, thumb, bar:GetHeight(), range) end
+    for _, region in ipairs({bar:GetRegions()}) do
+        if region ~= track and region ~= thumb and region:IsObjectType("Texture") then region:SetAlpha(0) end
+    end
+    if not thumb then
+        thumb = bar.Track and bar.Track.Thumb
+        thumb = thumb and (thumb.Texture or thumb)
+        if thumb and thumb.SetVertexColor then thumb:SetVertexColor(addon.Theme:Accent()) end
+        local background = bar.Track and (bar.Track.Background or bar.Track.Bg)
+        if background then background:SetAlpha(0) end
+    end
+    if thumb and thumb.SetAlpha then thumb:SetAlpha(available and 1 or 0) end
+    track:SetColorTexture(addon.Theme:AccentInk(0.35))
+    track:SetShown(available)
+    local name = bar:GetName()
+    for _, arrow in pairs({bar.ScrollUpButton, bar.ScrollDownButton, bar.Back, bar.Forward,
+        name and _G[name .. "ScrollUpButton"], name and _G[name .. "ScrollDownButton"]}) do
+        if type(arrow) == "table" and arrow.SetAlpha then
+            if arrow.EnableMouse then arrow:EnableMouse(false) end
+            arrow:SetAlpha(0)
+        end
+    end
+end
+
+skinQuestList = function()
+    local list = QuestScrollFrame or (QuestMapFrame and QuestMapFrame.QuestsFrame)
+    if not list or not list:IsVisible() or InCombatLockdown() or layingOutQuestList then return end
+    local scroll = list.ScrollFrame or list.ScrollBox or list
+    local panel = list.baziQuestBackdrop
+    if panel then addon.Theme:PaintWindowEdge(panel) end
+    local bar = mapQuestScrollbar(list, scroll)
+    if bar then skinMapQuestScrollbar(bar, scroll) end
+    local activeRows, parents = {}, {[list] = true}
+    local function rowStyle(row) decorateQuestRow(row, list, activeRows, parents) end
+    local pool = list.titleFramePool or list.questTitleFramePool
+    if pool and pool.EnumerateActive then
+        for row in pool:EnumerateActive() do rowStyle(row) end
+    elseif scroll.ForEachFrame then
+        scroll:ForEachFrame(rowStyle)
+    elseif scroll.GetScrollChild then
+        local child = scroll:GetScrollChild()
+        if child then
+            for _, row in ipairs({child:GetChildren()}) do rowStyle(row) end
+        end
+    end
+    layingOutQuestList = true
+    if addMapProgress(list, activeRows) then
+        list.Contents:Layout()
+        if scroll.UpdateScrollChildRect then scroll:UpdateScrollChildRect() end
+    end
+    layingOutQuestList = nil
+    local names = {}
+    for index = 1, C_QuestLog.GetNumQuestLogEntries() do
+        local info = C_QuestLog.GetInfo(index)
+        if info and info.isHeader and info.title then names[info.title] = true end
+    end
+    for _, headers in pairs({list.headerFramePool, list.questHeaderFramePool, list.categoryFramePool}) do
+        if headers.EnumerateActive then
+            for row in headers:EnumerateActive() do paintMapCategory(row, list, names) end
+        end
+    end
+    if scroll.GetScrollChild then
+        local child = scroll:GetScrollChild()
+        if child then parents[child] = true end
+    end
+    for parent in pairs(parents) do
+        for _, row in ipairs({parent:GetChildren()}) do
+            paintMapCategory(row, list, names)
+            if row:IsObjectType("Button") and not row.Checkbox and not row.MatchBox
+                and (row.GetQuestID or row.questID or row.baziQuestBadge) then
+                local id = questMarkerID(row)
+                paintQuestBadge(row, id and activeRows[id] and id or nil)
+            end
+        end
+        paintMapPlayback(parent, activeRows)
+    end
+    for row, display in pairs(questListRows) do
+        if not activeRows[row] then
+            display.back:Hide()
+        end
+    end
+end
+
+local function hideQuestPanelArt(list, quest)
+    local function decorative(region)
+        local name = region:GetName()
+        if not name then return false end
+        name = name:lower()
+        return name:find("border", 1, true) or name:find("nineslice", 1, true)
+            or name:find("inset", 1, true) or name:find("background", 1, true) or name:match("bg$")
+    end
+    for _, root in ipairs({list, quest}) do
+        for _, region in ipairs({root:GetRegions()}) do
+            if region:IsObjectType("Texture") and (root == list or decorative(region)) then region:SetAlpha(0) end
+        end
+        for _, child in ipairs({root:GetChildren()}) do
+            if child ~= list and child ~= list.baziQuestBackdrop and decorative(child) and not child:IsObjectType("Button") then
+                child:SetAlpha(0)
+            end
+        end
+        for _, region in pairs({root.NineSlice, root.Bg, root.Background, root.Inset, root.Border,
+            root.BackgroundFrame, root.BorderFrame, root.QuestsFrameInset}) do region:SetAlpha(0) end
+    end
+    for _, region in pairs({_G.QuestScrollFrameBorder, _G.QuestScrollFrameInset, _G.QuestLogFrameInset,
+        _G.QuestMapFrameQuestsFrameInset, _G.QuestScrollFrameBackground}) do region:SetAlpha(0) end
+end
+
+local function placeWindowControls(maximized)
+    local parent = maximized and fullscreenControls or header
+    for _, button in ipairs({closeControl, displayControl}) do
+        if button:GetParent() ~= parent then button:SetParent(parent) end
+        button:SetFrameStrata(parent:GetFrameStrata())
+        button:SetFrameLevel(parent:GetFrameLevel() + 3)
+    end
+    fullscreenControls:SetShown(maximized and world:IsVisible())
 end
 
 local function applyChrome()
-    if InCombatLockdown() then return end
+    if applyingChrome or InCombatLockdown() then return end
+    applyingChrome = true
     local native = world.BorderFrame
+    local maximized = world:IsMaximized()
+    if maximized then
+        local strata = world:GetFrameStrata()
+        if strata ~= "FULLSCREEN_DIALOG" then
+            previousMapStrata = strata
+            world:SetFrameStrata("FULLSCREEN_DIALOG")
+        end
+        header:SetFrameStrata("FULLSCREEN_DIALOG")
+        border:SetFrameStrata("FULLSCREEN_DIALOG")
+        native:SetFrameStrata("FULLSCREEN_DIALOG")
+    else
+        if previousMapStrata then
+            world:SetFrameStrata(previousMapStrata)
+            previousMapStrata = nil
+        end
+        header:SetFrameStrata("HIGH")
+        border:SetFrameStrata("HIGH")
+        native:SetFrameStrata("HIGH")
+    end
+    -- The native border has its own mouse surface across the whole map.
+    native:EnableMouse(false)
+    if native.EnableMouseWheel then native:EnableMouseWheel(false) end
     for _, region in ipairs({native:GetRegions()}) do region:SetAlpha(0) end
     for _, region in pairs({native.NineSlice, native.PortraitContainer, native.TitleContainer, native.Bg, native.Tutorial}) do
         region:SetAlpha(0)
     end
     if native.Tutorial then native.Tutorial:EnableMouse(false) end
-    if world.BlackoutFrame then world.BlackoutFrame:Hide() end
+    if world.BlackoutFrame then
+        world.BlackoutFrame:EnableMouse(false)
+        world.BlackoutFrame:Hide()
+    end
     for _, cvar in ipairs({"worldMapShowPlayerCoords", "worldMapShowCursorCoords"}) do
         if GetCVar(cvar) == "1" then SetCVar(cvar, "0") end
     end
@@ -572,44 +1118,89 @@ local function applyChrome()
     if world.NavBar then world.NavBar:Hide() end
     local oldCount = _G.QuestLogCount
     if oldCount then oldCount:SetAlpha(0) end
-    local close, maximize = native.CloseButton, native.MaximizeMinimizeFrame
-    if close then
-        close:ClearAllPoints()
-        close:SetSize(20, 20)
-        close:SetPoint("RIGHT", header, "RIGHT", -5, 0)
-        close:SetFrameLevel(header:GetFrameLevel() + 3)
+    local nativeDisplay = native.MaximizeMinimizeFrame
+    if native.CloseButton then
+        native.CloseButton:SetAlpha(0)
+        native.CloseButton:EnableMouse(false)
     end
-    if close and maximize then
-        maximize:ClearAllPoints()
-        maximize:SetSize(20, 20)
-        maximize:SetPoint("RIGHT", close, "LEFT", -3, 0)
-        maximize:SetFrameLevel(header:GetFrameLevel() + 3)
-        for _, button in ipairs({maximize:GetChildren()}) do
-            button:SetFrameLevel(maximize:GetFrameLevel() + 1)
-        end
-        hideControlArt(maximize.MaximizeButton)
-        hideControlArt(maximize.MinimizeButton)
+    if nativeDisplay then
+        nativeDisplay:SetAlpha(0)
+        for _, button in ipairs({nativeDisplay:GetChildren()}) do button:EnableMouse(false) end
     end
-    hideControlArt(close)
+    displayControl:SetShown(maximized or (nativeDisplay ~= nil and nativeDisplay:IsShown()))
+    flatControl(displayControl, maximized and "ChevronDown" or "ChevronUp")
     local list = QuestScrollFrame or (QuestMapFrame and QuestMapFrame.QuestsFrame)
     local quest = world.QuestLog or QuestMapFrame
     local questWidth = quest and quest:IsShown() and (world.questLogWidth or 333) or 0
     local canvas = world.ScrollContainer
+    local mapLevel = math.max(world:GetFrameLevel(), canvas:GetFrameLevel())
+    local chromeStrata = header:GetFrameStrata()
+    header:SetFrameLevel(math.max(mapLevel, native:GetFrameLevel(), border:GetFrameLevel()) + 12)
+    placeWindowControls(maximized)
+    if quest then
+        quest:SetFrameStrata(chromeStrata)
+        quest:SetFrameLevel(mapLevel + 4)
+        quest:SetAlpha(1)
+    end
+    if list then
+        list:SetAlpha(1)
+        if list ~= quest then
+            list:SetFrameStrata(chromeStrata)
+            list:SetFrameLevel(mapLevel + 6)
+        end
+    end
     canvas:ClearAllPoints()
     canvas:SetPoint("TOPLEFT", header, "BOTTOMLEFT", 0, 0)
     canvas:SetPoint("BOTTOMRIGHT", world, "BOTTOMRIGHT", -questWidth - 3, 22)
+    if sidebarWidth ~= questWidth or sidebarMaximized ~= maximized then
+        sidebarWidth, sidebarMaximized = questWidth, maximized
+        viewportNeedsLayout = true
+    end
     if list and questWidth > 0 then
+        if not list.baziQuestBackdrop then
+            local panel = addon.Theme:RoundedCard(list:GetParent())
+            panel:SetFrameLevel(math.max(0, list:GetFrameLevel() - 1))
+            panel:SetPoint("TOPLEFT", canvas, "TOPRIGHT", 2, 0)
+            panel:SetPoint("BOTTOMRIGHT", world, "BOTTOMRIGHT", -4, 22)
+            panel:SetBackdropColor(0.038, 0.031, 0.030, 1)
+            addon.Theme:PaintWindowEdge(panel)
+            addon.Backgrounds.Track("map", panel.fillTexture or panel, 1)
+            list.baziQuestBackdrop = panel
+        end
+        list.baziQuestBackdrop:SetFrameStrata(chromeStrata)
+        list.baziQuestBackdrop:SetFrameLevel(list:GetFrameLevel() - 1)
+        list.baziQuestBackdrop:Show()
+        hideQuestPanelArt(list, quest)
+        local panel = list.baziQuestBackdrop
         list:ClearAllPoints()
-        list:SetPoint("TOPLEFT", canvas, "TOPRIGHT", 3, 0)
-        -- The native scroll bar is anchored outside the list's right edge.
-        list:SetPoint("BOTTOMRIGHT", world, "BOTTOMRIGHT", -27, 22)
+        list:SetPoint("TOPLEFT", panel, "TOPRIGHT", 9 - questWidth, -5)
+        list:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", -18, 5)
+        local scroll = list.ScrollFrame or list.ScrollBox or list
+        local scrollBar = mapQuestScrollbar(list, scroll)
+        if scrollBar then
+            scrollBar:ClearAllPoints()
+            scrollBar:SetWidth(8)
+            scrollBar:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -5, -8)
+            scrollBar:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", -5, 8)
+        end
+        if not scroll.baziQuestSkinHook then
+            if scroll.ForEachFrame and type(scroll.Update) == "function" then hooksecurefunc(scroll, "Update", skinQuestList)
+            elseif scroll.GetScrollChild then
+                scroll:HookScript("OnVerticalScroll", skinQuestList)
+                scroll:HookScript("OnScrollRangeChanged", skinQuestList)
+            end
+            scroll.baziQuestSkinHook = true
+        end
+    elseif list and list.baziQuestBackdrop then
+        list.baziQuestBackdrop:Hide()
     end
     local search, options = list and list.SearchBox, list and list.SettingsDropdown
-    if search and options and maximize then
+    if search and options then
         options:ClearAllPoints()
-        options:SetPoint("RIGHT", maximize, "LEFT", -5, 0)
+        options:SetPoint("RIGHT", displayControl:IsShown() and displayControl or closeControl, "LEFT", -5, 0)
         options:SetSize(20, 20)
         options:SetFrameLevel(header:GetFrameLevel() + 3)
+        flatControl(options, "Settings")
         search:ClearAllPoints()
         search:SetPoint("LEFT", world.ScrollContainer, "TOPRIGHT", 7, 15)
         search:SetPoint("RIGHT", options, "LEFT", -7, 0)
@@ -620,6 +1211,7 @@ local function applyChrome()
     if filter then
         filter:ClearAllPoints()
         filter:SetPoint("TOPRIGHT", world.ScrollContainer, "TOPRIGHT", -5, -5)
+        flatControl(filter, "ChevronDown")
     end
     local toggle = world.SidePanelToggle
     if not toggle then
@@ -630,15 +1222,20 @@ local function applyChrome()
     if toggle then
         toggle:ClearAllPoints()
         toggle:SetPoint("BOTTOMRIGHT", canvas, "BOTTOMRIGHT", -5, 4)
+        flatControl(toggle.OpenButton, "Quest", 16)
+        flatControl(toggle.CloseButton, "Quest", 16)
     end
     if continentButton then map.RefreshHeaderStyle() end
     grip:SetShown(canMove())
+    applyingChrome = nil
 end
 
 local function install()
     if border or not WorldMapFrame or not addon.db or InCombatLockdown() then return end
     world = WorldMapFrame
     if not world.BorderFrame or not world.ScrollContainer then return end
+    -- Bazi's chrome and quest list need the same render order as the map canvas.
+    if world.SetIsFrameBuffer then world:SetIsFrameBuffer(false) end
 
     local backing = world:CreateTexture(nil, "BACKGROUND", nil, -7)
     backing:SetPoint("TOPLEFT", 3, -3)
@@ -669,12 +1266,28 @@ local function install()
         divider:SetPoint("RIGHT", button, "LEFT", -4, 0)
         divider:SetColorTexture(0.82, 0.65, 0.47, 0.48)
     end
-    local controls = world.BorderFrame
-    flatControl(controls.CloseButton, "×")
-    if controls.MaximizeMinimizeFrame then
-        flatControl(controls.MaximizeMinimizeFrame.MaximizeButton, "^")
-        flatControl(controls.MaximizeMinimizeFrame.MinimizeButton, "v")
-    end
+    -- Keep the fullscreen hit targets outside the map's panel and canvas.
+    fullscreenControls = CreateFrame("Frame", nil, UIParent)
+    fullscreenControls:SetAllPoints(header)
+    fullscreenControls:SetFrameStrata("TOOLTIP")
+    fullscreenControls:EnableMouse(false)
+    fullscreenControls:Hide()
+    closeControl = CreateFrame("Button", nil, header)
+    closeControl:SetSize(20, 20)
+    closeControl:SetPoint("RIGHT", header, "RIGHT", -5, 0)
+    closeControl:EnableMouse(true)
+    closeControl:RegisterForClicks("LeftButtonUp")
+    closeControl:SetScript("OnClick", function() HideUIPanel(world) end)
+    flatControl(closeControl, "Cross")
+    displayControl = CreateFrame("Button", nil, header)
+    displayControl:SetSize(20, 20)
+    displayControl:SetPoint("RIGHT", closeControl, "LEFT", -3, 0)
+    displayControl:EnableMouse(true)
+    displayControl:RegisterForClicks("LeftButtonUp")
+    displayControl:SetScript("OnClick", function()
+        if world:IsMaximized() then world:HandleUserActionMinimizeSelf()
+        else world:HandleUserActionMaximizeSelf() end
+    end)
     world:SetMovable(true)
     world:SetClampedToScreen(true)
     header:SetScript("OnDragStart", function() if canMove() then world:StartMoving() end end)
@@ -723,24 +1336,53 @@ local function install()
     readout:SetShadowColor(0, 0, 0, 1)
     readout:SetShadowOffset(1, -1)
 
-    local function show()
-        if GetCVar("mapFade") == "1" then SetCVar("mapFade", "0") end
+    local chromeQueued
+    local function syncLayout()
+        chromeQueued = nil
+        if not world:IsShown() or InCombatLockdown() then return end
+        if world:IsMaximized() then
+            world:SetScale(1)
+        else
+            if sidebarMaximized then initialFit, initialViewport = false, nil end
+            restorePosition()
+        end
         applyChrome()
-        restorePosition()
+        if viewportNeedsLayout then
+            local mapID = world:GetMapID()
+            if mapID and fitViewport(mapID) then viewportNeedsLayout = nil end
+        end
         map.Refresh()
     end
-    border:SetScript("OnUpdate", update)
+    local function queueLayout()
+        if chromeQueued or applyingChrome then return end
+        chromeQueued = true
+        C_Timer.After(0, function() if chromeQueued then syncLayout() end end)
+    end
+    local function show()
+        if GetCVar("mapFade") == "1" then SetCVar("mapFade", "0") end
+        queueLayout()
+    end
+    world:HookScript("OnUpdate", update)
     world:HookScript("OnShow", show)
     world:HookScript("OnHide", function()
+        fullscreenControls:Hide()
+        sidebarWidth = nil
         drag, opacity = nil, 1
         initialViewport = nil
         world:SetAlpha(1)
     end)
-    hooksecurefunc(world, "OnMapChanged", map.Refresh)
-    hooksecurefunc(world, "OnMapChanged", applyChrome)
+    hooksecurefunc(world, "OnMapChanged", queueLayout)
     if BaseMapPoiPinMixin and BaseMapPoiPinMixin.OnAcquired then
         hooksecurefunc(BaseMapPoiPinMixin, "OnAcquired", function(pin)
             if map.GetOption("hideTowns") and pin.GetMap and pin:GetMap() == world then map.Refresh() end
+        end)
+    end
+    if type(QuestLogQuests_Update) == "function" then
+        hooksecurefunc("QuestLogQuests_Update", function()
+            for _, display in pairs(questListRows) do
+                display.nativeHeight = nil
+            end
+            if world:IsShown() then C_Timer.After(0, skinQuestList) end
         end)
     end
     addZoneHover()
@@ -749,29 +1391,19 @@ local function install()
     world:HookScript("OnSizeChanged", sizeMarkers)
     if world.OnCanvasScaleChanged then hooksecurefunc(world, "OnCanvasScaleChanged", sizeMarkers) end
     if world.UpdateSpacerFrameAnchoring then
-        hooksecurefunc(world, "UpdateSpacerFrameAnchoring", function()
-            applyChrome()
-            map.Refresh()
-        end)
+        hooksecurefunc(world, "UpdateSpacerFrameAnchoring", queueLayout)
     end
     local quest = world.QuestLog or QuestMapFrame
     if quest then
-        local function syncQuestLayout()
-            C_Timer.After(0, function()
-                if not world:IsShown() then return end
-                applyChrome()
-                map.Refresh()
-            end)
-        end
-        quest:HookScript("OnShow", syncQuestLayout)
-        quest:HookScript("OnHide", syncQuestLayout)
+        quest:HookScript("OnShow", queueLayout)
+        quest:HookScript("OnHide", queueLayout)
     end
-    if world.SynchronizeDisplayState then
-        hooksecurefunc(world, "SynchronizeDisplayState", function()
-            applyChrome()
-            if world:IsMaximized() then world:SetScale(1) else restorePosition() end
-        end)
-    end
+    if world.SynchronizeDisplayState then hooksecurefunc(world, "SynchronizeDisplayState", queueLayout) end
+    if world.SetDisplayState then hooksecurefunc(world, "SetDisplayState", syncLayout) end
+    world:RegisterEvent("PLAYER_REGEN_ENABLED")
+    world:HookScript("OnEvent", function(_, event)
+        if event == "PLAYER_REGEN_ENABLED" and world:IsShown() then syncLayout() end
+    end)
     if world:IsShown() then show() else applyChrome() end
 end
 

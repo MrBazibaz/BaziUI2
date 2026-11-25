@@ -6,6 +6,7 @@ local pending = 0
 local marker
 local health
 local dropShadow
+local replaceSellPrice
 local function DB()
     return addon.db and addon.db.profile and addon.db.profile.tooltip
 end
@@ -179,7 +180,10 @@ local function UpdateHealth()
     if not setOK then health:Hide(); return end
     SetNativeBarHidden(true)
     health:Show()
-
+    if type(value) == "number" and (not issecretvalue or not issecretvalue(value))
+        and (not canaccessvalue or canaccessvalue(value)) then
+        health.percent:SetFormattedText("%.0f%%", value * 100)
+    else health.percent:SetText("") end
 end
 
 local function Readable(v)
@@ -234,6 +238,9 @@ local function UnitContent()
     if not db or not db.enabled then return end
     local unit = UnitToken()
     if not unit then return end
+    local simple = db.smart ~= false and not IsShiftKeyDown()
+    local player = UnitIsPlayer(unit)
+    local isPlayer = Readable(player) and player
     local _, difficulty = addon.GetUnitDifficulty(unit)
     if difficulty then
         local prefix = (TOOLTIP_UNIT_LEVEL or "Level %s"):match("^(.-)%%") or "Level "
@@ -243,17 +250,25 @@ local function UnitContent()
                 local text = row and row:GetText()
                 if Readable(text) and text:sub(1, #prefix) == prefix then
                     row:SetTextColor(difficulty.r, difficulty.g, difficulty.b)
+                    if isPlayer then
+                        local level, race, class = UnitLevel(unit), UnitRace(unit), UnitClass(unit)
+                        if Readable(level) and type(level) == "number" and level > 0 and Readable(race) and type(race) == "string"
+                            and Readable(class) and type(class) == "string" then
+                            row:SetText(level .. "  " .. race .. " " .. class)
+                            RemoveLine(class, true)
+                        end
+                    end
                     break
                 end
             end
         end
     end
-    if not db.guild then RemoveLine(GetGuildInfo(unit), false) end
-    if db.hideFaction then
+    if simple or not db.guild then RemoveLine(GetGuildInfo(unit), false) end
+    if simple or db.hideFaction then
         RemoveLine(_G.FACTION_HORDE, true)
         RemoveLine(_G.FACTION_ALLIANCE, true)
     end
-    if db.targetTarget then
+    if not simple and db.targetTarget then
         local target = unit .. "target"
         local ok, exists = pcall(UnitExists, target)
         if ok and Readable(exists) and exists then
@@ -273,6 +288,15 @@ local function UnitContent()
             if color and title then title:SetTextColor(color.r, color.g, color.b) end
         end
     end
+    if simple then
+        RemoveLine("Item Level", false)
+        RemoveLine(PVP or "PvP", true)
+        if isPlayer or not db.hideFaction then tip:AddLine("Shift for details", 0.65, 0.60, 0.53) end
+    elseif db.smart ~= false then
+        local faction = UnitFactionGroup(unit)
+        if not db.hideFaction and isPlayer and Readable(faction) and type(faction) == "string"
+            and not FindLine(faction) then tip:AddDoubleLine("Faction", faction, 0.73, 0.62, 0.48, 0.93, 0.88, 0.79) end
+    end
     -- ilvl Forever owns the player ilvl line via its own post-call.
     ScrubFrameHint()
     UpdateHealth()
@@ -282,16 +306,28 @@ local function ItemContent(_, data)
     if not db or not db.enabled then return end
     local _, link = tip:GetItem()
     if not Readable(link) then link = nil end
+    local id = data and data.id
+    if not Readable(id) then id = link and tonumber(link:match("item:(%d+)")) end
+    if FindLine("Vendor") then
+        RemoveLine((SELL_PRICE or "Sell Price"):match("^[^:]+"), false)
+    elseif replaceSellPrice and data and data.lines then
+        for _, line in ipairs(data.lines) do
+            local price = line.price
+            if line.type == replaceSellPrice and not line.maxPrice and Readable(price) and type(price) == "number" and price > 0 then
+                tip:AddDoubleLine("Vendor", GetCoinTextureString(price), 0.83, 0.69, 0.49, 0.96, 0.92, 0.84)
+                break
+            end
+        end
+    end
+    if Readable(id) and addon.Inventory and addon.Inventory.IsCleanupProtected and addon.Inventory.IsCleanupProtected(id) then
+        tip:AddLine("Protected from Cleanup", addon.Theme:Accent())
+    end
     if db.ids then
-        local id = data and data.id
-        if not Readable(id) then id = link and tonumber(link:match("item:(%d+)")) end
         if Readable(id) and type(id) == "number" and not FindLine("Item ID") then
             tip:AddDoubleLine(" ", "Item ID " .. id, 1, 1, 1, 0.6, 0.6, 0.6)
         end
     end
     if db.itemLevel then
-        local id = data and data.id
-        if not Readable(id) then id = link and tonumber(link:match("item:(%d+)")) end
         addon.ItemLevel.AddItemTooltipLine(tip, link or id)
     end
     if tip:IsShown() then tip:Show() end
@@ -381,7 +417,9 @@ function T:Initialize()
     health = CreateFrame("StatusBar", nil, tip)
     health:SetHeight(7)
     health:SetMinMaxValues(0, 1)
-    health:SetStatusBarTexture("Interface\\TargetingFrame\\UI-StatusBar")
+    health:SetStatusBarTexture("Interface\\AddOns\\BaziUI\\Assets\\Bars\\BaziHealthGradientRight.tga")
+    health.percent = health:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    health.percent:SetPoint("CENTER")
     health:SetStatusBarColor(0.28, 0.78, 0.35)
     health:Hide()
     -- Suppress native bar as soon as Blizzard shows it, before the next tick.
@@ -397,6 +435,14 @@ function T:Initialize()
     end
     if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall
         and Enum and Enum.TooltipDataType then
+        replaceSellPrice = GetCoinTextureString and Enum.TooltipDataLineType and Enum.TooltipDataLineType.SellPrice
+        if replaceSellPrice and TooltipDataProcessor.AddLinePreCall then
+            TooltipDataProcessor.AddLinePreCall(replaceSellPrice, function(frame, line)
+                local db, price = DB(), line.price
+                if frame == tip and db and db.enabled and Readable(price) and type(price) == "number" and price > 0
+                    and not line.maxPrice then return true end
+            end)
+        else replaceSellPrice = nil end
         local add = TooltipDataProcessor.AddTooltipPostCall
         add(Enum.TooltipDataType.Unit, function(frame) if frame == tip then UnitContent() end end)
         add(Enum.TooltipDataType.Item, function(frame, data) if frame == tip then ItemContent(frame, data) end end)
@@ -436,6 +482,14 @@ function T:Initialize()
     local elapsedHealth = 0
     self.cursorDriver = cursorDriver
     cursorDriver:Show()
+    cursorDriver:RegisterEvent("MODIFIER_STATE_CHANGED")
+    cursorDriver:SetScript("OnEvent", function(_, _, key)
+        local db = DB()
+        if db and db.enabled and db.smart ~= false and (key == "LSHIFT" or key == "RSHIFT")
+            and tip:IsShown() and UnitToken() and tip.RefreshDataNextUpdate then
+            tip:RefreshDataNextUpdate()
+        end
+    end)
     cursorDriver:SetScript("OnUpdate", function(_, elapsed)
         if debugEnabled then
             debugTicks = debugTicks + 1

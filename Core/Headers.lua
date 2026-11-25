@@ -59,6 +59,8 @@ local entries = {
 local byKey = {}
 for _, entry in ipairs(entries) do byKey[entry[1]] = entry end
 local inventoryKeys = {inventory = true, bank = true, guildBank = true, cleanup = true, rolls = true, loot = true}
+local accentHeaderColor = {0.105, 0.103, 0.122}
+local accentHeaderOpacity = {quest = 90, meter = 90, meter2 = 90}
 
 function headers.Options(includeInactive)
     local available = {}
@@ -86,19 +88,31 @@ function headers.Fill(key, r, g, b, alpha)
     if not original then original = {}; defaults[key] = original end
     original[1], original[2], original[3], original[4] = r, g, b, alpha
     local color, opacity = headers.Get(key, "color"), headers.Get(key, "opacity")
-    if color then r, g, b = unpack(color) end
+    if addon.Theme:UsesAccentStyle() then
+        r, g, b = unpack(accentHeaderColor)
+        if alpha > 0 then opacity = opacity or accentHeaderOpacity[key] end
+    elseif color then r, g, b = unpack(color) end
     return r, g, b, opacity and opacity / 100 or alpha
 end
 
 function headers.Text(key, r, g, b)
+    local profile = addon.db and addon.db.profile
+    if profile and profile.classHeaderText then return addon.Theme:MutedClassColor() end
     local color = headers.Get(key, "text")
     if color then return unpack(color) end
     return r, g, b
 end
 
 function headers.DisplayValue(key, property)
+    local profile = addon.db and addon.db.profile
+    if property == "text" and profile and profile.classHeaderText then return {addon.Theme:MutedClassColor()} end
+    if property == "color" and addon.Theme:UsesAccentStyle() then return accentHeaderColor end
     local stored = headers.Get(key, property)
     if stored ~= nil then return stored end
+    if property == "opacity" and addon.Theme:UsesAccentStyle() and accentHeaderOpacity[key]
+        and (not defaults[key] or defaults[key][4] > 0) then
+        return accentHeaderOpacity[key]
+    end
     if property == "text" then
         if key == "meter" or key == "meter2" then
             return addon.DamageMeter.Settings(key == "meter2" and 2 or 1).headerTextColor

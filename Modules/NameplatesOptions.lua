@@ -9,7 +9,7 @@ local defaults = {
     friendlyX = 0, friendlyY = 20, friendlySize = 28,
     friendlyTextX = 0, friendlyTextY = 0, friendlyTextSize = 20,
     petEnabled = true, petShowIcon = false, petIconVisibility = "always",
-    npcEnabled = true, npcIcons = false,
+    npcEnabled = true, npcIcons = false, npcQuestMarkers = true,
 }
 local function Settings()
     local profile = addon.db and addon.db.profile
@@ -481,11 +481,12 @@ function addon.NameplatesOptions:CreatePage(parent)
     local npc = NewTab("NPC", 460)
     Toggle(npc, "ENABLE FRIENDLY NPC NAMEPLATES", -4, db, "npcEnabled")
     Toggle(npc, "ENABLE NPC ICONS", -52, db, "npcIcons")
-    Heading(npc, "NAME TEXT", -120)
+    Toggle(npc, "SHOW NPC QUEST MARKERS", -100, db, "npcQuestMarkers")
+    Heading(npc, "NAME TEXT", -168)
     local npcNote = Label(npc,
         "Same name layout as Friendly players, with green text.\nService and quest icons require reliable client identification;\nunknown NPC types remain text-only.",
         "GameFontHighlightSmall")
-    npcNote:SetPoint("TOPLEFT", npc, "TOPLEFT", 14, -165)
+    npcNote:SetPoint("TOPLEFT", npc, "TOPLEFT", 14, -213)
     npcNote:SetWidth(450)
     npcNote:SetJustifyH("LEFT")
     npcNote:SetTextColor(0.66, 0.63, 0.59, 1)
@@ -591,7 +592,11 @@ function addon.NameplatesOptions:CreatePage(parent)
     Dropdown(enemy, "COMBO POINT STYLE", y, db, "enemyComboStyle", {
         {"orb", "Gold orb"}, {"square", "Gold square"}, {"star", "Star"},
         {"skull", "Skull"}, {"moon", "Moon"}, {"goldGem", "Gold gem"},
+        {"diamond", "Bazi diamond"}, {"dagger", "Bazi dagger"}, {"claw", "Bazi claw"},
         {"silverGem", "Silver gem"}, {"plumGem", "Plum gem"},
+        {"venom", "Venom drop"}, {"runestone", "Runestone"}, {"ember", "Ember"},
+        {"thorn", "Jade thorn"}, {"eye", "Watcher eye"}, {"crescent", "Silver crescent"},
+        {"steelKnife", "Steel knife"},
     })
     y = y - 48
     Number("COMBO POINT SIZE", "enemyComboSize", 6, 40)

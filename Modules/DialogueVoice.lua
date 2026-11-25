@@ -40,7 +40,7 @@ function voice.Highlight(page, caption)
     local first, nextWord = marks.Pick(map, caption.activeWord)
     if not first then return page.text end
     local spans = marks.Spans(map, paragraphs, first, nextWord)
-    local color = addon.QuestTracker.Settings().accent
+    local color = {addon.Theme:Accent()}
     local hex = string.format("|cff%02x%02x%02x", math.floor(color[1] * 255 + 0.5),
         math.floor(color[2] * 255 + 0.5), math.floor(color[3] * 255 + 0.5))
     return marks.Want(paragraphs[1], 1, nil, nil, nil, spans, hex), paragraphs[1].words[map[first].w].first

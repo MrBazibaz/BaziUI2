@@ -120,6 +120,7 @@ local function position(settings, key)
     return own
 end
 local function applyPosition(f, settings, key)
+    if addon.Movers and addon.Movers.IsDragging(f) then return end
     -- Boss units stack vertically at the right side of the screen.
     -- Each member keeps its own independent X/Y offsets and spacing.
     local own = position(settings, key)
@@ -254,6 +255,7 @@ local function addAuraBorder(parent)
         insets = {left=0, right=0, top=0, bottom=0},
     })
     border:SetBackdropBorderColor(0.48, 0.34, 0.18, 0.95)
+    BaziUI.Theme:TrackWindowBorder(border, false)
     return border
 end
 local function initializeAuraButton(button, size, opt, entry, kind)
@@ -393,6 +395,7 @@ local function updateAuraPreview(f)
                     insets = {left=0, right=0, top=0, bottom=0},
                 })
                 border:SetBackdropBorderColor(0.48, 0.34, 0.18, 0.95)
+                BaziUI.Theme:TrackWindowBorder(border, false)
                 group.tiles[i] = tile
                 group.tiles[i .. "_border"] = border
             end
@@ -893,6 +896,7 @@ local function createPetExtras(f)
         border:SetPoint("BOTTOMRIGHT", 2, -2)
         border:SetBackdrop({edgeFile="Interface\\Tooltips\\UI-Tooltip-Border", edgeSize=8})
         border:SetBackdropBorderColor(0.75, 0.56, 0.29, 1)
+        BaziUI.Theme:TrackWindowBorder(border, false)
         border:EnableMouse(false)
         return holder
     end
@@ -993,6 +997,7 @@ local function createPartyCast(f)
     border:SetPoint("BOTTOMRIGHT",2,-2)
     border:SetBackdrop({edgeFile="Interface\\Tooltips\\UI-Tooltip-Border",edgeSize=8})
     border:SetBackdropBorderColor(.75,.56,.29,1)
+    BaziUI.Theme:TrackWindowBorder(border, false)
     border:EnableMouse(false)
     cast.label=cast:CreateFontString(nil,"OVERLAY","GameFontNormalSmall")
     cast.label:SetPoint("CENTER")
@@ -1079,6 +1084,7 @@ local function create(key, spec)
     border:SetFrameLevel(f:GetFrameLevel() + 5)
     border:SetBackdrop({edgeFile="Interface\\Tooltips\\UI-Tooltip-Border", edgeSize=12})
     border:SetBackdropBorderColor(0.90, 0.72, 0.42, 1)
+    BaziUI.Theme:TrackWindowBorder(border, false)
     local portraitLayer = CreateFrame("Frame", nil, f)
     portraitLayer:SetAllPoints(f)
     portraitLayer:SetFrameLevel(f:GetFrameLevel() + 8)
@@ -1138,6 +1144,7 @@ local function create(key, spec)
     f.portraitShadow = BaziUI.Theme:AddPortraitDropShadow(portraitAnchor, rim)
     rim:SetPoint("CENTER", portraitAnchor, "CENTER")
     rim:SetAtlas("UI-HUD-UnitFrame-Target-PortraitOn")
+    BaziUI.Theme:TrackPortraitRim(rim)
     rim:SetTexCoord(252.78/384, 375/384, 1.67/134, 123.89/134)
     local rimMask = portraitLayer:CreateMaskTexture()
     rimMask:SetTexture("Interface\\CHARACTERFRAME\\TempPortraitAlphaMask", "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
@@ -1429,6 +1436,7 @@ function M:Refresh()
     pendingCombatRefresh = false
     local settings=cfg()
     if not settings then return end
+    local arranging = addon.Movers and addon.Movers.IsActive()
     for i=1,5 do
         local key="boss"..i
         local spec=units[key]
@@ -1436,7 +1444,7 @@ function M:Refresh()
         if own.width==nil then own.width=tonumber(own.barWidth) or tonumber(settings.width) or 162 end
         if own.hpHeight==nil then own.hpHeight=tonumber(settings.hpHeight) or 23 end
         if own.powerHeight==nil then own.powerHeight=tonumber(settings.powerHeight) or 9 end
-        if settings.enabled then create(key,spec) end
+        if settings.enabled or arranging then create(key,spec) end
         local f=frames[key]
         if f then
             f.portraitSide=own.portraitSide or "LEFT"
@@ -1444,7 +1452,7 @@ function M:Refresh()
             updateAuraPreview(f)
             updateLiveAuras(f)
             local exists=UnitExists(key)==true
-            local preview=settings.showSolo and not UnitExists(key)
+            local preview=arranging or settings.showSolo and not UnitExists(key)
             if exists then
                 update(f)
                 -- Boss portraits do not use Party role overlays.
@@ -1459,7 +1467,15 @@ function M:Refresh()
                 end
             end
             applyPosition(f,settings,key)
-            f:SetShown(settings.enabled and (exists or preview))
+            local layoutOnly = arranging and not (settings.enabled and (exists or (settings.showSolo and not UnitExists(key))))
+            if layoutOnly and not f.moversVisibility and RegisterStateDriver then
+                RegisterStateDriver(f, "visibility", "[combat] hide; show")
+                f.moversVisibility = true
+            elseif not layoutOnly and f.moversVisibility then
+                UnregisterStateDriver(f, "visibility")
+                f.moversVisibility = nil
+            end
+            f:SetShown(arranging or settings.enabled and (exists or preview))
             f:SetScale(1.15 * (settings.scale or 1))
         end
     end

@@ -1,7 +1,23 @@
 local addon, D = BaziUI, BaziUI.Dashboard
 local call, read = D.Call, D.Read
-local objectiveState, questSnapshot, nextCompletion = {}, nil, nil
-local function questEvent() questSnapshot = nil end
+local objectiveState, insideAreas, questSnapshot, nextCompletion = {}, {}, nil, nil
+
+local function questEvent(event)
+    if event ~= "PLAYER_INSIDE_QUEST_BLOB_STATE_CHANGED" then questSnapshot = nil end
+end
+
+local function insideQuestArea(id)
+    if not read(id) or type(id) ~= "number" then return false end
+    return call(C_Minimap and C_Minimap.IsInsideQuestBlob, id) == true
+end
+
+local function questAreaChanged()
+    if nextCompletion and GetTime() >= nextCompletion then return true end
+    for id in pairs(questSnapshot or {}) do
+        if insideQuestArea(id) ~= (insideAreas[id] == true) then return true end
+    end
+    return false
+end
 local function rowsResult(rows, active, activity, title)
     return {rows = rows, active = active, activity = activity, title = title}
 end
@@ -18,15 +34,29 @@ local function smartQuests(options)
     local tracker = addon.QuestTracker
     local q = C_QuestLog
     if not (tracker and q and q.GetQuestObjectives) then return end
-    if not questSnapshot then questSnapshot = {tracker.DashboardQuests()} end
-    local log, names, mapped, watched = unpack(questSnapshot)
+    if not questSnapshot then questSnapshot = tracker.DashboardQuests() end
     local tracking = D.Tracking()
     local rows, kept, time = {}, {}, GetTime()
-    local duration = D.Settings().completedDuration
+    local cfg = D.Settings()
+    local duration = cfg.completedDuration
+    local items, seenItems = {}, {}
     nextCompletion = nil
-    for id, entry in pairs(log) do
-        if read(id) and type(id) == "number" then
-            local localQuest = mapped[id] or entry.zone and names[entry.zone] or not entry.zone and watched[id]
+    wipe(insideAreas)
+    for id, entry in pairs(questSnapshot) do
+        if insideQuestArea(id) then
+            insideAreas[id] = true
+            if cfg.showQuestItems then
+                local index = entry.index or call(q.GetLogIndexForQuestID, id)
+                local link, icon
+                if index then link, icon = call(GetQuestLogSpecialItemInfo, index) end
+                if type(link) == "string" and read(icon) and icon then
+                    local itemID = link:match("|Hitem:(%d+)")
+                    if itemID and not seenItems[itemID] then
+                        seenItems[itemID] = true
+                        items[#items + 1] = {id = itemID, link = link, icon = icon}
+                    end
+                end
+            end
             entry.dashboardObjectives = entry.dashboardObjectives or call(q.GetQuestObjectives, id) or {}
             for index, objective in ipairs(entry.dashboardObjectives) do
                 local key = id .. ":" .. index
@@ -42,7 +72,7 @@ local function smartQuests(options)
                     state.done, kept[key] = done, true
                     local recent = state.finishedAt and time - state.finishedAt < duration
                     if recent then nextCompletion = math.min(nextCompletion or math.huge, state.finishedAt + duration) end
-                    if (localQuest or pinned or options.pinned and watched[id]) and (not done or recent or pinned or options.keepCompleted) then
+                    if not done or recent or pinned or options.keepCompleted then
                         label = label:gsub("^%d+/%d+%s+", ""):gsub("%s*:%s*%d+/%d+$", "")
                         local detail = entry.info.title
                         if counted then detail = ("%s\n%d remaining"):format(detail or "", math.max(0, need - have)) end
@@ -63,11 +93,15 @@ local function smartQuests(options)
     end
     for key in pairs(objectiveState) do if not kept[key] then objectiveState[key] = nil end end
     table.sort(rows, function(a, b) return a.key < b.key end)
-    return rowsResult(rows, #rows > 0, #rows > 0, call(GetRealZoneText))
+    table.sort(items, function(a, b) return a.id < b.id end)
+    local relevant = #rows > 0 or #items > 0
+    local data = rowsResult(rows, relevant, relevant, call(GetRealZoneText))
+    if #items > 0 then data.questItems = items end
+    return data
 end
 D.Register({id = "quests", label = "Local objectives", priority = 80, read = smartQuests, event = questEvent, resync = questEvent,
-    tick = function() return nextCompletion and GetTime() >= nextCompletion end,
-    events = {"QUEST_LOG_UPDATE", "QUEST_WATCH_LIST_CHANGED", "QUEST_WATCH_UPDATE", "ZONE_CHANGED", "ZONE_CHANGED_INDOORS",
+    tick = questAreaChanged,
+    events = {"PLAYER_INSIDE_QUEST_BLOB_STATE_CHANGED", "QUEST_LOG_UPDATE", "QUEST_WATCH_LIST_CHANGED", "QUEST_WATCH_UPDATE", "ZONE_CHANGED", "ZONE_CHANGED_INDOORS",
         "ZONE_CHANGED_NEW_AREA", "PLAYER_ENTERING_WORLD", "BAG_UPDATE_DELAYED"}})
 
 -- Classic skill-line IDs and the known spell for each profession's window.
@@ -91,17 +125,20 @@ end
 local function scanSkills()
     if not skillDirty then return skillRows end
     skillDirty = false
-    local result, time, locale = {}, GetTime(), skillLocale()
+    local observed, time, locale = {}, GetTime(), skillLocale()
     local function append(id, name, rank, maximum)
         if not (read(name) and read(rank) and read(maximum)) or type(name) ~= "string"
             or type(rank) ~= "number" or type(maximum) ~= "number" or maximum <= 0 or rank <= 0 then return end
         local skillID = professions[id] and id or locale[name]
-        local profession = professions[skillID]
-        local record = skillRecords[name]
-        if not record then record = {start = rank}; skillRecords[name] = record end
-        if record.rank and rank > record.rank then record.activity = time end
-        record.rank, record.maximum, record.name, record.spell, record.id = rank, maximum, name, profession, skillID
-        result[#result + 1] = record
+        local entry = observed[name]
+        if not entry then
+            observed[name] = {rank = rank, maximum = maximum, id = skillID}
+        else
+            if rank > entry.rank or rank == entry.rank and maximum > entry.maximum then
+                entry.rank, entry.maximum = rank, maximum
+            end
+            entry.id = entry.id or skillID
+        end
     end
     local api = C_SkillInfo
     local count = call(api and api.GetNumSkillLines) or 0
@@ -114,7 +151,7 @@ local function scanSkills()
             end
         end
     end
-    if #result == 0 then
+    if not next(observed) then
         local total = call(GetNumSkillLines) or 0
         for i = 1, total do
             local name, header, _, rank, _, _, maximum = call(GetSkillLineInfo, i)
@@ -122,11 +159,20 @@ local function scanSkills()
         end
     end
     -- The profession API can expose skill totals even when the skill list is collapsed.
-    if #result == 0 then
+    if not next(observed) then
         for id in pairs(professions) do
             local info = call(C_TradeSkillUI and C_TradeSkillUI.GetProfessionInfoBySkillLineID, id)
             if type(info) == "table" then append(id, info.professionName, info.skillLevel, info.maxSkillLevel) end
         end
+    end
+    local result = {}
+    for name, entry in pairs(observed) do
+        local record = skillRecords[name]
+        if not record then record = {start = entry.rank}; skillRecords[name] = record end
+        if record.rank and entry.rank > record.rank then record.activity = time end
+        record.rank, record.maximum, record.name = entry.rank, entry.maximum, name
+        record.spell, record.id = professions[entry.id], entry.id
+        result[#result + 1] = record
     end
     table.sort(result, function(a, b) return a.name < b.name end)
     skillRows = result

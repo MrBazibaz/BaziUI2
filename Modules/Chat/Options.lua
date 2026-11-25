@@ -244,6 +244,10 @@ function chat.CreatePage(parent, createSlider, artwork)
     dropdown("Font", "chatFont", fonts)
     slider("Font size", 8, 32, function() return db.fontSize or 14 end,
         function(value) setting("fontSize", value) end)
+    slider("Channel name size (px)", 6, 32, function()
+        local _, nameSize = DEFAULT_CHAT_FRAME:GetFont()
+        return chat.Timestamps.ChannelSize(nameSize or db.fontSize or 14)
+    end, function(value) setting("channelSize", value) end)
     dropdown("Outline", "fontOutline", choices("none", "None", "thin", "Thin", "thick", "Thick"))
     dropdown("Line spacing", "lineSpacing", choices("compact", "Compact", "normal", "Normal", "wide", "Wide"))
     toggle("Show time (24-hour)", "timestamps")
@@ -299,7 +303,7 @@ function chat.CreatePage(parent, createSlider, artwork)
     end)
 
     section("Alerts")
-    checkbox(group, "Move friend login/logout popups", 16, y,
+    checkbox(group, "Move friend and recipe notifications", 16, y,
         function() return db.friendToastPosition end, function(value)
             db.friendToastPosition = value
             chat.FriendToasts.Refresh()
@@ -307,7 +311,7 @@ function chat.CreatePage(parent, createSlider, artwork)
     y = y - 33
     for _, axis in ipairs({"X", "Y"}) do
         local field = "friendToast" .. axis
-        slider("Friend popup " .. axis .. " offset", -1800, 1800,
+        slider("Notification " .. axis .. " offset", -1800, 1800,
             function() return db[field] or (axis == "X" and -380 or -205) end,
             function(value) db[field] = value; chat.FriendToasts.Refresh() end, true)
     end
@@ -335,10 +339,12 @@ function chat.CreatePage(parent, createSlider, artwork)
     end)
     local sounds = {{"none", "No sound"}, {"mentions", "Mentions only"}}
     for _, sound in ipairs(chat.Alerts.SOUNDS) do
-        sounds[#sounds + 1] = {sound.key, chat.L[sound.text] or sound.key}
+        sounds[#sounds + 1] = {sound.key, sound.label or sound.key}
     end
     soundUpdate = menu("Channel sound", function() return sounds end,
-        function() return db.channelSounds and db.channelSounds[channelKey(soundChannel)] or "none" end,
+        function()
+            return chat.Alerts.ResolveSoundKey(db.channelSounds and db.channelSounds[channelKey(soundChannel)]) or "none"
+        end,
         function(value)
             db.channelSounds = db.channelSounds or {}
             db.channelSounds[channelKey(soundChannel)] = value

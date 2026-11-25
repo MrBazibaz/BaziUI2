@@ -19,7 +19,7 @@ local gameSounds = {
     {sounds.READY_CHECK or 8960, "Ready check"},
     {sounds.IG_MINIMAP_PING or 3175, "Map ping"},
 }
-local soundPath = "Interface\\AddOns\\BaziUI\\Assets\\Chat\\Everchat\\Sounds\\"
+local soundPath = "Interface\\AddOns\\BaziUI\\Assets\\Sounds\\"
 bugs.revision = 0
 
 local pending = {logs = {}}
@@ -56,7 +56,23 @@ function bugs.SoundChoices()
 end
 
 function bugs.SelectedSound()
-    return store.sound or gameSounds[1][1]
+    local sound = store.sound
+    if type(sound) == "string" and sound:find("Everchat\\Sounds\\", 1, true) then
+        return soundPath .. "Urgent.ogg"
+    end
+    if type(sound) == "string" then
+        local old = sound:match("([^\\/]+)%.ogg$")
+        local alerts = addon.Chat and addon.Chat.Alerts
+        if old and alerts then
+            local mapped = alerts.ResolveSoundKey(old:lower())
+            if mapped ~= old:lower() then
+                for _, choice in ipairs(alerts.SOUNDS) do
+                    if choice.key == mapped then return soundPath .. choice.file .. ".ogg" end
+                end
+            end
+        end
+    end
+    return sound or gameSounds[1][1]
 end
 
 function bugs.PreviewSound()

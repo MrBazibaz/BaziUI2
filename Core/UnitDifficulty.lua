@@ -7,6 +7,13 @@ local function readable(value, kind)
         and type(value) == kind and (not canaccessvalue or canaccessvalue(value))
 end
 
+function addon.GetRareClassificationLabel(classification)
+    if not readable(classification, "string") then return end
+    local rare = _G.ITEM_QUALITY3_DESC or "Rare"
+    if classification == "rare" then return rare end
+    if classification == "rareelite" then return rare .. " " .. (_G.ELITE or "Elite") end
+end
+
 function addon.GetUnitDifficulty(unit)
     local level = UnitLevel(unit)
     if not readable(level, "number") then return nil, nil, level end

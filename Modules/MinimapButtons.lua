@@ -12,6 +12,32 @@ function M.RefreshBackground()
 end
 local map = _G.Minimap
 local cluster = _G.MinimapCluster
+local function setLayer(frame, strata, level)
+    if frame:GetFrameStrata() ~= strata then frame:SetFrameStrata(strata) end
+    if frame:GetFrameLevel() ~= level then frame:SetFrameLevel(level) end
+end
+local function buttonHolder()
+    local holder = M.ButtonHolder
+    if not holder then
+        holder = CreateFrame("Frame", nil, cluster or map:GetParent())
+        holder:SetAllPoints(map)
+        holder:EnableMouse(false)
+        map:HookScript("OnShow", function() holder:Show() end)
+        map:HookScript("OnHide", function() holder:Hide() end)
+        holder:SetShown(map:IsVisible())
+        M.ButtonHolder = holder
+    end
+    if not InCombatLockdown() then
+        local minimap = addon.Minimap
+        local level = map:GetFrameLevel()
+        for _, art in pairs({minimap and minimap.Border, minimap and minimap.BronzeAbove,
+            minimap and minimap.SlimBorder, minimap and minimap.Header, _G.MinimapBackdrop}) do
+            level = math.max(level, art:GetFrameLevel())
+        end
+        setLayer(holder, "FULLSCREEN", level + 5)
+    end
+    return holder
+end
 local function db()
     return addon.db and addon.db.profile and addon.db.profile.minimap
 end
@@ -34,11 +60,10 @@ local function toggleOptions()
 end
 local function makeLauncher()
     if M.Launcher or not map then return end
-    local parent = cluster or map
+    local parent = buttonHolder()
     local b = CreateFrame("Button", "BaziUIMinimapButton", parent)
     b:SetSize(32, 32)
-    b:SetFrameStrata("HIGH")
-    b:SetFrameLevel(map:GetFrameLevel() + 16)
+    setLayer(b, parent:GetFrameStrata(), parent:GetFrameLevel() + 1)
     -- Standard minimap-button proportions: 32px button, 25px emblem,
     -- and Blizzard's round tracking border (rather than a square highlight).
     local emblem = b:CreateTexture(nil, "ARTWORK")
@@ -97,6 +122,7 @@ local function makeMenu()
     menu:SetBackdrop({bgFile="Interface\\Buttons\\WHITE8x8",edgeFile="Interface\\Tooltips\\UI-Tooltip-Border",edgeSize=16,insets={left=4,right=4,top=4,bottom=4}})
     menu:SetBackdropColor(0.14, 0.075, 0.035, (addon.Backgrounds.Get("minimapMenu") or 97) / 100)
     menu:SetBackdropBorderColor(0.8,0.61,0.32,1)
+    addon.Theme:TrackWindowBorder(menu)
     local rows, width = 0, 0
     for _, entry in ipairs(entries) do
         if _G[entry[2]] then
@@ -146,7 +172,7 @@ local function isAddonButton(child)
     if not child or not child.IsObjectType or not child:IsObjectType("Button") then return false end
     if child == M.Launcher then return false end
     local name = child:GetName() or ""
-    if name:find("^BaziUI") or name:find("^Minimap") or name:find("^MiniMap")
+    if name:find("^BaziUI")
         or name:find("^GameTime") or name:find("^TimeManager")
         or name:find("^QueueStatus") or name:find("^AddonCompartment")
         or name:find("^Quest") or name:find("^HandyNotes")
@@ -160,48 +186,53 @@ local function refreshAddonButtons()
     local anchor = addon.Minimap and addon.Minimap.Border or map
     local hover = map:IsMouseOver() or (anchor and anchor:IsMouseOver())
     for child in pairs(managed) do
-        if child:IsMouseOver() then hover = true end
+        if not (child.IsForbidden and child:IsForbidden()) and child:IsMouseOver() then hover = true end
     end
-    local holder = M.ButtonHolder
-    if not holder then
-        holder = CreateFrame("Frame", nil, cluster or UIParent)
-        holder:SetAllPoints(map)
-        holder:SetFrameStrata("HIGH")
-        holder:SetFrameLevel(math.max(map:GetFrameLevel() + 20, 25))
-        M.ButtonHolder = holder
-    end
+    local holder = buttonHolder()
     local function scan(parent)
         if not parent then return end
         for _, child in ipairs({parent:GetChildren()}) do
-            if isAddonButton(child) then
-                managed[child] = true
-                if not (InCombatLockdown and InCombatLockdown()) then
-                    if child:GetParent() ~= holder then child:SetParent(holder) end
-                    child:SetFrameStrata("HIGH")
-                    child:SetFrameLevel(holder:GetFrameLevel() + 1)
-                end
-            end
+            if isAddonButton(child) then managed[child] = true end
         end
     end
     scan(map)
     scan(_G.MinimapBackdrop)
     scan(cluster)
+    scan(cluster and cluster.MinimapContainer)
+    local icons = LibStub and LibStub("LibDBIcon-1.0", true)
+    if icons and icons.GetButtonList and icons.GetMinimapButton then
+        for _, name in ipairs(icons:GetButtonList()) do
+            local button = icons:GetMinimapButton(name)
+            if button then managed[button] = true end
+        end
+    end
+    local inCombat = InCombatLockdown()
     for child in pairs(managed) do
-        if not (InCombatLockdown and InCombatLockdown() and child.IsProtected and child:IsProtected()) then
-            child:SetAlpha((not cfg.hideAddonButtons or hover) and 1 or 0)
-            child:EnableMouse(not cfg.hideAddonButtons or hover)
+        if not (child.IsForbidden and child:IsForbidden()) then
+            if not inCombat then
+                if child:GetParent() ~= holder then child:SetParent(holder) end
+                setLayer(child, holder:GetFrameStrata(), holder:GetFrameLevel() + 1)
+            end
+            if not (inCombat and child.IsProtected and child:IsProtected()) then
+                child:SetAlpha((not cfg.hideAddonButtons or hover) and 1 or 0)
+                child:EnableMouse(not cfg.hideAddonButtons or hover)
+            end
         end
     end
     if M.Launcher then
+        if not inCombat then setLayer(M.Launcher, holder:GetFrameStrata(), holder:GetFrameLevel() + 1) end
         local show = cfg.showMinimapButton ~= false and (not cfg.hideAddonButtons or hover or M.Launcher:IsMouseOver())
         M.Launcher:SetShown(show)
     end
 end
+M.RefreshAddonButtons = refreshAddonButtons
 function M:Apply()
     local cfg = db()
     if not cfg or not map then return end
     makeLauncher()
     if M.Launcher then
+        local holder = buttonHolder()
+        if not InCombatLockdown() then setLayer(M.Launcher, holder:GetFrameStrata(), holder:GetFrameLevel() + 1) end
         M.Launcher:ClearAllPoints()
         local anchor = addon.Minimap and addon.Minimap.Border or map
         if cfg.launcherX and cfg.launcherY then
@@ -255,19 +286,10 @@ function M:Initialize()
     end
     local function UpdateMapMouse()
         if not surface then return end
-        local settings = db()
-        local menu = settings and settings.microMenu and true or false
-        local ownPings = squareStyle and not InBattleground()
         -- The overlay covered the entire minimap and intercepted Blizzard's
         -- quest-blob hover hit testing. Native map handles clicks and hover;
         -- our middle-click menu already uses GLOBAL_MOUSE_DOWN below.
         surface:EnableMouse(false)
-        if surface.SetPassThroughButtons and not InCombatLockdown() then
-            local through = { "Button4", "Button5" }
-            if not ownPings then through[#through + 1] = "LeftButton"; through[#through + 1] = "RightButton" end
-            through[#through + 1] = "MiddleButton"
-            surface:SetPassThroughButtons(unpack(through))
-        end
     end
     local function Ping()
         local x, y = GetCursorPosition()

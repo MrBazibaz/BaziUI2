@@ -131,6 +131,7 @@ local function UnitForGUID(guid)
 end
 local function AddLine(tooltip,guid,value)
   if not TooltipEnabled() then return end
+  if BaziUI.TooltipUsesCompactUnitView and BaziUI.TooltipUsesCompactUnitView(tooltip) then return end
   if added[tooltip]==guid then return end
   added[tooltip]=guid
   local c=NORMAL_FONT_COLOR

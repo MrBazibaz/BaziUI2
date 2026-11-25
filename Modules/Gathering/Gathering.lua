@@ -383,14 +383,21 @@ function G.DashboardContext()
     return currentCategory, next(corpseEffects) ~= nil or isSkinnable("mouseover")
 end
 local iconUnits = setmetatable({}, {__mode = "k"})
+local function hideLootGear(look, category, cursorCategory)
+    return look and look.enabled and (category == "quest" or category == "chest")
+        and (not cursorCategory or cursorCategory == "other")
+end
+
 local function suppressIconForUnit(icon, unit)
     if not ticker or not unit or safe(UnitIsGameObject, unit) ~= true then return end
     local db = G:Settings()
     if not db.enabled then return end
-    local category = ns.Classify(unit, safe(UnitName, unit) or "")
-    if category ~= "herb" and category ~= "ore" then return end
+    local category, _, _, _, cursorCategory = ns.Classify(unit, safe(UnitName, unit) or "")
     local look = db.categories[category]
-    if not look.enabled or ns.Trained(category) ~= true then muteInteractionIcon(icon) end
+    if hideLootGear(look, category, cursorCategory)
+        or (category == "herb" or category == "ore") and (not look.enabled or ns.Trained(category) ~= true) then
+        muteInteractionIcon(icon)
+    end
 end
 
 local function watchInteractionIcon(plate, unit)
@@ -419,15 +426,15 @@ local function refresh()
     local db = G:Settings()
     if not db.enabled and not G.fishingInteraction then return end
     local unit, plate = ns.ResolveTarget()
-    local category, name, nameColor, blocked
+    local category, name, nameColor, blocked, cursorCategory
     currentObject, currentCategory = nil, nil
     if plate and not (plate.IsForbidden and plate:IsForbidden()) then
         if not category and safe(UnitIsGameObject, unit) == true then
             name = safe(UnitName, unit) or ""
 
-            local kind, cursorBlocked, _, id = ns.Classify(unit, name)
+            local kind, cursorBlocked, _, id, nativeCategory = ns.Classify(unit, name)
             blocked = cursorBlocked
-            category = kind
+            category, cursorCategory = kind, nativeCategory
             if category == "bobber" and name == "" then name = "Fishing Bobber" end
             currentObject, currentCategory = id, category
         end
@@ -442,7 +449,7 @@ local function refresh()
     local hideProfessionObject = db.enabled and isProfessionObject and (not look.enabled or ns.Trained(category) ~= true)
     local hideBobberIcon = category == "bobber" and G.fishingInteraction and db.fishing.hideBobberIcon
     local icon = watchInteractionIcon(plate, unit)
-    if plate then muteInteractionIcon((hideProfessionObject or hideBobberIcon) and icon or nil) end
+    muteInteractionIcon((hideProfessionObject or hideBobberIcon or hideLootGear(look, category, cursorCategory)) and icon or nil)
     if hideProfessionObject then look = nil end
     if not nameColor and look and look.enabled and G.professionSpells[category] then
         nameColor = readDifficulty(unit, category, name)

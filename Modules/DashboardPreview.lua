@@ -8,10 +8,15 @@ end
 D.scenarios = {
     {"mixed", "Multiple activities"}, {"questing", "Questing"}, {"gathering", "Gathering"},
     {"crafting", "Crafting"}, {"skills", "Skill progression"}, {"dungeon", "Dungeon"},
-    {"raid", "Raid"}, {"pvp", "Battleground"}, {"supplies", "Low supplies"},
+    {"raid", "Raid"}, {"pvp", "Battleground"}, {"supplies", "Low supplies"}, {"activity", "Recent activity"},
 }
 local samples = {
-    quests = {title = "Redridge Mountains", rows = {
+    recentActivity = {rows = {
+        art(row("Experience", "+80"), 135932),
+        art(row("Chunk of Boar Meat", "×2"), 133970),
+        {label = "9 Copper", icon = 133784},
+    }},
+    quests = {title = "Redridge Mountains", questItems = {{id = "preview", icon = 133469}}, rows = {
         row("Greater Tarantula", 6, 12, "Underbelly Scales"),
         art(row("Tarantula Egg", 6, 6, "Completed objective"), 132832),
         art(row("Blackrock Axe", 2, 10, "8 remaining"), 132395),
@@ -24,19 +29,18 @@ local samples = {
     }},
     skills = {rows = {row("Daggers", 28, 30), row("Defense", 29, 30), row("Lockpicking", 15, 30)}},
     gathering = {rows = {
-        art(row("Copper Ore", "34 (+8)"), 134566), art(row("Rough Stone", "18 (+4)"), 135232),
+        art(row("Copper Ore", "34"), 134566), art(row("Rough Stone", "18"), 135232),
     }},
     crafting = {rows = {
         row("Copper Modulator ×2", "1 craftable"),
         art(row("Copper Bar", 6, 8), 133216), art(row("Linen Cloth", 4, 4), 132889),
     }},
     supplies = {rows = {
-        {label = "Ammunition", value = "36", warning = true, icon = 132382},
         {label = "Free bag slots", value = "0", warning = true},
         {label = "Durability", value = "18%", warning = true},
     }},
     items = {rows = {art(row("Light Leather", 24, 50), 134252)}},
-    reputation = {rows = {row("Stormwind", 3240, 6000, "Friendly\n+450 this session")}},
+    reputation = {rows = {row("Darnassus", 1051, 12000, "Honored\n+450 this session")}},
     status = {rows = {row("Free bag slots", 8), row("Durability", "92%"), row("FPS", 72)}},
     session = {rows = {row("Duration", "18:41"), row("XP gained", 2200), row("Quests turned in", 2)}},
     dungeon = {title = "The Deadmines", rows = {
@@ -55,13 +59,14 @@ local samples = {
 }
 samples.professions.rows[1].progress, samples.professions.rows[1].highlight = 62 / 75, true
 samples.skills.rows[1].highlight = true
+samples.reputation.rows[1].value = "|cff92d785+25|r  1051 / 12000"
 local profiles = {
     mixed = {quests = true, professions = true, skills = true, gathering = true, crafting = true, reputation = true,
-        supplies = true, items = true, status = true, session = true},
+        supplies = true, items = true, status = true, session = true, recentActivity = true},
     questing = {quests = true, items = true}, gathering = {gathering = true, professions = true},
     crafting = {crafting = true, gathering = true}, skills = {skills = true, professions = true},
     dungeon = {dungeon = true, quests = true}, raid = {raid = true, supplies = true},
-    pvp = {pvp = true}, supplies = {supplies = true, status = true},
+    pvp = {pvp = true}, supplies = {supplies = true, status = true}, activity = {recentActivity = true},
 }
 
 function D.PreviewData(scenario, id)

@@ -26,6 +26,8 @@ local byLineID = setmetatable({}, { __mode = "v" })
 -- Told of every line added to a hooked window: fn(chatFrame, readable, replayed).
 local listeners = {}
 local lastID = 0
+local latest = setmetatable({}, { __mode = "k" })
+local fallbackTimes = setmetatable({}, { __mode = "k" })
 
 local function Readable(message)
 	return type(message) == "string" and (not canaccessvalue or canaccessvalue(message))
@@ -85,11 +87,87 @@ end
 local plain = false
 
 -- What a remembered line shows: composed, with its time, or as written.
+local chatKinds = {
+	PARTY = {"Group", PARTY}, PARTY_LEADER = {"Group", PARTY}, PARTY_GUIDE = {"Group", PARTY},
+	INSTANCE_CHAT = {"Group", INSTANCE}, INSTANCE_CHAT_LEADER = {"Group", INSTANCE},
+	RAID = {"Shield", RAID}, RAID_LEADER = {"Shield", RAID}, RAID_WARNING = {"Bell", RAID_WARNING},
+	GUILD = {"Shield", GUILD}, OFFICER = {"Shield", OFFICER},
+	WHISPER = {"Chat", WHISPER}, WHISPER_INFORM = {"Chat", WHISPER},
+	BN_WHISPER = {"Chat", WHISPER}, BN_WHISPER_INFORM = {"Chat", WHISPER},
+	SAY = {"Chat", SAY}, YELL = {"Bell", YELL}, CHANNEL = {"Broadcast"},
+	MONSTER_SAY = {"Chat", SAY or "Say"}, MONSTER_YELL = {"Bell", YELL or "Yell"},
+	MONSTER_WHISPER = {"Chat", WHISPER or "Whisper"},
+}
+
+local function Sender(text, event)
+	local prefix, link, body = text:match("^(.-)(|Hplayer:[^|]*|h.-|h)(.*)$")
+	if not link then prefix, link, body = text:match("^(.-)(|HBNplayer:[^|]*|h.-|h)(.*)$") end
+	if not link then
+		local kind = event and event:match("^CHAT_MSG_MONSTER_(.+)$")
+		if kind and chatKinds["MONSTER_" .. kind] then
+			local name, suffix = text:match("^([^:]+):%s*(.+)$")
+			if name then
+				local _, verb = (_G["CHAT_MONSTER_" .. kind .. "_GET"] or ""):match("^(.-)%%s(.-):")
+				if verb and verb ~= "" and name:sub(-#verb) == verb then name = name:sub(1, -#verb - 1) end
+				name = name:gsub(" yells$", ""):gsub(" says$", ""):gsub(" whispers$", "")
+				return name, suffix, ""
+			end
+		end
+		return
+	end
+	body = body:gsub("^|r", "")
+	body = body:match("^%s*:%s*(.*)$") or body:match("^%s+[^:]+:%s*(.*)$")
+	if body then return link, body, prefix end
+end
+
+local function stripNativeClock(message)
+	if not ns.Timestamps.GameShowsTimes or not ns.Timestamps.GameShowsTimes() then return message end
+	local function strip(text)
+		return (text:gsub("^%[?%d%d?:%d%d:?%d?%d?%]?|?r?%s+", "", 1))
+	end
+	local bare = message:gsub("^|c%x%x%x%x%x%x%x%x(%[?%d%d?:%d%d:?%d?%d?%]?|r%s+)", "%1", 1)
+	return strip(bare)
+end
+
+local function channelNotice(message)
+	local line = message:gsub("^|c%x%x%x%x%x%x%x%x", ""):gsub("^|cn[^:|]+:", "")
+	local link, name, body = line:match("^(|Hchannel:[^|]+|h)%[%d+%.%s*(.-)%]|h%s*:?%s*(.+)$")
+	if not name then name, body = line:match("^%[%d+%.%s*(.-)%]%s*:?%s*(.+)$") end
+	if body then
+		body = body:gsub("^|r%s*:?%s*", "")
+		local label = link and link .. name .. "|h" or name
+		return "|TInterface\\AddOns\\BaziUI\\Assets\\Icons\\Bazi\\Broadcast.tga:12:12|t " .. label .. "|n" .. body
+	end
+end
+
 local function Shown(chatFrame, original, entry)
+	original.senderLabel, original.channelLabel, original.channelIcon = nil, nil, nil
 	if plain then
 		return original.message
 	end
-	return ns.Timestamps.Prefix(Compose(chatFrame, original, entry), original.clock, original.id)
+	local composed = stripNativeClock(Compose(chatFrame, original, entry))
+	local kind = original.event and chatKinds[original.event:sub(10)]
+	local sender, body, prefix
+	if kind then sender, body, prefix = Sender(composed, original.event) end
+	if not sender then
+		local notice = channelNotice(composed)
+		if notice then original.speaker = true end
+		return notice or composed
+	end
+	if original.guid then sender = ColorSender(sender, original) end
+	sender = sender:gsub("^(|H[^|]+|h)(.-)(|h)$", function(open, label, close)
+		label = label:gsub("%[", "", 1):gsub("%](|r)$", "%1"):gsub("%]$", "")
+		return open .. label .. close
+	end)
+	body = TintOwn(body, original)
+	if original.continued then return body end
+	local icon, channel = kind[1], kind[2]
+	if original.event == "CHAT_MSG_CHANNEL" then
+		channel = prefix:match("|Hchannel:[^|]*|h%[?(.-)%]?|h") or original.channel or "Channel"
+		channel = channel:gsub("^%d+[%. ]+", "")
+	end
+	original.senderLabel, original.channelLabel, original.channelIcon = sender, channel or icon, icon
+	return sender .. "|n" .. body
 end
 
 -- A blank line just added goes again, as if it never came. Reading further up,
@@ -121,16 +199,30 @@ local function OnAddMessage(chatFrame, message, _, _, _, _, _, _, event, eventAr
 		-- The player's own lines never highlight their name (the sender's GUID
 		-- may be a secret value).
 		local guid = eventArgs and eventArgs[12]
-		if guid ~= nil and not canaccessvalue(guid) then
+		if guid ~= nil and canaccessvalue and not canaccessvalue(guid) then
 			guid = nil
 		end
 		local own = guid ~= nil and guid == UnitGUID("player")
 		local lineID = eventArgs and eventArgs[11]
-		if lineID ~= nil and not canaccessvalue(lineID) then
+		if lineID ~= nil and canaccessvalue and not canaccessvalue(lineID) then
 			lineID = nil
 		end
 		lastID = lastID + 1
-		local original = { id = lastID, message = message, event = event, clock = clock, own = own, guid = guid, chatFrame = chatFrame }
+		local channel = eventArgs and eventArgs[9]
+		if not Readable(channel) then channel = nil end
+		local kind = event and chatKinds[event:sub(10)]
+		local link, _, prefix
+		if kind then link, _, prefix = Sender(stripNativeClock(message), event) end
+		local sender = link and (link:match("^|H([^:]+:[^:|]+)") or link)
+		if kind and not sender and Readable(eventArgs and eventArgs[2]) then sender = eventArgs[2] end
+		if event == "CHAT_MSG_CHANNEL" then
+			channel = channel or prefix and prefix:match("|Hchannel:([^|]+)|h")
+		end
+		local previous = latest[chatFrame]
+		latest[chatFrame] = sender and {sender = sender, event = event, channel = channel} or nil
+		local continued = sender and previous and previous.sender == sender and previous.event == event
+			and previous.channel == channel
+		local original = { continued = continued, channel = channel, speaker = link ~= nil, id = lastID, message = message, event = event, clock = clock, own = own, guid = guid, chatFrame = chatFrame }
 		originals[entry] = original
 		byID[lastID] = original
 		if type(lineID) == "number" and lineID > 0 then
@@ -138,12 +230,26 @@ local function OnAddMessage(chatFrame, message, _, _, _, _, _, _, event, eventAr
 		end
 		entry.message = Shown(chatFrame, original, entry)
 	else
-		entry.message = plain and message or ns.Timestamps.Prefix(message, clock)
+		latest[chatFrame] = nil
+		fallbackTimes[entry] = clock
+		entry.message = message
 	end
 	local replayed = ns.History.ReplayTime() ~= nil
 	for _, listener in ipairs(listeners) do
 		listener(chatFrame, originals[entry] ~= nil, replayed)
 	end
+end
+
+function Lines.GroupInfo(entry)
+	local original = entry and originals[entry]
+	if plain or not entry then return end
+	if not original then return nil, nil, fallbackTimes[entry] end
+	return original.continued, original.speaker, original.clock
+end
+
+function Lines.ChannelLabel(entry)
+	local original = not plain and entry and originals[entry]
+	if original then return original.senderLabel, original.channelLabel, original.channelIcon end
 end
 
 function Lines.AddListener(fn)

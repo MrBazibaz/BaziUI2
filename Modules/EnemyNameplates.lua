@@ -79,6 +79,7 @@ local function bar(parent)
     local frame = CreateFrame("StatusBar", nil, parent)
     frame:SetStatusBarTexture(texture)
     local background = frame:CreateTexture(nil, "BACKGROUND")
+    frame.bg = background
     background:SetAllPoints()
     background:SetColorTexture(0.09, 0.035, 0.025, 1)
     background:SetAlpha(0.95)
@@ -138,17 +139,18 @@ local function updateHealth(f)
     return true
 end
 
+local healthColors = addon.Theme.colors
 M.colorOptions = {
     {"neutral", "Neutral out of combat", {0.90, 0.81, 0.16}},
     {"hostile", "Hostile out of combat", {0.86, 0.21, 0.17}},
     {"tapped", "Tagged by another player", {0.47, 0.47, 0.47}},
     {"tank", "Tank holding aggro", {0.34, 0.17, 0.25}},
     {"pet", "Pet holding aggro", {0.34, 0.17, 0.25}},
-    {"losing", "Tank losing aggro", {1, 0.87, 0.16}},
+    {"losing", "Tank losing aggro", healthColors.healthWarning},
     {"otherTank", "Another tank holding aggro", {1, 0.44, 0.51}},
-    {"tankNoAggro", "Tank without aggro", {1, 0.12, 0.10}},
-    {"aggro", "DPS / healer holding aggro", {1, 0.20, 0.10}},
-    {"warning", "DPS / healer close to pulling", {1, 0.76, 0.12}},
+    {"tankNoAggro", "Tank without aggro", healthColors.healthCritical},
+    {"aggro", "DPS / healer holding aggro", healthColors.healthCritical},
+    {"warning", "DPS / healer close to pulling", healthColors.healthWarning},
     {"safe", "DPS / healer without aggro", {0.60, 0.19, 0.15}},
     {"cast", "Interruptible cast", {0.83, 0.53, 0.19}},
     {"lockedCast", "Uninterruptible cast", {0.48, 0.43, 0.57}},
@@ -201,12 +203,14 @@ local function otherTankHasUnit(unit)
 end
 
 local function applyThreatColor(f, isTank, hasAggro, status, percent, otherTank, petHasAggro)
+    local closingIn = percent and percent > 0 and percent >= f.db.enemyThreatWarning
+        or (not percent or percent == 0) and status == 1
     if isTank then
         if hasAggro then
             if status == 2 then setBarColor(f.hp, f.db, "losing")
             else setBarColor(f.hp, f.db, "tank") end
         elseif petHasAggro then
-            setBarColor(f.hp, f.db, "pet")
+            setBarColor(f.hp, f.db, closingIn and "warning" or "pet")
         elseif otherTank then
             setBarColor(f.hp, f.db, "otherTank")
         else
@@ -214,7 +218,7 @@ local function applyThreatColor(f, isTank, hasAggro, status, percent, otherTank,
         end
     elseif hasAggro then
         setBarColor(f.hp, f.db, "aggro")
-    elseif percent and percent >= f.db.enemyThreatWarning then
+    elseif closingIn then
         setBarColor(f.hp, f.db, "warning")
     elseif petHasAggro then
         setBarColor(f.hp, f.db, "pet")
@@ -234,26 +238,50 @@ local function petHoldsThreat(unit)
 end
 
 local function updateThreat(f)
+    local player = UnitIsPlayer(f.unit)
+    local faction, own
+    if readable(player) and player then faction, own = UnitFactionGroup(f.unit), UnitFactionGroup("player") end
+    if readable(faction) and faction and readable(own) and own and faction ~= own then
+        local _, class = UnitClass(f.unit)
+        local color = readable(class) and RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
+        if color then
+            if not f.playerGradient then f.hp:SetStatusBarTexture("Interface\\AddOns\\BaziUI\\Assets\\Bars\\BaziHealthGradientRight.tga") end
+            f.playerGradient = true
+            f.hp:SetStatusBarColor(color.r, color.g, color.b)
+            f.hp.bg:SetColorTexture(0.32, 0.04, 0.04, 0.85)
+            return
+        end
+    end
+    if f.playerGradient then
+        f.hp:SetStatusBarTexture(texture)
+        f.hp.bg:SetColorTexture(0.09, 0.035, 0.025, 1)
+        f.playerGradient = nil
+    end
     local tapped = f.db.enemyTapped and UnitIsTapDenied and UnitIsTapDenied(f.unit)
     if readable(tapped) and tapped then
         setBarColor(f.hp, f.db, "tapped")
         return
     end
-    local tanking, status, percent
+    local tanking, status, percent, rawPercent
     if UnitDetailedThreatSituation then
-        local ok, holding, detailed, scaled = pcall(UnitDetailedThreatSituation, "player", f.unit)
-        if ok then tanking, status, percent = holding, detailed, scaled end
-    elseif UnitThreatSituation then
-        status = UnitThreatSituation("player", f.unit)
+        local ok, holding, detailed, scaled, raw = pcall(UnitDetailedThreatSituation, "player", f.unit)
+        if ok then tanking, status, percent, rawPercent = holding, detailed, scaled, raw end
     end
     status = readable(status) and type(status) == "number" and status or nil
+    if not status and UnitThreatSituation then
+        local ok, fallback = pcall(UnitThreatSituation, "player", f.unit)
+        if ok and readable(fallback) and type(fallback) == "number" then status = fallback end
+    end
     percent = readable(percent) and type(percent) == "number" and percent or nil
+    local scaledPercent = percent
+    if (not percent or percent == 0) and readable(rawPercent) and type(rawPercent) == "number" then percent = rawPercent end
     local reaction = UnitReaction("player", f.unit)
     local engaged = status ~= nil or (percent and percent > 0)
     local combat = f.db.enemyThreat and UnitAffectingCombat and UnitAffectingCombat(f.unit)
-    local hasAggro = (readable(tanking) and tanking == true)
-        or (status and status >= 2) or (percent and percent >= 100)
-    local petHasAggro = f.db.enemyThreat and not hasAggro and petHoldsThreat(f.unit)
+    local petHasAggro = f.db.enemyThreat and petHoldsThreat(f.unit)
+    local hasAggro = (readable(tanking) and tanking == true) or (status and status >= 2)
+        or (not petHasAggro and status == nil and scaledPercent and scaledPercent >= 100)
+    petHasAggro = petHasAggro and not hasAggro
     if not (f.db.enemyThreat and (engaged or petHasAggro or (readable(combat) and combat))) then
         if engaged then
             setBarColor(f.hp, f.db, "combat")
@@ -405,30 +433,58 @@ local function updateIdentity(f)
     updateDragon(f, UnitClassification(f.unit), f.unit)
 end
 
-local function setComboPoints(f, count)
+local icons = {
+    diamond = "Diamond", dagger = "Dagger", claw = "Claw",
+    venom = "ComboVenom", runestone = "ComboRunestone", ember = "ComboEmber",
+    thorn = "ComboThorn", eye = "ComboEye", crescent = "ComboCrescent", steelKnife = "ComboSteelKnife",
+}
+local function updateComboPulse(f)
+    local pulse = f.comboPulse
+    if f:IsVisible() and f.comboCount and f.comboCount >= #f.combo then
+        if not pulse:IsPlaying() then pulse:Play() end
+    elseif pulse:IsPlaying() then
+        pulse:Stop()
+    end
+end
+
+local function setComboPoints(f, count, visible)
     if not readable(count) or type(count) ~= "number" then count = 0 end
     local style = f.db.enemyComboStyle
+    local old = f.comboCount or 0
+    f.comboCount = visible and count or 0
     for i, pip in ipairs(f.combo) do
         pip:SetTexCoord(0, 1, 0, 1)
-        if style == "square" then pip:SetColorTexture(1, 0.62, 0.10)
+        if icons[style] then
+            pip:SetTexture("Interface\\AddOns\\BaziUI\\Assets\\Icons\\Bazi\\" .. icons[style] .. ".tga")
+        elseif style == "square" then pip:SetColorTexture(1, 0.62, 0.10)
         elseif markerStyles[style] and SetRaidTargetIconTexture then
             pip:SetTexture("Interface\\TargetingFrame\\UI-RaidTargetingIcons")
             SetRaidTargetIconTexture(pip, markerStyles[style])
         elseif gemStyles[style] then
             pip:SetTexture("Interface\\AddOns\\BaziUI\\Assets\\Icons\\" .. gemStyles[style] .. ".png")
         else pip:SetTexture("Interface\\COMMON\\Indicator-Yellow") end
-        pip:SetShown(i <= count)
+        pip:SetShown(visible == true)
+        pip:SetDesaturated(i > count)
+        pip:SetAlpha(i <= count and 1 or 0.26)
+        if visible and count < #f.combo and i > old and i <= count then pip.flash:Play() end
     end
+    updateComboPulse(f)
 end
 
 local function updateCombo(f)
-    setComboPoints(f, f.db.enemyCombo and GetComboPoints and GetComboPoints("player", f.unit))
+    local _, class = UnitClass("player")
+    local eligible = class == "ROGUE" or (class == "DRUID" and GetShapeshiftFormID and GetShapeshiftFormID() == (CAT_FORM or 1))
+    local count = f.db.enemyCombo and eligible and GetComboPoints and GetComboPoints("player", f.unit)
+    local target = UnitIsUnit(f.unit, "target")
+    local visible = f.db.enemyCombo and eligible and ((readable(count) and type(count) == "number" and count > 0)
+        or (readable(target) and target)) or false
+    setComboPoints(f, count, visible)
 end
 
 local function positionCombo(f)
     local db = f.db
     if not db then return end
-    local bar = f.cast:IsShown() and f.cast or f.hp
+    local bar = f.hp
     local size = db.enemyComboSize
     for i, pip in ipairs(f.combo) do
         pip:SetSize(size, size)
@@ -789,13 +845,28 @@ local function create(parent)
     f.faction = f.hp:CreateTexture(nil, "OVERLAY")
     f.faction:Hide()
     f.combo = {}
+    f.comboLayer = CreateFrame("Frame", nil, f)
+    f.comboLayer:SetAllPoints()
+    f.comboLayer:EnableMouse(false)
+    f.comboPulse = f.comboLayer:CreateAnimationGroup()
+    f.comboPulse:SetLooping("BOUNCE")
+    local pulse = f.comboPulse:CreateAnimation("Alpha")
+    pulse:SetFromAlpha(1)
+    pulse:SetToAlpha(0.50)
+    pulse:SetDuration(0.40)
+    pulse:SetSmoothing("IN_OUT")
+    f:HookScript("OnShow", updateComboPulse)
+    f:HookScript("OnHide", function(self) self.comboPulse:Stop() end)
     for i = 1, 5 do
-        local pip = f.hp:CreateTexture(nil, "OVERLAY")
+        local pip = f.comboLayer:CreateTexture(nil, "OVERLAY")
         pip:Hide()
+        pip.flash = pip:CreateAnimationGroup()
+        local flash = pip.flash:CreateAnimation("Alpha")
+        flash:SetFromAlpha(0.4)
+        flash:SetToAlpha(1)
+        flash:SetDuration(0.27)
         f.combo[i] = pip
     end
-    f.cast:HookScript("OnShow", function() positionCombo(f) end)
-    f.cast:HookScript("OnHide", function() positionCombo(f) end)
     f.classification = f.hp:CreateTexture(nil, "ARTWORK", nil, 2)
     f.cast.text = label(f.cast)
     f.cast.text:SetTextColor(1, 1, 1)
@@ -830,6 +901,7 @@ local function create(parent)
     border:SetBackdrop({edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border", edgeSize = 12})
     border:EnableMouse(false)
     f.border = border
+    BaziUI.Theme:TrackWindowBorder(border)
     BaziUI.Theme:AddDropShadow("Nameplates", f, border)
     local targetBorder = CreateFrame("Frame", nil, f, "BackdropTemplate")
     targetBorder:SetPoint("TOPLEFT", border, "TOPLEFT", -1.5, 1.5)
@@ -842,6 +914,7 @@ local function create(parent)
     targetBorder:Hide()
     f.targetBorder = targetBorder
     f.cast:SetFrameLevel(border:GetFrameLevel() + 1)
+    f.comboLayer:SetFrameLevel(f.cast:GetFrameLevel() + 6)
     f:SetScript("OnEvent", function(self, event)
         local unit = self.unit
         if not unit then return end
@@ -870,7 +943,7 @@ function M:RefreshPreview()
     f.cast:SetShown(db.enemyCastbar)
     local own = UnitFactionGroup and UnitFactionGroup("player")
     setFactionBadge(f, db.enemyFaction and (readable(own) and own == "Horde" and "Alliance" or "Horde"))
-    setComboPoints(f, db.enemyCombo and #f.combo)
+    setComboPoints(f, #f.combo, db.enemyCombo == true)
     f.cast.time:SetText("1.4")
     if db.enemyThreat then
         applyThreatColor(f, tankMode(db), false, 1, 90, false)
@@ -949,6 +1022,7 @@ function M:Remove(unit)
     local f = units[unit]
     if not f then return end
     units[unit] = nil
+    f.comboCount = nil
     f:UnregisterAllEvents()
     f.cast:SetScript("OnUpdate", nil)
     f.cast:Hide()
@@ -1046,14 +1120,16 @@ function M:Initialize()
     local events = CreateFrame("Frame")
     local questQueued
     for _, event in ipairs({"PLAYER_TARGET_CHANGED", "RAID_TARGET_UPDATE", "QUEST_LOG_UPDATE", "QUEST_WATCH_UPDATE", "QUEST_TURNED_IN",
-        "GROUP_ROSTER_UPDATE", "PLAYER_ROLES_ASSIGNED", "SPELLS_CHANGED"}) do
+        "GROUP_ROSTER_UPDATE", "PLAYER_ROLES_ASSIGNED", "SPELLS_CHANGED", "UPDATE_SHAPESHIFT_FORM"}) do
         events:RegisterEvent(event)
     end
     pcall(events.RegisterEvent, events, "COMBO_TARGET_CHANGED")
     pcall(events.RegisterEvent, events, "UNIT_POWER_UPDATE")
+    pcall(events.RegisterUnitEvent, events, "UNIT_THREAT_SITUATION_UPDATE", "pet")
+    pcall(events.RegisterUnitEvent, events, "UNIT_PET", "player")
     events:SetScript("OnEvent", function(_, event, unit, power)
         if event == "UNIT_POWER_UPDATE" and (unit ~= "player" or power ~= "COMBO_POINTS") then return end
-        if event == "COMBO_TARGET_CHANGED" or event == "UNIT_POWER_UPDATE" or event == "PLAYER_TARGET_CHANGED" then
+        if event == "UPDATE_SHAPESHIFT_FORM" or event == "COMBO_TARGET_CHANGED" or event == "UNIT_POWER_UPDATE" or event == "PLAYER_TARGET_CHANGED" then
             for _, f in pairs(units) do if not f.dead and f.db.enemyCombo then updateCombo(f) end end
             if event ~= "PLAYER_TARGET_CHANGED" then return end
         end
@@ -1071,6 +1147,8 @@ function M:Initialize()
             return
         elseif event == "GROUP_ROSTER_UPDATE" or event == "PLAYER_ROLES_ASSIGNED" then
             updateTanks()
+            update = updateThreat
+        elseif event == "UNIT_THREAT_SITUATION_UPDATE" or event == "UNIT_PET" then
             update = updateThreat
         elseif event == "SPELLS_CHANGED" then
             wipe(spellNames)

@@ -110,6 +110,7 @@ local function addLine(tooltip, guid, value)
     local color = NORMAL_FONT_COLOR
     tooltip:AddLine(string.format("ilvl |cffffffff%.1f|r", value),
         color and color.r or 1, color and color.g or 0.82, color and color.b or 0)
+    if addon.TooltipFonts then addon.TooltipFonts.Apply() end
 end
 local function store(guid, value)
     if not TooltipEnabled() then return end

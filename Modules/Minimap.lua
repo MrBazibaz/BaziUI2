@@ -10,10 +10,35 @@ local BRONZE_OUT = {left = 9, right = 7, top = 11, bottom = 8}
 local timer, square, applying, refreshQueued
 local mailFrame, mailState, mailQueued, placingMail
 local positioningPreview, previewLayers = false, {}
+local squareStrata = "DIALOG"
 local foreground = {HIGH = true, DIALOG = true, FULLSCREEN = true, FULLSCREEN_DIALOG = true, TOOLTIP = true}
 
+function MM:GetOverlayStrata()
+    return square and squareStrata or map and map:GetFrameStrata() or "HIGH"
+end
+
 local function mapStrata()
-    return previewLayers[map] or map:GetFrameStrata()
+    return square and squareStrata or previewLayers[map] or map:GetFrameStrata()
+end
+
+local function refreshMapLayers()
+    if not square or not map or not cluster or InCombatLockdown() then return end
+    local container = cluster.MinimapContainer
+    cluster:SetFrameStrata(squareStrata)
+    if container then container:SetFrameStrata(squareStrata) end
+    map:SetFrameStrata(squareStrata)
+    -- Markers can be frames owned by the minimap or the map container.
+    for _, parent in pairs({map, container}) do
+        for _, child in ipairs({parent:GetChildren()}) do
+            local strata = child:GetFrameStrata()
+            if strata ~= "DIALOG" and strata ~= "FULLSCREEN" and strata ~= "FULLSCREEN_DIALOG" and strata ~= "TOOLTIP" then
+                child:SetFrameStrata(squareStrata)
+            end
+            if parent == map and child:GetFrameLevel() <= map:GetFrameLevel() then
+                child:SetFrameLevel(map:GetFrameLevel() + 1)
+            end
+        end
+    end
 end
 
 local function refreshPreviewLayer(active)
@@ -160,7 +185,7 @@ end
 local function updateBorder()
     if not MM.SlimBorder then return end
     local cfg = db()
-    local slim = cfg and cfg.borderStyle == "slim"
+    local slim = addon.Theme:UsesAccentStyle() or cfg and cfg.borderStyle == "slim"
     MM.SlimBorder:SetShown(slim)
     MM.BronzeBorder:SetShown(not slim)
     MM.BronzeAbove:SetShown(not slim)
@@ -253,14 +278,17 @@ local placingSun = false
 local function placeSun()
     local cfg = db()
     local sun = cluster and cluster.DielFrame
-    if not square or not MM.Border or not sun or placingSun then return end
+    if not square or not MM.Border or not sun or placingSun or InCombatLockdown() then return end
     placingSun = true
     local container = cluster.MinimapContainer or cluster
     if sun:GetParent() ~= container then sun:SetParent(container) end
+    if sun.SetFixedFrameStrata then sun:SetFixedFrameStrata(true) end
+    sun:SetFrameStrata("FULLSCREEN")
+    sun:SetFrameLevel(math.max(container:GetFrameLevel(), map:GetFrameLevel()) + 32)
     sun:SetScale(0.9)
     sun:ClearAllPoints()
-    -- In the top-right corner, clear of the header row's calendar button.
-    sun:SetPoint("BOTTOMRIGHT", MM.Border, "BOTTOMRIGHT", 9, -9)
+    -- Keep the badge just inside the bottom corner of the map.
+    sun:SetPoint("BOTTOMRIGHT", MM.Border, "BOTTOMRIGHT", 3, -3)
     sun:SetShown(not cfg.hideDayNight)
     placingSun = false
 end
@@ -285,7 +313,8 @@ local function plate(texture, parent)
 end
 function MM:RefreshHeaderStyle()
     if not self.HeaderStyleFill then return end
-    local custom = addon.Headers.Get("minimap", "color") ~= nil or addon.Headers.Get("minimap", "opacity") ~= nil
+    local custom = addon.Theme:UsesAccentStyle()
+        or addon.Headers.Get("minimap", "color") ~= nil or addon.Headers.Get("minimap", "opacity") ~= nil
     self.HeaderArt:SetShown(not custom)
     self.HeaderWarmPlate:SetShown(not custom)
     self.HeaderSurroundArt:SetShown(not custom)
@@ -434,6 +463,7 @@ local function layout()
         return
     end
     applying = true
+    refreshMapLayers()
     parkRoundArt()
     createArt()
     if cluster.MinimapContainer then cluster.MinimapContainer:SetScale(1) end
@@ -448,6 +478,9 @@ local function layout()
     -- Header/layout updates can reactivate the decorative holder's mouse.
     -- This is the exact frame isolated by /bazidebug border.
     if MM.Border then MM.Border:EnableMouse(false) end
+    if addon.MinimapButtons and addon.MinimapButtons.RefreshAddonButtons then
+        addon.MinimapButtons.RefreshAddonButtons()
+    end
     applying = false
 end
 local function queueLayout()
@@ -573,6 +606,10 @@ local function refreshPosition()
     hideEditSelection()
     local cfg = db()
     refreshPreviewLayer(positioningPreview and cfg and cfg.enabled)
+    if square and cfg and cfg.enabled then
+        refreshMapLayers()
+        placeSun()
+    end
 end
 
 function MM:SetPositioningPreview(active)
@@ -650,7 +687,7 @@ end
 function MM:Apply()
     -- Shape changes are applied on reload to avoid leaving Blizzard's artwork detached.
     -- Do not re-parent textures when the round style is active.
-    if square then updateBorder(); headerLayout(); placeSun() end
+    if square then refreshMapLayers(); updateBorder(); headerLayout(); placeSun() end
     refreshPosition()
     applyMail()
 end

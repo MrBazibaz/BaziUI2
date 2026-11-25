@@ -4,19 +4,47 @@ local toasts = {}
 chat.FriendToasts = toasts
 local preview, frame, original, positioning, queued
 function toasts.GetMoverFrame() return frame end
+local recipeSystem
+local movedRecipes = setmetatable({}, {__mode = "k"})
 local friendOnline, friendOffline = 1, 2
 local onlineHeight = 63
 
-local function position(region)
+local function position(region, verticalOffset)
     local cfg = chat.Settings()
     local x, y = cfg.friendToastX or -380, cfg.friendToastY or -205
     local ratio = UIParent:GetEffectiveScale() / region:GetEffectiveScale()
-    x, y = x * ratio, y * ratio
+    x, y = x * ratio, (y + (verticalOffset or 0)) * ratio
     local point, parent, relative, oldX, oldY = region:GetPoint(1)
     if region:GetNumPoints() ~= 1 or point ~= "CENTER" or parent ~= UIParent
         or relative ~= "CENTER" or oldX ~= x or oldY ~= y then
         region:ClearAllPoints()
         region:SetPoint("CENTER", UIParent, "CENTER", x, y)
+    end
+end
+
+local function positionRecipes()
+    if not addon.db or not recipeSystem then return end
+    local pool = recipeSystem.alertFramePool
+    if not (pool and pool.EnumerateActive) then return end
+    if not chat.Settings().friendToastPosition then
+        local restore
+        for recipe in pool:EnumerateActive() do
+            if movedRecipes[recipe] then recipe:ClearAllPoints(); restore = true end
+        end
+        wipe(movedRecipes)
+        if restore and AlertFrame and AlertFrame.UpdateAnchors then AlertFrame:UpdateAnchors() end
+        return
+    end
+    local scale = UIParent:GetEffectiveScale()
+    local offset = 0
+    if frame and frame:IsShown() and (frame.toastType == friendOnline or frame.toastType == friendOffline) then
+        offset = frame:GetHeight() / 2 * frame:GetEffectiveScale() / scale + 6
+    end
+    for recipe in pool:EnumerateActive() do
+        local height = recipe:GetHeight() * recipe:GetEffectiveScale() / scale
+        position(recipe, offset > 0 and offset + height / 2 or 0)
+        offset = offset > 0 and offset + height + 6 or height / 2 + 6
+        movedRecipes[recipe] = true
     end
 end
 
@@ -43,6 +71,7 @@ function toasts.Refresh()
         preview:SetSize(frame:GetWidth(), onlineHeight)
         position(preview)
     end
+    positionRecipes()
     positioning = false
 end
 
@@ -93,11 +122,17 @@ local events = CreateFrame("Frame")
 events:RegisterEvent("PLAYER_LOGIN")
 events:RegisterEvent("ADDON_LOADED")
 events:SetScript("OnEvent", function()
-    if frame or not BNToastFrame then return end
-    frame = BNToastFrame
-    frame:HookScript("OnShow", queue)
-    if frame.ShowToast then hooksecurefunc(frame, "ShowToast", queue) end
-    hooksecurefunc(frame, "SetPoint", queue)
-    events:UnregisterAllEvents()
+    if not frame and BNToastFrame then
+        frame = BNToastFrame
+        frame:HookScript("OnShow", queue)
+        frame:HookScript("OnHide", queue)
+        if frame.ShowToast then hooksecurefunc(frame, "ShowToast", queue) end
+        hooksecurefunc(frame, "SetPoint", queue)
+    end
+    if not recipeSystem and NewRecipeLearnedAlertSystem and NewRecipeLearnedAlertSystem.AdjustAnchors then
+        recipeSystem = NewRecipeLearnedAlertSystem
+        hooksecurefunc(recipeSystem, "AdjustAnchors", positionRecipes)
+    end
+    if frame and recipeSystem then events:UnregisterAllEvents() end
     queue()
 end)

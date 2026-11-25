@@ -22,7 +22,7 @@ Dashboard starts disabled and has six settings pages under **Dashboard**. Enable
 
 ## Data sources and fallbacks
 
-- **Quests.** Reuses Bazi UI’s zone, quest map and watch-list queries. Detailed counts come from `C_QuestLog.GetQuestObjectives`. When map objective data is unavailable, the quest’s own zone is used, or a manually watched quest with no zone. An item icon requires a known item ID.
+- **Quests.** Shows quests only while the client confirms that the player is inside their objective area via `C_Minimap.IsInsideQuestBlob`. Boundary events update the list immediately, with a periodic membership check for movement between events. A quest with no confirmed area stays hidden, including when pinned. The area check is per quest, and counts come from `C_QuestLog.GetQuestObjectives`. An item icon requires a known item ID.
 - **Skills.** Tries `C_SkillInfo`, legacy `GetSkillLineInfo` and `C_TradeSkillUI.GetProfessionInfoBySkillLineID`. A profession window opens only on user click if `C_TradeSkillUI.OpenTradeSkill` is present. Live skill fields and any training-rank availability still need Forever verification. There is no estimate of trainer availability.
 - **Gathering.** Counts identifiable self-loot messages and reads the current bag count independently. Purchases and bag rearrangements do not increase the loot total. Skinning and nearby gathering use Bazi’s object detection. Rate and vendor value are labelled estimates. Messages with unrecognised formats do not contribute.
 - **Crafting.** Accepts required reagents from `GetRecipeSchematic` or a selected legacy trade-skill recipe. Recipes with alternative required reagents are omitted until a specific material choice can be verified. The widget does not craft.

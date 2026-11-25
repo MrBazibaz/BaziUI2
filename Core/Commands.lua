@@ -479,7 +479,7 @@ local function HandleCommand(message)
         end
     elseif command == "move" then
         addon.Movers.Open()
-    elseif command == "alerts" or command == "journey" or command == "alts" or command == "advisor" then
+    elseif command == "alerts" or command == "journey" or command == "alts" then
         addon.AdventureUI.Open(command)
     elseif command == "help" then
         addon:Print("Commands: /bazi (open settings), /bazi move, /bazi help, /bazi version, /bazi reload, /bazi reset")

@@ -12,6 +12,7 @@ local defaults = {
     cleanupWidth = 465, cleanupHeight = 340, cleanupFontSize = 0, cleanupX = 0, cleanupY = 0,
     enabled = false, columns = 10, bankColumns = 12, guildColumns = 14,
     size = 32, fontSize = 12, opacity = 85, x = 280, y = -150,
+    hideEmptyCategory = false, capacityFontSize = 10,
     rollX = 265, rollY = 120, openRoll = true, rolls = true, cleanup = true,
     rollGlow = true, rollTips = true, rollAnimations = true,
     maxDeleteQuality = 2,
@@ -101,7 +102,7 @@ function inventory.PositionLootWindow(frame, above)
     if above then frame:SetPoint("BOTTOM", loot or anchor, "TOP", 0, 0)
     elseif loot then frame:SetPoint("TOP", loot, "BOTTOM", 0, 0)
     else frame:SetPoint("TOP", anchor, "TOP", 0, 0) end
-    frame:SetWidth(inventory.Settings().lootWidth)
+    frame:SetWidth(loot and loot:GetWidth() or inventory.Settings().lootWidth)
 end
 
 function inventory.Label(parent, font)
@@ -232,34 +233,81 @@ function inventory.MoveCategory(from, to)
     inventory.RefreshBags()
 end
 
-function inventory.Scroll(parent, top, bottom)
+function inventory.Scroll(parent, top, bottom, questRail)
+    local compact = questRail == "compact"
+    questRail = questRail and not compact
     local scroll = CreateFrame("ScrollFrame", nil, parent)
-    scroll:SetPoint("TOPLEFT", 8, top)
-    scroll:SetPoint("BOTTOMRIGHT", -24, bottom)
+    scroll:SetPoint("TOPLEFT", questRail and 12 or 8, top)
+    scroll:SetPoint("BOTTOMRIGHT", questRail and -8 or -24, bottom)
+    if questRail then scroll:SetClipsChildren(true) end
     local content = CreateFrame("Frame", nil, scroll)
     content:SetSize(1, 1)
     scroll:SetScrollChild(content)
     local bar = CreateFrame("Slider", nil, parent)
     bar:SetOrientation("VERTICAL")
-    bar:SetWidth(9)
-    bar:SetPoint("TOPLEFT", scroll, "TOPRIGHT", 4, 0)
-    bar:SetPoint("BOTTOMLEFT", scroll, "BOTTOMRIGHT", 4, 0)
+    bar:SetWidth(compact and 7 or 9)
+    local ornament
+    if questRail then
+        ornament = addon.Theme:RailOrnament(parent, parent, 6)
+        bar:SetPoint("TOP", scroll, "TOPLEFT", -5.5, 0)
+        bar:SetPoint("BOTTOM", scroll, "BOTTOMLEFT", -5.5, 0)
+        bar:SetFrameLevel(scroll:GetFrameLevel() + 3)
+    elseif compact then
+        bar:SetPoint("TOPLEFT", scroll, "TOPRIGHT", 0, 0)
+        bar:SetPoint("BOTTOMLEFT", scroll, "BOTTOMRIGHT", 0, 0)
+    else
+        bar:SetPoint("TOPLEFT", scroll, "TOPRIGHT", 4, 0)
+        bar:SetPoint("BOTTOMLEFT", scroll, "BOTTOMRIGHT", 4, 0)
+    end
     local track = bar:CreateTexture(nil, "BACKGROUND")
-    track:SetAllPoints()
-    track:SetColorTexture(0.14, 0.08, 0.04, 0.45)
+    track:SetPoint("TOP")
+    track:SetPoint("BOTTOM")
+    track:SetWidth(compact and 1 or 2)
+    track:SetColorTexture(addon.Theme:AccentInk(0.30))
+    track:SetShown(not questRail)
     local gem = bar:CreateTexture(nil, "OVERLAY")
     addon.Theme:StyleScrollThumb(gem)
+    local thumb
+    if compact then
+        thumb = bar:CreateTexture(nil, "OVERLAY")
+        thumb:SetWidth(4)
+        gem:SetAlpha(0)
+    end
+    local function placeThumb(value)
+        local range = scroll:GetVerticalScrollRange()
+        if thumb and range > 0.5 then
+            addon.Theme:PlaceRailThumb(bar, thumb, gem, scroll:GetHeight(), range, value / range, 26)
+        end
+    end
     bar:SetThumbTexture(gem)
-    bar:SetScript("OnValueChanged", function(_, value) scroll:SetVerticalScroll(value) end)
+    bar:SetScript("OnValueChanged", function(_, value)
+        scroll:SetVerticalScroll(value)
+        if compact then placeThumb(value) end
+    end)
     scroll:EnableMouseWheel(true)
     scroll:SetScript("OnMouseWheel", function(_, delta)
+        if scroll.baziAllowScroll == false then return end
         bar:SetValue(math.max(0, math.min(scroll:GetVerticalScrollRange(), bar:GetValue() - delta * 32)))
     end)
-    scroll:SetScript("OnScrollRangeChanged", function(_, _, range)
+    function bar:SyncRange()
+        local range = scroll.baziAllowScroll == false and 0 or math.max(0, scroll:GetVerticalScrollRange())
+        if compact then
+            track:SetColorTexture(addon.Theme:AccentInk(0.30))
+            thumb:SetColorTexture(addon.Theme:AccentInk(0.85))
+        else
+            addon.Theme:PaintScrollRail(track, gem, scroll:GetHeight(), range)
+        end
+        if ornament then
+            addon.Theme:ColorRailOrnament(ornament, true, true)
+            gem:SetWidth(4)
+        end
         bar:SetMinMaxValues(0, math.max(1, range))
         bar:SetValue(math.min(range, bar:GetValue()))
-        bar:SetShown(range > 0)
-    end)
+        if compact then placeThumb(bar:GetValue()) end
+        bar:SetShown(range > 0.5)
+    end
+    scroll:SetScript("OnScrollRangeChanged", function() bar:SyncRange() end)
+    scroll:HookScript("OnShow", function() bar:SyncRange() end)
     scroll:SetScript("OnSizeChanged", function(_, width) content:SetWidth(math.max(1, width)) end)
     bar:Hide()
     return content, scroll, bar

@@ -154,9 +154,9 @@ local lit = setmetatable({}, { __mode = "k" })
 
 -- Lines fade without a display refresh: what's drawn follows their alpha.
 local function FollowLines(frame)
-	for _, mark in ipairs(frame.marks) do
-		if mark.line then
-			mark:SetAlpha(mark.line:IsShown() and mark.line:GetAlpha() or 0)
+	for _, regions in ipairs({frame.marks, frame.clocks, frame.channels}) do
+		for _, mark in ipairs(regions) do
+			if mark.line then mark:SetAlpha(mark.line:IsShown() and mark.line:GetAlpha() or 0) end
 		end
 	end
 end
@@ -172,6 +172,8 @@ local function BandFrame(chatFrame)
 		-- regions); a faint light over a letter changes nothing that shows.
 		frame:SetFrameLevel(container:GetFrameLevel())
 		frame.marks = {}
+		frame.clocks = {}
+		frame.channels = {}
 		frame:SetScript("OnUpdate", ns.Guard("Timestamps.FollowLines", FollowLines))
 		bandFrames[chatFrame] = frame
 	end
@@ -218,29 +220,149 @@ local function Mark(frame, used)
 	return mark
 end
 
+local function PlaceGroupRails(frame, lines, fromTop, used, left, px)
+	if not Readable(left) then return used end
+	local first, last
+	local r, g, b = BaziUI.Theme:Accent()
+	local function flush()
+		if not first then return end
+		local firstLeft, lastLeft = first:GetLeft(), last:GetLeft()
+		if Readable(firstLeft) and Readable(lastLeft) then
+			used = used + 1
+			local accent = Mark(frame, used)
+			accent:SetColorTexture(r, g, b, 0.90)
+			accent:SetPoint("TOPLEFT", first, "TOPLEFT", left - firstLeft + px, -px)
+			accent:SetPoint("BOTTOMLEFT", last, "BOTTOMLEFT", left - lastLeft + px, px)
+			accent:SetWidth(2 * px)
+			accent.line = first
+			accent:SetAlpha(first:GetAlpha())
+			accent:Show()
+		end
+		first, last = nil, nil
+	end
+	local start, finish, step = 1, #lines, 1
+	if not fromTop then start, finish, step = finish, start, -1 end
+	for i = start, finish, step do
+		local line = lines[i]
+		local entry = line:IsShown() and line.messageInfo
+		local continued, speaker = ns.Lines.GroupInfo(entry)
+		if not speaker or not continued then flush() end
+		if speaker then
+			first = first or line
+			last = line
+		end
+	end
+	flush()
+	return used
+end
+
+local function PlaceGroupClocks(frame, lines, right)
+	local used = 0
+	if (ns.db.timestamps or Timestamps.GameShowsTimes()) and Readable(right) then
+		for _, line in ipairs(lines) do
+			local continued, _, clock = ns.Lines.GroupInfo(line:IsShown() and line.messageInfo)
+			local edge = not continued and clock and line:GetRight()
+			if Readable(edge) then
+				used = used + 1
+				local label = frame.clocks[used]
+				if not label then
+					label = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+					label:SetTextColor(0.71, 0.66, 0.60)
+					label:SetJustifyH("RIGHT")
+					frame.clocks[used] = label
+				end
+				label:ClearAllPoints()
+				label:SetPoint("TOPRIGHT", line, "TOPRIGHT", right - edge - 1, 0)
+				label:SetText(FormatTime(clock))
+				label.line = line
+				label:SetAlpha(line:GetAlpha())
+				label:Show()
+			end
+		end
+	end
+	for i = used + 1, #frame.clocks do
+		frame.clocks[i]:Hide()
+		frame.clocks[i].line = nil
+	end
+end
+
+function Timestamps.ChannelSize(nameSize)
+	return math.max(6, math.min(32, ns.db.channelSize or (nameSize - 2)))
+end
+
+local channelArt = "Interface\\AddOns\\BaziUI\\Assets\\Icons\\Bazi\\"
+local function PlaceChannelLabels(frame, lines)
+	local used = 0
+	for _, line in ipairs(lines) do
+		local sender, channel, icon = ns.Lines.ChannelLabel(line:IsShown() and line.messageInfo)
+		if sender then
+			local file, nameSize, flags = line:GetFont()
+			local lineWidth = line:GetWidth()
+			if file and Readable(nameSize) and Readable(lineWidth) then
+				local measure = frame.nameMeasure
+				if not measure then
+					measure = frame:CreateFontString(nil, "OVERLAY")
+					measure:Hide()
+					frame.nameMeasure = measure
+				end
+				measure:SetFont(file, nameSize, flags)
+				measure:SetText(sender)
+				local x = measure:GetStringWidth() + 7
+				if x < lineWidth then
+					used = used + 1
+					local label = frame.channels[used]
+					if not label then
+						label = frame:CreateFontString(nil, "OVERLAY")
+						label:SetTextColor(0.73, 0.68, 0.62)
+						label:SetJustifyH("LEFT")
+						label:SetWordWrap(false)
+						frame.channels[used] = label
+					end
+					local size = Timestamps.ChannelSize(nameSize)
+					local iconSize = math.max(6, math.floor(size - 1))
+					label:SetFont(file, size, flags)
+					label:ClearAllPoints()
+					label:SetPoint("TOPLEFT", line, "TOPLEFT", x, 0)
+					label:SetWidth(lineWidth - x)
+					label:SetText(("|T%s%s.tga:%d:%d|t %s"):format(channelArt, icon, iconSize, iconSize, channel))
+					label.line = line
+					label:SetAlpha(line:GetAlpha())
+					label:Show()
+				end
+			end
+		end
+	end
+	for i = used + 1, #frame.channels do
+		frame.channels[i]:Hide()
+		frame.channels[i].line = nil
+	end
+end
+
 local function PlaceSeparators(chatFrame)
 	local mode = ns.db.messageSeparator
-	local frame = bandFrames[chatFrame]
-	if mode ~= "bands" and mode ~= "line" then
-		if frame then
-			frame:Hide()
-		end
-		return
-	end
-	frame = BandFrame(chatFrame)
+	local frame = BandFrame(chatFrame)
 	frame:Show()
 	local lines = chatFrame.visibleLines
-	local left, right = frame:GetLeft(), frame:GetRight()
+	local container = chatFrame.FontStringContainer
+	local left, right = container:GetLeft(), container:GetRight()
+	local edge = chatFrame:GetRight()
+	if Readable(right) and Readable(edge) then
+		frame:SetPoint("TOPLEFT", container, "TOPLEFT")
+		frame:SetPoint("BOTTOMRIGHT", container, "BOTTOMRIGHT", edge - right, 0)
+	end
 	local px = PixelUtil.ConvertPixelsToUIForRegion(1, chatFrame)
+	local fromTop = chatFrame:GetInsertMode() == SCROLLING_MESSAGE_FRAME_INSERT_MODE_TOP
 	if mode == "bands" then
 		LitMessages(lines)
 	end
 	local used = 0
 	for index, line in ipairs(lines) do
 		local entry = line:IsShown() and line.messageInfo
+		local nextLine = lines[index + (fromTop and 1 or -1)]
+		local nextContinued = nextLine and ns.Lines.GroupInfo(nextLine.messageInfo)
 		local lineLeft = entry and line:GetLeft()
 		-- Half the gap to the next message, above and below.
-		local half = (MessageGap() + line:GetSpacing()) / 2
+		local half = (MessageGap() + 3 + line:GetSpacing()) / 2
 		if entry and Readable(left) and Readable(right) and Readable(lineLeft) then
 			local mark
 			if mode == "bands" and lit[entry] then
@@ -249,7 +371,7 @@ local function PlaceSeparators(chatFrame)
 				mark:SetColorTexture(1, 1, 1, BAND_ALPHA)
 				mark:SetPoint("TOPLEFT", line, "TOPLEFT", left - lineLeft, half)
 				mark:SetPoint("BOTTOMRIGHT", line, "BOTTOMLEFT", right - lineLeft, -half)
-			elseif mode == "line" and index > 1 and Readable(line:GetBottom()) then
+			elseif mode == "line" and nextLine and not nextContinued and Readable(line:GetBottom()) then
 				-- Under every message but the newest, in the middle of the gap.
 				used = used + 1
 				mark = Mark(frame, used)
@@ -269,6 +391,9 @@ local function PlaceSeparators(chatFrame)
 			end
 		end
 	end
+	used = PlaceGroupRails(frame, lines, fromTop, used, left, px)
+	PlaceGroupClocks(frame, lines, edge)
+	PlaceChannelLabels(frame, lines)
 	for index = used + 1, #frame.marks do
 		frame.marks[index]:Hide()
 		frame.marks[index].line = nil
@@ -278,19 +403,67 @@ end
 local function OnDisplayRefreshed(chatFrame)
 	local lines = chatFrame.visibleLines
 	local fromTop = chatFrame:GetInsertMode() == SCROLLING_MESSAGE_FRAME_INSERT_MODE_TOP
+	local container = chatFrame.FontStringContainer
+	local left = container and container:GetLeft()
+	local available = container and container:GetWidth()
+	local timestamps = ns.db.timestamps or Timestamps.GameShowsTimes()
+	local function indent(line)
+		local continued, speaker, clock = ns.Lines.GroupInfo(line.messageInfo)
+		local inset = speaker and 9 or 0
+		if Readable(available) and line.SetWidth then
+			local width = math.max(40, available - inset - (timestamps and clock and not continued and 44 or 0))
+			local oldWidth = line:GetWidth()
+			if Readable(oldWidth) and oldWidth ~= width then line:SetWidth(width) end
+		end
+		return inset
+	end
+	local first = lines[1]
+	local previousInset = first and indent(first) or 0
+	if first and Readable(left) then
+		local point, relative, edge, _, y = first:GetPoint(1)
+		local anchorLeft = relative and relative:GetLeft()
+		if (point == "TOPLEFT" or point == "BOTTOMLEFT") and (edge == "TOPLEFT" or edge == "BOTTOMLEFT")
+			and Readable(anchorLeft) and Readable(y) then
+			first:SetPoint(point, relative, edge, left + previousInset - anchorLeft, y)
+		else
+			previousInset = 0
+		end
+	else
+		previousInset = 0
+	end
 	for index = 2, #lines do
 		local line, previous = lines[index], lines[index - 1]
-		local gap = line:GetSpacing() + MessageGap()
+		local newer = fromTop and line or previous
+		local continued = ns.Lines.GroupInfo(newer.messageInfo)
+		local gap = line:GetSpacing() + (continued and 2 or MessageGap() + 3)
+		local inset = indent(line)
 		if fromTop then
-			line:SetPoint("TOPLEFT", previous, "BOTTOMLEFT", 0, -gap)
+			line:SetPoint("TOPLEFT", previous, "BOTTOMLEFT", inset - previousInset, -gap)
 		else
-			line:SetPoint("BOTTOMLEFT", previous, "TOPLEFT", 0, gap)
+			line:SetPoint("BOTTOMLEFT", previous, "TOPLEFT", inset - previousInset, gap)
 		end
+		previousInset = inset
 	end
 	PlaceSeparators(chatFrame)
 	for _, listener in ipairs(placedListeners) do
 		listener(chatFrame)
 	end
+end
+
+local followTimers = setmetatable({}, {__mode = "k"})
+local function scheduleTail(chatFrame, reset)
+	local existing = followTimers[chatFrame]
+	local offset = chatFrame:GetScrollOffset()
+	if not Readable(offset) then return end
+	if existing and (reset or offset == 0) then
+		existing:Cancel()
+		followTimers[chatFrame] = nil
+	end
+	if offset <= 0 or followTimers[chatFrame] then return end
+	followTimers[chatFrame] = C_Timer.NewTimer(15, function()
+		followTimers[chatFrame] = nil
+		if ns.active and chatFrame.ScrollToBottom then chatFrame:ScrollToBottom() end
+	end)
 end
 
 local function Setup(chatFrame)
@@ -308,7 +481,16 @@ local function Setup(chatFrame)
 	if Spacing().lines ~= 0 then
 		chatFrame:SetSpacing(states[chatFrame] + Spacing().lines)
 	end
-	chatFrame:AddOnDisplayRefreshedCallback(ns.Guard("Timestamps.OnDisplayRefreshed", OnDisplayRefreshed))
+	chatFrame:AddOnDisplayRefreshedCallback(ns.Guard("Timestamps.OnDisplayRefreshed", function(window)
+		OnDisplayRefreshed(window)
+		scheduleTail(window, false)
+	end))
+	for _, method in ipairs({"ScrollUp", "ScrollDown", "PageUp", "PageDown", "ScrollToTop"}) do
+		if chatFrame[method] then hooksecurefunc(chatFrame, method, function(window) scheduleTail(window, true) end) end
+	end
+	chatFrame:HookScript("OnMouseWheel", function(window) scheduleTail(window, true) end)
+	local scrollBar = chatFrame.ScrollBar
+	if scrollBar then scrollBar:HookScript("OnMouseUp", function() scheduleTail(chatFrame, true) end) end
 	chatFrame:MarkLayoutDirty()
 end
 

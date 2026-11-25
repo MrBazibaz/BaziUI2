@@ -6,6 +6,7 @@ function module.GetOwnedMoverFrame(index) return bars[index] end
 local nativeParents = {}
 local nativeHolder
 local bindingMode = false
+local bindingSelection, bindingFrame
 local normalMode = "[vehicleui][overridebar][possessbar][petbattle] special; normal"
 
 local function bindingCommand(number, index)
@@ -35,6 +36,86 @@ local function centerPressArt(button)
         texture:ClearAllPoints()
         texture:SetAllPoints(button)
     end
+end
+
+local function selectOwnedBinding(frame, button)
+    local previous = bindingSelection
+    if previous ~= button then
+        if previous then previous.baziBindingTarget.mark:SetAlpha(0.5) end
+        bindingSelection = button
+    end
+    if button then
+        if frame.mouseOverButton ~= button then
+            frame:SetSelected(button.commandName, button)
+            button:ShowBindingTooltip()
+        end
+        if previous ~= button then button.baziBindingTarget.mark:SetAlpha(1) end
+    elseif previous and frame.mouseOverButton == previous then
+        frame:SetSelected(nil, nil)
+        frame.tooltip:Hide()
+    end
+end
+
+local modifierKeys = {LSHIFT=true, RSHIFT=true, SHIFT=true, LCTRL=true, RCTRL=true, CTRL=true,
+    LALT=true, RALT=true, ALT=true, LMETA=true, RMETA=true}
+local mouseKeys = {MiddleButton="BUTTON3", Button4="BUTTON4", Button5="BUTTON5"}
+
+function module:BindHoveredOwnedButton(frame, input)
+    if not bindingMode or InCombatLockdown() or not SetBinding or type(input) ~= "string" then return false end
+    local button = bindingSelection
+    if not button then return false end
+    if modifierKeys[input] or input == "UNKNOWN" then return true end
+
+    local command = button.commandName
+    local primary, secondary = GetBindingKey(command)
+    local changed
+    if input == "ESCAPE" then
+        changed = primary and SetBinding(primary)
+    else
+        local key = (IsAltKeyDown() and "ALT-" or "") .. (IsControlKeyDown() and "CTRL-" or "")
+            .. (IsShiftKeyDown() and "SHIFT-" or "") .. (mouseKeys[input] or input:upper())
+        if key == primary then return true end
+        if primary and not SetBinding(primary) then
+            frame:SetOutputText("Could not replace the current binding.")
+            return true
+        end
+        changed = key == secondary or SetBinding(key, command)
+        if not changed and primary then SetBinding(primary, command) end
+    end
+    if changed then
+        frame:SetOutputText(input == "ESCAPE" and (NOT_BOUND or "Not bound") or (KEY_BOUND or "Key bound"))
+        button:ShowBindingTooltip()
+    elseif input ~= "ESCAPE" then
+        frame:SetOutputText("Could not bind this key.")
+    end
+    return true, changed
+end
+
+function module:UpdateOwnedBindingHover(frame)
+    if not bindingMode or InCombatLockdown() then return end
+    local candidate, level
+    if not frame:IsMouseOver() then
+        local cursorX, cursorY = GetCursorPosition()
+        -- A separate frame can swallow mouse motion over the bar. Use the
+        -- visible slot bounds so keyboard binding still follows the cursor.
+        for _, bar in pairs(bars) do
+            if bar:IsVisible() then
+                local scale = bar:GetEffectiveScale()
+                local x, y = cursorX / scale, cursorY / scale
+                for _, button in ipairs(bar.buttons) do
+                    local target = button.baziBindingTarget
+                    if target:IsShown() then
+                        local ok, left, bottom, width, height = pcall(target.GetRect, target)
+                        if ok and left and x >= left and x < left + width and y >= bottom and y < bottom + height then
+                            local priority = target:GetFrameLevel()
+                            if not level or priority > level then candidate, level = button, priority end
+                        end
+                    end
+                end
+            end
+        end
+    end
+    selectOwnedBinding(frame, candidate)
 end
 
 local function createBar(number)
@@ -76,42 +157,49 @@ local function createBar(number)
         })
         button.commandName = command
         centerPressArt(button)
-        function button:QuickKeybindButtonSetTooltip()
-            if QuickKeybindButtonTemplateMixin then
-                QuickKeybindButtonTemplateMixin.QuickKeybindButtonSetTooltip(self)
-            end
+        function button:ShowBindingTooltip()
+            if not bindingFrame then return end
+            local tooltip = bindingFrame.tooltip
+            tooltip:SetOwner(self.baziBindingTarget, "ANCHOR_TOP")
+            tooltip:SetText(GetBindingName(self.commandName) or self.commandName)
+            local key = GetBindingKey(self.commandName)
+            tooltip:AddLine(key or NOT_BOUND or "Not bound", 1, 0.82, 0.49)
+            tooltip:AddLine(key and (ESCAPE_TO_UNBIND or "Escape to unbind")
+                or (PRESS_KEY_TO_BIND or "Press a key to bind"), 1, 1, 1)
+            tooltip:Show()
         end
-        local target = CreateFrame("Button", nil, button)
+        -- LibActionButton can make an empty slot fully transparent.
+        local target = CreateFrame("Button", nil, bar)
         target:SetAllPoints(button)
+        target:SetFrameStrata("DIALOG")
         target:SetFrameLevel(button:GetFrameLevel() + 8)
+        target:EnableMouse(true)
+        local highlight = target:CreateTexture(nil, "OVERLAY")
+        highlight:SetAllPoints()
+        highlight:SetAtlas("UI-HUD-ActionBar-IconFrame-Mouseover")
+        highlight:SetAlpha(0.5)
+        target.mark = highlight
         target:RegisterForClicks("AnyUp")
         local function selectBinding()
-            if bindingMode and QuickKeybindFrame:IsShown() then
-                QuickKeybindFrame:SetSelected(command, button)
-                button:QuickKeybindButtonSetTooltip()
+            if bindingFrame then
+                selectOwnedBinding(bindingFrame, button)
             end
         end
         target:SetScript("OnEnter", selectBinding)
         target:SetScript("OnClick", function(_, mouseButton)
-            if not (bindingMode and QuickKeybindFrame:IsShown()) then return end
+            if not bindingFrame then return end
             selectBinding()
             if mouseButton ~= "LeftButton" and mouseButton ~= "RightButton" then
-                QuickKeybindFrame:OnKeyDown(mouseButton)
+                bindingFrame:HandleBindingInput(mouseButton)
             end
         end)
         target:EnableMouseWheel(true)
         target:SetScript("OnMouseWheel", function(_, delta)
-            if not (bindingMode and QuickKeybindFrame:IsShown()) then return end
+            if not bindingFrame then return end
             selectBinding()
-            QuickKeybindFrame:OnMouseWheel(delta)
+            bindingFrame:HandleBindingInput(delta > 0 and "MOUSEWHEELUP" or "MOUSEWHEELDOWN")
         end)
-        target:SetScript("OnLeave", function()
-            if bindingMode and QuickKeybindFrame:IsShown() and QuickKeybindFrame.mouseOverButton == button then
-                QuickKeybindFrame:SetSelected(nil, nil)
-                if QuickKeybindTooltip then QuickKeybindTooltip:Hide() end
-            end
-        end)
-        target:Hide()
+        target:SetShown(bindingMode)
         button.baziBindingTarget = target
         bar.buttons[index] = button
         bar:SetFrameRef("button" .. index, button)
@@ -170,6 +258,7 @@ function module:ConfigureOwnedBar(number, settings)
         config.keyBoundTarget = button.commandName
         button:UpdateConfig(config)
         button:SetShown(index <= count)
+        button.baziBindingTarget:SetShown(bindingMode and index <= count)
     end
     bar:SetAttribute("buttonCount", count)
     bar:SetAttribute("enabled", settings.visible)
@@ -209,11 +298,13 @@ function module:RefreshOwnedBindings()
     end
 end
 
-function module:SetOwnedBindingMode(enabled)
+function module:SetOwnedBindingMode(enabled, frame)
+    if not enabled and bindingFrame then selectOwnedBinding(bindingFrame, nil) end
+    bindingFrame = enabled and frame or nil
     bindingMode = enabled
     for _, bar in pairs(bars) do
         for _, button in ipairs(bar.buttons) do
-            button.baziBindingTarget:SetShown(enabled)
+            button.baziBindingTarget:SetShown(enabled and button:IsShown())
         end
     end
     self:RefreshOwnedBindings()

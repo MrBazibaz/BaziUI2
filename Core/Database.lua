@@ -30,7 +30,7 @@ local defaults = {
         unitframes = {enabled=true, player=false, target=false, focus=false, pet=false, targettarget=false, hideBlizzard=false, scale=1, barWidth=162, hpHeight=23, powerHeight=9, portraitSize=48, portraitX=0, portraitY=0, frames={player={}, target={}, focus={}, pet={}, targettarget={}}, groups={party={enabled=false,showSolo=false},raid={enabled=false,showSolo=false}}},
         tooltip = {
             enabled = true, anchor = "corner", x = -30, y = 130,
-            scale = 1, opacity = 1, healthBar = "below",
+            scale = 1, opacity = 1, healthBar = "insideBottom", smart = true,
             guild = true, threat = true, ids = false, itemLevel = true,
             classNames = true, targetTarget = true, hideFaction = false,
             titleFont = {font = "GLOBAL", outline = "OUTLINE", size = 14, shadow = true},

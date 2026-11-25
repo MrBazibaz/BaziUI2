@@ -24,10 +24,15 @@ function hud.Settings(key)
     for field, value in pairs(defaults[key]) do
         if cfg[field] == nil then cfg[field] = value end
     end
+    local resolve = addon.Chat and addon.Chat.Alerts and addon.Chat.Alerts.ResolveSoundKey
+    if key == "ammo" and resolve then
+        cfg.lowSound = resolve(cfg.lowSound)
+        cfg.criticalSound = resolve(cfg.criticalSound)
+    end
     return cfg
 end
 
-local warningParts = {"Head", "Shoulders", "Chest", "Hands", "Waist", "Legs", "Feet", "Wrists"}
+local warningParts = {"Head", "Shoulders", "Chest", "Hands", "Waist", "Legs", "Feet", "Wrists", "Weapon", "Ranged"}
 local native = setmetatable({}, {__mode = "k"})
 local preview, queued, pending, moving
 local vehiclePreview
@@ -97,16 +102,33 @@ end
 function hud.RefreshNative()
     if not addon.db then return end
     if vehiclePreview and vehiclePreview:IsShown() then place(vehiclePreview, hud.Settings("vehicle")) end
-    if InCombatLockdown() then pending = true; return end
+    if InCombatLockdown() then
+        pending = true
+        local durability = _G.DurabilityFrame
+        local cfg = hud.Settings("durability")
+        if durability and (cfg.enabled or preview) and not durability:IsProtected() then place(durability, cfg) end
+        return
+    end
     pending = false
     refreshFrame(_G.DurabilityFrame, "durability")
     refreshFrame(_G.MainMenuBarVehicleLeaveButton, "vehicle")
     refreshFrame(_G.OverrideActionBar and _G.OverrideActionBar.LeaveButton, "vehicle")
     if preview and _G.DurabilityFrame then
-        for _, part in ipairs(warningParts) do
-            local texture = _G["Durability" .. part]
-            if texture then texture:SetVertexColor(1, 0.81, 0.12, 1); texture:Show() end
+        local function showPart(texture)
+            if not texture then return end
+            texture:SetVertexColor(1, 0.81, 0.12, 1)
+            texture:Show()
         end
+        for _, part in ipairs(warningParts) do
+            showPart(_G["Durability" .. part])
+        end
+        local offhandWeapon = C_PaperDollInfo and C_PaperDollInfo.OffhandHasWeapon and C_PaperDollInfo.OffhandHasWeapon()
+        local hand = offhandWeapon and DurabilityOffWeapon or DurabilityShield
+        local alternate = offhandWeapon and DurabilityShield or DurabilityOffWeapon
+        if alternate then alternate:Hide() end
+        showPart(hand)
+        if DurabilityHead then DurabilityHead:SetPoint("TOPRIGHT", -40, 0) end
+        DurabilityFrame:SetWidth(92)
         if not DurabilityFrame:IsShown() then DurabilityFrame:Show() end
     end
 end

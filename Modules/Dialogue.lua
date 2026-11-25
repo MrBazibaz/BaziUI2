@@ -14,6 +14,7 @@ function dialogue.Settings()
     if cfg.y == nil then cfg.y = 15 end
     if cfg.readerX == nil then cfg.readerX = 0 end
     if cfg.readerY == nil then cfg.readerY = -100 end
+    if cfg.readerMaxHeight == nil then cfg.readerMaxHeight = 240 end
     return cfg
 end
 

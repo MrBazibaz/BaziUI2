@@ -6,6 +6,12 @@ local queueIndex = 1
 local refreshQueued, elapsed, readerAfter = nil, nil, 0
 local interactionTypes = Enum and Enum.PlayerInteractionType
 local nativeAlpha, watchedNative = {}, {}
+local iconPath = "Interface\\AddOns\\BaziUI\\Assets\\Icons\\Bazi\\"
+local questStates = {
+    available = {icon = iconPath .. "QuestAvailable.tga", label = "Available", color = {1, 0.82, 0.49}},
+    active = {icon = iconPath .. "QuestProgress.tga", label = "In progress", color = {0.78, 0.74, 0.69}},
+    ready = {icon = iconPath .. "QuestTurnIn.tga", label = "Ready to turn in", color = {0.62, 0.91, 0.56}},
+}
 
 local function text(parent, size, color)
     local label = parent:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
@@ -24,9 +30,20 @@ local function style(view, cfg)
         view.band:ClearAllPoints()
         view.band:SetPoint(edge .. "LEFT", 3, cfg.readerGrowUp and 3 or -3)
         view.band:SetPoint(edge .. "RIGHT", -3, cfg.readerGrowUp and 3 or -3)
+        view.progress:ClearAllPoints()
+        local line = cfg.readerGrowUp and "TOP" or "BOTTOM"
+        view.progress:SetPoint(line .. "LEFT", view.band, line .. "LEFT", 9, 0)
+        view.progress:SetPoint(line .. "RIGHT", view.band, line .. "RIGHT", -9, 0)
+        view.progress:SetStatusBarColor(addon.Theme:Accent())
         view.bodyHost:ClearAllPoints()
-        view.bodyHost:SetPoint("TOPLEFT", 9, cfg.readerGrowUp and -12 or -51)
+        local artHeight = view.bannerHeight or 0
+        local top = cfg.readerGrowUp and -12 or -51
+        view.bodyHost:SetPoint("TOPLEFT", artHeight > 0 and 6 or 50, top - artHeight)
         view.bodyHost:SetPoint("BOTTOMRIGHT", -4, cfg.readerGrowUp and 50 or 11)
+        view.banner:ClearAllPoints()
+        view.banner:SetPoint("TOPLEFT", view, "TOPLEFT", 3, top + 7)
+        view.banner:SetPoint("TOPRIGHT", view, "TOPRIGHT", -3, top + 7)
+        view.banner:SetHeight(math.max(1, artHeight))
     else
         view:SetPoint("CENTER", UIParent, "CENTER", cfg.x, cfg.y)
     end
@@ -65,6 +82,16 @@ local function button(parent, title, width, height, action)
     local control = addon.Theme:CreateButton(parent, title, width, height)
     control:SetScript("OnClick", action)
     return control
+end
+
+local function controlIcon(control, name)
+    if not control.icon then
+        control.icon = control:CreateTexture(nil, "OVERLAY")
+        control.icon:SetSize(15, 15)
+        control.icon:SetPoint("CENTER")
+    end
+    control.icon:SetTexture(iconPath .. name .. ".tga")
+    control.icon:SetVertexColor(1, 0.83, 0.56)
 end
 
 local function divider(parent, relative, gap)
@@ -121,11 +148,9 @@ end
 
 local function playerControls(view, resolve)
     local previous
-    local function control(kind, glyph, tip, action)
-        local api = _G.Spoken
-        local item = api and api.CreateRoundButton and api:CreateRoundButton(view, kind)
-        if not item then item = button(view, glyph, 28, 28, action) end
-        item:SetSize(28, 28)
+    local function control(icon, tip, action)
+        local item = button(view, "", 28, 28, action)
+        controlIcon(item, icon)
         if previous then item:SetPoint("RIGHT", previous, "LEFT", -7, 0)
         else item:SetPoint("RIGHT", view.close, "LEFT", -8, 0) end
         previous = item
@@ -139,10 +164,10 @@ local function playerControls(view, resolve)
         return item
     end
     local controls = {}
-    controls.report = control("report", "!", "Report voice issue", function() report(resolve()) end)
-    controls.skip = control("skip", ">>", "Skip", function() voice.Skip(resolve()) end)
-    controls.previous = control("previous", "<<", "Previous line", function() if _G.Spoken then Spoken:Previous() end end)
-    controls.play = control("play", ">", "Listen / pause", function() voice.Play(resolve(), view == main) end)
+    controls.report = control("Report", "Report voice issue", function() report(resolve()) end)
+    controls.skip = control("Next", "Skip", function() voice.Skip(resolve()) end)
+    controls.previous = control("Skip", "Previous line", function() if _G.Spoken then Spoken:Previous() end end)
+    controls.play = control("Play", "Listen / pause", function() voice.Play(resolve(), view == main) end)
     controls.first = previous
     return controls
 end
@@ -156,8 +181,7 @@ local function refreshControls(view, page)
     local api = _G.Spoken
     local playing = voice.IsPlaying(page)
     local controls = view.controls
-    if controls.play.SetPlaying then controls.play:SetPlaying(not not playing)
-    else controls.play:SetText(playing and "||" or ">") end
+    controlIcon(controls.play, playing and "Pause" or "Play")
     ready(controls.play, api and (page.clip or view == main))
     ready(controls.previous, api and api.CanPrevious and api:CanPrevious())
     ready(controls.skip, api and api.GetCurrent and api:GetCurrent())
@@ -168,9 +192,10 @@ local function makeMain()
     if main then return main end
     local view = shell(555, 515, "FULLSCREEN_DIALOG")
     main = view
-    view.close = button(view, "X", 28, 28, function()
+    view.close = button(view, "", 28, 28, function()
         if current and current.native then closePage(current) else dialogue.Preview(nil) end
     end)
+    controlIcon(view.close, "Cross")
     view.close:SetPoint("TOPRIGHT", -13, -7)
     view.controls = playerControls(view, function() return current end)
     view.portrait = view:CreateTexture(nil, "ARTWORK")
@@ -233,13 +258,21 @@ local function setReaderVisible(visible, immediate)
     end)
 end
 
+local function readerProgress(page)
+    local api = _G.Spoken
+    local caption = api and api.GetCaption and api:GetCaption()
+    if page and caption and caption.clip == page.clip and type(caption.progress) == "number" then
+        return caption.progress
+    end
+end
+
 local function makeReader()
     if reader then return reader end
     local view = shell(465, 114, "DIALOG")
     reader = view
     view:SetAlpha(0)
     view.fadeTarget = 0
-    view.close = button(view, "X", 28, 28, function()
+    view.close = button(view, "", 28, 28, function()
         if preview == "reader" then dialogue.Preview(nil); return end
         if view.page and view.page.standalone then
             view.dismissedClip = view.page.clip
@@ -247,6 +280,7 @@ local function makeReader()
         queueIndex = 1
         setReaderVisible(false)
     end)
+    controlIcon(view.close, "Cross")
     view.close:SetPoint("RIGHT", view.band, "RIGHT", -9, 0)
     view.controls = playerControls(view, function() return view.page end)
     local titleButton = CreateFrame("Button", nil, view)
@@ -264,8 +298,30 @@ local function makeReader()
     view.title:SetWordWrap(false)
     local host = CreateFrame("Frame", nil, view)
     view.bodyHost = host
-    local content, scroll, scrollbar = addon.Inventory.Scroll(host, 0, 0)
-    content:SetWidth(428)
+    view.progress = CreateFrame("StatusBar", nil, view)
+    view.progress:SetHeight(2)
+    view.progress:SetStatusBarTexture("Interface\\Buttons\\WHITE8X8")
+    view.progress:SetMinMaxValues(0, 1)
+    view.progress:EnableMouse(false)
+    view.progress:SetScript("OnUpdate", function(bar)
+        local progress = readerProgress(view.page)
+        if progress then bar:SetValue(progress) end
+    end)
+    view.speaker = text(host, 12, {0.73, 0.65, 0.55})
+    view.speaker:SetPoint("TOPLEFT")
+    view.speaker:SetPoint("TOPRIGHT", -9, 0)
+    view.speaker:SetWordWrap(false)
+    view.art = view:CreateTexture(nil, "ARTWORK")
+    view.art:SetSize(30, 30)
+    view.art:SetPoint("TOPRIGHT", host, "TOPLEFT", -9, 0)
+    view.banner = view:CreateTexture(nil, "ARTWORK")
+    local fade = view:CreateMaskTexture()
+    fade:SetAllPoints(view.banner)
+    fade:SetTexture(iconPath .. "BannerFade.tga", "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
+    view.banner:AddMaskTexture(fade)
+    view.banner:Hide()
+    local content, scroll, scrollbar = addon.Inventory.Scroll(host, -17, 0)
+    content:SetWidth(398)
     view.content, view.scroll, view.scrollbar = content, scroll, scrollbar
     scrollbar:SetWidth(5)
     local thumb = scrollbar:GetThumbTexture()
@@ -290,9 +346,9 @@ local function tint(view, page, cfg)
     local marked = cfg.tint and dialogue.IsForeverQuest(page.questID)
     view.tint:SetShown(marked)
     if marked then
-        local r, g, b = unpack(addon.QuestTracker.Settings().accent)
+        local r, g, b = addon.Theme:Accent()
         view.tint:SetColorTexture(1, 1, 1, 1)
-        view.tint:SetGradient("VERTICAL", CreateColor(r, g, b, 0), CreateColor(r, g, b, 0.34))
+        view.tint:SetGradient("VERTICAL", CreateColor(r, g, b, 0), CreateColor(r, g, b, 0.15))
     end
 end
 
@@ -331,7 +387,6 @@ local function rowButton(view, index, left, y, width, item, height, optionSize)
         control.icon:SetSize(34, 34)
         control.icon:SetPoint("LEFT", 4, 0)
         control.label = text(control, 14)
-        control.label:SetPoint("RIGHT", -7, 0)
         control.label:SetWordWrap(false)
         control:SetScript("OnClick", function(self) if self.item.action then self.item.action() end end)
         control:SetScript("OnEnter", function(self)
@@ -363,7 +418,24 @@ local function rowButton(view, index, left, y, width, item, height, optionSize)
         typography.Path(addon.db.profile.font), item.action and optionSize or 14, "", true)
     control.label:ClearPoint("LEFT")
     control.label:SetPoint("LEFT", item.icon and 46 or 3, 0)
-    control.label:SetPoint("RIGHT", -7, 0)
+    control.label:ClearPoint("RIGHT")
+    local state = item.questState
+    if state then
+        if not control.questStatus then
+            control.questStatus = text(control, 12)
+            control.questStatus:SetPoint("RIGHT", -10, 0)
+        end
+        local status = control.questStatus
+        typography.Apply(status, "Dialogue:Options", typography.Path(addon.db.profile.font),
+            math.max(9, optionSize - 2), "", true)
+        status:SetText(state.label)
+        status:SetTextColor(unpack(state.color))
+        status:Show()
+        control.label:SetPoint("RIGHT", status, "LEFT", -10, 0)
+    else
+        if control.questStatus then control.questStatus:Hide() end
+        control.label:SetPoint("RIGHT", -7, 0)
+    end
     control:Show()
 end
 
@@ -429,9 +501,6 @@ local function itemList(page, label, kind, count, markValue)
         local ok, link = pcall(GetQuestItemLink, kind, index)
         local entry = {label = (name or "…") .. (amount and amount > 1 and " ×" .. amount or ""), icon = icon,
             link = ok and link or nil}
-        local advisor = addon.EquipmentAdvisor
-        local comparison = advisor and (kind == "reward" or kind == "choice") and advisor.Badge(entry.link, "quests")
-        if comparison then entry.label = entry.label .. "  |cffbb94db" .. comparison .. "|r" end
         if markValue and entry.link then
             local info = C_Item and C_Item.GetItemInfo or GetItemInfo
             local price = select(11, info(entry.link))
@@ -466,24 +535,29 @@ local function objectives(page, description)
     end
 end
 
+local function gossipQuest(title, action, active, complete)
+    local ready = not (issecretvalue and issecretvalue(complete)) and (complete == true or complete == 1)
+    local state = active and (ready and questStates.ready or questStates.active) or questStates.available
+    return {label = title, icon = state.icon, questState = state, action = action}
+end
+
 local function gossip(page, classic)
     local api = C_GossipInfo
     local list = addSection(page, QUESTS_LABEL or "Quests and conversation")
     if classic then
         for index = 1, GetNumActiveQuests and GetNumActiveQuests() or 0 do
             local title, complete = GetActiveTitle(index)
-            list[#list + 1] = {label = title, icon = complete and 132049 or 132048, action = function() SelectActiveQuest(index) end}
+            list[#list + 1] = gossipQuest(title, function() SelectActiveQuest(index) end, true, complete)
         end
         for index = 1, GetNumAvailableQuests and GetNumAvailableQuests() or 0 do
-            list[#list + 1] = {label = GetAvailableTitle(index), icon = 132048, action = function() SelectAvailableQuest(index) end}
+            list[#list + 1] = gossipQuest(GetAvailableTitle(index), function() SelectAvailableQuest(index) end)
         end
     elseif api then
         for _, quest in ipairs(api.GetActiveQuests() or {}) do
-            list[#list + 1] = {label = quest.title, icon = quest.isComplete and 132049 or 132048,
-                action = function() api.SelectActiveQuest(quest.questID) end}
+            list[#list + 1] = gossipQuest(quest.title, function() api.SelectActiveQuest(quest.questID) end, true, quest.isComplete)
         end
         for _, quest in ipairs(api.GetAvailableQuests() or {}) do
-            list[#list + 1] = {label = quest.title, icon = 132048, action = function() api.SelectAvailableQuest(quest.questID) end}
+            list[#list + 1] = gossipQuest(quest.title, function() api.SelectAvailableQuest(quest.questID) end)
         end
         for _, option in ipairs(api.GetOptions() or {}) do
             list[#list + 1] = {label = option.name, icon = option.icon,
@@ -673,9 +747,43 @@ local function updateReader(cfg)
     if view.page ~= page or not view:IsShown() then
         view.page = page
         view:SetFrameStrata(page.selfTest and "FULLSCREEN_DIALOG" or "DIALOG")
-        style(view, cfg)
         tint(view, page, cfg)
         view.title:SetText(page.title)
+        local clip = page.clip
+        local present = clip and clip.present or {}
+        local portrait = present.portrait or {}
+        local api = _G.Spoken
+        view.speaker:SetText(present.header or page.byline or "")
+        local artwork = portrait.kind == "texture" and portrait.texture
+        local place = clip and clip.source and clip.source.key == "places"
+        local picture = place and present.picture and present.picture.file
+        local banner = picture or (place and artwork)
+        view.bannerHeight = banner and 96 or 0
+        view.banner:SetShown(not not banner)
+        if banner then
+            local coords = not picture and portrait.texCoord
+            local left, right, top, bottom = 0, 1, 0, 1
+            if coords and #coords == 4 then left, right, top, bottom = unpack(coords) end
+            local center = (top + bottom) / 2
+            local half = (bottom - top) * (picture and 0.23 or 0.12)
+            view.banner:SetTexture(banner)
+            view.banner:SetTexCoord(left, right, center - half, center + half)
+        end
+        style(view, cfg)
+        view.art:SetTexture(artwork or iconPath .. "Chat.tga")
+        view.art:SetTexCoord(unpack(artwork and portrait.texCoord or {0, 1, 0, 1}))
+        if not view.face and api and api.CreateSpeakerFace then
+            view.face = api:CreateSpeakerFace(view, 34)
+            view.face:SetPoint("CENTER", view.art)
+        end
+        local creatureID = portrait.creatureID or (type(page.guid) == "string" and tonumber((select(6, strsplit("-", page.guid)))))
+        local hasFace = view.face and creatureID
+        if view.face then
+            view.face:SetShown(not not hasFace)
+            if hasFace then view.face:SetSpeaker({creatureID = creatureID, displayID = portrait.displayID,
+                guid = portrait.guid or page.guid, bullet = present.bullet}) end
+        end
+        view.art:SetShown(not hasFace and not banner)
         view.manualScroll = nil
         view.scrollbar:SetValue(0)
     end
@@ -683,19 +791,24 @@ local function updateReader(cfg)
     view.count:SetText(waiting > 0 and ("+%d"):format(waiting) or "")
     local line, activeByte = voice.Update(page)
     if view.body:GetText() ~= line then view.body:SetText(line) end
+    local progress = readerProgress(page)
+    view.progress:SetShown(progress ~= nil)
+    if progress then view.progress:SetValue(progress) end
     setReaderVisible(true)
     local contentHeight = math.max(18, math.ceil(view.body:GetStringHeight()) + 2)
     local scale = view:GetEffectiveScale() / UIParent:GetEffectiveScale()
     local space = UIParent:GetHeight() / (2 * scale) + (cfg.readerGrowUp and -cfg.readerY or cfg.readerY)
-    local height = math.min(62 + contentHeight, math.max(105, space - 16))
+    local chromeHeight = 79 + (view.bannerHeight or 0)
+    local maxHeight = math.max(220, math.min(600, tonumber(cfg.readerMaxHeight) or 240))
+    local height = math.min(chromeHeight + contentHeight, maxHeight, math.max(chromeHeight + 26, space - 16))
     if view:GetHeight() ~= height then view:SetHeight(height) end
     if view.content:GetHeight() ~= contentHeight then view.content:SetHeight(contentHeight) end
-    if activeByte and not view.manualScroll and height < 62 + contentHeight then
+    if activeByte and not view.manualScroll and height < chromeHeight + contentHeight then
         view.measure:SetWidth(view.content:GetWidth())
         view.measure:SetText(page.text:sub(1, activeByte - 1))
         local lineY = view.measure:GetStringHeight()
         local offset = view.scroll:GetVerticalScroll()
-        if lineY < offset or lineY > offset + height - 62 - 12 then
+        if lineY < offset or lineY > offset + height - chromeHeight - 12 then
             view.scrollbar:SetValue(math.max(0, math.min(view.scroll:GetVerticalScrollRange(), lineY - 22)))
         end
     end
@@ -762,6 +875,7 @@ end
 
 local function refreshSoon(_, event, interaction)
     if event == "GET_ITEM_INFO_RECEIVED" and (not current or (current.phase ~= "detail" and current.phase ~= "reward")) then return end
+    if event == "QUEST_LOG_UPDATE" and (not current or (current.phase ~= "gossip" and current.phase ~= "greeting")) then return end
     watchNative(_G.QuestFrame)
     watchNative(_G.GossipFrame)
     local api = _G.Spoken
@@ -784,7 +898,7 @@ local function refreshSoon(_, event, interaction)
     if event ~= "ADDON_LOADED" then scheduleRefresh() end
 end
 for _, event in ipairs({"ADDON_LOADED", "PLAYER_LOGIN", "QUEST_DETAIL", "QUEST_PROGRESS", "QUEST_COMPLETE",
-    "QUEST_GREETING", "QUEST_FINISHED", "GOSSIP_SHOW", "GOSSIP_CLOSED", "QUEST_ITEM_UPDATE", "GET_ITEM_INFO_RECEIVED",
+    "QUEST_GREETING", "QUEST_FINISHED", "GOSSIP_SHOW", "GOSSIP_CLOSED", "QUEST_ITEM_UPDATE", "QUEST_LOG_UPDATE", "GET_ITEM_INFO_RECEIVED",
     "PLAYER_INTERACTION_MANAGER_FRAME_SHOW", "PLAYER_INTERACTION_MANAGER_FRAME_HIDE"}) do
     pcall(events.RegisterEvent, events, event)
 end

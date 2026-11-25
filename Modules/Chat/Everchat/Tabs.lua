@@ -647,19 +647,18 @@ local function UpdateTextColor(tab, parts)
 	-- Keep Blizzard's custom tab colors (e.g. whisper windows).
 	local custom = tab.selectedColorTable
 	local alert = not parts.selected and parts.alertColor
-	local tracker = BaziUI.QuestTracker
-	local accent = parts.selected and tracker and tracker.Settings().accent
-	local headerText = BaziUI.Headers.Get("chat", "text")
-	if headerText and not alert then
+	local headerText = BaziUI.db.profile.classHeaderText and {BaziUI.Headers.Text("chat")}
+		or BaziUI.Headers.Get("chat", "text")
+	if parts.selected and not BaziUI.db.profile.classHeaderText then
+		parts.text:SetTextColor(BaziUI.Theme:Accent())
+	elseif headerText and not alert then
 		parts.text:SetTextColor(unpack(headerText))
-	elseif accent then
-		parts.text:SetTextColor(accent[1], accent[2], accent[3])
+
 	elseif alert then
 		parts.text:SetTextColor(alert.r, alert.g, alert.b)
 	elseif custom then
 		parts.text:SetTextColor(custom.r, custom.g, custom.b)
-	elseif parts.selected then
-		parts.text:SetTextColor(Theme.TAB_OPEN:GetRGB())
+
 	else
 		local rest, hover, fade = Theme.TAB_TEXT, Theme.TAB_TEXT_HOVER, parts.hoverFade
 		parts.text:SetTextColor(Lerp(rest.r, hover.r, fade), Lerp(rest.g, hover.g, fade), Lerp(rest.b, hover.b, fade))
@@ -1014,6 +1013,8 @@ end
 -- area's at its bottom (Skin.lua, at every step of the chat's fade). Kept,
 -- and painted while it shows.
 function Tabs.SetBlockColors(parts, tr, tg, tb, ta, br, bg, bb, ba)
+	local r, g, b = BaziUI.Theme:Accent()
+	tr, tg, tb = tr * 0.55 + r * 0.45, tg * 0.55 + g * 0.45, tb * 0.55 + b * 0.45
 	if not (parts and parts.look) then
 		return
 	end

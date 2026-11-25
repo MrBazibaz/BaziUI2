@@ -13,6 +13,7 @@ local colors = {player = {0.83, 0.58, 0.27}, target = {0.83, 0.58, 0.27},
 local asset = "Interface\\AddOns\\BaziUI\\Assets\\Bars\\BaziHealthGradientRight.tga"
 local openingWithoutText = 22810
 local demo, refreshTiming
+local function previewing() return demo or addon.Movers and addon.Movers.IsActive() end
 
 local function secret(value) return issecretvalue and issecretvalue(value) end
 
@@ -42,6 +43,9 @@ local function makeBar(key)
     frame.fill:SetAllPoints()
     frame.status = CreateFrame("StatusBar", nil, frame)
     frame.status:SetStatusBarTexture(asset)
+    local fill = frame.status:GetStatusBarTexture()
+    if fill and fill.SetSnapToPixelGrid then fill:SetSnapToPixelGrid(false) end
+    if fill and fill.SetTexelSnappingBias then fill:SetTexelSnappingBias(0) end
     frame.status:SetStatusBarColor(unpack(colors[key]))
     frame.status:SetPoint("TOPLEFT", 2, -2)
     frame.status:SetPoint("BOTTOMRIGHT", -2, 2)
@@ -124,10 +128,10 @@ end
 
 local function updateCast(key, cfg)
     local frame = bars[key]
-    if not cfg.enabled and not demo then if frame then frame:Hide() end; return false end
+    if not cfg.enabled and not previewing() then if frame then frame:Hide() end; return false end
     if not frame then layout(key, cfg); frame = bars[key] end
     position(frame, key, cfg)
-    if demo then
+    if previewing() then
         show(frame, key == "player" and "Player cast" or "Target cast", icons[key], 0.62, 1.7)
         return cfg.enabled
     end
@@ -150,32 +154,33 @@ local function updateCast(key, cfg)
     if opening or (not secret(label) and (not label or label == "" or label == "Opening - No Text")) then
         label = (C_Spell and C_Spell.GetSpellName and C_Spell.GetSpellName(3365)) or OPENING or "Opening"
     end
-    if secret(startTime) or secret(endTime) then
+    local restricted = secret(startTime) or secret(endTime)
+    local api = channel and _G.UnitChannelDuration or (not channel and _G.UnitCastingDuration)
+    local directions = Enum and Enum.StatusBarTimerDirection
+    local interpolations = Enum and Enum.StatusBarInterpolation
+    if frame.status.SetTimerDuration and directions and interpolations then
         if refreshTiming or not frame.duration then
-            local api = channel and _G.UnitChannelDuration or _G.UnitCastingDuration
             local timer = api and api(key)
             if not timer and channel and UnitEmpoweredChannelDuration then timer = UnitEmpoweredChannelDuration(key) end
-            if not timer or not frame.status.SetTimerDuration or not Enum or not Enum.StatusBarTimerDirection
-                or not Enum.StatusBarInterpolation then
-                frame.duration = nil
-                frame:Hide()
-                return false
-            end
-            local direction = channel and Enum.StatusBarTimerDirection.RemainingTime or Enum.StatusBarTimerDirection.ElapsedTime
-            frame.status:SetMinMaxValues(0, 1)
-            frame.status:SetTimerDuration(timer, Enum.StatusBarInterpolation.Immediate, direction)
             frame.duration = timer
+            if timer then
+                local direction = channel and directions.RemainingTime or directions.ElapsedTime
+                local interpolation = interpolations.ExponentialEaseOut or interpolations.Immediate
+                frame.status:SetTimerDuration(timer, interpolation, direction)
+            end
         end
-        frame.normalProgress, frame.lastName, frame.lastIcon, frame.lastTenth = nil, nil, nil, nil
-        frame.icon:SetTexture(icon)
-        frame.name:SetText(label)
-        local remaining = frame.duration:GetRemainingDuration()
-        if secret(remaining) or type(remaining) == "number" then frame.time:SetFormattedText("%.1f", remaining)
-        else frame.time:SetText("") end
-        frame:Show()
-        return true
+        if frame.duration then
+            frame.normalProgress, frame.lastName, frame.lastIcon, frame.lastTenth = nil, nil, nil, nil
+            frame.icon:SetTexture(icon)
+            frame.name:SetText(label)
+            local remaining = frame.duration:GetRemainingDuration()
+            if secret(remaining) or type(remaining) == "number" then frame.time:SetFormattedText("%.1f", remaining)
+            else frame.time:SetText("") end
+            frame:Show()
+            return true
+        end
     end
-    if type(endTime) ~= "number" or type(startTime) ~= "number" or endTime <= startTime then
+    if restricted or type(endTime) ~= "number" or type(startTime) ~= "number" or endTime <= startTime then
         frame:Hide()
         return false
     end
@@ -194,7 +199,7 @@ local function updateMirrors()
             local key = not secret(name) and mirrorKeys[name]
             if key and not secret(limit) and type(limit) == "number" and limit > 0 then
                 local cfg = hud.Settings(key)
-                if cfg.enabled and not demo then
+                if cfg.enabled and not previewing() then
                     if not bars[key] then layout(key, cfg) end
                     if not paused or paused == 0 then value = GetMirrorTimerProgress(name) end
                     if not secret(value) and type(value) == "number" and value >= 0 then
@@ -206,7 +211,7 @@ local function updateMirrors()
         end
     end
     for _, key in pairs(mirrorKeys) do
-        if demo then
+        if previewing() then
             if not bars[key] then layout(key, hud.Settings(key)) end
             show(bars[key], mirrorLabels[key], icons[key], 0.67, 42)
         elseif bars[key] and not seen[key] then
@@ -227,7 +232,7 @@ local function tick(mirrors)
     maskNative(_G.TargetFrameSpellBar or (_G.TargetFrame and _G.TargetFrame.spellbar), target.enabled)
     updateCast("player", player)
     updateCast("target", target)
-    if mirrors and (demo or hud.Settings("breath").enabled or hud.Settings("fatigue").enabled or bars.breath or bars.fatigue) then
+    if mirrors and (previewing() or hud.Settings("breath").enabled or hud.Settings("fatigue").enabled or bars.breath or bars.fatigue) then
         updateMirrors()
     end
     refreshTiming = false
@@ -243,11 +248,11 @@ local function onUpdate(_, delta)
 end
 function cast.Refresh()
     if not addon.db then return end
-    local needed = demo
+    local needed = previewing()
     for _, key in ipairs(keys) do
         local cfg = hud.Settings(key)
         needed = needed or cfg.enabled
-        if bars[key] or cfg.enabled or demo then layout(key, cfg) end
+        if bars[key] or cfg.enabled or previewing() then layout(key, cfg) end
     end
     controller:SetScript("OnUpdate", needed and onUpdate or nil)
     refreshTiming = true

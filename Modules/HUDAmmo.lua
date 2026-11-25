@@ -2,6 +2,7 @@ local addon = BaziUI
 local ammo = {}
 addon.HUDAmmo = ammo
 local window, previewBand, lastBand
+local worldReady, startup
 local ammoSlot = GetInventorySlotInfo and GetInventorySlotInfo("AmmoSlot")
 local previewNames = {[0] = "Normal", "Low", "Critical"}
 local colors = {[0] = {1, 1, 1}, {1, 0.73, 0.22}, {1, 0.30, 0.18}}
@@ -27,6 +28,21 @@ local function sampleCount(cfg)
     if previewBand == 0 then return cfg.low + 1 end
     if previewBand == 1 then return cfg.low end
     return math.min(cfg.critical, cfg.low)
+end
+
+function ammo.Read()
+    local _, class = UnitClass("player")
+    if class ~= "HUNTER" or not ammoSlot then return end
+    local id = GetInventoryItemID("player", ammoSlot)
+    if issecretvalue and issecretvalue(id) then return end
+    if not id then return 0 end
+    local countItem = C_Item and C_Item.GetItemCount or GetItemCount
+    local count = countItem and countItem(id)
+    if (not issecretvalue or not issecretvalue(count)) and type(count) == "number" then return count, id end
+end
+
+function ammo.Band(count, low, critical)
+    return count <= math.min(critical, low) and 2 or count <= low and 1 or 0
 end
 
 local function showAmmoTooltip(self)
@@ -70,23 +86,25 @@ function ammo.Refresh()
     if not addon.db then return end
     local cfg = addon.HUD.Settings("ammo")
     local _, class = UnitClass("player")
-    if previewBand == nil and (not cfg.enabled or class ~= "HUNTER" or not ammoSlot) then
+    local arranging = addon.Movers and addon.Movers.IsActive()
+    if previewBand == nil and not arranging and (not cfg.enabled or class ~= "HUNTER" or not ammoSlot) then
         if window then window:Hide() end
         lastBand = nil
         return
     end
-    local itemID = previewBand == nil and GetInventoryItemID("player", ammoSlot)
-    if issecretvalue and issecretvalue(itemID) then return end
-    local countItem = C_Item and C_Item.GetItemCount or GetItemCount
-    local count = previewBand and sampleCount(cfg) or itemID and countItem and countItem(itemID) or 0
-    if (issecretvalue and issecretvalue(count)) or type(count) ~= "number" then return end
-    local band = previewBand or (count <= math.min(cfg.critical, cfg.low) and 2 or count <= cfg.low and 1 or 0)
-    if previewBand == nil then
+    local count, itemID
+    if previewBand ~= nil then count = sampleCount(cfg)
+    else count, itemID = ammo.Read() end
+    count = count or (arranging and cfg.low + 1 or nil)
+    if count == nil then return end
+    local band = previewBand or ammo.Band(count, cfg.low, cfg.critical)
+    if worldReady and previewBand == nil and not arranging then
         if band > (lastBand or 0) then warn(cfg, band, count) end
         lastBand = band
+        if addon.SmartAlerts then addon.SmartAlerts.RefreshAmmo() end
     end
     window = window or makeWindow()
-    window:SetShown(previewBand ~= nil or not cfg.onlyLow or band > 0)
+    window:SetShown(arranging or previewBand ~= nil or not cfg.onlyLow or band > 0)
     if not window:IsShown() then return end
     local hover = window.iconHover
     if hover.itemID ~= itemID then
@@ -101,13 +119,15 @@ function ammo.Refresh()
     window.icon:SetSize(iconSize, iconSize)
     window:SetScale(cfg.scale / 100)
     local ratio = UIParent:GetEffectiveScale() / window:GetEffectiveScale()
-    window:ClearAllPoints()
-    window:SetPoint("CENTER", UIParent, "CENTER", cfg.x * ratio, cfg.y * ratio)
+    if not (addon.Movers and addon.Movers.IsDragging(window)) then
+        window:ClearAllPoints()
+        window:SetPoint("CENTER", UIParent, "CENTER", cfg.x * ratio, cfg.y * ratio)
+    end
     local icon = itemID and GetInventoryItemTexture("player", ammoSlot) or 132382
     window.icon:SetTexture(icon)
     local typography = addon.Typography
     typography.Apply(window.label, "HUD:Ammo", typography.Path(addon.db.profile.font), 15, "OUTLINE", true)
-    window.label:SetText(not itemID and previewBand == nil and "No ammo" or BreakUpLargeNumbers(count))
+    window.label:SetText(not itemID and previewBand == nil and not arranging and "No ammo" or BreakUpLargeNumbers(count))
     window.label:SetTextColor(unpack(colors[band]))
 end
 
@@ -127,4 +147,13 @@ for _, event in ipairs({"PLAYER_LOGIN", "PLAYER_ENTERING_WORLD", "PLAYER_EQUIPME
     "BAG_UPDATE_DELAYED", "UNIT_INVENTORY_CHANGED", "PLAYER_AMMO_CHANGED"}) do
     pcall(events.RegisterEvent, events, event)
 end
-events:SetScript("OnEvent", ammo.Refresh)
+events:SetScript("OnEvent", function(_, event)
+    if event == "PLAYER_ENTERING_WORLD" and not worldReady and not startup then
+        -- Wait for the chat window to finish loading its tabs and history.
+        startup = C_Timer.NewTimer(0.5, function()
+            startup, worldReady = nil, true
+            ammo.Refresh()
+        end)
+    end
+    ammo.Refresh()
+end)

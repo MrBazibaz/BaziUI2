@@ -3,34 +3,13 @@ local ns = BaziUI.Chat
 local Fonts = {}
 ns.Fonts = Fonts
 
--- The chat's text is one of Everchat's fonts (Media, SIL OFL, made by
--- art/build-fonts.py with the symbols the game would otherwise draw as "?"):
--- Roboto Condensed by default (the game's Arial Narrow set some letter pairs
--- too tight once the chat went up to 16, and the game has no letter spacing
--- to loosen it), or one of four more, or the game's own, or one that another
--- addon shares through LibSharedMedia-3.0 (below).
--- The size stays Blizzard's per-window setting (right-click > Font Size, and
--- the options' table of tabs); Everchat only raises windows below a default
--- size to it, once per character, and makes its own text follow each
--- window's size: the messages, the edit box (Blizzard leaves it at
--- ChatFontNormal's 14 whatever the window's size), the "Press Enter" hint and
--- the fonts used to measure lines. Tab labels use the same font at one size.
---
--- Fonts are copies of ChatFontNormal's family with the chosen font as the
--- roman and Russian members (Roboto's Cyrillic stands in for a font without
--- it) and the other alphabets scaled alike, so Korean and Chinese text keeps
--- Blizzard's fonts for it (a single font file would turn them into "????").
-local MEDIA = "Interface\\AddOns\\BaziUI\\Assets\\Chat\\Everchat\\"
--- The fonts offered, in the options' order; `cyrillic` says whether the file
--- has Cyrillic (Atkinson Hyperlegible Next hasn't: its Russian lines are
--- Roboto's). The labels are the fonts' own names, as every font list in the
--- game's addons names fonts.
+-- Use game-provided fonts and keep the existing profile keys.
 Fonts.FONTS = {
-	{ key = "roboto", label = "Roboto Condensed", file = MEDIA .. "RobotoCondensed-Regular.ttf", cyrillic = true },
-	{ key = "fira", label = "Fira Sans Condensed", file = MEDIA .. "FiraSansCondensed-Regular.ttf", cyrillic = true },
-	{ key = "opensans", label = "Open Sans Condensed", file = MEDIA .. "OpenSans-Condensed.ttf", cyrillic = true },
-	{ key = "noto", label = "Noto Sans SemiCondensed", file = MEDIA .. "NotoSans-SemiCondensed.ttf", cyrillic = true },
-	{ key = "atkinson", label = "Atkinson Hyperlegible Next", file = MEDIA .. "AtkinsonHyperlegibleNext-Regular.ttf", cyrillic = false },
+	{ key = "roboto", label = "Arial Narrow", file = "Fonts\\ARIALN.TTF" },
+	{ key = "fira", label = "Friz Quadrata", file = "Fonts\\FRIZQT__.TTF" },
+	{ key = "opensans", label = "Morpheus", file = "Fonts\\MORPHEUS.TTF" },
+	{ key = "noto", label = "ABC 2002", file = "Fonts\\2002.TTF" },
+	{ key = "atkinson", label = "ABC 2002 Bold", file = "Fonts\\2002B.TTF" },
 }
 local BY_KEY = {}
 for _, font in ipairs(Fonts.FONTS) do
@@ -85,7 +64,8 @@ local loads = {}
 
 local function Loads(file)
 	if loads[file] == nil then
-		loads[file] = pcall(probeFont.SetFont, probeFont, file, BASE_SIZE, "")
+		local ok, result = pcall(probeFont.SetFont, probeFont, file, BASE_SIZE, "")
+		loads[file] = ok and result ~= false
 	end
 	return loads[file]
 end
@@ -215,15 +195,7 @@ local CLIENT_ALPHABET = ({
 
 -- A member of ChatFontNormal's family: its file, height and flags, or the
 -- chosen font in its place. A line takes the font of the alphabet its text
--- uses, the time included (a Cyrillic or Korean name switches the whole
--- line). Everchat's fonts draw Latin and, but for Atkinson, Cyrillic; a
--- shared font draws Latin and the client's language. Nothing says whether
--- a shared font has Cyrillic on any other client, and the game draws the
--- letters a font lacks as boxes, so there its Russian lines are Roboto
--- Condensed's, as Atkinson's are. Korean and Chinese otherwise keep
--- Blizzard's fonts, whose wider Latin letters can't be helped without
--- bundling a CJK font. With the game's font chosen (Prat's lesson: players
--- hated a font they couldn't turn back), every member is the game's.
+-- uses, including its timestamp. Keep the native face for non-Latin alphabets.
 local function OwnFile(alphabet)
 	local key = Fonts.Current()
 	if key == "general" then
@@ -232,10 +204,9 @@ local function OwnFile(alphabet)
 	end
 	local font = BY_KEY[key]
 	if font then
-		if alphabet == "roman" then
+		if alphabet == "roman" and Loads(font.file) then
 			return font.file
-		elseif alphabet == "russian" then
-			return font.cyrillic and font.file or BY_KEY[DEFAULT_FONT].file
+
 		end
 		return nil
 	end
@@ -245,8 +216,7 @@ local function OwnFile(alphabet)
 	end
 	if alphabet == "roman" or alphabet == CLIENT_ALPHABET then
 		return file
-	elseif alphabet == "russian" then
-		return BY_KEY[DEFAULT_FONT].file
+
 	end
 end
 
@@ -517,7 +487,7 @@ local function BubbleFile(key, alphabet)
 	local font = BY_KEY[key]
 	if alphabet == "roman" then
 		if font then
-			return font.file
+			return Loads(font.file) and font.file or GameFont()
 		elseif key == "game" then
 			return (GameFont())
 		end

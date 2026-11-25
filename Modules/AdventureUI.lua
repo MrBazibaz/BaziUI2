@@ -1,14 +1,13 @@
 local addon, A, D = BaziUI, BaziUI.Adventure, BaziUI.Dashboard
-local M, J, E, S = addon.AltManager, addon.Journey, addon.EquipmentAdvisor, addon.SmartAlerts
+local M, J, S = addon.AltManager, addon.Journey, addon.SmartAlerts
 local UI = {}
 addon.AdventureUI = UI
 local I, theme = addon.Inventory, addon.Theme
-local labels = {alerts = "Smart Alerts", journey = "Journey", alts = "Alt Manager", advisor = "Equipment Advisor"}
+local labels = {alerts = "Smart Alerts", journey = "Journey", alts = "Alt Manager"}
 local tabs = {
     alerts = {"History"},
     journey = {"Overview", "Timeline", "Sessions", "Milestones", "Exploration", "Dungeons & Raids", "PvP", "Professions", "Records"},
     alts = {"Characters", "Inventory", "Professions", "Crafting Goals", "Economy", "Mail & Auctions", "Lockouts"},
-    advisor = {"Comparison"},
 }
 local art = "Interface\\AddOns\\BaziUI\\Assets\\Icons\\Bazi\\"
 local icons = {Character = "Diamond", Exploration = "Pin", Questing = "Quest", Professions = "Settings",
@@ -219,53 +218,6 @@ local function altRows(view)
     return rows
 end
 
-local scenarios = {
-    {"Clear upgrade", "INVTYPE_WEAPONMAINHAND", 10, 15, true}, {"Sidegrade", "INVTYPE_WEAPONMAINHAND", 5, 15, true},
-    {"Lower score", "INVTYPE_HEAD", 1, 15, true}, {"Requirements unmet", "INVTYPE_HEAD", 10, 15, false},
-    {"Future upgrade", "INVTYPE_WEAPONMAINHAND", 8, 26, false}, {"Two-handed weapon", "INVTYPE_2HWEAPON", 17, 15, true},
-    {"Dual wield", "INVTYPE_WEAPON", 10, 15, true}, {"Both rings", "INVTYPE_FINGER", 10, 15, true},
-    {"Both trinkets", "INVTYPE_TRINKET", 10, 15, true}, {"Special effect", "INVTYPE_TRINKET", 10, 15, true},
-    {"Potential alt upgrade", "INVTYPE_WEAPONMAINHAND", 10, 15, false}, {"Soulbound", "INVTYPE_WEAPONMAINHAND", 10, 15, true},
-    {"Missing metadata", "INVTYPE_WEAPONMAINHAND", 0, 15, nil},
-}
-local function demoCompare(index)
-    local trial = scenarios[index]
-    if index == 13 then return {}, "Metadata unavailable", trial[1] end
-    local old = {link = "preview", class = 2, equip = "INVTYPE_WEAPON", stats = {ITEM_MOD_AGILITY_SHORT = 5}}
-    local incoming = {name = "Fine Steel Dagger", equip = trial[2], required = trial[4], class = 2,
-        stats = {ITEM_MOD_AGILITY_SHORT = trial[3], ITEM_MOD_STAMINA_SHORT = 2}}
-    local slots = {MainHand = {}, SecondaryHand = {}, Head = {}, Finger0 = {}, Finger1 = {}, Trinket0 = {}, Trinket1 = {}}
-    local gear = {MainHand = old, SecondaryHand = old, Head = old, Finger0 = old, Finger1 = old, Trinket0 = old, Trinket1 = old}
-    local rows = E.Compare(incoming, {level = 19}, slots, {weights = {ITEM_MOD_AGILITY_SHORT = 1}}, trial[5],
-        function(_, slot) return gear[slot] end)
-    local detail = index == 10 and "Special effect excluded" or index == 11 and "Buba Ganush · recorded gear"
-        or index == 12 and "Soulbound · unavailable to alts"
-    return rows, detail, trial[1]
-end
-
-local function advisorRows(view)
-    local rows, results, detail, title = {}
-    if view.preview then
-        results, detail, title = demoCompare(view.scenario or 1)
-    elseif view.item and view.item ~= "" then
-        local item = E.Item(view.item)
-        if item then
-            results = E.ForPlayer(item)
-            title = item.name
-            detail = type(item.price) == "number" and "Vendor " .. money(item.price)
-        else title = "Item data unavailable" end
-    end
-    if title then add(rows, title, detail, "Dagger") end
-    for _, result in ipairs(results or {}) do
-        local points = result.percent and (" · %+.1f%%"):format(result.percent)
-            or result.score and (" · %+.2f pts"):format(result.score) or ""
-        add(rows, A.SlotNames[result.slot] or result.slot, result.label .. points, "Shield")
-        for _, line in ipairs(E.DeltaRows(result)) do rows[#rows + 1] = line end
-    end
-    if results and #results > 0 then add(rows, "Set bonuses, procs and restrictions may affect the result") end
-    return rows
-end
-
 local function historyRows(view)
     local rows = {}
     if view.preview then
@@ -282,11 +234,11 @@ local function historyRows(view)
     return rows
 end
 
-local readers = {alerts = historyRows, journey = journeyRows, alts = altRows, advisor = advisorRows}
+local readers = {alerts = historyRows, journey = journeyRows, alts = altRows}
 local function render(view)
     if not view.list:IsVisible() then return end
     local data = readers[view.kind](view)
-    if #data == 0 then add(data, view.kind == "advisor" and "Enter an equipment item ID or link." or "No recorded results.") end
+    if #data == 0 then add(data, "No recorded results.") end
     local shown = math.min(#data, view.limit or 40)
     for i = 1, shown do
         local row = view.rows[i]
@@ -310,8 +262,12 @@ local function render(view)
             view.rows[i] = row
         end
         local entry = data[i]
-        row:SetBackdropColor(0.14, 0.115, 0.09, 0.54)
-        row:SetBackdropBorderColor(theme:AccentInk(0.22))
+        if view.kind == "alerts" then
+            theme:PaintQuestCard(row)
+        else
+            row:SetBackdropColor(0.14, 0.115, 0.09, 0.54)
+            row:SetBackdropBorderColor(theme:AccentInk(0.22))
+        end
         row.icon:SetTexture(entry.icon and art .. entry.icon .. ".tga" or nil)
         row.icon:SetVertexColor(theme:Accent())
         row.left:SetPoint("LEFT", entry.icon and 28 or 9, 0)
@@ -418,8 +374,8 @@ function UI.Open(kind)
         redraw()
     end)
     if kind ~= "alerts" then
-        edit(parent, 175, 11, -35, kind == "advisor" and "Item ID or link" or "Search · press Enter", function(value)
-            view.query, view.item = value:lower():match("^%s*(.-)%s*$"), value:match("^%s*(.-)%s*$")
+        edit(parent, 175, 11, -35, "Search · press Enter", function(value)
+            view.query = value:lower():match("^%s*(.-)%s*$")
             redraw()
         end)
     end
@@ -452,12 +408,6 @@ function UI.Open(kind)
         edit(parent, 210, 196, -35, "Journal note · press Enter", function(value)
             if not view.preview then J.Record("Notes", value:sub(1, 240), true); render(view) end
         end)
-    elseif kind == "advisor" then
-        dropdown(parent, 183, 196, -35, function()
-            local result = {}
-            for i, trial in ipairs(scenarios) do result[i] = {i, trial[1]} end
-            return result
-        end, function() return view.scenario or 1 end, function(value) view.scenario = value; redraw() end)
     else
         dropdown(parent, 185, 11, -35, function()
             return {{"all", "Multiple alerts"}, {1, "Critical durability"}, {2, "Inventory full"}, {3, "Expired enhancement"},
@@ -496,6 +446,71 @@ A.On("journal", UI.Refresh)
 A.On("alerts", UI.Refresh)
 A.On("GET_ITEM_INFO_RECEIVED", UI.Refresh)
 
+local settingsHelp = {
+    alerts = {
+        enabled = "Checks your gear, inventory and progress and shows alerts when a rule is triggered.",
+        standalone = "Shows alerts in a separate movable stack. With Dashboard also selected, this stack keeps the highest-priority alert.",
+        dashboard = "Adds active alerts to the Smart Alerts widget in Dashboard. Enable Dashboard and its Smart Alerts widget first. Turn off standalone notifications to show even a single alert in Dashboard.",
+        growUp = "Builds the stack upward from its position, keeping the bottom edge in place.",
+        combat = "Allows alerts while you are in combat. It also controls optional sounds and chat messages during combat.",
+        peace = "Allows alerts outside of combat. It also controls optional sounds and chat messages outside of combat.",
+        critical = "Limits the visible list, sounds and chat messages to critical alerts such as a full inventory or broken gear.",
+        dnd = "Silences the on-screen list, sounds and chat messages. Alerts still update in History.",
+        sound = "Plays the selected sound when an alert first appears. Changing the selection plays a sample.",
+        chat = "Writes the first appearance of each alert to chat, where you can read it later.",
+        width = "Sets the width of the standalone alert stack.",
+        scale = "Scales the entire standalone stack, including icons and text.",
+        opacity = "Sets the opacity of the standalone alert card backgrounds. At 100%, the background is fully opaque.",
+        maximum = "Limits the number of alerts displayed in each enabled destination. Higher-priority alerts are shown first.",
+        duration = "Controls how long one-off alerts stay visible. Issues such as broken gear stay until resolved.",
+        animation = "Changes the fade-in time for new standalone cards. Set it to 0 to show cards immediately.",
+        free = "Warns when your number of free general-purpose bag slots reaches this threshold.",
+        durability = "Warns when a piece of equipped gear falls to this percentage. Broken gear is critical.",
+        ammo = "Low ammunition threshold when the Hunter Ammo watcher is off. While it is on, Smart Alerts uses the watcher's thresholds.",
+        criticalAmmo = "Critical ammunition threshold when the Hunter Ammo watcher is off. Capped at the low threshold.",
+        valuable = "Alerts for loot whose vendor price reaches this value in copper. Quality-based loot alerts work independently.",
+    },
+    journey = {
+        enabled = "Starts recording this character's observed milestones and session totals. Open Journey to see the timeline or add a note.",
+        retention = "Sets how many days ordinary timeline entries are kept. Milestones survive age-based cleanup.",
+        limit = "Caps the total timeline length. The oldest ordinary entries are removed before milestones.",
+    },
+    alts = {
+        enabled = "Records bags and equipment for characters you log into. Bank contents are updated when you open each character's bank.",
+        tooltip = "Adds recorded item ownership to item tooltips. Counts reflect each character's latest saved snapshot.",
+        shift = "Keeps ownership information collapsed until you hold Shift over the item.",
+        sameRealm = "Limits item tooltip ownership to characters on the current realm.",
+        total = "Adds one combined count from matching character snapshots.",
+        individual = "Lists characters with a recorded copy and the quantity on each.",
+        breakdown = "Shows bags and bank on separate counts. A question mark means the location has no readable snapshot.",
+        lastUpdated = "Shows the date of the last bank snapshot beside each character's count.",
+        materials = "Lists other characters with a recorded recipe or crafting goal that uses the item.",
+    },
+}
+local alertRuleHelp = {
+    durability = "Warns about low durability and marks broken equipped items as critical.",
+    empty = "Warns when the main hand, chest, legs or feet slot is empty.",
+    fishing = "Warns if you enter combat with a fishing pole in your main hand.",
+    poison = "Warns when an observed temporary weapon enhancement expires on the same equipped weapon.",
+    ammo = "Warns about low ammunition using the Hunter Ammo watcher's thresholds while it is enabled. Otherwise uses the values above.",
+    pet = "Warns if your hunter pet is dead or the client reports it as unhappy.",
+    supplies = "Uses the item quantities you set under Dashboard Tracking for your own supplies.",
+    bags = "Warns when general-purpose bag space is low. When loot is blocked, the alert can open Inventory Cleanup.",
+    loot = "Alerts for rare or higher quality items, and items above your optional vendor price threshold.",
+    quest = "Alerts when a tracked quest changes to ready for turn-in.",
+    questLog = "Warns when the client reports that the quest log has reached its capacity.",
+    questTimer = "Warns when a timed quest has less than two minutes left.",
+    skill = "Shows a short notification when a profession or combat skill rises and its row is not already shown in Dashboard.",
+    craft = "Alerts when tracked crafting materials or an item quantity goal reaches its target.",
+    level = "Shows a short notification when you gain a character level.",
+    talent = "Shows how many player talent points are unspent, including points you had at login. The alert clears after you spend them.",
+    boss = "Alerts when the game reports a successful boss encounter.",
+    reputation = "Alerts when you move up to a higher standing with a faction.",
+    mail = "Shows an alert while the game reports new mail.",
+    altMaterial = "Alerts when you loot something an alt needs for a tracked crafting goal. Requires Alt Manager.",
+    upgrade = "Compares gear using your class and active specialization or talent tree. Click a loot alert to find the green-arrow item in your bags.",
+}
+
 function UI.Settings(kind, parent, helpers)
     local cfg = A.Settings(kind)
     local content, scroll, bar = I.Scroll(parent, 0, 4)
@@ -503,12 +518,14 @@ function UI.Settings(kind, parent, helpers)
     local panel = helpers.panel(content, -4, 350)
     helpers.section(panel, labels[kind], -12)
     local y = -45
-    local function checkbox(label, get, set)
+    local help = settingsHelp[kind]
+    local function checkbox(label, get, set, description)
         local control = theme:CreateCheckbox(panel)
         control:SetSize(21, 21)
         control:SetPoint("TOPLEFT", 24, y)
         local title = helpers.label(panel, label, "GameFontHighlight")
         title:SetPoint("LEFT", control, "RIGHT", 8, 0)
+        theme:SettingsHelp(control, label, description, title)
         control:SetChecked(get())
         control:SetScript("OnClick", function(self)
             set(self:GetChecked() == true)
@@ -517,27 +534,38 @@ function UI.Settings(kind, parent, helpers)
         y = y - 29
     end
     local function flag(label, key)
-        checkbox(label, function() return cfg[key] == true end, function(value) cfg[key] = value end)
+        checkbox(label, function() return cfg[key] == true end, function(value) cfg[key] = value end, help[key])
     end
     local function slider(label, key, minimum, maximum)
         helpers.slider(panel, label, "", minimum, maximum, 1, cfg[key], y, function(value)
             cfg[key] = value
             if kind == "alerts" then S.Render() end
             A.Refresh()
-        end, true, true)
+        end, true, true, nil, help[key])
         y = y - 40
     end
     flag("Enable " .. labels[kind], "enabled")
-    button(panel, "Open " .. (kind == "alerts" and "history" or labels[kind]), 172, 20, y, function() UI.Open(kind) end)
+    local openLabel = "Open " .. (kind == "alerts" and "history" or labels[kind])
+    local open = button(panel, openLabel, 172, 20, y, function() UI.Open(kind) end)
+    theme:SettingsHelp(open, openLabel, kind == "alerts" and "Shows alerts from this session, including alerts that have been resolved."
+        or "Opens the module window with its data, filters and preview.")
     if kind == "alerts" then
-        button(panel, "Move alerts", 120, 201, y, function() addon.Options:OpenMovers("Smart Alerts") end)
+        local move = button(panel, "Move alerts", 120, 201, y, function() addon.Options:OpenMovers("Smart Alerts") end)
+        theme:SettingsHelp(move, "Move alerts", "Opens Movers to reposition the separate Smart Alerts stack. Dashboard has its own position.")
         local preview = false
-        button(panel, "Toggle preview", 130, 330, y, function() preview = not preview; S.Preview(preview and "all" or nil) end)
+        local sample = button(panel, "Toggle preview", 130, 330, y, function() preview = not preview; S.Preview(preview and "all" or nil) end)
+        theme:SettingsHelp(sample, "Toggle preview", "Shows example alerts for positioning and appearance.")
         y = y - 35
         for _, flagInfo in ipairs({{"Show standalone notifications", "standalone"}, {"Show in Dashboard", "dashboard"},
             {"Grow upward", "growUp"}, {"Show in combat", "combat"}, {"Show out of combat", "peace"},
-            {"Critical only", "critical"}, {"Do not disturb", "dnd"}, {"Play notification sound", "sound"},
-            {"Show new notifications in chat", "chat"}}) do flag(unpack(flagInfo)) end
+            {"Critical only", "critical"}, {"Do not disturb", "dnd"}}) do flag(unpack(flagInfo)) end
+        local soundRow = y
+        flag("Play notification sound", "sound")
+        dropdown(panel, 190, 263, soundRow, S.SoundChoices, function() return cfg.soundKey end, function(value)
+            cfg.soundKey = value
+            S.PlaySound(value)
+        end)
+        flag("Show new notifications in chat", "chat")
         for _, range in ipairs({{"Width", "width", 170, 550}, {"Scale %", "scale", 60, 160}, {"Opacity %", "opacity", 20, 100},
             {"Maximum visible alerts", "maximum", 1, 10}, {"Notification duration (sec)", "duration", 3, 30},
             {"Fade duration (0.01 sec)", "animation", 0, 60}, {"Low free bag slots", "free", 0, 20},
@@ -548,7 +576,7 @@ function UI.Settings(kind, parent, helpers)
             checkbox(category .. " notifications", function() return not cfg.categories or cfg.categories[key] ~= false end, function(value)
                 cfg.categories = cfg.categories or {}
                 cfg.categories[key] = value
-            end)
+            end, "Controls all alerts in this category, including any individually enabled rules below.")
         end
         for _, rule in ipairs(S.rules) do
             local key, title, default = rule[1], rule[2], rule[4] ~= false
@@ -558,7 +586,7 @@ function UI.Settings(kind, parent, helpers)
             end, function(value)
                 cfg.rules = cfg.rules or {}
                 cfg.rules[key] = value
-            end)
+            end, alertRuleHelp[key])
         end
     elseif kind == "journey" then
         y = y - 35
@@ -599,82 +627,6 @@ function UI.Settings(kind, parent, helpers)
         end)
         parent:HookScript("OnHide", function() forget.confirm = nil; forget:SetText("Forget character snapshot") end)
         y = y - 39
-    else
-        y = y - 35
-        for _, row in ipairs({{"Show equipment comparison in tooltips", "tooltip"}, {"Show comparison while holding Shift", "shift"},
-            {"Show expanded stat differences", "expanded"}, {"Compare with recorded alt equipment", "alts"},
-            {"Show an indicator in Loot", "loot"}, {"Show an indicator in Loot Rolls", "rolls"},
-            {"Show an indicator in Inventory", "bags"}, {"Compare quest reward tooltips", "quests"}}) do flag(unpack(row)) end
-        local function namedProfiles()
-            local entries, seen = options(E.profiles), {}
-            for _, label in ipairs(E.profiles) do seen[label] = true end
-            local _, record = E.CharacterProfile(A.Key())
-            for name in pairs(record and record.profiles or {}) do
-                if not seen[name] then entries[#entries + 1] = {name, name} end
-            end
-            return entries
-        end
-        local fields = {}
-        local function sync()
-            local profile = E.CharacterProfile(A.Key())
-            for key, box in pairs(fields) do
-                if not box:HasFocus() then box:SetText(tostring(profile and profile.weights[key] or 0)) end
-            end
-        end
-        local syncProfile = dropdown(panel, 163, 23, y, namedProfiles, function() return E.ActiveProfile(A.Key()) end, function(value)
-            local _, record = E.CharacterProfile(A.Key(), value, true)
-            if record then record.active = value; sync(); UI.Refresh() end
-        end)
-        button(panel, "Reset selected weights", 185, 197, y, function()
-            local profile = E.CharacterProfile(A.Key(), nil, true)
-            if profile then profile.weights = {}; sync(); UI.Refresh() end
-        end)
-        y = y - 35
-        edit(panel, 206, 23, y, "New profile name · press Enter", function(raw)
-            local name = raw:match("^%s*(.-)%s*$"):sub(1, 30)
-            if name == "" then return end
-            local available = namedProfiles()
-            local _, record = E.CharacterProfile(A.Key())
-            if #available >= 24 and (not record or not record.profiles[name]) then return end
-            local _, target = E.CharacterProfile(A.Key(), name, true)
-            if target then target.active = name; sync(); syncProfile(); UI.Refresh() end
-        end)
-        y = y - 35
-        local copyFrom
-        dropdown(panel, 190, 23, y, function()
-            local result = {{false, "Choose a character to copy"}}
-            for key, char in pairs(M.Characters()) do
-                if key ~= A.Key() and char.identity then result[#result + 1] = {key, char.identity.name .. " · " .. char.identity.realm} end
-            end
-            return result
-        end, function() return copyFrom or false end, function(value) copyFrom = value end)
-        button(panel, "Copy active profile weights", 216, 220, y, function()
-            local source = copyFrom and E.CharacterProfile(copyFrom)
-            if not source then return end
-            local target = E.CharacterProfile(A.Key(), nil, true)
-            if target then
-                target.weights = {}
-                for key, value in pairs(source.weights) do target.weights[key] = value end
-                sync(); UI.Refresh()
-            end
-        end)
-        y = y - 35
-        local stats = {}
-        for key, value in pairs(E.StatLabels) do stats[#stats + 1] = {key, value} end
-        table.sort(stats, function(a, b) if a[2] == b[2] then return a[1] < b[1] end; return a[2] < b[2] end)
-        for _, item in ipairs(stats) do
-            local key, title = item[1], item[2]
-            local label = helpers.label(panel, title, "GameFontHighlight")
-            label:SetPoint("TOPLEFT", 30, y - 3)
-            fields[key] = edit(panel, 82, 216, y, "0", function(raw)
-                local value = tonumber(raw)
-                local profile = E.CharacterProfile(A.Key(), nil, true)
-                if profile and value and value >= -100 and value <= 100 then profile.weights[key] = value ~= 0 and value or nil; UI.Refresh() end
-            end)
-            y = y - 27
-        end
-        parent:HookScript("OnShow", sync)
-        sync()
     end
     panel:SetHeight(-y + 14)
     content:SetHeight(-y + 25)

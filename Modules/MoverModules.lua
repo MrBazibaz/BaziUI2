@@ -11,12 +11,25 @@ local function visible(frame) return frame and frame:IsVisible() and frame end
 local function width(minimum, maximum) return {"width", "Width", minimum, maximum} end
 local function height(minimum, maximum) return {"height", "Height", minimum, maximum} end
 local scale = {"scale", "Scale %", 50, 175}
+local function growth(cfg) return cfg.growUp and "BOTTOM" or "TOP", "CENTER" end
+M.RegisterLayout(function(enabled)
+    for _, key in ipairs({"UnitFrames", "PartyFrames", "RaidFrames", "BossFrames"}) do
+        local module = A[key]
+        if module and module.Refresh then module:Refresh() end
+    end
+    for _, key in ipairs({"CastBars", "HUDAmmo", "QuestTracker", "DamageMeter", "Dialogue"}) do
+        local module = A[key]
+        if module and module.Refresh then module.Refresh() end
+    end
+    if A.Inventory.MoversLayout then A.Inventory.MoversLayout(enabled) end
+    if A.ActionBars and A.ActionBars.RefreshMoverExperience then A.ActionBars:RefreshMoverExperience() end
+end)
 
 local dashboard = A.Dashboard
 spec("Dashboard", dashboard.GetFrame, dashboard.Settings, dashboard.Render, {
     width(145, 550), {"maxHeight", "Maximum height", 90, 700}, scale, {"spacing", "Widget spacing", 0, 24},
     {"maxWidgets", "Widgets", 1, 15},
-}, {canDrag = function() return not dashboard.Settings().locked end})
+})
 
 local alerts = A.SmartAlerts
 if alerts then
@@ -108,7 +121,7 @@ for _, entry in ipairs({{"durability", "Durability", "DurabilityFrame"}, {"vehic
     elseif key == "buffs" or key == "debuffs" then
         apply, fields = A.HUDAuras.Refresh, {{"size", "Icon size", 12, 70}, {"rows", "Rows", 1, 10}, {"columns", "Columns", 1, 20}}
     end
-    spec(label, function() return hud.Settings(key).enabled and _G[frame] end,
+    spec(label, function() return _G[frame] end,
         function() return hud.Settings(key) end, apply, fields, {scaled = scaled})
 end
 for _, entry in ipairs({{"player", "Player cast bar"}, {"target", "Target cast bar"}, {"breath", "Breath"}, {"fatigue", "Fatigue"}}) do
@@ -136,12 +149,15 @@ end
 spec("Quest tracker", "BaziUIQuestTracker", A.QuestTracker.Settings, A.QuestTracker.RefreshPosition,
     {width(150, 700), {"maxHeight", "Maximum height", 80, 750}}, {
         saved = {"position"}, position = A.QuestTracker.GetPosition, setPosition = A.QuestTracker.SetCoordinates,
+        inactiveAnchor = function(cfg) return cfg.growUp and "BOTTOMLEFT" or "TOPLEFT", "BOTTOMLEFT" end,
     })
 spec("Quest timers", "BaziUIQuestTimers", A.QuestTracker.Settings, A.QuestTracker.RefreshTimers,
     {{"timerWidth", "Width", 130, 650}}, {x = "timerX", y = "timerY"})
 for index = 1, 2 do
     spec(index == 1 and "Damage meter" or "Damage meter 2", index == 1 and "BaziUIDamageMeter" or "BaziUIDamageMeter2",
-        function() return A.DamageMeter.Settings(index) end, A.DamageMeter.Refresh,
+        function()
+            if index == 1 or A.DamageMeter.HasSecondWindow() then return A.DamageMeter.Settings(index) end
+        end, A.DamageMeter.Refresh,
         {width(150, 660), {"rows", "Rows", 1, 20}, {"barHeight", "Row height", 10, 50}}, {scaled = true})
 end
 
@@ -150,7 +166,7 @@ local function minimapPosition()
     local cfg, cluster = A.db.profile.minimap, _G.Minimap or _G.MinimapCluster
     if cfg.x and cfg.y then return cfg.x, cfg.y end
     local x, y
-    if cluster then x, y = cluster:GetCenter() end
+    if M.CanMeasure(cluster) then x, y = cluster:GetCenter() else cluster = nil end
     local ratio = cluster and cluster:GetEffectiveScale() / UIParent:GetEffectiveScale() or 1
     return (x or 0) * ratio - UIParent:GetWidth() / 2, (y or 0) * ratio - UIParent:GetHeight() / 2
 end
@@ -173,19 +189,23 @@ local function worldPosition()
     local stored = worldConfig().position
     if stored then return stored[3], stored[4] end
     local world = _G.WorldMapFrame
-    if not world then return 0, 0 end
+    if not M.CanMeasure(world) then return 0, 0 end
     local _, _, _, x, y = world:GetPoint(1)
     return x or 0, y or 0
 end
 spec("World map", "WorldMapFrame", worldConfig, A.Map.ApplyMoverPosition, nil, {
     saved = {"position"}, scaled = true, position = worldPosition,
+    inactiveAnchor = function(cfg)
+        local point = cfg.position
+        return point and point[1] or "CENTER", point and point[2] or "CENTER"
+    end,
     canDrag = function() return WorldMapFrame and not WorldMapFrame:IsMaximized() end,
     setPosition = function(x, y)
         local cfg = worldConfig()
         local stored, world = cfg.position, _G.WorldMapFrame
         local point, relative = "CENTER", "CENTER"
         if stored then point, relative = stored[1], stored[2]
-        elseif world then point, _, relative = world:GetPoint(1) end
+        elseif M.CanMeasure(world) and not world:IsMaximized() then point, _, relative = world:GetPoint(1) end
         cfg.position = {point or "CENTER", relative or "CENTER", x, y}
         A.Map.ApplyMoverPosition()
     end})
@@ -208,10 +228,14 @@ spec("Friend notifications", function() return chat.Settings().friendToastPositi
     end})
 spec("Whisper notification", chat.Whispers.GetMoverFrame, chat.Settings, chat.Whispers.ApplyMoverPosition, nil, {
     saved = {"whisperToastPos"}, scaled = true,
+    inactiveAnchor = function() return "BOTTOMLEFT", "BOTTOMLEFT" end,
     position = function()
         local pos, toast = chat.Settings().whisperToastPos, chat.Whispers.GetMoverFrame()
         if pos then return pos.x, pos.y end
-        return toast and toast:GetLeft() or 0, toast and toast:GetBottom() or 0
+        if M.CanMeasure(toast) then return toast:GetLeft() or 0, toast:GetBottom() or 0 end
+        local dock = _G.GENERAL_CHAT_DOCK
+        if M.CanMeasure(dock) then return dock:GetLeft() or 0, (dock:GetTop() or 0) + 10 end
+        return 0, 10
     end,
     setPosition = function(x, y)
         chat.Settings().whisperToastPos = {x = x, y = y}
@@ -222,13 +246,14 @@ spec("Whisper notification", chat.Whispers.GetMoverFrame, chat.Settings, chat.Wh
 local dialogue = A.Dialogue
 spec("NPC dialogue", function() return dialogue.GetMoverFrame(false) end, dialogue.Settings, dialogue.Refresh, {scale}, {scaled = true})
 spec("Dialogue reader", function() return dialogue.GetMoverFrame(true) end, dialogue.Settings, dialogue.Refresh,
-    {scale, {"readerMaxHeight", "Maximum height", 220, 600}}, {x = "readerX", y = "readerY", scaled = true})
+    {scale, {"readerMaxHeight", "Maximum height", 220, 600}}, {x = "readerX", y = "readerY", scaled = true,
+        inactiveAnchor = function(cfg) return cfg.readerGrowUp and "BOTTOM" or "TOP", "CENTER" end})
 
 local inventory = A.Inventory
 spec("Bags / bank", "BaziUIInventory", inventory.Settings, inventory.UpdateWindows, {
     {"columns", "Bag columns", 4, 30}, {"bankColumns", "Bank columns", 4, 30}, {"guildColumns", "Guild columns", 4, 30},
     {"size", "Slot size", 18, 66},
-})
+}, {inactiveAnchor = growth})
 local function applyLoot()
     inventory.ResetLootPosition()
     inventory.RefreshLoot()
@@ -237,20 +262,26 @@ local function applyLoot()
 end
 spec("Loot, Cleanup & Rolls", function()
     return visible(inventory.VisibleLoot()) or visible(inventory.GetRollMoverFrame()) or visible(inventory.GetCleanupMoverFrame())
-end, inventory.Settings, applyLoot, {{"lootWidth", "Width", 345, 800}}, {x = "lootX", y = "lootY"})
+end, inventory.Settings, applyLoot, {{"lootWidth", "Width", 345, 800}}, {x = "lootX", y = "lootY",
+    inactiveAnchor = function() return "TOP", "CENTER" end})
 spec("Tooltip anchor", function()
     return A.db.profile.tooltip.anchor ~= "mouse" and GameTooltip
-end, profile("tooltip"), function() A.Tooltip:Apply() end, {{"scale", "Scale %", 50, 200, 100}}, {scaled = true})
+end, profile("tooltip"), function() A.Tooltip:Apply() end, {{"scale", "Scale %", 50, 200, 100}},
+    {scaled = true, positionOnly = true, inactiveAnchor = function() return "BOTTOMRIGHT", "BOTTOMRIGHT" end,
+        position = function()
+            local cfg = A.db.profile.tooltip
+            return cfg.x or -30, cfg.y or 130
+        end})
 
 local function nameplates() A.Nameplates:Apply() end
 spec("Enemy nameplate", A.EnemyNameplates.GetMoverFrame, profile("nameplates"), nameplates,
     {{"enemyWidth", "Width", 70, 350}, {"enemyHeight", "Height", 8, 55},
         {"enemyScale", "Scale %", 50, 175, 100}},
-    {x = "enemyPlateX", y = "enemyPlateY", scaled = true})
+    {x = "enemyPlateX", y = "enemyPlateY", scaled = true, positionOnly = true})
 spec("Friendly marker", function() return A.Nameplates.GetMoverFrame(false) end, profile("nameplates"), nameplates,
-    nil, {x = "friendlyX", y = "friendlyY", scaled = true, position = function()
+    nil, {x = "friendlyX", y = "friendlyY", scaled = true, positionOnly = true, position = function()
         local cfg = A.db.profile.nameplates
         return cfg and cfg.friendlyX or 0, cfg and cfg.friendlyY or 20
     end})
 spec("NPC nameplate text", function() return A.Nameplates.GetMoverFrame(true) end, profile("nameplates"), nameplates,
-    nil, {x = "friendlyTextX", y = "friendlyTextY", scaled = true, bounds = function(marker) return marker.name end})
+    nil, {x = "friendlyTextX", y = "friendlyTextY", scaled = true, positionOnly = true})

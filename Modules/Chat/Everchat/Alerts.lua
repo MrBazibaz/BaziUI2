@@ -110,49 +110,20 @@ local MENTION_SOUND = SOUNDKIT and SOUNDKIT.TELL_MESSAGE
 -- order, its class shown before its name), then the instruments the user
 -- liked in the rounds.
 local SOUNDS = {
-	{ key = "hallBell", file = "HallBell", text = "soundHallBell", group = "themed" },
-	{ key = "huntingHorn", file = "HuntingHorn", text = "soundHuntingHorn", group = "themed" },
-	{ key = "toast", file = "Toast", text = "soundToast", group = "themed" },
-	{ key = "dice", file = "Dice", text = "soundDice", group = "themed" },
-	{ key = "warDrums", file = "WarDrums", text = "soundWarDrums", group = "themed" },
-	{ key = "warHorn", file = "WarHorn", text = "soundWarHorn", group = "themed" },
-	{ key = "celesta", file = "Celesta", text = "soundCelesta", group = "themed" },
-	{ key = "shopBell", file = "ShopBell", text = "soundShopBell", group = "themed" },
-	{ key = "murloc", file = "Murloc", text = "soundMurloc", group = "azeroth" },
-	{ key = "ding", file = "Ding", text = "soundDing", group = "azeroth" },
-	{ key = "fishOn", file = "FishOn", text = "soundFishOn", group = "azeroth" },
-	{ key = "levelUp", file = "LevelUp", text = "soundLevelUp", group = "azeroth" },
-	{ key = "artisan", file = "Artisan", text = "soundArtisan", group = "azeroth" },
-	{ key = "thunderClap", file = "ThunderClap", text = "soundThunderClap", group = "classes", class = "WARRIOR" },
-	{ key = "holyLight", file = "HolyLight", text = "soundHolyLight", group = "classes", class = "PALADIN" },
-	{ key = "hawk", file = "Hawk", text = "soundAspectHawk", group = "classes", class = "HUNTER" },
-	{ key = "backstab", file = "Backstab", text = "soundBackstab", group = "classes", class = "ROGUE" },
-	{ key = "shield", file = "Shield", text = "soundPowerWordShield", group = "classes", class = "PRIEST" },
-	{ key = "healingWave", file = "HealingWave", text = "soundHealingWave", group = "classes", class = "SHAMAN" },
-	{ key = "frost", file = "Frost", text = "soundFrostNova", group = "classes", class = "MAGE" },
-	{ key = "sheep", file = "Sheep", text = "soundPolymorph", group = "classes", class = "MAGE" },
-	{ key = "soulShard", file = "SoulShard", text = "soundSoulShard", group = "classes", class = "WARLOCK" },
-	{ key = "moonfire", file = "Moonfire", text = "soundMoonfire", group = "classes", class = "DRUID" },
-	{ key = "glass", file = "Glass", text = "soundGlass", group = "instrument" },
-	{ key = "kalimba", file = "Kalimba", text = "soundKalimba", group = "instrument" },
-	{ key = "bowl", file = "Bowl", text = "soundBowl", group = "instrument" },
-	{ key = "lute", file = "Lute", text = "soundLute", group = "instrument" },
-	{ key = "dulcimer", file = "Dulcimer", text = "soundDulcimer", group = "instrument" },
-	{ key = "vibraphone", file = "Vibraphone", text = "soundVibraphone", group = "instrument" },
-	{ key = "marimba", file = "Marimba", text = "soundMarimba", group = "instrument" },
+	{ key = "softDrop", file = "SoftDrop", label = "Soft Drop", group = "bazi" },
+	{ key = "doubleDrop", file = "DoubleDrop", label = "Double Drop", group = "bazi" },
+	{ key = "warmChime", file = "WarmChime", label = "Warm Chime", group = "bazi" },
+	{ key = "chime", file = "Chime", label = "Chime", group = "bazi" },
+	{ key = "echo", file = "Echo", label = "Echo", group = "bazi" },
+	{ key = "pulse", file = "Pulse", label = "Pulse", group = "bazi" },
+	{ key = "signal", file = "Signal", label = "Signal", group = "bazi" },
+	{ key = "urgent", file = "Urgent", label = "Urgent", group = "bazi" },
 }
 Alerts.SOUNDS = SOUNDS
--- The groups' titles in the options' dropdowns, in order.
-Alerts.SOUND_GROUPS = {
-	{ key = "themed", label = L.soundsThemed },
-	{ key = "azeroth", label = L.soundsAzeroth },
-	{ key = "classes", label = L.soundsClasses },
-	{ key = "instrument", label = L.soundsInstruments },
-}
-local SOUND_PATH = "Interface\\AddOns\\BaziUI\\Assets\\Chat\\Everchat\\Sounds\\"
+Alerts.SOUND_GROUPS = {{key = "bazi", label = "Bazi UI"}}
+local SOUND_PATH = "Interface\\AddOns\\BaziUI\\Assets\\Sounds\\"
 local SOUND_FILES = {}
 for _, sound in ipairs(SOUNDS) do
-	sound.label = L[sound.text]
 	SOUND_FILES[sound.key] = SOUND_PATH .. sound.file .. ".ogg"
 end
 
@@ -162,7 +133,7 @@ end
 -- turned off) leaves the tab with its usual sound and stays stored, so it
 -- comes back with its addon.
 local SHARED = "lsm:"
-local OWN_SUFFIX = " (Everchat)"
+local OWN_SUFFIX = " (Bazi UI)"
 local sharedMedia
 
 local function SharedName(key)
@@ -196,8 +167,47 @@ local function SharedFile(key)
 end
 
 -- A sound's file (a path or a file ID) by its key, while it's there.
+local replacedSounds = {
+	blip = "softDrop", bubble = "doubleDrop", ping = "warmChime",
+	pip = "softDrop", pop = "doubleDrop", tap = "softDrop",
+	hallBell = "chime",
+	huntingHorn = "echo",
+	toast = "pulse",
+	dice = "signal",
+	warDrums = "urgent",
+	warHorn = "chime",
+	celesta = "echo",
+	shopBell = "pulse",
+	murloc = "signal",
+	ding = "urgent",
+	fishOn = "chime",
+	levelUp = "echo",
+	artisan = "pulse",
+	thunderClap = "signal",
+	holyLight = "urgent",
+	hawk = "chime",
+	backstab = "echo",
+	shield = "pulse",
+	healingWave = "signal",
+	frost = "urgent",
+	sheep = "chime",
+	soulShard = "echo",
+	moonfire = "pulse",
+	glass = "signal",
+	kalimba = "urgent",
+	bowl = "chime",
+	lute = "echo",
+	dulcimer = "pulse",
+	vibraphone = "signal",
+	marimba = "urgent",
+}
+
+function Alerts.ResolveSoundKey(key)
+	return replacedSounds[key] or key
+end
+
 local function SoundFile(key)
-	return SOUND_FILES[key] or SharedFile(key)
+	return SOUND_FILES[Alerts.ResolveSoundKey(key)] or SharedFile(key)
 end
 
 -- The sounds other addons share, for the options' list ({ key, label }), in
@@ -221,9 +231,8 @@ end
 -- stays the same whatever the client's language.
 ns.Fonts.WhenSharedMedia(function(media)
 	sharedMedia = media
-	local english = ns.Locales.enUS
 	for _, sound in ipairs(SOUNDS) do
-		media:Register(media.MediaType.SOUND, (english[sound.text] or sound.file) .. OWN_SUFFIX, SOUND_FILES[sound.key])
+		media:Register(media.MediaType.SOUND, sound.label .. OWN_SUFFIX, SOUND_FILES[sound.key])
 	end
 end)
 
@@ -235,8 +244,8 @@ local GROUP_KINDS = {
 	RAID = "raid", RAID_WARNING = "raid",
 	WHISPER = "whisper", BN_WHISPER = "whisper",
 }
-local KIND_SOUNDS = { guild = "bowl", party = "toast", raid = "warDrums", whisper = "glass", trade = "shopBell" }
-local OTHER_SOUND = "kalimba"
+local KIND_SOUNDS = { guild = "echo", party = "pulse", raid = "urgent", whisper = "chime", trade = "signal" }
+local OTHER_SOUND = "chime"
 -- Trade's zone channel, the same in every language.
 local TRADE_ZONE_CHANNEL = 2
 
@@ -366,7 +375,7 @@ function Alerts.GetDefaultSound(chatFrame)
 		return OTHER_SOUND
 	end
 	local chosen = ns.db.kindSounds and ns.db.kindSounds[kind]
-	return SoundFile(chosen) and chosen or KIND_SOUNDS[kind]
+	return SoundFile(chosen) and Alerts.ResolveSoundKey(chosen) or KIND_SOUNDS[kind]
 end
 
 -- The sound every new whisper tab starts with, the game's own for each person

@@ -13,7 +13,7 @@ local questColor = {181 / 255, 138 / 255, 18 / 255}
 local backgroundColor = {0.075, 0.048, 0.031}
 local bar, options, reputationBar
 function module.GetExperienceMoverFrame(reputation) return reputation and reputationBar or (not reputation and bar) end
-local nativeBar, nativeAlpha
+local nativeBar, nativeAlpha, inputFrame
 local nativeInput = {}
 local nativeHooks = {}
 local alphaHooks = {}
@@ -49,7 +49,9 @@ end
 
 local function hideNativeBar(hide)
     local frame = hide and nativeExperienceBar() or nil
-    if frame then
+    if frame and frame.IsForbidden and frame:IsForbidden() then frame = nil end
+    local combat = InCombatLockdown()
+    if frame and not combat then
         local system = frame.Selection and frame or frame:GetParent()
         module:SuppressEditSelection(system, function()
             if not options or not bar:IsShown() then return false end
@@ -61,26 +63,32 @@ local function hideNativeBar(hide)
         local previous = nativeBar
         nativeBar = nil
         previous:SetAlpha(nativeAlpha)
+    end
+    if not combat and inputFrame ~= frame then
         for region, state in pairs(nativeInput) do
             region:EnableMouse(state[1])
             if state[2] ~= nil then region:SetMouseClickEnabled(state[2]) end
             if state[3] ~= nil then region:SetMouseMotionEnabled(state[3]) end
         end
         wipe(nativeInput)
+        inputFrame = nil
     end
-    if frame and not (frame.IsForbidden and frame:IsForbidden()) then
+    if frame then
         if frame ~= nativeBar then nativeBar, nativeAlpha = frame, frame:GetAlpha() end
         if not alphaHooks[frame] then
             alphaHooks[frame] = true
             hooksecurefunc(frame, "SetAlpha", function(self, alpha)
                 if self ~= nativeBar or alpha <= 0 then return end
                 nativeAlpha = alpha
-                if not InCombatLockdown() and nativeExperienceBar() == self then
+                if nativeExperienceBar() == self then
                     self:SetAlpha(0)
                 end
             end)
         end
         if frame:GetAlpha() ~= 0 then frame:SetAlpha(0) end
+        -- Alpha is visual. Leave protected mouse and Edit Mode state alone in combat.
+        if combat then return end
+        inputFrame = frame
         local function disableInput(region)
             if not nativeInput[region] then
                 nativeInput[region] = {region:IsMouseEnabled(),
@@ -99,7 +107,11 @@ local function hideNativeBar(hide)
 end
 
 local function refreshNativeBar()
-    if options and bar:IsShown() and not InCombatLockdown() then hideNativeBar(true) end
+    local saved = BaziUI.db and BaziUI.db.profile.actionbars
+    local xp = options or saved and saved.experience
+    local eligible = xp and xp.enabled and not (IsPlayerAtEffectiveMaxLevel and IsPlayerAtEffectiveMaxLevel())
+        and not (IsXPUserDisabled and IsXPUserDisabled())
+    hideNativeBar(eligible)
 end
 
 local function watchBlizzardContainers()
@@ -121,9 +133,12 @@ end
 
 local nativeLoader = CreateFrame("Frame")
 nativeLoader:RegisterEvent("ADDON_LOADED")
-nativeLoader:SetScript("OnEvent", function(self, _, name)
-    if name ~= "Blizzard_StatusTrackingBar" then return end
-    self:UnregisterEvent("ADDON_LOADED")
+nativeLoader:RegisterEvent("PLAYER_LOGIN")
+nativeLoader:RegisterEvent("PLAYER_ENTERING_WORLD")
+nativeLoader:RegisterEvent("PLAYER_REGEN_ENABLED")
+nativeLoader:SetScript("OnEvent", function(self, event, name)
+    if event == "ADDON_LOADED" and name ~= "Blizzard_StatusTrackingBar" and name ~= BaziUI.name then return end
+    if event == "PLAYER_LOGIN" then self:UnregisterEvent(event) end
     watchBlizzardContainers()
     refreshNativeBar()
 end)
@@ -234,7 +249,7 @@ local function update(_, event)
         or (IsXPUserDisabled and IsXPUserDisabled()) then
         if GameTooltip:IsOwned(bar) then GameTooltip:Hide() end
         bar:Hide()
-        if not InCombatLockdown() then hideNativeBar(false) end
+        hideNativeBar(false)
         return
     end
     local xp = math.min(UnitXP("player") or 0, total)
@@ -274,7 +289,7 @@ local function update(_, event)
         bar.text:SetText(caption)
     end
     bar:Show()
-    if not InCombatLockdown() then hideNativeBar(true) end
+    hideNativeBar(true)
     if GameTooltip:IsOwned(bar) then updateTooltip() end
 end
 
@@ -323,6 +338,7 @@ local function createBar(isReputation)
     BaziUI.Theme:AddDropShadow("ActionBars", frame, border)
     if isReputation then border:SetBackdropBorderColor(0.90, 0.72, 0.42, 1)
     else border:SetBackdropBorderColor(0.62, 0.49, 0.30, 1) end
+    BaziUI.Theme:TrackWindowBorder(border, false)
     local dividerLayer = CreateFrame("Frame", nil, fill)
     dividerLayer:SetAllPoints(fill)
     dividerLayer:SetFrameLevel(frame.progress:GetFrameLevel() + 1)
@@ -372,8 +388,10 @@ end
 
 local function layout(frame, settings, y)
     frame:SetSize(settings.width, settings.height)
-    frame:ClearAllPoints()
-    frame:SetPoint("CENTER", UIParent, "CENTER", settings.x, y)
+    if not (BaziUI.Movers and BaziUI.Movers.IsDragging(frame)) then
+        frame:ClearAllPoints()
+        frame:SetPoint("CENTER", UIParent, "CENTER", settings.x, y)
+    end
     for _, divider in ipairs(frame.dividers) do divider:SetShown(settings.segmented) end
     if settings.segmented then
         local width = settings.width - 2 * fillInset
@@ -395,6 +413,13 @@ local function layout(frame, settings, y)
     frame.background:SetAlpha(math.max(0, math.min(100, tonumber(settings.opacity) or 100)) / 100)
 end
 
+local function showForMovers(frame, label)
+    paintFill(frame, 1, 0, 0, 0, math.max(1, frame:GetHeight() - 2 * fillInset),
+        math.max(1, frame:GetWidth() - 2 * fillInset))
+    frame.text:SetText(label)
+    frame:Show()
+end
+
 local function updateReputation(frame)
     local name, standing, low, high, value
     local data = C_Reputation and C_Reputation.GetWatchedFactionData and C_Reputation.GetWatchedFactionData()
@@ -406,7 +431,8 @@ local function updateReputation(frame)
     end
     if not name or not low or not high or not value then
         if GameTooltip:IsOwned(frame) then GameTooltip:Hide() end
-        frame:Hide()
+        if BaziUI.Movers and BaziUI.Movers.IsActive() then showForMovers(frame, "Reputation")
+        else frame:Hide() end
         return
     end
     local full = high <= low or standing == 8 and value >= high
@@ -423,7 +449,8 @@ local function updateReputation(frame)
 end
 
 local function applyReputation(settings)
-    if not settings.showReputation then
+    local arranging = BaziUI.Movers and BaziUI.Movers.IsActive()
+    if not settings.showReputation and not arranging then
         if reputationBar then
             reputationBar:UnregisterAllEvents()
             if GameTooltip:IsOwned(reputationBar) then GameTooltip:Hide() end
@@ -436,8 +463,8 @@ local function applyReputation(settings)
         reputationBar:SetScript("OnEvent", updateReputation)
         reputationBar:SetScript("OnEnter", function(frame)
             GameTooltip:SetOwner(frame, "ANCHOR_TOP")
-            GameTooltip:SetText(frame.factionName)
-            GameTooltip:AddLine(frame.factionProgress, 1, 1, 1)
+            GameTooltip:SetText(frame.factionName or "Reputation")
+            if frame.factionProgress then GameTooltip:AddLine(frame.factionProgress, 1, 1, 1) end
             GameTooltip:Show()
         end)
     end
@@ -449,14 +476,20 @@ end
 
 function module:ApplyExperience(settings)
     applyReputation(settings)
+    local arranging = BaziUI.Movers and BaziUI.Movers.IsActive()
     if not settings.enabled then
+        if nativeBar or inputFrame then hideNativeBar(false) end
         if bar and options then
             options = nil
             bar:UnregisterAllEvents()
             if GameTooltip:IsOwned(bar) then GameTooltip:Hide() end
-            bar:Hide()
             hideNativeBar(false)
         end
+        if arranging then
+            if not bar then bar = createBar() end
+            layout(bar, settings, settings.y)
+            showForMovers(bar, "Experience")
+        elseif bar then bar:Hide() end
         return
     end
     if not bar then bar = createBar() end
@@ -472,4 +505,9 @@ function module:ApplyExperience(settings)
     watchBlizzardContainers()
     layout(bar, settings, settings.y)
     update()
+    if arranging and not bar:IsShown() then showForMovers(bar, "Experience") end
+end
+
+function module:RefreshMoverExperience()
+    self:ApplyExperience(self:Settings().experience)
 end

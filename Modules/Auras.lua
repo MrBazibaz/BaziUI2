@@ -71,6 +71,7 @@ local function restore(button, state)
         button:SetSize(state.width, state.height)
         retarget(button, state.points)
         if state.iconPoints then retarget(button.Icon, state.iconPoints) end
+        if state.debuffBorderPoints then retarget(button.DebuffBorder, state.debuffBorderPoints) end
         state.placed = nil
     end
     if state.hidden then
@@ -118,9 +119,18 @@ local function styleButton(button, cfg, index, key)
     end
     if not state.placed then
         state.width, state.height, state.scale = button:GetWidth(), button:GetHeight(), button:GetScale()
+        if key == "debuffs" and button.DebuffBorder then
+            state.debuffBorderPoints = getPoints(button.DebuffBorder)
+        end
     end
     button:SetScale(1)
     position(button, cfg, index, not state.iconPoints)
+    if state.debuffBorderPoints then
+        local border = button.DebuffBorder
+        border:ClearAllPoints()
+        border:SetPoint("TOPLEFT", button.Icon, "TOPLEFT", -2, 2)
+        border:SetPoint("BOTTOMRIGHT", button.Icon, "BOTTOMRIGHT", 2, -2)
+    end
     state.placed, state.active = true, true
     if state.label then
         button.Duration:SetAlpha(0)
@@ -200,7 +210,7 @@ local function updatePreview(key, cfg)
             button.Icon = button:CreateTexture(nil, "ARTWORK")
             button.Icon:SetTexCoord(0.06, 0.94, 0.06, 0.94)
             button.Duration = button:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-            button.border = addon.Theme:CreateFrameBorder(button, button, button)
+            button.border = addon.Theme:CreateFrameBorder(button, button, button, key == "debuffs")
             if key == "debuffs" then button.border:SetBackdropBorderColor(0.82, 0.2, 0.17, 1) end
             buttons[index] = button
         end

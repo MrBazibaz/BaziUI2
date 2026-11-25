@@ -19,6 +19,8 @@ addon.Theme.colors = {
     purplePressed = { 0.26, 0.12, 0.19, 1 },
     purpleDisabled = { 0.21, 0.14, 0.17, 0.82 },
     experience = { 101 / 255, 0, 203 / 255 },
+    healthCritical = {0.49, 0.045, 0.04},
+    healthWarning = {0.53, 0.43, 0.18},
     gold = { 0.83, 0.63, 0.30, 1 },
     goldHover = { 1.00, 0.79, 0.42, 1 },
     goldPressed = { 0.60, 0.42, 0.18, 1 },
@@ -29,11 +31,102 @@ function addon.Theme:Paint(texture, role, alpha)
     texture:SetColorTexture(color[1], color[2], color[3], alpha or color[4] or 1)
 end
 
+local function settingsOwner(control)
+    local parent = control
+    while parent do
+        if parent.baziSettingsHelpRoot then return true end
+        parent = parent:GetParent()
+    end
+end
+
+local function settingsLabel(control)
+    local own = control.Text or control.text
+    local title = own and own.GetText and own:GetText()
+    if type(title) == "string" and title ~= "" then return title end
+    local parent = control:GetParent()
+    if not parent then return end
+    local x, y = control:GetCenter()
+    local nearest, distance
+    for _, region in ipairs({parent:GetRegions()}) do
+        if region:IsObjectType("FontString") then
+            local text = region:GetText()
+            if type(text) == "string" and text ~= "" and region:IsShown() then
+                for i = 1, region:GetNumPoints() do
+                    local _, relative = region:GetPoint(i)
+                    if relative == control then return text end
+                end
+                for i = 1, control:GetNumPoints() do
+                    local _, relative = control:GetPoint(i)
+                    if relative == region then return text end
+                end
+                local rx, ry = region:GetCenter()
+                if x and y and rx and ry and math.abs(y - ry) <= 10 then
+                    local gap = math.abs(x - rx)
+                    if gap < (distance or math.huge) then nearest, distance = text, gap end
+                end
+            end
+        end
+    end
+    return nearest
+end
+
+local function checkboxHelp(control, title)
+    if not control:IsObjectType("CheckButton") then return end
+    local verb = title:lower():match("^%s*(%a+)")
+    if verb == "show" then return "Clear the checkbox to hide this element from the interface." end
+    if verb == "hide" then return "Clear the checkbox to show this element when it is available." end
+    if verb == "enable" then return "Clear the checkbox to pause this feature while keeping its settings." end
+    if verb == "lock" then return "Clear the checkbox if you want to move or edit the layout." end
+end
+
+local function hideSettingsHelp(control)
+    if control.baziHelpOwned then
+        control.baziHelpOwned = nil
+        if GameTooltip and GameTooltip:IsOwned(control) then GameTooltip:Hide() end
+    end
+end
+
+function addon.Theme:SettingsHelp(control, title, detail, label)
+    control.baziHelpTitle, control.baziHelpDetail = title, detail
+    if not control.baziHelpHooked then
+        control.baziHelpHooked = true
+        control:HookScript("OnEnter", function(owner)
+            local heading = owner.baziHelpTitle
+            if not heading then
+                if not settingsOwner(owner) then return end
+                heading = settingsLabel(owner)
+            end
+            if not heading or not GameTooltip or (GameTooltip:IsOwned(owner) and GameTooltip:IsShown()) then return end
+            GameTooltip:SetOwner(owner, "ANCHOR_RIGHT")
+            GameTooltip:SetText(heading, 1, 0.82, 0.49)
+            local description = owner.baziHelpDetail or checkboxHelp(owner, heading)
+            if description and description ~= "" then
+                GameTooltip:AddLine(description, 0.93, 0.88, 0.80, true)
+            end
+            owner.baziHelpOwned = true
+            GameTooltip:Show()
+        end)
+        control:HookScript("OnLeave", hideSettingsHelp)
+        control:HookScript("OnHide", hideSettingsHelp)
+    end
+    if label and not control.baziHelpLabel then
+        local hover = CreateFrame("Frame", nil, control:GetParent())
+        if hover.SetMouseMotionEnabled and hover.SetMouseClickEnabled then
+            hover:SetAllPoints(label)
+            hover:SetMouseMotionEnabled(true)
+            hover:SetMouseClickEnabled(false)
+            control.baziHelpLabel = hover
+            self:SettingsHelp(hover, title, detail)
+        end
+    end
+end
+
 function addon.Theme:CreateCheckbox(parent)
     local check = CreateFrame("CheckButton", nil, parent, "UICheckButtonTemplate")
     check:SetNormalTexture(ASSET .. "Controls\\Checkbox_Empty.png")
     check:SetCheckedTexture(ASSET .. "Controls\\Checkbox_Checked.png")
     check:SetDisabledCheckedTexture(ASSET .. "Controls\\Checkbox_Disabled.png")
+    self:SettingsHelp(check)
     return check
 end
 
@@ -136,12 +229,13 @@ function addon.Theme:AddPortraitDropShadow(anchor, rim)
     return frame
 end
 
-function addon.Theme:CreateFrameBorder(parent, top, bottom)
+function addon.Theme:CreateFrameBorder(parent, top, bottom, keepColor)
     local border = CreateFrame("Frame", nil, parent, "BackdropTemplate")
     border:SetPoint("TOPLEFT", top, "TOPLEFT")
     border:SetPoint("BOTTOMRIGHT", bottom, "BOTTOMRIGHT")
     border:SetBackdrop({edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border", edgeSize = 12})
     border:SetBackdropBorderColor(unpack(self.colors.frameBorder))
+    if not keepColor then self:TrackWindowBorder(border) end
     return border
 end
 
@@ -164,6 +258,179 @@ function addon.Theme:Surface(parent, name, margin, layer, sublevel)
     return texture
 end
 
+function addon.Theme:RoundedCard(parent)
+    local card = CreateFrame("Frame", nil, parent, "BackdropTemplate")
+    card:EnableMouse(false)
+    local mode = Enum and Enum.UITextureSliceMode and Enum.UITextureSliceMode.Stretched
+    local fill = card:CreateTexture(nil, "BACKGROUND")
+    if mode and fill.SetTextureSliceMargins and fill.SetTextureSliceMode then
+        local function layer(texture, name)
+            texture:SetAllPoints()
+            texture:SetTexture(ASSET .. "Icons\\Bazi\\" .. name .. ".tga")
+            texture:SetTextureSliceMargins(8, 8, 8, 8)
+            texture:SetTextureSliceMode(mode)
+        end
+        local edge = card:CreateTexture(nil, "BORDER")
+        layer(fill, "RoundedFill")
+        card.fillTexture = fill
+        layer(edge, "RoundedEdge")
+        card.SetBackdropColor = function(_, ...) fill:SetVertexColor(...) end
+        card.SetBackdropBorderColor = function(_, ...) edge:SetVertexColor(...) end
+    else
+        card:SetBackdrop({bgFile = "Interface\\Buttons\\WHITE8X8",
+            edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border", edgeSize = 8})
+    end
+    return card
+end
+
+local windowBorders = setmetatable({}, {__mode = "k"})
+local textureBorders = setmetatable({}, {__mode = "k"})
+local portraitRims = setmetatable({}, {__mode = "k"})
+
+function addon.Theme:UsesAccentStyle()
+    local db = addon.db and addon.db.profile
+    return db and db.borderStyle == "accent"
+end
+
+function addon.Theme:PaintWindowEdge(card)
+    if self:UsesAccentStyle() then card:SetBackdropBorderColor(self:AccentInk(0.88))
+    else card:SetBackdropBorderColor(unpack(self.colors.frameBorder)) end
+end
+
+function addon.Theme:MutedClassColor(class)
+    if class == nil and UnitClass then
+        local _, playerClass = UnitClass("player")
+        class = playerClass
+    end
+    local color = class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
+    if color then return color.r * 0.53, color.g * 0.53, color.b * 0.53 end
+    return 0.40, 0.37, 0.29
+end
+
+local function refreshBorder(theme, border, style)
+    local enabled = theme:UsesAccentStyle()
+    local r, g, b, a = unpack(style.color)
+    style.edge:SetShown(enabled and (a or 1) > 0)
+    if enabled then
+        style.edge:SetBackdropColor(0.11, 0.11, 0.12, style.gradient and 0.08 or 0)
+        if style.gradient and style.edge.fillTexture and style.edge.fillTexture.SetGradient and CreateColor then
+            style.edge.fillTexture:SetGradient("VERTICAL", CreateColor(0.075, 0.075, 0.085, 0.015),
+                CreateColor(0.39, 0.38, 0.41, 0.14))
+        end
+        local ar, ag, ab = theme:Accent()
+        style.edge:SetBackdropBorderColor(ar, ag, ab, (style.texture and 0.26 or 0.90) * (a or 1))
+        if style.write then
+            style.write(border, ar * 0.65, ag * 0.65, ab * 0.65, a or 1)
+        end
+    elseif style.write then
+        style.write(border, r, g, b, a or 1)
+    end
+    if style.texture then style.texture:SetAlpha(enabled and 0 or style.alpha) end
+end
+
+function addon.Theme:TrackWindowBorder(border, gradient)
+    if not border or windowBorders[border] or not border.GetBackdropBorderColor or not border.SetBackdropBorderColor then return end
+    local style = {edge = self:RoundedCard(border), write = border.SetBackdropBorderColor,
+        color = {border:GetBackdropBorderColor()}, gradient = gradient ~= false}
+    style.edge:SetAllPoints(border)
+    style.edge:SetFrameLevel(border:GetFrameLevel())
+    windowBorders[border] = style
+    border.SetBackdropBorderColor = function(owner, r, g, b, a)
+        style.color[1], style.color[2], style.color[3], style.color[4] = r, g, b, a
+        refreshBorder(self, owner, style)
+    end
+    border.GetBackdropBorderColor = function() return unpack(style.color, 1, 4) end
+    refreshBorder(self, border, style)
+end
+
+function addon.Theme:TrackBorderTexture(owner, texture)
+    if not texture or textureBorders[texture] then return end
+    local style = {edge = self:RoundedCard(owner), texture = texture,
+        alpha = texture:GetAlpha(), color = {1, 1, 1, 1}}
+    style.edge:SetAllPoints(texture)
+    style.edge:SetFrameLevel(owner:GetFrameLevel())
+    textureBorders[texture] = style
+    local function updateShown()
+        refreshBorder(self, owner, style)
+        if not texture:IsShown() then style.edge:Hide() end
+    end
+    for _, method in ipairs({"Show", "Hide", "SetShown"}) do
+        if texture[method] then pcall(hooksecurefunc, texture, method, updateShown) end
+    end
+    refreshBorder(self, owner, style)
+    if not texture:IsShown() then style.edge:Hide() end
+end
+
+local function colorPortraitRim(theme, rim)
+    local accent = theme:UsesAccentStyle()
+    rim:SetDesaturated(not not accent)
+    if accent then
+        local r, g, b = theme:Accent()
+        rim:SetVertexColor(0.22 + r * 0.78, 0.22 + g * 0.78, 0.22 + b * 0.78)
+    else
+        rim:SetVertexColor(1, 1, 1)
+    end
+end
+
+function addon.Theme:TrackPortraitRim(rim)
+    portraitRims[rim] = true
+    colorPortraitRim(self, rim)
+end
+
+function addon.Theme:RefreshInterfaceStyle()
+    for border, style in pairs(windowBorders) do refreshBorder(self, border, style) end
+    for texture, style in pairs(textureBorders) do
+        refreshBorder(self, texture, style)
+        if not texture:IsShown() then style.edge:Hide() end
+    end
+    for rim in pairs(portraitRims) do colorPortraitRim(self, rim) end
+end
+
+function addon.Theme:PaintQuestCard(card, opacity, fullOpacity)
+    opacity = opacity or 1
+    card:SetBackdropColor(0.11, 0.085, 0.098, (fullOpacity and 1 or 0.58) * opacity)
+    local fill = card.fillTexture
+    if fill and fill.SetGradient and CreateColor then
+        fill:SetGradient("VERTICAL", CreateColor(0.083, 0.059, 0.073, (fullOpacity and 1 or 0.49) * opacity),
+            CreateColor(0.17, 0.133, 0.15, (fullOpacity and 1 or 0.63) * opacity))
+    end
+    card:SetBackdropBorderColor(self:AccentInk(0.13))
+end
+
+function addon.Theme:RailOrnament(parent, anchor, inset)
+    local pixel = PixelUtil and PixelUtil.ConvertPixelsToUIForRegion(1, parent) or 1
+    local track = parent:CreateTexture(nil, "OVERLAY")
+    local top = parent:CreateTexture(nil, "OVERLAY")
+    local bottom = parent:CreateTexture(nil, "OVERLAY")
+    track:SetPoint("TOPLEFT", anchor, "TOPLEFT", inset, -6)
+    track:SetPoint("BOTTOMLEFT", anchor, "BOTTOMLEFT", inset, 6)
+    track:SetWidth(1)
+    top:SetPoint("TOPLEFT", track, "TOPLEFT")
+    bottom:SetPoint("BOTTOMLEFT", track, "BOTTOMLEFT")
+    top:SetSize(6 * pixel, pixel)
+    bottom:SetSize(6 * pixel, pixel)
+    return {track = track, top = top, bottom = bottom, capThickness = pixel}
+end
+
+function addon.Theme:PlaceRailThumb(rail, thumb, sliderThumb, visible, overflow, fraction, maxHeight)
+    local height = rail:GetHeight()
+    if height <= 0 or visible <= 0 then return end
+    local thumbHeight = math.min(height, maxHeight or height, math.max(12, height * visible / (visible + overflow)))
+    local travel = (height - thumbHeight) * math.max(0, math.min(1, fraction))
+    thumb:SetHeight(thumbHeight)
+    sliderThumb:SetHeight(thumbHeight)
+    thumb:ClearAllPoints()
+    thumb:SetPoint("TOP", rail, "TOP", 0, -travel)
+end
+
+function addon.Theme:ColorRailOrnament(ornament, top, bottom)
+    ornament.track:SetColorTexture(self:AccentInk(0.72))
+    ornament.top:SetColorTexture(self:AccentInk(0.85))
+    ornament.bottom:SetColorTexture(self:AccentInk(0.85))
+    ornament.top:SetShown(top)
+    ornament.bottom:SetShown(bottom)
+end
+
 function addon.Theme:AddSettingsDropShadow(parent)
     local shadow = CreateFrame("Frame", nil, parent)
     shadow:EnableMouse(false)
@@ -172,6 +439,24 @@ function addon.Theme:AddSettingsDropShadow(parent)
     shadow:SetPoint("BOTTOMRIGHT", parent, "BOTTOMRIGHT", 14, -14)
     self:Surface(shadow, "WindowShadow", 43)
     registerDropShadow("General", shadow)
+end
+
+function addon.Theme:Accent()
+    local profile = addon.db and addon.db.profile
+    local color = profile and (profile.accentColor or profile.questTracker and profile.questTracker.accent)
+    if type(color) == "table" and color[1] and color[2] and color[3] then return unpack(color) end
+    return 0.72, 0.44, 0.87
+end
+
+function addon.Theme:AccentInk(alpha)
+    local r, g, b = self:Accent()
+    return r, g, b, alpha or 1
+end
+
+function addon.Theme:PaintScrollRail(track, thumb, viewport, range)
+    track:SetColorTexture(self:AccentInk(0.30))
+    thumb:SetColorTexture(self:AccentInk(0.9))
+    thumb:SetSize(5, math.max(12, viewport * viewport / math.max(1, viewport + range)))
 end
 
 function addon.Theme:StyleScrollThumb(thumb)
@@ -196,6 +481,7 @@ function addon.Theme:CreateSettingsDropdown(parent)
     arrow:SetSize(13, 13)
     arrow:SetPoint("RIGHT", -6, 0)
     arrow:SetTexture(ASSET .. "Icons\\Icon_Down.png")
+    self:SettingsHelp(dropdown)
     return dropdown
 end
 

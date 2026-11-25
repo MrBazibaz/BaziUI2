@@ -35,7 +35,7 @@ local CURSOR_CATEGORY = {
 	Wrapper = "quest", Wrapperturnin = "quest",
 	PickLock = "chest", LootAll = "chest", Pickup = "chest",
 	Fishing = "bobber", FishingCursor = "bobber",
-	Interact = "other", GamepadInteract = "other", Inspect = "other",
+	Interact = "other", GamepadInteract = "other", Inspect = "inspect",
 	Mail = "service", Speak = "service", Buy = "service", Trainer = "service", Taxi = "service", Innkeeper = "service",
 	Repair = "service", RepairNPC = "service", Stablemaster = "service",
 }
@@ -247,7 +247,7 @@ local CURSOR_KEYWORDS = {
 	{ "stable",    "service" },
 	{ "interact",  "other" },
 	{ "skin",      "skin" },
-	{ "inspect",   "other" },  -- la loupe : un écriteau, un livre
+	{ "inspect",   "inspect" },  -- la loupe : un écriteau, un livre
 }
 
 -- Renvoie la catégorie et l'indicateur "grisé" (variante Unable : interaction impossible
@@ -328,9 +328,10 @@ local function LearnContainers()
 end
 
 -- Renvoie la catégorie de l'objet, l'indicateur "grisé", le nom de curseur brut et le numéro de
--- l'objet, si le jeu le donne
+-- l'objet, si le jeu le donne, puis la catégorie d'origine du curseur.
 local function Classify(unit, name)
-	local hasCursor, category, blocked, cursor = ReadCursor(unit)
+	local hasCursor, cursorCategory, blocked, cursor = ReadCursor(unit)
+	local category = cursorCategory == "inspect" and "other" or cursorCategory
 	-- Un curseur de service dit ce qu'est l'objet : ni son nom ni la pêche n'en font autre chose.
 	-- (Vu en jeu le 2026-10-13 : « Boîte aux lettres → quête », par le mot « boîte » d'un objectif.)
 	-- Seul le jeu peut encore le rattacher à une quête.
@@ -359,7 +360,7 @@ local function Classify(unit, name)
 	if not category and (hasCursor or (UnitIsInteractable and SafeCall(UnitIsInteractable, unit) == true)) then
 		category = "other"
 	end
-	return category, blocked, cursor, id
+	return category, blocked, cursor, id, cursorCategory
 end
 
 -- Le personnage a-t-il le métier qui récolte cette catégorie ? true, false, ou nil quand le jeu ne le

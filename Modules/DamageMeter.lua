@@ -162,6 +162,7 @@ local function createWindow(index)
     local savedOverall, currentBaseline, savedGeneration
     local transition, transitionAnimation
     local scrollOffset = 0
+    local rail, railThumb, sliderThumb, sizingRail, ornament
     local hoveredRow
     local window = {}
     function window.ClearSelection()
@@ -218,6 +219,21 @@ local function createWindow(index)
         return r, g, b
     end
 
+    local function ornamentInset()
+        local tracker = addon.QuestTracker
+        local quest, track
+        if tracker and tracker.GetAccentTrack then quest, track = tracker.GetAccentTrack() end
+        if not quest or math.abs(quest:GetWidth() - frame:GetWidth()) > 1 then return 6 end
+        local left, right = track:GetLeft(), frame:GetLeft()
+        local top, bottom = frame:GetTop(), frame:GetBottom()
+        local questTop, questBottom = quest:GetTop(), quest:GetBottom()
+        if not (left and right and top and bottom and questTop and questBottom) then return 6 end
+        if math.min(math.abs(top - questBottom), math.abs(questTop - bottom)) > 10 then return 6 end
+        local inset = left - right
+        if math.abs(inset - 6) > 4 then return 6 end
+        return inset
+    end
+
     local function build()
         frame = CreateFrame("Frame", index == 1 and "BaziUIDamageMeter" or "BaziUIDamageMeter2", UIParent)
         frame:Hide()
@@ -240,7 +256,7 @@ local function createWindow(index)
         header.fill = header:CreateTexture(nil, "BACKGROUND")
         header.fill:SetAllPoints()
         heading = header:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-        heading:SetPoint("LEFT", 6, 0)
+        heading:SetPoint("LEFT", 14, 0)
         heading:SetJustifyH("LEFT")
         heading:SetWordWrap(false)
 
@@ -265,9 +281,30 @@ local function createWindow(index)
 
         mainPanel = CreateFrame("Frame", nil, frame)
         mainPanel:SetPoint("BOTTOMLEFT", 5, 5)
+        rail = CreateFrame("Slider", nil, frame)
+        rail:SetOrientation("VERTICAL")
+        rail:SetWidth(8)
+        sliderThumb = rail:CreateTexture(nil, "BACKGROUND")
+        sliderThumb:SetSize(8, 1)
+        sliderThumb:SetColorTexture(0, 0, 0, 0)
+        rail:SetThumbTexture(sliderThumb)
+        railThumb = rail:CreateTexture(nil, "OVERLAY")
+        railThumb:SetWidth(4)
+        rail:SetValueStep(1)
+        rail:SetScript("OnValueChanged", function(_, value)
+            if sizingRail then return end
+            scrollOffset = math.floor(value + 0.5)
+            window.Refresh()
+        end)
+        local ornamentLayer = CreateFrame("Frame", nil, frame)
+        ornamentLayer:SetAllPoints()
+        ornamentLayer:SetFrameLevel(frame:GetFrameLevel() + 25)
+        ornamentLayer:EnableMouse(false)
+        ornament = addon.Theme:RailOrnament(ornamentLayer, frame, 6)
+        rail:SetFrameLevel(ornamentLayer:GetFrameLevel() + 1)
         mainPanel:SetPoint("BOTTOMRIGHT", -5, 5)
-        frame.fill:SetPoint("TOPLEFT", mainPanel, "TOPLEFT", -2, 2)
-        frame.fill:SetPoint("BOTTOMRIGHT", mainPanel, "BOTTOMRIGHT", 2, -2)
+        frame.fill:SetPoint("TOPLEFT", frame, "TOPLEFT", 3, -3)
+        frame.fill:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -3, 3)
         local messageLayer = CreateFrame("Frame", nil, mainPanel)
         messageLayer:SetAllPoints()
         messageLayer:SetFrameLevel(mainPanel:GetFrameLevel() + 12)
@@ -521,7 +558,8 @@ local function createWindow(index)
 
     function window.Refresh()
         local db = meter.Settings(index)
-        if not db.enabled and not previews[index] then
+        local arranging = addon.Movers and addon.Movers.IsActive()
+        if not db.enabled and not previews[index] and not arranging then
             if hoveredRow then hideHover(hoveredRow) end
             if ticker then ticker:Cancel(); ticker = nil end
             if frame then frame:Hide() end
@@ -596,12 +634,38 @@ local function createWindow(index)
             and call(C_DamageMeter.IsDamageMeterAvailable) == false)
         local showEmpty = count == 0 and (selected ~= nil or (db.header and unavailable))
         local area = db.rows * (db.barHeight + 2)
-        frame:ClearAllPoints()
-        frame:SetPoint("CENTER", UIParent, "CENTER", db.x, db.y)
+        if not (addon.Movers and addon.Movers.IsDragging(frame)) then
+            frame:ClearAllPoints()
+            frame:SetPoint("CENTER", UIParent, "CENTER", db.x, db.y)
+        end
         frame:SetSize(db.width, area + (db.header and 39 or 10))
         frame.fill:SetColorTexture(0, 0, 0, db.opacity / 100)
         local headerR, headerG, headerB = window.RefreshHeader()
         mainPanel:SetHeight(area)
+        local extra = math.max(0, #entries - db.rows)
+        local step = db.barHeight + 2
+        sizingRail = true
+        rail:SetMinMaxValues(0, math.max(1, extra))
+        rail:SetValue(scrollOffset)
+        sizingRail = nil
+        local inset = ornamentInset()
+        mainPanel:SetPoint("BOTTOMLEFT", math.max(5, inset + (extra > 0 and 4 or 2)), 5)
+        ornament.track:SetPoint("TOPLEFT", frame, "TOPLEFT", inset, -6)
+        ornament.track:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", inset, 6)
+        addon.Theme:ColorRailOrnament(ornament, true, true)
+        rail:ClearAllPoints()
+        if db.header then
+            rail:SetPoint("TOP", header, "BOTTOMLEFT", inset - 2.5, -1)
+        else
+            rail:SetPoint("TOP", ornament.track, "TOP", 0, -ornament.capThickness)
+        end
+        rail:SetPoint("BOTTOM", ornament.track, "BOTTOM", 0, ornament.capThickness)
+        rail:SetShown(extra > 0)
+        rail:EnableMouse(extra > 0)
+        if extra > 0 then
+            railThumb:SetColorTexture(addon.Theme:AccentInk(0.9))
+            addon.Theme:PlaceRailThumb(rail, railThumb, sliderThumb, area, extra * step, scrollOffset / extra)
+        end
         header:SetShown(db.header)
         frame:Show()
         if switched and count > 0 then

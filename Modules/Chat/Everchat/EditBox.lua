@@ -131,6 +131,7 @@ function EditBox.Skin(chatFrame, skin)
 	topField:SetPoint("BOTTOMRIGHT", raised.frame, "BOTTOMRIGHT")
 	topField:SetBackdrop({edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border", edgeSize = 12})
 	topField:SetBackdropBorderColor(0.62, 0.49, 0.30, 1)
+	BaziUI.Theme:TrackWindowBorder(topField, false)
 	local topFill = topField:CreateTexture(nil, "BACKGROUND")
 	topFill:SetPoint("TOPLEFT", 2, -2)
 	topFill:SetPoint("BOTTOMRIGHT", -2, 2)
@@ -302,7 +303,11 @@ function EditBox.Skin(chatFrame, skin)
 		local chatType = editBox:GetAttribute("chatType")
 		local number, channelName
 		if chatType == "CHANNEL" then
-			number, channelName = GetChannelName(editBox:GetAttribute("channelTarget"))
+			local target = editBox:GetAttribute("channelTarget")
+			if canaccessvalue(target) and target ~= nil then
+				number, channelName = GetChannelName(target)
+				if canaccessvalue(number) and (not number or number == 0) then number = tonumber(target) end
+			end
 			if not canaccessvalue(number) or not canaccessvalue(channelName) then
 				number, channelName = nil, nil
 			end

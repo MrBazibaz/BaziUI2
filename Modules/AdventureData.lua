@@ -7,10 +7,9 @@ local call, read = A.Call, A.Read
 local defaults = {
     alerts = {enabled = false, x = 360, y = 170, width = 290, scale = 100, opacity = 94, growUp = false,
         maximum = 4, duration = 8, animation = 15, free = 3, durability = 15, ammo = 200, criticalAmmo = 50,
-        valuable = 0, dashboard = false, standalone = true, combat = true, peace = true},
+        valuable = 0, dashboard = false, standalone = true, combat = true, peace = true, soundKey = "raidWarning"},
     journey = {enabled = false, retention = 90, limit = 800},
     alts = {enabled = false, tooltip = true, shift = true, sameRealm = true, individual = true, total = true},
-    advisor = {enabled = false, tooltip = true, shift = true, alts = true, loot = true, rolls = true, bags = false, quests = true},
 }
 
 function A.Settings(module)
@@ -33,7 +32,7 @@ end
 function A.Data()
     local store = addon.db.adventure
     if not store then
-        store = {version = 1, characters = {}, journals = {}, weights = {}}
+        store = {version = 1, characters = {}, journals = {}}
         addon.db.adventure = store
     end
     if store.version == 1 then return store end
@@ -43,6 +42,13 @@ function A.ID(item)
     if not read(item) then return end
     if type(item) == "number" then return item end
     if type(item) == "string" then return tonumber(item:match("item:(%d+)") or item) end
+end
+
+function A.ItemDetails(item)
+    local name, _, quality, _, _, _, _, _, _, _, price, class, sub = call(addon.Inventory.GetItemInfo, item)
+    if type(name) ~= "string" then return end
+    return {name = name, quality = read(quality) and quality or nil, price = read(price) and price or nil,
+        class = read(class) and class or nil, sub = read(sub) and sub or nil}
 end
 
 function A.On(event, fn)
@@ -180,14 +186,6 @@ local function flush()
     if dirty.skills and D.InvalidateSkills then D.InvalidateSkills() end
     if dirty.identity or not current.identity then current.identity = identity() end
     if dirty.gear then current.gear = equipment() end
-    if current.gear and (dirty.gear or dirty.itemInfo) and (A.Settings("alts").enabled or A.Settings("advisor").enabled) then
-        for _, piece in pairs(current.gear) do
-            if not piece.comparison and (piece.link or piece.id) then
-                local item = addon.EquipmentAdvisor.Item(piece.link or piece.id)
-                if item and item.stats then piece.comparison = item end
-            end
-        end
-    end
     if dirty.skills and D.ReadSkills then
         current.skills = {}
         for _, entry in ipairs(D.ReadSkills()) do
@@ -212,7 +210,7 @@ function A.Queue(key)
 end
 
 local function enabled()
-    return A.Settings("alerts").enabled or A.Settings("journey").enabled or A.Settings("alts").enabled or A.Settings("advisor").enabled
+    return A.Settings("alerts").enabled or A.Settings("journey").enabled or A.Settings("alts").enabled
 end
 
 function A.Refresh()
@@ -231,13 +229,14 @@ local dirtyEvents = {
     ZONE_CHANGED = "identity", ZONE_CHANGED_INDOORS = "identity", ZONE_CHANGED_NEW_AREA = "identity",
     QUEST_LOG_UPDATE = "quests", QUEST_WATCH_UPDATE = "quests", UPDATE_PENDING_MAIL = "mail",
     UNIT_PET = "class", UNIT_AURA = "class", PET_UI_UPDATE = "class", UPDATE_FACTION = "reputation",
+    PLAYER_AMMO_CHANGED = "class",
     PLAYER_REGEN_DISABLED = "class", PLAYER_REGEN_ENABLED = "class",
 }
-dirtyEvents.GET_ITEM_INFO_RECEIVED = "itemInfo"
 local extraEvents = {"PLAYER_LOGIN", "PLAYER_ENTERING_WORLD", "PLAYER_LOGOUT", "QUEST_TURNED_IN", "CHAT_MSG_LOOT",
-    "BANKFRAME_OPENED", "BANKFRAME_CLOSED", "MAIL_SHOW", "MAIL_INBOX_UPDATE",
+    "BANKFRAME_OPENED", "BANKFRAME_CLOSED", "MAIL_SHOW", "MAIL_INBOX_UPDATE", "GET_ITEM_INFO_RECEIVED",
     "AUCTION_HOUSE_SHOW", "AUCTION_HOUSE_CLOSED", "OWNED_AUCTIONS_UPDATED", "UPDATE_INSTANCE_INFO", "NEW_RECIPE_LEARNED",
-    "ENCOUNTER_END", "LFG_COMPLETION_REWARD", "CHALLENGE_MODE_COMPLETED", "PVP_MATCH_COMPLETE", "PLAYER_DEAD", "PLAYER_XP_UPDATE", "PLAYER_TALENT_UPDATE"}
+    "ENCOUNTER_END", "LFG_COMPLETION_REWARD", "CHALLENGE_MODE_COMPLETED", "PVP_MATCH_COMPLETE", "PLAYER_DEAD", "PLAYER_XP_UPDATE", "PLAYER_TALENT_UPDATE", "CHARACTER_POINTS_CHANGED",
+    "TRAIT_CONFIG_UPDATED", "TRAIT_CONFIG_LIST_UPDATED", "PLAYER_SPECIALIZATION_CHANGED", "ACTIVE_TALENT_GROUP_CHANGED"}
 for event in pairs(dirtyEvents) do
     if event == "UNIT_AURA" and A.events.RegisterUnitEvent then
         pcall(A.events.RegisterUnitEvent, A.events, event, "player", "pet")
@@ -248,7 +247,7 @@ for _, event in ipairs(extraEvents) do pcall(A.events.RegisterEvent, A.events, e
 local awaitingLoot = {}
 local function resolveLoot(id, count, link)
     if not (A.Settings("alerts").enabled or A.Settings("journey").enabled) then return end
-    local item = addon.EquipmentAdvisor.Item(link or id)
+    local item = A.ItemDetails(link or id)
     if item then
         awaitingLoot[id] = nil
         A.Emit("lootDetails", id, count, link, item)
@@ -284,11 +283,7 @@ A.events:SetScript("OnEvent", function(_, event, ...)
         if id then
             A.Emit("loot", id, count, link)
             resolveLoot(id, count, link)
-            if A.Settings("alts").enabled then
-                A.Queue("bags")
-                -- The bank and bags snapshots should reflect the item after delivery.
-                C_Timer.After(0.25, function() A.Emit("receivedLoot", id, count, link) end)
-            end
+            if A.Settings("alts").enabled then A.Queue("bags") end
         end
     elseif event == "GET_ITEM_INFO_RECEIVED" then
         local id, success = ...

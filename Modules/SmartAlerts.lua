@@ -9,20 +9,21 @@ S.categories = {Equipment = "Shield", Class = "Dagger", Quests = "Quest", Profes
     Inventory = "Search", Progress = "Diamond", Economy = "Bell"}
 S.rules = {
     {"durability", "Low or broken equipment", "Equipment"}, {"empty", "Empty core armor and weapon slots", "Equipment", false},
+    {"upgrade", "Looted equipment upgrades", "Equipment"},
     {"fishing", "Fishing pole in combat", "Equipment"}, {"poison", "Expired temporary weapon enhancement", "Class"},
     {"ammo", "Low or depleted ammunition", "Class"}, {"pet", "Hunter pet dead or unhappy", "Class"},
     {"supplies", "Low tracked supplies", "Inventory"}, {"bags", "Low or full inventory", "Inventory"},
     {"loot", "Rare or valuable loot", "Inventory"}, {"quest", "Quest ready to turn in", "Quests"},
     {"questLog", "Full quest log", "Quests"}, {"questTimer", "Timed quest ending", "Quests"},
     {"skill", "Skill rank changes", "Professions"}, {"craft", "Crafting or material goals reached", "Professions"},
-    {"level", "Level gained", "Progress"}, {"talent", "New talent point", "Progress"},
+    {"level", "Level gained", "Progress"}, {"talent", "Unspent talent points", "Progress"},
     {"boss", "Boss defeated", "Progress"}, {"reputation", "New reputation standing", "Progress"}, {"mail", "New mail", "Economy"},
-    {"altMaterial", "Material needed by an alt", "Inventory"}, {"altUpgrade", "Potential alt equipment upgrade", "Equipment"},
+    {"altMaterial", "Material needed by an alt", "Inventory"},
 }
 local defaults = {}
 for _, rule in ipairs(S.rules) do defaults[rule[1]] = rule[4] ~= false end
 local weight = {critical = 4, warning = 3, progress = 2, success = 1}
-local frame, cards, expiry, ticker, sample, position
+local frame, cards, expiry, ticker, sample, layoutMode
 cards = {}
 local function settings() return A.Settings("alerts") end
 
@@ -58,7 +59,39 @@ local function schedule()
     end) end
 end
 
-function S.Set(id, rule, category, severity, title, detail, persistent, action)
+local popupSounds = {
+    {"alertRetroBonk", "Retro Bonk", "AlertRetroBonk"},
+    {"alertRetroBlip", "Retro Blip", "AlertRetroBlip"},
+    {"alertFeltTap", "Felt Tap", "AlertFeltTap"},
+    {"alertGlassDrop", "Glass Drop", "AlertGlassDrop"},
+    {"alertTwinBell", "Twin Bell", "AlertTwinBell"},
+    {"alertSoftKnock", "Soft Knock", "AlertSoftKnock"},
+}
+local soundFiles = {}
+for _, entry in ipairs(popupSounds) do
+    soundFiles[entry[1]] = "Interface\\AddOns\\BaziUI\\Assets\\Sounds\\" .. entry[3] .. ".ogg"
+end
+
+function S.SoundChoices()
+    local choices = {{"raidWarning", "Raid warning"}}
+    for _, entry in ipairs(popupSounds) do choices[#choices + 1] = entry end
+    local audio = addon.Chat and addon.Chat.Alerts
+    for _, entry in ipairs(audio and audio.SOUNDS or {}) do choices[#choices + 1] = {entry.key, entry.label} end
+    return choices
+end
+
+function S.PlaySound(key)
+    if not key or key == "raidWarning" then
+        call(PlaySound, SOUNDKIT and SOUNDKIT.RAID_WARNING or 8959, "Master")
+    elseif soundFiles[key] then
+        call(PlaySoundFile, soundFiles[key], "Master")
+    else
+        local audio = addon.Chat and addon.Chat.Alerts
+        if audio then call(audio.Preview, key) end
+    end
+end
+
+function S.Set(id, rule, category, severity, title, detail, persistent, action, deliveredByWatcher)
     local cfg, old = settings(), S.active[id]
     if not title or not S.IsEnabled(rule, category) then
         if old then
@@ -84,11 +117,17 @@ function S.Set(id, rule, category, severity, title, detail, persistent, action)
         S.cooldowns[id] = now + (persistent and 0 or math.max(15, cfg.duration))
         local combat = InCombatLockdown()
         if not cfg.dnd and (not cfg.critical or severity == "critical") and (combat and cfg.combat or not combat and cfg.peace) then
-            if cfg.sound and (not S.lastSound or now - S.lastSound >= 1.5) then
-                call(PlaySound, SOUNDKIT and SOUNDKIT.RAID_WARNING or 8959, "Master")
-                S.lastSound = now
+            local embedded = cfg.dashboard and D.Settings().enabled and D.WidgetSettings("smartAlerts")
+            if embedded and embedded.enabled and embedded.mode ~= "hidden" then
+                D.Notify(rule, title, deliveredByWatcher)
+            else
+                if cfg.sound and not (deliveredByWatcher and deliveredByWatcher.sound)
+                    and (not S.lastSound or now - S.lastSound >= 1.5) then
+                    S.PlaySound(cfg.soundKey)
+                    S.lastSound = now
+                end
+                if cfg.chat and not (deliveredByWatcher and deliveredByWatcher.chatWarning) then addon:Print(title) end
             end
-            if cfg.chat then addon:Print(title) end
         end
     end
     changed()
@@ -99,10 +138,14 @@ local function persistent(id, rule, category, severity, title, detail, action)
     S.Set(id, rule, category, severity, title, detail, true, action)
 end
 
+local function canDisplay(cfg)
+    local combat = InCombatLockdown()
+    return cfg.enabled and not cfg.dnd and (combat and cfg.combat or not combat and cfg.peace)
+end
+
 function S.Visible()
     local cfg, rows = settings(), {}
-    local combat = InCombatLockdown()
-    if not cfg.enabled or cfg.dnd or combat and not cfg.combat or not combat and not cfg.peace then return rows end
+    if not canDisplay(cfg) then return rows end
     for _, entry in pairs(S.active) do
         if (not cfg.critical or entry.severity == "critical") and S.IsEnabled(entry.rule, entry.category) then rows[#rows + 1] = entry end
     end
@@ -134,7 +177,7 @@ local function scanGear(snapshot)
         persistent("empty:" .. slot, "empty", "Equipment", "warning", armor and not piece.id and not piece.link and ("Empty slot · " .. name) or nil)
     end
     local main = snapshot.gear and snapshot.gear.MainHand
-    local item = main and main.id and addon.EquipmentAdvisor.Item(main.link or main.id)
+    local item = main and main.id and A.ItemDetails(main.link or main.id)
     local weapon = Enum and Enum.ItemClass and Enum.ItemClass.Weapon or 2
     local fishing = Enum and Enum.ItemWeaponSubclass and Enum.ItemWeaponSubclass.Fishingpole or 20
     persistent("fishing", "fishing", "Equipment", "warning",
@@ -142,21 +185,59 @@ local function scanGear(snapshot)
 end
 
 local hadEnhancement, expiredEnhancement = {}, {}
+function S.RefreshAmmo(snapshot)
+    local watcher = addon.HUDAmmo
+    local watch = watcher and addon.HUD.Settings("ammo")
+    local cfg = settings()
+    local count, band, delivered
+    if watch and watch.enabled then
+        count = watcher.Read()
+        if count == nil then return end
+        band = watcher.Band(count, watch.low, watch.critical)
+        local sound = band == 2 and watch.criticalSound or watch.lowSound
+        delivered = {chatWarning = watch.chatWarning, sound = watch.sound and sound ~= "none"}
+    else
+        snapshot = snapshot or A.current
+        if not snapshot or not snapshot.identity or snapshot.identity.token ~= "HUNTER" then return end
+        local slot = A.SlotID("Ammo")
+        local ammo = slot and call(GetInventoryItemID, "player", slot)
+        local ranged = snapshot.gear and snapshot.gear.Ranged
+        local item = ranged and A.ItemDetails(ranged.link or ranged.id)
+        local usesAmmo = item and item.class == 2 and (item.sub == 2 or item.sub == 3 or item.sub == 18)
+        count = ammo and D.Count(ammo) or usesAmmo and 0
+        if type(count) == "number" then
+            band = count <= math.min(cfg.ammo, cfg.criticalAmmo) and 2 or count <= cfg.ammo and 1 or 0
+        end
+    end
+    local title = band and band > 0 and (count == 0 and "No ammunition equipped or remaining"
+        or ((band == 2 and "Critical ammunition · %d" or "Low ammunition · %d"):format(count)))
+    S.Set("ammo", "ammo", "Class", band == 2 and "critical" or "warning", title, nil, true, nil, delivered)
+end
+
+local function alertSkillGain(name, skill)
+    local widget = skill.profession and "professions" or "skills"
+    local function notify()
+        if D.IsShowingRow(widget, name) then
+            S.Set("skill:" .. name, "skill", "Professions", "progress")
+            return
+        end
+        S.Set("skill:" .. name, "skill", "Professions", "progress", name .. " reached " .. skill.rank,
+            skill.rank == skill.maximum and "Current skill cap reached" or nil)
+    end
+    if D.Settings().enabled then
+        D.Invalidate(widget)
+        C_Timer.After(0.12, notify)
+    else
+        notify()
+    end
+end
+
 local function scanClass(snapshot)
     local meta = snapshot.identity
     if not meta then return end
     local cfg = settings()
     if meta.token == "HUNTER" then
-        local slot = A.SlotID("Ammo")
-        local ammo = slot and call(GetInventoryItemID, "player", slot)
-        local ranged = snapshot.gear and snapshot.gear.Ranged
-        local item = ranged and addon.EquipmentAdvisor.Item(ranged.link or ranged.id)
-        local usesAmmo = item and item.class == 2 and (item.sub == 2 or item.sub == 3 or item.sub == 18)
-        local count = ammo and D.Count(ammo) or usesAmmo and 0
-        if not (ammo or usesAmmo) then count = nil end
-        local low = type(count) == "number" and count <= cfg.ammo
-        persistent("ammo", "ammo", "Class", low and count <= math.min(cfg.ammo, cfg.criticalAmmo) and "critical" or "warning",
-            low and (count == 0 and "No ammunition equipped or remaining" or ("Low ammunition · %d"):format(count)) or nil)
+        S.RefreshAmmo(snapshot)
         local exists = call(UnitExists, "pet")
         local dead = exists and call(UnitIsDeadOrGhost, "pet")
         local unhappy = exists and call(GetPetHappiness) == 1
@@ -286,8 +367,7 @@ A.On("snapshot", function(snapshot, dirty)
         if skills then for name, skill in pairs(snapshot.skills) do
             local old = skills[name]
             if old and old.rank < skill.rank then
-                S.Set("skill:" .. name, "skill", "Professions", "progress", name .. " reached " .. skill.rank,
-                    skill.rank == skill.maximum and "Current skill cap reached" or nil)
+                alertSkillGain(name, skill)
             end
         end end
         skills = snapshot.skills
@@ -296,15 +376,88 @@ A.On("snapshot", function(snapshot, dirty)
         persistent("mail", "mail", "Economy", "progress", call(HasNewMail) and "New mail received" or nil)
     end
 end)
+local function unspentTalents()
+    local hasPoints, classPoints, specPoints = call(C_ClassTalents and C_ClassTalents.HasUnspentTalentPoints)
+    if hasPoints == true then
+        if read(classPoints) and read(specPoints) and type(classPoints) == "number" and type(specPoints) == "number" then
+            local total = classPoints + specPoints
+            if total > 0 then return total, true end
+        end
+        return nil, true
+    elseif hasPoints == false then
+        return 0, false
+    end
+
+    local count = call(GetNumTalentPoints)
+    if type(count) ~= "number" then count = call(GetUnspentTalentPoints, false, false) end
+    if type(count) ~= "number" then count = call(GetNumUnspentTalents) end
+    if type(count) == "number" then return count, count > 0 end
+end
+
+local function updateTalents()
+    if not S.IsEnabled("talent", "Progress") then
+        persistent("talent", "talent", "Progress", "progress")
+        return
+    end
+    local count, hasPoints = unspentTalents()
+    if hasPoints == nil then return end
+    local title = hasPoints and (count and ("Unspent talent points · %d"):format(count) or "You have unspent talent points")
+    persistent("talent", "talent", "Progress", "progress", title)
+    return hasPoints
+end
+
+local function replaceNativeTalentAlert(alert)
+    if not addon.db or not S.IsEnabled("talent", "Progress") or not alert:IsShown() then return end
+    local text = alert.Text and call(alert.Text.GetText, alert.Text)
+    local nativeText = _G.TALENT_MICRO_BUTTON_UNSPENT_TALENTS
+    if type(nativeText) == "string" and type(text) == "string" and text ~= nativeText then return end
+    local hasPoints = updateTalents()
+    if hasPoints == nil and type(nativeText) == "string" and text == nativeText then
+        S.Set("talent", "talent", "Progress", "progress", "You have unspent talent points")
+    end
+    if S.active.talent then alert:Hide() end
+end
+
+local function hideTalentHelpTip()
+    if S.active.talent and S.IsEnabled("talent", "Progress") and HelpTip and _G.TALENT_MICRO_BUTTON_UNSPENT_TALENTS then
+        call(HelpTip.Hide, HelpTip, UIParent, _G.TALENT_MICRO_BUTTON_UNSPENT_TALENTS)
+    end
+end
+
+local helpTipHooked, legacyHooked
+local talentWatcher = CreateFrame("Frame")
+talentWatcher:RegisterEvent("ADDON_LOADED")
+talentWatcher:RegisterEvent("PLAYER_LOGIN")
+talentWatcher:SetScript("OnEvent", function()
+    if not helpTipHooked and HelpTip and MainMenuMicroButton_ShowAlert and hooksecurefunc then
+        helpTipHooked = true
+        hooksecurefunc("MainMenuMicroButton_ShowAlert", function(_, text)
+            local nativeText = _G.TALENT_MICRO_BUTTON_UNSPENT_TALENTS
+            if not addon.db or type(nativeText) ~= "string" or not read(text) or text ~= nativeText then return end
+            if not S.IsEnabled("talent", "Progress") then return end
+            if updateTalents() == nil then
+                S.Set("talent", "talent", "Progress", "progress", "You have unspent talent points")
+            end
+            hideTalentHelpTip()
+        end)
+    end
+    local alert = _G.TalentMicroButtonAlert
+    if not legacyHooked and alert then
+        legacyHooked = true
+        alert:HookScript("OnShow", replaceNativeTalentAlert)
+        replaceNativeTalentAlert(alert)
+    end
+end)
+
+local function refreshTalentAlert()
+    updateTalents()
+    hideTalentHelpTip()
+end
+for _, event in ipairs({"PLAYER_TALENT_UPDATE", "CHARACTER_POINTS_CHANGED", "TRAIT_CONFIG_UPDATED",
+    "TRAIT_CONFIG_LIST_UPDATED", "PLAYER_SPECIALIZATION_CHANGED"}) do A.On(event, refreshTalentAlert) end
 A.On("PLAYER_LEVEL_UP", function(level)
     if read(level) and type(level) == "number" then S.Set("level", "level", "Progress", "success", "Reached level " .. level) end
-end)
-local talents
-A.On("PLAYER_TALENT_UPDATE", function()
-    local count = call(GetUnspentTalentPoints)
-    if type(count) ~= "number" then return end
-    if talents and count > talents then S.Set("talent", "talent", "Progress", "progress", "New talent point available") end
-    talents = count
+    refreshTalentAlert()
 end)
 A.On("ENCOUNTER_END", function(id, name, _, _, success)
     if read(id) and read(name) and read(success) and type(id) == "number" and type(name) == "string" and success == 1 then
@@ -321,9 +474,6 @@ end)
 A.On("altMaterial", function(id, _, entry)
     S.Set("altMaterial:" .. id, "altMaterial", "Inventory", "progress", entry.identity.name .. " needs " .. D.Item(id))
 end)
-A.On("altUpgrade", function(item, alt)
-    S.Set("altUpgrade:" .. item.id, "altUpgrade", "Equipment", "progress", "Potential upgrade for " .. alt.identity.name, item.name)
-end)
 
 local examples = {
     {"critical", "Equipment", "Main hand is broken", "Repair required"},
@@ -331,6 +481,7 @@ local examples = {
     {"warning", "Class", "Main hand temporary enhancement expired", "Apply a new poison"},
     {"progress", "Professions", "Skinning reached 60"},
     {"success", "Quests", "Finding Warmth · ready to turn in"},
+    {"progress", "Equipment", "You looted a better item", "Show in bags · Fine Steel Dagger"},
 }
 
 local function makeFrame()
@@ -374,6 +525,10 @@ end
 
 function S.GetFrame() return frame end
 function S.Settings() return settings() end
+function S.LayoutMode(enabled)
+    layoutMode = enabled
+    S.Render()
+end
 local previewVersion = 0
 function S.Preview(mode)
     previewVersion = previewVersion + 1
@@ -399,15 +554,17 @@ function S.Render()
     end
     local maximum = cfg.dashboard and D.Settings().enabled and D.WidgetSettings("smartAlerts").enabled
         and D.WidgetSettings("smartAlerts").mode ~= "hidden" and not sample and 1 or cfg.maximum
-    if not sample and (not cfg.standalone or #rows == 0) then if frame then frame:Hide() end; return end
+    if not sample and not layoutMode and (not cfg.standalone or #rows == 0) then
+        if frame then frame:Hide() end
+        return
+    end
     local parent, h = frame or makeFrame(), 0
     for i = 1, math.min(#rows, sample == "all" and #examples or maximum) do
         local alert = rows[i]
         local row = cards[i] or makeCard(parent)
         cards[i] = row
         local color = S.colors[alert.severity]
-        row.tile:SetBackdropBorderColor(color[1], color[2], color[3], 0.32)
-        row.tile:SetBackdropColor(0.12, 0.095, 0.075, cfg.opacity / 100)
+        addon.Theme:PaintQuestCard(row.tile, cfg.opacity / 100, true)
         row.icon:SetTexture(art .. (S.categories[alert.category] or "Bell") .. ".tga")
         row.icon:SetVertexColor(unpack(color))
         addon.Inventory.GeneralFont(row.title, -2, "")
@@ -426,8 +583,8 @@ function S.Render()
             row:SetPoint("TOPRIGHT", 0, -h)
         end
         h = h + row:GetHeight() + 4
-        row.action = alert.action
-        row:EnableMouse(alert.action ~= nil)
+        row.action = not layoutMode and alert.action or nil
+        row:EnableMouse(row.action ~= nil)
         row:Show()
         if row.marker ~= alert.id and cfg.animation > 0 then
             row.enter:SetDuration(cfg.animation / 100)
@@ -437,13 +594,12 @@ function S.Render()
         row.marker = alert.id
     end
     for i = math.min(#rows, sample == "all" and #examples or maximum) + 1, #cards do cards[i]:Hide(); cards[i].marker = nil end
-    parent:SetSize(cfg.width, math.max(1, h - 4))
+    parent:SetSize(cfg.width, math.max(layoutMode and 36 or 1, h - 4))
     parent:SetScale(cfg.scale / 100)
     local node = cfg.growUp and "BOTTOM" or "TOP"
     local ratio = UIParent:GetEffectiveScale() / parent:GetEffectiveScale()
-    local token = node .. cfg.x .. ":" .. cfg.y .. ":" .. ratio
-    if token ~= position then
-        position = token
+    local point, relativeTo, relativePoint, x, y = parent:GetPoint(1)
+    if point ~= node or relativeTo ~= UIParent or relativePoint ~= "CENTER" or x ~= cfg.x * ratio or y ~= cfg.y * ratio then
         parent:ClearAllPoints()
         parent:SetPoint(node, UIParent, "CENTER", cfg.x * ratio, cfg.y * ratio)
     end
@@ -451,6 +607,8 @@ function S.Render()
 end
 
 A.On("settings", function()
+    refreshTalentAlert()
+    if _G.TalentMicroButtonAlert then replaceNativeTalentAlert(_G.TalentMicroButtonAlert) end
     if ticker then ticker:Cancel(); ticker = nil end
     if settings().enabled then
         ticker = C_Timer.NewTicker(10, function()
@@ -463,17 +621,28 @@ end)
 A.On("PLAYER_REGEN_ENABLED", changed)
 A.On("PLAYER_REGEN_DISABLED", changed)
 
-D.Register({id = "smartAlerts", label = "Smart Alerts", priority = 95, read = function()
+D.Register({id = "smartAlerts", label = "Alerts", priority = 95, read = function()
     local cfg, rows = settings(), {}
-    if cfg.dashboard then
+    if cfg.dashboard and canDisplay(cfg) then
+        local advisor = addon.LootUpgrades
+        local upgrades = not cfg.critical and S.IsEnabled("upgrade", "Equipment") and advisor and advisor.DashboardUpgrades()
+        local function appendUpgrades()
+            for _, row in ipairs(upgrades) do
+                if #rows >= cfg.maximum then break end
+                rows[#rows + 1] = row
+            end
+            upgrades = nil
+        end
         for i, alert in ipairs(S.Visible()) do
+            if upgrades and alert.severity ~= "critical" then appendUpgrades() end
             if #rows >= cfg.maximum then break end
             -- Where both destinations are enabled, standalone carries the first visible alert.
-            if not cfg.standalone or i > 1 then
-                rows[#rows + 1] = {label = alert.title, tooltip = alert.detail, click = alert.action,
+            if alert.rule ~= "upgrade" and (not cfg.standalone or i > 1) then
+                rows[#rows + 1] = {label = alert.title, labelColor = S.colors[alert.severity], tooltip = alert.detail, click = alert.action,
                     icon = art .. (S.categories[alert.category] or "Bell") .. ".tga", highlight = alert.severity == "critical"}
             end
         end
+        if upgrades then appendUpgrades() end
     end
     return D.Rows(rows, #rows > 0, #rows > 0)
 end})

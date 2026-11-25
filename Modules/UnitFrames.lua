@@ -73,6 +73,7 @@ local function position(settings, key)
     return own
 end
 local function applyPosition(f, settings, key)
+    if addon.Movers and addon.Movers.IsDragging(f) then return end
     local own = position(settings, key)
     f:ClearAllPoints()
     f:SetPoint("CENTER", UIParent, "CENTER", own.x, own.y)
@@ -190,6 +191,7 @@ local function addAuraBorder(parent)
         insets = {left=0, right=0, top=0, bottom=0},
     })
     border:SetBackdropBorderColor(0.48, 0.34, 0.18, 0.95)
+    BaziUI.Theme:TrackWindowBorder(border, false)
     return border
 end
 local function initializeAuraButton(button, size, opt, entry, kind)
@@ -241,7 +243,10 @@ local function createLiveAuras(f)
             local size = math.max(12, math.min(48, tonumber(opt.size) or 24))
             local gap = math.max(0, math.min(20, tonumber(opt.spacing) or 2))
             local count = math.max(1, math.min(40, tonumber(opt.count) or 12))
-            local entry = {frame=container, size=size, gap=gap, count=count, texts={}}
+            local origin = CreateFrame("Frame", nil, f)
+            origin:SetSize(1, 1)
+            container:SetPoint("TOPLEFT", origin, "TOPLEFT")
+            local entry = {frame=container, origin=origin, size=size, gap=gap, count=count, texts={}}
             local options = {
                 maxFrameCount = count, candidateFilters = {},
                 initializeFrame = function(button) initializeAuraButton(button, size, opt, entry, kind) end,
@@ -277,21 +282,23 @@ local function updateLiveAuras(f)
             local count = math.max(0, math.min(40, tonumber(opt.count) or 12))
             local horizontal = opt.horizontal == "left" and "LEFT" or "RIGHT"
             local vertical = opt.vertical == "up" and "UP" or "DOWN"
-            c:ClearAllPoints()
-            c:SetPoint("TOPLEFT", f, "TOPLEFT", tonumber(opt.x) or 0,
-                tonumber(opt.y) or (kind == "buffs" and 32 or -58))
-            if AnchorUtil and AnchorUtil.FlowDirection then
-                pcall(c.SetFlowLayoutAxis, c, AnchorUtil.FlowLayoutAxis.Horizontal)
-                pcall(c.SetFlowLayoutAnchorPoint, c, (vertical == "UP" and "BOTTOM" or "TOP") .. (horizontal == "LEFT" and "RIGHT" or "LEFT"))
-                pcall(c.SetFlowLayoutGrowthDirection, c,
-                    AnchorUtil.FlowDirection[horizontal == "LEFT" and "Left" or "Right"],
-                    AnchorUtil.FlowDirection[vertical == "UP" and "Up" or "Down"])
-            end
-            pcall(c.SetFlowLayoutMaximumLineSize, c, math.max(size, (size + gap) * math.max(1, math.min(20, tonumber(opt.perRow) or 6)) - gap))
+            local corner = (vertical == "UP" and "BOTTOM" or "TOP") .. (horizontal == "LEFT" and "RIGHT" or "LEFT")
+            local x, y = tonumber(opt.x) or 0, tonumber(opt.y) or (kind == "buffs" and 32 or -58)
+            entry.origin:SetPoint("TOPLEFT", f, "TOPLEFT", x, y)
             if c.SetAuraGroupLayout then
                 pcall(c.SetAuraGroupLayout, c, kind, {
                     elementWidth=size, elementHeight=size, elementSpacing=gap,
                     lineSpacing=gap, groupSpacing=gap, groupLineSpacing=gap })
+            end
+            local axis = c.SetFlowLayoutAxis or c.SetAuraLayoutAxis
+            local anchor = c.SetFlowLayoutAnchorPoint or c.SetAuraLayoutAnchorPoint
+            local growth = c.SetFlowLayoutGrowthDirection or c.SetAuraLayoutGrowthDirection
+            local line = c.SetFlowLayoutMaximumLineSize or c.SetAuraLayoutMaximumLineSize
+            if axis then pcall(axis, c, AnchorUtil and AnchorUtil.FlowLayoutAxis and AnchorUtil.FlowLayoutAxis.Horizontal or 0) end
+            if anchor then pcall(anchor, c, corner) end
+            if growth then pcall(growth, c, horizontal == "LEFT" and -1 or 1, vertical == "UP" and 1 or -1) end
+            if line then
+                pcall(line, c, math.max(size, (size + gap) * math.max(1, math.min(20, tonumber(opt.perRow) or 6)) - gap))
             end
             -- Group count is fixed at creation. Hide zero-count groups without deleting them.
             local active = enabled and count > 0 and cfg() and cfg().enabled ~= false and cfg()[f.unit]
@@ -299,6 +306,9 @@ local function updateLiveAuras(f)
             pcall(c.SetEnabled, c, active == true)
             c:SetShown(active == true)
             if active and c.UpdateAllAuras then pcall(c.UpdateAllAuras, c) end
+            -- Pin the selected growth corner to an independent origin as aura rows resize.
+            c:ClearAllPoints()
+            c:SetPoint(corner, entry.origin, "TOPLEFT")
         end
     end
 end
@@ -329,6 +339,7 @@ local function updateAuraPreview(f)
                     insets = {left=0, right=0, top=0, bottom=0},
                 })
                 border:SetBackdropBorderColor(0.48, 0.34, 0.18, 0.95)
+                BaziUI.Theme:TrackWindowBorder(border, false)
                 group.tiles[i] = tile
                 group.tiles[i .. "_border"] = border
             end
@@ -360,7 +371,8 @@ local function updateAuraPreview(f)
             local col, row = (i-1) % perRow, math.floor((i-1)/perRow)
             local dx = col * (size + spacing) * (opt.horizontal == "left" and -1 or 1)
             local dy = row * (size + spacing) * (opt.vertical == "up" and 1 or -1)
-            tile:SetPoint("TOPLEFT", group, "TOPLEFT", dx, dy)
+            local corner = (verticalUp and "BOTTOM" or "TOP") .. (horizontalLeft and "RIGHT" or "LEFT")
+            tile:SetPoint(corner, group, "TOPLEFT", dx, dy)
         end
     end
 end
@@ -481,22 +493,31 @@ local function updateExtras(f, own)
         f.happinessIcon:SetTexCoord(index / 3, (index + 1) / 3, 0, 1)
     end
     local classification = UnitClassification and readable(UnitClassification(unit))
-    f.classIcon:SetShown(own.showClassification ~= false and
-        (previewIndicators or classification == "elite" or classification == "rare" or classification == "rareelite" or classification == "worldboss"))
+    local rare = classification == "rare" or classification == "rareelite"
+    local targetRare = unit == "target" and rare
+    if not (targetRare or own.showClassification ~= false
+        and (previewIndicators or rare or classification == "elite" or classification == "worldboss")) then
+        f.classIcon:Hide()
+        return
+    end
     -- FlareUI uses Blizzard's native boss-portrait atlas, which is higher quality
     -- than the tiny world-quest dragon marker.
-    local atlas
-    if type(GetBossPortraitFrameData) == "function" then
+    local silverAtlas = "UI-HUD-UnitFrame-Target-PortraitOn-Boss-Rare-Silver-Winged"
+    local atlas = targetRare and silverAtlas
+    if not atlas and type(GetBossPortraitFrameData) == "function" then
         local ok, result = pcall(GetBossPortraitFrameData, unit, classification)
         if ok then atlas = result end
     end
     if not atlas then
-        atlas = classification == "rare" and "UI-HUD-UnitFrame-Target-PortraitOn-Boss-Rare-Silver-Winged"
+        atlas = classification == "rare" and silverAtlas
             or "UI-HUD-UnitFrame-Target-PortraitOn-Boss-Gold-Winged"
     end
     if C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo(atlas) then
         f.classIcon:SetAtlas(atlas, false)
         f.classIcon:SetTexCoord(0, 1, 0, 1)
+        f.classIcon:Show()
+    else
+        f.classIcon:Hide()
     end
 end
 
@@ -685,19 +706,20 @@ local function updateHealthColor(f)
     local classColor = class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
     local cr, cg, cb = 0.40, 0.37, 0.29
     if classColor then
-        cr, cg, cb = classColor.r * 0.53, classColor.g * 0.53, classColor.b * 0.53
+        cr, cg, cb = BaziUI.Theme:MutedClassColor(class)
     end
+    local points = {
+        {0, 0.49, 0.035, 0.035}, {0.21, unpack(addon.Theme.colors.healthCritical)},
+        {0.46, 0.49, 0.215, 0.078}, {0.72, unpack(addon.Theme.colors.healthWarning)},
+        {0.94, cr, cg, cb}, {1, cr, cg, cb},
+    }
     if C_CurveUtil and C_CurveUtil.CreateColorCurve and Enum and Enum.LuaCurveType and CreateColor and UnitHealthPercent then
         if not f.healthCurve or f.healthCurveClass ~= class then
             local curve = C_CurveUtil.CreateColorCurve()
             curve:SetType(Enum.LuaCurveType.Linear)
-            curve:AddPoint(0, CreateColor(0.80, 0.08, 0.06))
-            curve:AddPoint(0.25, CreateColor(0.80, 0.08, 0.06))
-            curve:AddPoint(0.45, CreateColor(0.95, 0.36, 0.07))
-            curve:AddPoint(0.65, CreateColor(0.98, 0.78, 0.12))
-            curve:AddPoint(0.79, CreateColor(0.98, 0.78, 0.12))
-            curve:AddPoint(0.80, CreateColor(cr, cg, cb))
-            curve:AddPoint(1, CreateColor(cr, cg, cb))
+            for _, stop in ipairs(points) do
+                curve:AddPoint(stop[1], CreateColor(stop[2], stop[3], stop[4]))
+            end
             f.healthCurve = curve
             f.healthCurveClass = class
         end
@@ -705,12 +727,6 @@ local function updateHealthColor(f)
         f.health:GetStatusBarTexture():SetVertexColor(color:GetRGB())
     elseif not (issecretvalue and (issecretvalue(health) or issecretvalue(maximum))) then
         local ratio = maximum > 0 and math.max(0, math.min(1, health / maximum)) or 0
-        local points = {
-            {0, 0.80, 0.08, 0.06}, {0.25, 0.80, 0.08, 0.06},
-            {0.45, 0.95, 0.36, 0.07},
-            {0.65, 0.98, 0.78, 0.12}, {0.79, 0.98, 0.78, 0.12},
-            {0.80, cr, cg, cb}, {1, cr, cg, cb},
-        }
         for i = 2, #points do
             local hi, lo = points[i], points[i-1]
             if ratio <= hi[1] then
@@ -727,6 +743,7 @@ end
 local function update(f)
     if not f or not UnitExists(f.unit) then
         if f then f.health:SetValue(0); f.power:SetValue(0); f.name:SetText("") end
+        if f then f.classIcon:Hide() end
         return
     end
     local health, maximum = UnitHealth(f.unit), UnitHealthMax(f.unit)
@@ -843,6 +860,7 @@ local function createPetExtras(f)
         border:SetPoint("BOTTOMRIGHT", 2, -2)
         border:SetBackdrop({edgeFile="Interface\\Tooltips\\UI-Tooltip-Border", edgeSize=8})
         border:SetBackdropBorderColor(0.75, 0.56, 0.29, 1)
+        BaziUI.Theme:TrackWindowBorder(border, false)
         border:EnableMouse(false)
         return holder
     end
@@ -998,6 +1016,7 @@ local function create(key, spec)
     border:SetFrameLevel(f:GetFrameLevel() + 5)
     border:SetBackdrop({edgeFile="Interface\\Tooltips\\UI-Tooltip-Border", edgeSize=12})
     border:SetBackdropBorderColor(0.90, 0.72, 0.42, 1)
+    BaziUI.Theme:TrackWindowBorder(border, false)
     local portraitLayer = CreateFrame("Frame", nil, f)
     portraitLayer:SetAllPoints(f)
     portraitLayer:SetFrameLevel(f:GetFrameLevel() + 8)
@@ -1044,6 +1063,7 @@ local function create(key, spec)
     f.portraitShadow = BaziUI.Theme:AddPortraitDropShadow(portraitAnchor, rim)
     rim:SetPoint("CENTER", portraitAnchor, "CENTER")
     rim:SetAtlas("UI-HUD-UnitFrame-Target-PortraitOn")
+    BaziUI.Theme:TrackPortraitRim(rim)
     rim:SetTexCoord(252.78/384, 375/384, 1.67/134, 123.89/134)
     local rimMask = portraitLayer:CreateMaskTexture()
     rimMask:SetTexture("Interface\\CHARACTERFRAME\\TempPortraitAlphaMask", "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
@@ -1133,8 +1153,7 @@ local function create(key, spec)
             hover:SetMouseMotionEnabled(true)
             hover:SetMouseClickEnabled(false)
         else
-            hover:EnableMouse(true)
-            if hover.SetPassThroughButtons then hover:SetPassThroughButtons("LeftButton", "RightButton") end
+            hover:EnableMouse(false)
         end
         hover:SetScript("OnEnter", function(self)
             GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
@@ -1179,6 +1198,7 @@ local function create(key, spec)
         f.baziThreat = threat
     end
     f:RegisterEvent("UNIT_FLAGS")
+    if key == "target" then f:RegisterEvent("UNIT_CLASSIFICATION_CHANGED") end
     f:RegisterEvent("GROUP_ROSTER_UPDATE")
     f:RegisterEvent("RAID_TARGET_UPDATE")
     f:RegisterEvent("UNIT_HEALTH")
@@ -1304,8 +1324,10 @@ function M:Refresh()
     pendingCombatRefresh = false
     local settings = cfg()
     if not settings then return end
+    local arranging = addon.Movers and addon.Movers.IsActive()
     for key, spec in pairs(units) do
-        if settings.enabled ~= false and settings[key] then create(key, spec) end
+        local enabled = settings.enabled ~= false and settings[key]
+        if enabled or arranging then create(key, spec) end
         syncOriginal(key, settings)
         local f = frames[key]
         if f and not (InCombatLockdown and InCombatLockdown()) then
@@ -1314,10 +1336,19 @@ function M:Refresh()
             updateLiveAuras(f)
             update(f)
             applyPosition(f, settings, key)
-            if settings.enabled ~= false and settings[key] then
-                if key == "focus" or key == "target" or key == "pet" or key == "targettarget" then
+            if f.moversVisibility ~= (arranging and true or nil) and f.visibilityRegistered and UnregisterStateDriver then
+                UnregisterStateDriver(f, "visibility")
+                f.visibilityRegistered = false
+            end
+            f.moversVisibility = arranging and true or nil
+            if arranging or enabled then
+                if arranging or key ~= "player" then
                     if not f.visibilityRegistered and RegisterStateDriver then
-                        RegisterStateDriver(f, "visibility", "[@" .. key .. ",exists] show; hide")
+                        local native = "[@" .. key .. ",exists] show; hide"
+                        if arranging then
+                            native = enabled and ("[nocombat] show; " .. native) or "[combat] hide; show"
+                        end
+                        RegisterStateDriver(f, "visibility", native)
                         f.visibilityRegistered = true
                     end
                     if not f.visibilityRegistered then f:SetShown(UnitExists(key) == true) end

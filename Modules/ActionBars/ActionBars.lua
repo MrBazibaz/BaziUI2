@@ -470,6 +470,7 @@ local function decorateButton(button, state)
         end
         nativeEdge:SetAllPoints(button)
         nativeEdge:SetAtlas("UI-HUD-ActionBar-IconFrame", false)
+        BaziUI.Theme:TrackBorderTexture(border, nativeEdge)
         if button.commandName and nativeEdge.SetSnapToPixelGrid and nativeEdge.SetTexelSnappingBias then
             for _, texture in pairs({nativeEdge, button.icon or button.Icon, button.SlotArt, button.SlotBackground, slot}) do
                 if texture.SetSnapToPixelGrid and texture.SetTexelSnappingBias then
@@ -1183,56 +1184,102 @@ local function applyRanks()
     rankRunning = false
 end
 
-local quickKeybindSession, hookedQuickKeybind
-local function closeQuickKeybindReturnPanels()
-    local session = quickKeybindSession
-    quickKeybindSession = nil
-    if not session then return end
-    local function restore()
-        if locked() or quickKeybindSession then return end
-        if not session.settings and SettingsPanel and SettingsPanel:IsShown() then
-            HideUIPanel(SettingsPanel)
-        end
-        if not session.menu and GameMenuFrame and GameMenuFrame:IsShown() then
-            HideUIPanel(GameMenuFrame)
-        end
+local keybindWindow, pendingBindingRestore
+local function createKeybindWindow()
+    local window = addon.Theme:RoundedCard(UIParent)
+    window:SetSize(402, 160)
+    window:SetPoint("CENTER", UIParent, "CENTER", 0, 180)
+    window:SetFrameStrata("DIALOG")
+    window:SetBackdropColor(0.08, 0.06, 0.07, 0.98)
+    addon.Theme:PaintWindowEdge(window)
+    window:EnableMouse(true)
+    window:SetMovable(true)
+    window:SetClampedToScreen(true)
+    local title = window:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+    title:SetPoint("TOP", 0, -13)
+    title:SetText("Bazi UI — Quick Keybind")
+    local instructions = window:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    instructions:SetPoint("TOPLEFT", 15, -39)
+    instructions:SetPoint("TOPRIGHT", -15, -39)
+    instructions:SetText("Hover an action slot and press a key. Escape clears its primary binding.")
+    local scope = window:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    scope:SetPoint("TOP", instructions, "BOTTOM", 0, -7)
+    local output = window:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    output:SetPoint("TOP", scope, "BOTTOM", 0, -7)
+    window.tooltip = CreateFrame("GameTooltip", "BaziUIQuickKeybindTooltip", UIParent, "GameTooltipTemplate")
+    window.tooltip:SetFrameStrata("TOOLTIP")
+    function window:SetOutputText(message) output:SetText(message) end
+    function window:SetSelected(command, button)
+        self.mouseOverButton = button
+        output:SetText(command and (GetBindingName(command) or command) or "")
     end
-    restore()
+    function window:HandleBindingInput(key)
+        local handled, changed = M:BindHoveredOwnedButton(self, key)
+        self.changed = self.changed or changed
+        if not handled and key == "ESCAPE" then self:Hide() end
+    end
+    local save = addon.Theme:CreateButton(window, SAVE or "Save", 110, 28)
+    save:SetPoint("BOTTOMRIGHT", window, "BOTTOM", -6, 13)
+    save:SetScript("OnClick", function()
+        if locked() then return end
+        if window.changed then SaveBindings(window.bindingSet) end
+        window.changed = nil
+        window:Hide()
+    end)
+    local cancel = addon.Theme:CreateButton(window, CANCEL or "Cancel", 110, 28)
+    cancel:SetPoint("BOTTOMLEFT", window, "BOTTOM", 6, 13)
+    cancel:SetScript("OnClick", function() window:Hide() end)
+    window:SetScript("OnMouseDown", function(self, button)
+        if button == "LeftButton" then self:StartMoving() end
+    end)
+    window:SetScript("OnMouseUp", function(self) self:StopMovingOrSizing() end)
+    window:SetScript("OnKeyDown", function(self, key)
+        M:UpdateOwnedBindingHover(self)
+        self:HandleBindingInput(key)
+    end)
+    window:SetScript("OnShow", function(self)
+        self.bindingSet = GetCurrentBindingSet()
+        local character = Enum and Enum.BindingSet and Enum.BindingSet.Character or 2
+        scope:SetText(self.bindingSet == character and "Character-specific bindings" or "Account-wide bindings")
+        output:SetText(nil)
+        self:EnableKeyboard(true)
+        if self.SetPropagateKeyboardInput then self:SetPropagateKeyboardInput(false) end
+        M:SetOwnedBindingMode(true, self)
+        if GameTooltip and not GameTooltip:IsForbidden() then GameTooltip:Hide() end
+    end)
+    local elapsedSinceHover = 0
+    window:SetScript("OnUpdate", function(self, elapsed)
+        elapsedSinceHover = elapsedSinceHover + elapsed
+        if elapsedSinceHover < 0.03 then return end
+        elapsedSinceHover = 0
+        M:UpdateOwnedBindingHover(self)
+    end)
+    window:SetScript("OnHide", function(self)
+        self:EnableKeyboard(false)
+        self:StopMovingOrSizing()
+        if self.changed then
+            if locked() then pendingBindingRestore = self.bindingSet else LoadBindings(self.bindingSet) end
+        end
+        self.changed = nil
+        M:SetOwnedBindingMode(false)
+        self.tooltip:Hide()
+    end)
+    window:Hide()
+    return window
 end
 
 local function openQuickKeybind()
     if locked() then addon:Print("Quick Keybind is available after combat."); return end
-    if not QuickKeybindFrame and C_AddOns and C_AddOns.LoadAddOn then
-        pcall(C_AddOns.LoadAddOn, "Blizzard_QuickKeybind")
-    end
-    if not QuickKeybindFrame then addon:Print("Quick Keybind is unavailable on this client."); return end
-    if QuickKeybindFrame:IsShown() then return end
-    if hookedQuickKeybind ~= QuickKeybindFrame then
-        QuickKeybindFrame:HookScript("OnShow", function()
-            M:SetOwnedBindingMode(true)
-            if GameTooltip and not GameTooltip:IsForbidden() then GameTooltip:Hide() end
-        end)
-        QuickKeybindFrame:HookScript("OnHide", function()
-            M:SetOwnedBindingMode(false)
-            if QuickKeybindTooltip then QuickKeybindTooltip:Hide() end
-        end)
-        QuickKeybindFrame:HookScript("OnHide", closeQuickKeybindReturnPanels)
-        if GameTooltip then
-            GameTooltip:HookScript("OnShow", function(tooltip)
-                if QuickKeybindFrame:IsShown() and not tooltip:IsForbidden() then
-                    local owner = tooltip:GetOwner()
-                    if owner and (buttonStates[owner] or owner.commandName) then tooltip:Hide() end
-                end
-            end)
+    if not M:Settings().enabled then
+        if not QuickKeybindFrame and C_AddOns and C_AddOns.LoadAddOn then
+            C_AddOns.LoadAddOn("Blizzard_QuickKeybind")
         end
-        hookedQuickKeybind = QuickKeybindFrame
+        if QuickKeybindFrame then QuickKeybindFrame:Show() end
+        return
     end
-    quickKeybindSession = {
-        settings = SettingsPanel and SettingsPanel:IsShown(),
-        menu = GameMenuFrame and GameMenuFrame:IsShown(),
-    }
+    if not keybindWindow then keybindWindow = createKeybindWindow() end
     if BaziUIOptionsFrame then BaziUIOptionsFrame:Hide() end
-    QuickKeybindFrame:Show()
+    keybindWindow:Show()
 end
 
 local function registerQuickKeybind()
@@ -1291,7 +1338,7 @@ function M:Initialize()
         end
         if talentAlert:IsShown() then placeTalentAlert(talentAlert) end
     end
-    for _, event in ipairs({"PLAYER_ENTERING_WORLD", "PLAYER_REGEN_ENABLED", "UNIT_PET", "UPDATE_EDIT_MODE_LAYOUTS", "EDIT_MODE_LAYOUTS_UPDATED",
+    for _, event in ipairs({"PLAYER_ENTERING_WORLD", "PLAYER_REGEN_ENABLED", "PLAYER_REGEN_DISABLED", "UNIT_PET", "UPDATE_EDIT_MODE_LAYOUTS", "EDIT_MODE_LAYOUTS_UPDATED",
         "CURSOR_CHANGED", "LEARNED_SPELL_IN_SKILL_LINE", "SETTINGS_LOADED", "UPDATE_BINDINGS",
         "CURRENT_SPELL_CAST_CHANGED", "ACTIONBAR_UPDATE_STATE", "UPDATE_SHAPESHIFT_FORM"}) do
         pcall(events.RegisterEvent, events, event)
@@ -1321,7 +1368,13 @@ function M:Initialize()
             end
         elseif event == "CURSOR_CHANGED" then
             if not rankScheduled and next(learned) then applyRanks() end
+        elseif event == "PLAYER_REGEN_DISABLED" then
+            if keybindWindow and keybindWindow:IsShown() then keybindWindow:Hide() end
         elseif event == "PLAYER_REGEN_ENABLED" then
+            if pendingBindingRestore then
+                LoadBindings(pendingBindingRestore)
+                pendingBindingRestore = nil
+            end
             if pendingLayout then self:Apply() end
             self:RefreshOwnedBindings()
             if next(learned) then applyRanks() end

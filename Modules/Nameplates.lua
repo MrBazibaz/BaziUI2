@@ -634,6 +634,54 @@ end
 -- NPC labels are intentionally fixed at 16 UI points. Never compensate
 -- for nameplate distance by changing their font size.
 local NPC_FONT_SIZE = 16
+local npcQuests, questRevision = {}, 0
+
+local function npcGUID(unit)
+    local guid = UnitGUID(unit)
+    if readable(guid) and type(guid) == "string" and guid:match("^Creature%-") then return guid end
+end
+
+local function rememberNPCQuests()
+    local guid = npcGUID("npc") or npcGUID("questnpc")
+    local gossip = C_GossipInfo
+    if not guid or not (gossip and gossip.GetAvailableQuests and gossip.GetActiveQuests) then return end
+    local quests = {available = {}, active = {}}
+    for _, quest in ipairs(gossip.GetAvailableQuests() or {}) do
+        if readable(quest.isTrivial) and not quest.isTrivial and readable(quest.questID) and quest.questID then
+            quests.available[quest.questID] = readable(quest.repeatable) and quest.repeatable == true
+        end
+    end
+    for _, quest in ipairs(gossip.GetActiveQuests() or {}) do
+        if readable(quest.questID) and quest.questID then
+            quests.active[quest.questID] = readable(quest.isComplete) and quest.isComplete == true
+        end
+    end
+    npcQuests[guid] = quests
+end
+
+local function NPCQuestSymbol(quests)
+    local log = C_QuestLog
+    if not quests or not log then return end
+    for id, wasReady in pairs(quests.active) do
+        local active = log.IsOnQuest and log.IsOnQuest(id)
+        local ready = log.ReadyForTurnIn and log.ReadyForTurnIn(id)
+        if readable(ready) and ready == nil then ready = log.IsComplete and log.IsComplete(id) end
+        if readable(active) and active and readable(ready)
+            and (ready == true or ready == 1 or ready == nil and wasReady) then return "?" end
+    end
+    for id, repeatable in pairs(quests.available) do
+        local active = log.IsOnQuest and log.IsOnQuest(id)
+        local completed = log.IsQuestFlaggedCompleted and log.IsQuestFlaggedCompleted(id)
+        if readable(active) and readable(completed) and not active and (repeatable or not completed) then return "!" end
+    end
+end
+
+local function refreshNPCQuest(marker, unit, cfg)
+    local symbol = cfg.npcQuestMarkers ~= false and NPCQuestSymbol(npcQuests[npcGUID(unit)])
+    marker.questMark:SetText(symbol or "")
+    marker.questMark:SetShown(not not symbol)
+    marker.questRevision = questRevision
+end
 
 local function NonPlayerMarker(plate)
     local marker = nonPlayerMarkers[plate]
@@ -644,6 +692,11 @@ local function NonPlayerMarker(plate)
     if marker.SetIgnoreParentAlpha then marker:SetIgnoreParentAlpha(true) end
     marker.name = marker:CreateFontString(nil, "OVERLAY")
     marker.name:SetJustifyH("CENTER")
+    marker.questMark = marker:CreateFontString(nil, "OVERLAY")
+    marker.questMark:SetFont("Fonts\\FRIZQT__.TTF", 20, "OUTLINE")
+    marker.questMark:SetTextColor(1, 0.82, 0.35)
+    marker.questMark:SetPoint("RIGHT", marker.name, "LEFT", -5, 0)
+    marker.questMark:Hide()
     marker.owner = marker:CreateFontString(nil, "OVERLAY")
     marker.owner:SetJustifyH("CENTER")
     marker.owner:SetPoint("TOP", marker.name, "BOTTOM", 0, 0)
@@ -658,6 +711,7 @@ local function NonPlayerMarker(plate)
     marker.icon:AddMaskTexture(marker.iconMask)
     marker.rim = marker.iconAnchor:CreateTexture(nil, "OVERLAY", nil, 1)
     marker.rim:SetAtlas("UI-HUD-UnitFrame-Target-PortraitOn")
+    addon.Theme:TrackPortraitRim(marker.rim)
     marker.rim:SetTexCoord(252.78 / 384, 375 / 384, 1.67 / 134, 123.89 / 134)
     marker.rim:SetPoint("CENTER", marker.iconAnchor, "CENTER", 0, 0)
     marker.rimMask = marker.iconAnchor:CreateMaskTexture()
@@ -717,6 +771,7 @@ local function NonPlayerMarker(plate)
             end
         end
         if self.isNPC and cfg and cfg.npcEnabled ~= false then
+            if self.questRevision ~= questRevision then refreshNPCQuest(self, unit, cfg) end
             local title = NPCSubtitle(unit)
             self.owner:SetText(title or "")
             self.owner:SetShown(title ~= nil)
@@ -817,6 +872,7 @@ UpdateNonPlayerPlate = function(unit, plate, cfg)
     -- Keep NPC presentation at UIParent's fixed scale, not nameplate distance.
     if not pet and marker:GetScale() ~= 1 then marker:SetScale(1) end
     if not pet then
+        refreshNPCQuest(marker, unit, cfg)
         marker:SetFrameStrata("LOW")
         marker:SetFrameLevel(100)
     else
@@ -842,6 +898,7 @@ UpdateNonPlayerPlate = function(unit, plate, cfg)
         marker.flightAlert:SetShown(texture == NPC_SERVICE_TEXTURES.flight and unlearnedFlightNearby())
         iconVisible = texture ~= nil
     else
+        marker.questMark:Hide()
         marker.flightAlert:Hide()
         local combatPaw = cfg.petIconVisibility == "combat"
         marker.icon:SetShown(not combatPaw)
@@ -1036,10 +1093,16 @@ function M:Initialize()
     eventFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
     eventFrame:RegisterEvent("UNIT_PET")
     eventFrame:RegisterEvent("TAXIMAP_OPENED")
+    eventFrame:RegisterEvent("GOSSIP_SHOW")
+    eventFrame:RegisterEvent("QUEST_LOG_UPDATE")
     -- Unlike COMBAT_LOG_EVENT_UNFILTERED, UNIT_COMBAT does not require protected log data.
     eventFrame:RegisterEvent("UNIT_COMBAT")
     eventFrame:SetScript("OnEvent", function(_, event, unit, ...)
-        if event == "TAXIMAP_OPENED" then
+        if event == "GOSSIP_SHOW" or event == "QUEST_LOG_UPDATE" then
+            if event == "GOSSIP_SHOW" then rememberNPCQuests() end
+            questRevision = questRevision + 1
+            return
+        elseif event == "TAXIMAP_OPENED" then
             rememberTaxiNodes()
             return
         elseif event == "UNIT_COMBAT" then

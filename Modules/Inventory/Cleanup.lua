@@ -61,18 +61,26 @@ local function bagCapacity()
     return partial, free
 end
 
-local function fits(item, partial, free)
+local function fits(item, partial, free, replacing)
     if not partial then partial, free = bagCapacity() end
     local remaining = item.count
     for _, count in ipairs(partial[item.id] or {}) do
         remaining = remaining - math.max(0, item.stack - count)
     end
+    local freedFamily
+    if replacing then
+        freedFamily = select(2, container.GetContainerNumFreeSlots(replacing.bag)) or 0
+        if replacing.itemID == item.id then
+            remaining = remaining + math.max(0, item.stack - replacing.stackCount)
+        end
+    end
     local needed = math.ceil(remaining / item.stack)
-    local available = free[0] or 0
+    local available = (free[0] or 0) + (freedFamily == 0 and 1 or 0)
     if needed <= available then return true end
     local familyOf = C_Item and C_Item.GetItemFamily or GetItemFamily
     local family = familyOf and familyOf(item.link) or 0
     if bit and family ~= 0 then
+        if freedFamily and bit.band(family, freedFamily) ~= 0 then available = available + 1 end
         for bagFamily, slots in pairs(free) do
             if bit.band(family, bagFamily) ~= 0 then available = available + slots end
         end
@@ -115,7 +123,8 @@ local function deleteItem(request)
     local current = inventory.Item(snapshot.bag, snapshot.slot)
     local db = inventory.Settings()
     if not db.enabled or not db.cleanup or not eligible(current, db) or current.itemID ~= snapshot.itemID
-        or current.hyperlink ~= snapshot.hyperlink or current.stackCount ~= snapshot.stackCount then return end
+        or current.hyperlink ~= snapshot.hyperlink or current.stackCount ~= snapshot.stackCount
+        or not fits(best, nil, nil, current) then return end
     container.PickupContainerItem(current.bag, current.slot)
     local kind, itemID = GetCursorInfo()
     if kind ~= "item" or itemID ~= current.itemID then ClearCursor(); return end
@@ -141,7 +150,7 @@ local rows, showProtected = {}, false
 
 local function build()
     local header
-    frame, header = inventory.Window("BaziUIInventoryCleanup", "Cleanup", 425, 192, nil, nil, "cleanupOpacity")
+    frame, header = inventory.Window("BaziUIInventoryCleanup", "Inventory Full", 425, 192, nil, nil, "cleanupOpacity")
     frame.lootLinked, frame.lootAbove = true, true
     frame.closeButton:Hide()
     frame:HookScript("OnHide", function() inventory.RefreshLoot() end)
@@ -151,7 +160,7 @@ local function build()
         inventory.RefreshCleanup()
     end)
     protectedButton:SetPoint("RIGHT", -4, 0)
-    content, scroll, scrollbar = inventory.Scroll(frame, -7, 34)
+    content, scroll, scrollbar = inventory.Scroll(frame, -7, 34, true)
     emptyLabel = inventory.Label(content)
     emptyLabel:SetPoint("BOTTOMLEFT", 5, 5)
 end
@@ -161,14 +170,9 @@ local function makeRow(i)
     row:SetHeight(43)
     row:SetPoint("BOTTOMLEFT", 0, (i - 1) * 46)
     row:SetPoint("BOTTOMRIGHT", content, "BOTTOMRIGHT", 0, (i - 1) * 46)
-    local fill = row:CreateTexture(nil, "BACKGROUND")
-    fill:SetAllPoints()
-    fill:SetColorTexture(0.035, 0.025, 0.018, 0.72)
-    local line = row:CreateTexture(nil, "BORDER")
-    line:SetPoint("BOTTOMLEFT")
-    line:SetPoint("BOTTOMRIGHT")
-    line:SetHeight(1)
-    line:SetColorTexture(0.72, 0.58, 0.37, 0.43)
+    row.card = BaziUI.Theme:RoundedCard(row)
+    row.card:SetAllPoints()
+    row.card:SetFrameLevel(row:GetFrameLevel())
     local icon = CreateFrame("Button", nil, row)
     icon:SetSize(37, 37)
     icon:SetPoint("LEFT", 4, 0)
@@ -198,15 +202,16 @@ local function makeRow(i)
         GameTooltip:Show()
     end)
     icon:SetScript("OnLeave", function() GameTooltip:Hide() end)
-    row.action = inventory.Button(row, "Delete", 69, function()
+    row.action = inventory.Button(row, "Replace", 79, function()
         local item = row.item
         if showProtected then
             inventory.Settings().ignored[item.itemID] = false
             inventory.RefreshCleanup()
             return
         end
-        StaticPopup_Show("BAZI_INVENTORY_DELETE", item.name .. " ×" .. item.stackCount, nil,
-            {item = item, origin = origin, replacement = target})
+        local request = {item = item, origin = origin, replacement = target}
+        if item.quality <= 1 then deleteItem(request)
+        else StaticPopup_Show("BAZI_INVENTORY_DELETE", item.name .. " ×" .. item.stackCount, nil, request) end
     end)
     row.action:SetPoint("RIGHT", -5, 0)
     row.title = inventory.Label(row)
@@ -214,8 +219,6 @@ local function makeRow(i)
     row.title:SetPoint("RIGHT", row.action, "LEFT", -6, 0)
     row.title:SetJustifyH("LEFT")
     row.title:SetWordWrap(false)
-    row.price = inventory.Label(row)
-    row.price:SetPoint("BOTTOMRIGHT", row.action, "LEFT", -8, 4)
     row.vendor = inventory.Label(row)
     row.vendor:SetPoint("BOTTOMLEFT", 49, 4)
     row.vendor:SetTextColor(1, 0.82, 0.42)
@@ -247,10 +250,11 @@ function inventory.RefreshCleanup()
             items[#items + 1] = {itemID = id, name = name or ("Item " .. id), hyperlink = link, iconFileID = icon}
         end
     else
+        local partial, free = bagCapacity()
         for _, bag in ipairs(inventory.BagIDs()) do
             for slot = 1, container.GetContainerNumSlots(bag) do
                 local item = inventory.Item(bag, slot)
-                if eligible(item, db) then items[#items + 1] = item end
+                if eligible(item, db) and target and fits(target, partial, free, item) then items[#items + 1] = item end
             end
         end
         table.sort(items, function(a, b)
@@ -263,16 +267,16 @@ function inventory.RefreshCleanup()
     inventory.GeneralFont(emptyLabel, -1, nil, "Inventory:Cleanup", size)
     for i, item in ipairs(items) do
         local row = rows[i] or makeRow(i)
+        BaziUI.Theme:PaintQuestCard(row.card)
         row.item = item
         row.icon:SetTexture(item.iconFileID)
         inventory.GeneralFont(row.title, 0, nil, "Inventory:Cleanup", size)
-        inventory.GeneralFont(row.price, -1, nil, "Inventory:Cleanup", size)
         inventory.GeneralFont(row.vendor, -1, nil, "Inventory:Cleanup", size)
         row.title:SetText(item.name .. (item.stackCount and " ×" .. item.stackCount or ""))
-        row.vendor:SetText(showProtected and "" or
-            (item.stackCount > 1 and ("Vendor  ·  " .. money(item.price) .. " each") or "Vendor"))
-        row.price:SetText(showProtected and "" or money(value(item)))
-        row.action:SetText(showProtected and "Unprotect" or "Delete")
+        local delta = (target and target.total or 1250) - (showProtected and 0 or value(item))
+        row.vendor:SetText(showProtected and "" or ("Vendor  " .. money(value(item))
+            .. (delta >= 0 and "  |cff83cf83+" or "  |cffff795e-") .. money(math.abs(delta)) .. "|r"))
+        row.action:SetText(showProtected and "Unprotect" or "Replace")
         row.action:SetEnabled(origin ~= "preview")
         row.icon:GetParent():EnableMouse(origin ~= "preview")
         row:Show()
@@ -286,6 +290,12 @@ end
 
 function inventory.CleanupLootTarget()
     if origin == "loot" and frame and frame:IsShown() then return target end
+end
+
+function inventory.IsCleanupProtected(id)
+    if type(id) ~= "number" then return false end
+    local _, _, _, _, _, _, _, _, _, _, _, class = inventory.GetItemInfo(id)
+    return class == 12 or ignored({itemID = id}, inventory.Settings())
 end
 
 function inventory.CloseCleanupPreview()

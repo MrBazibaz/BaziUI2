@@ -7,15 +7,21 @@ local D = {widgets = {}, byID = {}, modes = {
 }}
 addon.Dashboard = D
 
+local activityDuration = 20
 local defaults = {
-    enabled = false, x = 330, y = -5, width = 210, maxHeight = 385, scale = 100, opacity = 85,
+    enabled = false, x = 330, y = -5, width = 192, maxHeight = 385, scale = 100, opacity = 85,
     growUp = false, spacing = 5, maxWidgets = 8, context = true, locked = false, border = true,
-    headers = true, barHeight = 3, iconSize = 14, rowSpacing = 5, fontSize = 12,
-    autoHide = true, combat = "always", completedDuration = 15, hideMaxed = true, afk = true, fade = true,
+    showHeader = true, headers = true, barHeight = 3, iconSize = 14, rowSpacing = 5, fontSize = 12,
+    autoHide = true, combat = "always", completedDuration = activityDuration, hideMaxed = true, afk = true, fade = true,
+    hideActivityChat = false,
+    showQuestItems = false, questItemSide = "right",
 }
 local frame, header, title, viewport, scrollChild, scrollbar
+local headerPlacement
+local contentInset, cardInset = 7, 7
 local cards, savedRows, pending, eventOwners = {}, {}, {}, {}
 local active, preview, layoutMode, clock, lastConfig
+local heightAnimation
 local motionInCombat = false
 local events = CreateFrame("Frame")
 
@@ -36,8 +42,42 @@ function D.Settings()
     if lastConfig == cfg then return cfg end
     lastConfig = cfg
     cfg.widgets, cfg.thresholds, cfg.status = cfg.widgets or {}, cfg.thresholds or {}, cfg.status or {}
+    if not cfg.activityDurationUpdated then
+        local legacyDurations = {gathering = 120, recentActivity = 7}
+        for id, options in pairs(cfg.widgets) do
+            if options.duration == (legacyDurations[id] or 60) then options.duration = activityDuration end
+        end
+        if cfg.completedDuration == 15 then cfg.completedDuration = activityDuration end
+        cfg.activityDurationUpdated = true
+    end
+    if not cfg.compactLayout then
+        if cfg.width == 210 then cfg.width = defaults.width end
+        cfg.compactLayout = true
+    end
     for key, value in pairs(defaults) do if cfg[key] == nil then cfg[key] = value end end
     return cfg
+end
+
+local lastNotificationSound
+function D.NotificationSettings(key)
+    local cfg = D.Settings()
+    cfg.notifications = cfg.notifications or {}
+    if not cfg.notifications[key] then
+        cfg.notifications[key] = {sound = key == "upgrade" and "alertRetroBonk" or "none", chat = false}
+    end
+    return cfg.notifications[key]
+end
+
+function D.Notify(key, message, delivered)
+    local cfg = D.NotificationSettings(key)
+    local now = GetTime()
+    local alerts = addon.SmartAlerts
+    if alerts and cfg.sound and cfg.sound ~= "none" and not (delivered and delivered.sound)
+        and (not lastNotificationSound or now - lastNotificationSound >= 1.5) then
+        alerts.PlaySound(cfg.sound)
+        lastNotificationSound = now
+    end
+    if cfg.chat and not (delivered and delivered.chatWarning) then addon:Print(message) end
 end
 
 function D.Tracking()
@@ -58,7 +98,7 @@ function D.WidgetSettings(id)
     local settings = D.Settings().widgets
     local widget = D.byID[id]
     if not settings[id] then
-        settings[id] = {enabled = true, mode = "automatic", duration = widget.duration or 60,
+        settings[id] = {enabled = true, mode = "automatic", duration = activityDuration,
             priority = widget.priority, order = widget.order, background = 85}
     end
     return settings[id]
@@ -133,16 +173,41 @@ end
 local function makeCard(id)
     local card = addon.Theme:RoundedCard(scrollChild)
     card.title = inventory.Label(card)
-    card.title:SetPoint("TOPLEFT", 8, -5)
+    card.title:SetPoint("TOPLEFT", cardInset, -5)
+    card.title:SetPoint("TOPRIGHT", -cardInset, -5)
+    card.title:SetJustifyH("LEFT")
+    card.title:SetWordWrap(false)
     card.rows = {}
     cards[id] = card
     return card
 end
 
+local function setHeight(height)
+    frame:SetHeight(height)
+    viewport:UpdateScrollChildRect()
+    scrollbar:SyncRange()
+end
+
+local function resizeHeight(target, animate, hide)
+    local current = frame:GetHeight()
+    if not animate or math.abs(current - target) < 0.5 then
+        heightAnimation = nil
+        if current ~= target then setHeight(target) end
+        if hide then frame:Hide() end
+        return
+    end
+    if heightAnimation and heightAnimation.target == target and heightAnimation.hide == hide then return end
+    heightAnimation = {start = current, target = target, elapsed = 0, hide = hide}
+end
+
 local function makeFrame()
-    frame, header, title = inventory.Window("BaziUIDashboard", "Dashboard", 210, 38)
+    frame, header, title = inventory.Window("BaziUIDashboard", "Dashboard", defaults.width, 38)
+    frame:SetClampedToScreen(false)
     frame.headerStyleKey = "dashboard"
     frame:SetFrameStrata("MEDIUM")
+    title:SetPoint("RIGHT", frame.closeButton, "LEFT", -4, 0)
+    title:SetJustifyH("LEFT")
+    title:SetWordWrap(false)
     frame.baziFade = frame:CreateAnimationGroup()
     local fade = frame.baziFade:CreateAnimation("Alpha")
     fade:SetFromAlpha(0.35)
@@ -153,14 +218,25 @@ local function makeFrame()
     function frame:ApplyStyle()
         setStyle(self)
         local cfg = D.Settings()
+        local typography = addon.Typography
+        typography.Apply(title, "Dashboard:Title", typography.Path(addon.db.profile.font), typography.BaseSize(), "OUTLINE", true)
         self.border:SetShown(cfg.border)
     end
-    -- Reuse the Inventory scroll controls. Cards are laid out at a fixed width
-    -- so the mouseover rail never reflows the text.
-    scrollChild, viewport, scrollbar = inventory.Scroll(frame, -32, 6)
+    scrollChild, viewport, scrollbar = inventory.Scroll(frame, -32, 6, "compact")
     viewport:SetClipsChildren(true)
-    frame:SetScript("OnEnter", function() D.Render() end)
-    frame:SetScript("OnLeave", function() C_Timer.After(0, D.Render) end)
+    frame:SetScript("OnEnter", function() D.Render(true) end)
+    frame:SetScript("OnLeave", function() C_Timer.After(0, function() D.Render(true) end) end)
+    frame:SetScript("OnUpdate", function(self, elapsed)
+        local motion = heightAnimation
+        if not motion or self.baziMoving == true or addon.Movers and addon.Movers.IsDragging(self) then return end
+        motion.elapsed = motion.elapsed + elapsed
+        local progress = math.min(1, motion.elapsed / 0.20)
+        setHeight(motion.start + (motion.target - motion.start) * (1 - (1 - progress)^3))
+        if progress == 1 then
+            heightAnimation = nil
+            if motion.hide then self:Hide() end
+        end
+    end)
     frame.closeButton:SetScript("OnClick", function()
         if preview then D.Preview(nil) else D.Settings().enabled = false; D.Refresh() end
     end)
@@ -185,6 +261,7 @@ local function makeFrame()
         end
     end)
     frame:HookScript("OnHide", function()
+        heightAnimation = nil
         if frame.baziMoving then frame:StopMovingOrSizing(); frame.baziMoving = nil end
     end)
     return frame
@@ -201,7 +278,7 @@ local function sortedWidgets()
         if preview then data = D.PreviewData and D.PreviewData(preview, widget.id)
         else data = savedRows[widget.id] end
         local mode = options.mode
-        if data and #data.rows > 0 and (preview or options.enabled and mode ~= "hidden") then
+        if data and (#data.rows > 0 or data.questItems) and (preview or options.enabled and mode ~= "hidden") then
             if not preview and mode == "mouseover" then mouseover = true end
             local contextual = data.active or not cfg.context or not cfg.autoHide
             local matches = preview or options.pinned or mode == "always"
@@ -214,71 +291,109 @@ local function sortedWidgets()
         end
     end
     table.sort(result, function(a, b)
+        local aLocal = a.widget.id == "quests"
+        local bLocal = b.widget.id == "quests"
+        if aLocal ~= bLocal then return aLocal end
         if not not a.options.pinned ~= not not b.options.pinned then return not not a.options.pinned end
         if a.options.priority ~= b.options.priority then return a.options.priority > b.options.priority end
         if a.options.order ~= b.options.order then return a.options.order < b.options.order end
         return a.widget.order < b.widget.order
     end)
+    if not preview then
+        local recent, gatheringIndex
+        for index, entry in ipairs(result) do
+            if index > cfg.maxWidgets then break end
+            if entry.widget.id == "recentActivity" then recent = entry.data.rows end
+            if entry.widget.id == "gathering" then gatheringIndex = index end
+        end
+        if recent and gatheringIndex then
+            local looted, rows = {}, {}
+            for _, row in ipairs(recent) do if row.itemID then looted[row.itemID] = true end end
+            local entry = result[gatheringIndex]
+            for _, row in ipairs(entry.data.rows) do
+                if not looted[row.itemID] then rows[#rows + 1] = row end
+            end
+            if #rows == 0 then table.remove(result, gatheringIndex)
+            else entry.data = D.Rows(rows, entry.data.active, entry.data.activity, entry.data.title) end
+        end
+    end
     return result, mouseover
 end
 
-function D.Render()
+function D.Render(animate)
     if not addon.db or not (active or preview or layoutMode) then if frame then frame:Hide() end; return end
     if frame and (frame.baziMoving == true or addon.Movers and addon.Movers.IsDragging(frame)) then return end
     local cfg = D.Settings()
+    animate = animate and not (preview or layoutMode)
     if not preview and not layoutMode and ((cfg.combat == "hide" and motionInCombat) or (cfg.combat == "only" and not motionInCombat)) then
         if frame then frame:Hide() end
         return
     end
     local widgets, mouseover = sortedWidgets()
-    if #widgets == 0 and not (preview or layoutMode or mouseover) then if frame then frame:Hide() end; return end
+    if #widgets == 0 and not (preview or layoutMode or mouseover) then
+        if frame and frame:IsShown() then
+            if D.ShowQuestItems then D.ShowQuestItems(frame, viewport) end
+            local shell = cfg.showHeader and header:GetHeight() + 5 + contentInset + 2 or 2 * contentInset + 2
+            resizeHeight(math.min(shell, frame:GetHeight()), animate, true)
+        end
+        return
+    end
     local window = frame or makeFrame()
-    local width = cfg.width - 37
-    local font = addon.Typography.Path(addon.db.profile.font)
-    local _, fontSize = addon.Typography.Resolve("Dashboard:Body", font, cfg.fontSize, "", true)
+    local width = cfg.width - 2 * contentInset
+    local typography = addon.Typography
+    local font = typography.Path(addon.db.profile.font)
+    local _, labelSize = typography.Resolve("Dashboard:Body", font, cfg.fontSize, "", true)
+    local _, valueSize = typography.Resolve("Dashboard:Value", font, cfg.fontSize, "", true)
+    local _, titleSize = typography.Resolve("Dashboard:Title", font, typography.BaseSize(), "OUTLINE", true)
+    local fontSize = math.max(labelSize, valueSize)
     local r, g, b = addon.Theme:Accent()
     if cfg.accent then r, g, b = unpack(cfg.accent) end
-    local style = table.concat({tostring(font), fontSize, cfg.fontSize, cfg.iconSize, cfg.barHeight,
+    local style = table.concat({tostring(font), labelSize, valueSize, cfg.fontSize, cfg.iconSize, cfg.barHeight,
         r, g, b, width, addon.Typography.revision or 0}, "\31")
     local y = 0
+    local questCard, questItems
     local used = {}
     for i, entry in ipairs(widgets) do
         if i > cfg.maxWidgets then break end
         local widget, options, data = entry.widget, entry.options, entry.data
         local card = cards[widget.id] or makeCard(widget.id)
+        if widget.id == "quests" and cfg.showQuestItems then questCard, questItems = card, data.questItems end
         used[widget.id] = true
-        card:SetBackdropColor(0.048, 0.034, 0.022, (options.background or 85) / 100 * cfg.opacity / 100)
-        addon.Theme:PaintWindowEdge(card)
+        local showCardTitle = cfg.headers and options.showHeader ~= false
+        addon.Theme:PaintQuestCard(card, (options.background or 85) * cfg.opacity / 10000)
         card:SetPoint("TOPLEFT", scrollChild, "TOPLEFT", 0, -y)
         card:SetWidth(width)
         card.title:SetText(data.title or widget.label)
         addon.Typography.Apply(card.title, "Dashboard:Header", font, cfg.fontSize + 1, "", true)
         card.title:SetTextColor(addon.Headers.Text("dashboard", 1, 0.82, 0.49))
-        card.title:SetShown(cfg.headers)
-        local offset = cfg.headers and math.max(0, card.title:GetStringHeight()) + 10 or 5
+        card.title:SetShown(showCardTitle)
+        local offset = showCardTitle and math.max(0, card.title:GetStringHeight()) + 10 or 5
         for index, value in ipairs(data.rows) do
             local row = card.rows[index]
             if not row then row = makeRow(card); card.rows[index] = row end
             row.data, row.widget = value, widget.id
             if row.offset ~= offset then
-                row:SetPoint("TOPLEFT", card, "TOPLEFT", 8, -offset)
+                row:SetPoint("TOPLEFT", card, "TOPLEFT", cardInset, -offset)
                 row.offset = offset
             end
             local body = math.max(fontSize + 3, value.icon and cfg.iconSize or 0)
             local hasProgress = value.progress ~= nil
             local dataStyle = table.concat({tostring(value.label), tostring(value.value), tostring(value.icon),
-                tostring(value.progress), tostring(value.done), tostring(value.warning), tostring(value.highlight)}, "\31")
+                tostring(value.progress), tostring(value.done), tostring(value.warning), tostring(value.highlight),
+                value.labelColor and table.concat(value.labelColor, ",") or ""}, "\31")
             if row.style ~= style or row.dataStyle ~= dataStyle then
                 row.style, row.dataStyle = style, dataStyle
-                row:SetWidth(width - 16)
+                row:SetWidth(width - 2 * cardInset)
                 row:SetHeight(body + (hasProgress and cfg.barHeight + 3 or 0))
                 row.icon:SetSize(cfg.iconSize, cfg.iconSize)
                 row.icon:SetTexture(value.icon)
                 row.icon:SetShown(value.icon ~= nil)
                 row.label:SetPoint("TOPLEFT", value.icon and cfg.iconSize + 5 or 0, 0)
                 addon.Typography.Apply(row.label, "Dashboard:Body", font, cfg.fontSize, "", true)
-                addon.Typography.Apply(row.value, "Dashboard:Body", font, cfg.fontSize, "", true)
+                addon.Typography.Apply(row.value, "Dashboard:Value", font, cfg.fontSize, "", true)
                 row.label:SetText(value.label)
+                if value.labelColor then row.label:SetTextColor(unpack(value.labelColor))
+                else row.label:SetTextColor(1, 1, 1) end
                 row.value:SetText(value.value or "")
                 if value.warning then row.value:SetTextColor(1, 0.48, 0.42)
                 elseif value.done then row.value:SetTextColor(0.62, 0.89, 0.59)
@@ -288,7 +403,7 @@ function D.Render()
                 row.bar:SetShown(hasProgress and value.progress > 0)
                 if hasProgress then
                     row.track:SetHeight(cfg.barHeight)
-                    row.bar:SetSize(math.max(0.01, (width - 16) * value.progress), cfg.barHeight)
+                    row.bar:SetSize(math.max(0.01, (width - 2 * cardInset) * value.progress), cfg.barHeight)
                     if value.done then row.bar:SetColorTexture(0.40, 0.72, 0.39, 1)
                     else row.bar:SetColorTexture(r, g, b, 1) end
                 end
@@ -297,16 +412,37 @@ function D.Render()
             offset = offset + row:GetHeight() + cfg.rowSpacing
         end
         for index = #data.rows + 1, #card.rows do card.rows[index]:Hide() end
-        card:SetHeight(offset + 5 - cfg.rowSpacing)
+        card:SetHeight(math.max(12, offset + 5 - cfg.rowSpacing))
         card:Show()
         y = y + card:GetHeight() + cfg.spacing
     end
     for id, card in pairs(cards) do if not used[id] then card:Hide() end end
     local contentHeight = math.max(1, y - cfg.spacing)
-    local height = math.min(cfg.maxHeight, math.max(38, y - cfg.spacing + 39))
-    local needsScrollLayout = window:GetWidth() ~= cfg.width or window:GetHeight() ~= height or scrollChild:GetHeight() ~= contentHeight
+    local placement = cfg.showHeader and (cfg.growUp and "BOTTOM" or "TOP") or "HIDDEN"
+    local headerHeight = math.max(27, titleSize + 8)
+    local layoutChanged = placement ~= headerPlacement or (cfg.showHeader and header:GetHeight() ~= headerHeight)
+    local topInset = placement == "TOP" and headerHeight + 5 or contentInset
+    local bottomInset = placement == "BOTTOM" and headerHeight + 5 or contentInset
+    if layoutChanged then
+        headerPlacement = placement
+        header:SetShown(cfg.showHeader)
+        if cfg.showHeader then
+            header:SetHeight(headerHeight)
+            local inset = placement == "BOTTOM" and 3 or -3
+            header:ClearAllPoints()
+            header:SetPoint(placement .. "LEFT", window, placement .. "LEFT", 3, inset)
+            header:SetPoint(placement .. "RIGHT", window, placement .. "RIGHT", -3, inset)
+        end
+        viewport:ClearAllPoints()
+        viewport:SetPoint("TOPLEFT", window, "TOPLEFT", contentInset, -topInset)
+        viewport:SetPoint("BOTTOMRIGHT", window, "BOTTOMRIGHT", -contentInset, bottomInset)
+    end
+    local height = math.min(cfg.maxHeight, math.max(layoutMode and 38 or 1, contentHeight + topInset + bottomInset + 1))
+    local opening = not window:IsShown()
+    local needsScrollLayout = layoutChanged or window:GetWidth() ~= cfg.width
+        or scrollChild:GetHeight() ~= contentHeight
     if scrollChild:GetHeight() ~= contentHeight then scrollChild:SetHeight(contentHeight) end
-    if window:GetWidth() ~= cfg.width or window:GetHeight() ~= height then window:SetSize(cfg.width, height) end
+    if window:GetWidth() ~= cfg.width then window:SetWidth(cfg.width) end
     if window:GetScale() ~= cfg.scale / 100 then window:SetScale(cfg.scale / 100) end
     local ratio = UIParent:GetEffectiveScale() / window:GetEffectiveScale()
     local anchor = cfg.growUp and "BOTTOMLEFT" or "TOPLEFT"
@@ -319,10 +455,11 @@ function D.Render()
     window:ApplyStyle()
     window.border:SetShown(cfg.border)
     title:SetText(preview and "Dashboard preview" or "Dashboard")
-    title:SetShown(cfg.headers or layoutMode or preview ~= nil or y == 0)
+    if opening and animate then setHeight(math.min(height, topInset + bottomInset + 2)) end
+    resizeHeight(height, animate and (opening or not layoutChanged))
     if needsScrollLayout then viewport:UpdateScrollChildRect(); scrollbar:SyncRange() end
-    local opening = not window:IsShown()
     window:Show()
+    if D.ShowQuestItems then D.ShowQuestItems(window, viewport, questCard, questItems, preview or layoutMode) end
     if opening and cfg.fade and not layoutMode then window.baziFade:Play() end
 end
 
@@ -330,6 +467,15 @@ function D.IsPreview() return preview end
 function D.Preview(scenario) preview = scenario; D.Render() end
 function D.GetFrame() return frame end
 function D.LayoutMode(enabled) layoutMode = enabled; D.Render() end
+
+function D.IsShowingRow(id, label)
+    local card = cards[id]
+    if not active or preview or layoutMode or not (frame and frame:IsVisible() and card and card:IsVisible()) then return false end
+    for _, row in ipairs(card.rows) do
+        if row:IsShown() and row.data and row.data.label == label then return true end
+    end
+    return false
+end
 
 local function rebuild()
     pending.timer = nil
@@ -347,7 +493,7 @@ local function rebuild()
             else savedRows[widget.id] = nil end
         end
     end
-    D.Render()
+    D.Render(true)
 end
 
 function D.Invalidate(id)
@@ -360,6 +506,7 @@ end
 function D.Refresh()
     if not addon.db then return end
     local cfg = D.Settings()
+    D.RefreshActivityNotices(cfg)
     if cfg.enabled ~= active then
         active = cfg.enabled
         events:UnregisterAllEvents()

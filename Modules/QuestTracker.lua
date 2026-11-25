@@ -2,9 +2,13 @@ local addon = BaziUI
 local tracker = {}
 addon.QuestTracker = tracker
 
-local frame, header, title, headerArrow, accent, scroll, content, summary, limit
+local frame, header, title, headerArrow, scroll, content, summary, limit
 local border, body, itemScroll, itemContent
-local rows = {}
+local rows, zoneRows = {}, {}
+local zoneExpanded, questCollapsed = {}, {}
+local rail, railThumb, sliderThumb, ornament
+local railInset, railWidth, headerInset = 6, 8, 3
+local railEnabled
 local distanceTicker
 local native = {}
 local completedObjectiveColor = {0x83 / 255, 0xcf / 255, 0x83 / 255}
@@ -17,7 +21,7 @@ function tracker.Settings()
     if db.skin == nil then db.skin = "Modern" end
     if db.opacity == nil then db.opacity = 85 end
     if db.backgroundOpacity == nil then db.backgroundOpacity = db.opacity end
-    if db.accent == nil then db.accent = {0.83, 0.63, 0.30} end
+    if db.zoneSize == nil then db.zoneSize = 13 end
     if db.border == nil then db.border = {unpack(addon.Theme.colors.frameBorder)} end
     if db.sort == nil then db.sort = "distance" end
     if db.showLevels == nil then db.showLevels = true end
@@ -143,6 +147,136 @@ function tracker.RefreshPosition()
     if tracker.OnPositionChanged then tracker.OnPositionChanged() end
 end
 
+local function positionRailThumb()
+    local range = scroll:GetVerticalScrollRange()
+    if range <= 0.5 then return end
+    addon.Theme:PlaceRailThumb(rail, railThumb, sliderThumb, scroll:GetHeight(), range, scroll:GetVerticalScroll() / range)
+end
+
+function tracker.GetAccentTrack()
+    if frame and frame:IsShown() and ornament.track:IsShown() then return frame, ornament.track end
+end
+
+local function placeScrollRail(growUp)
+    local centerFromHeader = railInset + 0.5 - headerInset
+    rail:ClearAllPoints()
+    if growUp then
+        rail:SetPoint("TOP", ornament.track, "TOP", 0, -ornament.capThickness)
+        rail:SetPoint("BOTTOM", header, "TOPLEFT", centerFromHeader, 1)
+    else
+        rail:SetPoint("TOP", header, "BOTTOMLEFT", centerFromHeader, -1)
+        rail:SetPoint("BOTTOM", ornament.track, "BOTTOM", 0, ornament.capThickness)
+    end
+end
+
+local function updateRailVisibility()
+    if not rail then return end
+    local show = railEnabled == true and scroll:GetVerticalScrollRange() > 0.5 and frame:IsMouseOver()
+    if rail:IsShown() ~= show then rail:SetShown(show) end
+end
+
+local function syncScrollRail()
+    if not rail then return end
+    local range = scroll:GetVerticalScrollRange()
+    local value = math.max(0, math.min(scroll:GetVerticalScroll(), range))
+    rail:SetMinMaxValues(0, range > 0 and range or 1)
+    railThumb:SetColorTexture(addon.Theme:AccentInk(0.9))
+    updateRailVisibility()
+    rail:SetValue(value)
+    if value ~= scroll:GetVerticalScroll() then scroll:SetVerticalScroll(value) end
+    if not InCombatLockdown() then itemScroll:SetVerticalScroll(value) end
+    positionRailThumb()
+end
+
+local heightAnimation, itemButtonsCreated, trackerLayout
+
+local function syncItemRail()
+    if not itemScroll or InCombatLockdown() then return end
+    local visible = trackerLayout and trackerLayout.hasItems and frame:IsShown() and scroll:IsShown()
+        and frame:GetHeight() > (frame.growUp and 48 or 63)
+    if not visible then
+        if itemScroll.baziCombatDriver then
+            UnregisterStateDriver(itemScroll, "visibility")
+            itemScroll.baziCombatDriver = nil
+        end
+        itemScroll:Hide()
+        return
+    end
+    local left, bottom, width, height = frame:GetRect()
+    if not (left and bottom and width and height) then return end
+    local onLeft = tracker.Settings().itemsLeft
+    local x = onLeft and left - 26 or left + width + 4
+    local y = bottom + height - (frame.growUp and 9 or 39)
+    local railHeight = math.max(1, height - (frame.growUp and 48 or 63))
+    if x ~= itemScroll.baziX or y ~= itemScroll.baziY or railHeight ~= itemScroll.baziHeight then
+        itemScroll:ClearAllPoints()
+        itemScroll:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", x, y)
+        itemScroll:SetHeight(railHeight)
+        itemScroll.baziX, itemScroll.baziY, itemScroll.baziHeight = x, y, railHeight
+    end
+    if not itemScroll.baziCombatDriver and RegisterStateDriver then
+        RegisterStateDriver(itemScroll, "visibility", "[combat] hide; show")
+        itemScroll.baziCombatDriver = true
+    end
+    itemScroll:Show()
+end
+
+local function stopHeightAnimation()
+    heightAnimation = nil
+end
+
+local function hideTracker()
+    stopHeightAnimation()
+    if rail then rail:Hide() end
+    syncItemRail()
+end
+
+local function applyTrackerHeight(height, modernRail)
+    frame:SetHeight(height)
+    local hasBody = height > 48
+    scroll:SetShown(hasBody)
+    body:SetShown(hasBody)
+    railEnabled = hasBody and modernRail
+    if hasBody then scroll:UpdateScrollChildRect() end
+    syncScrollRail()
+    syncItemRail()
+end
+
+local function updateTrackerHeight(target, visible, modernRail)
+    if not visible or not frame:IsShown() or math.abs(frame:GetHeight() - target) < 0.5 then
+        stopHeightAnimation()
+        applyTrackerHeight(target, modernRail)
+        frame:SetShown(visible)
+        return
+    end
+    if not heightAnimation or heightAnimation.target ~= target then
+        heightAnimation = {start = frame:GetHeight(), target = target, elapsed = 0}
+    end
+    heightAnimation.modernRail = modernRail
+end
+
+local function updateTracker(_, elapsed)
+    updateRailVisibility()
+    local motion = heightAnimation
+    if not motion then syncItemRail(); return end
+    motion.elapsed = motion.elapsed + elapsed
+    local progress = math.min(1, motion.elapsed / 0.20)
+    local eased = 1 - (1 - progress)^3
+    applyTrackerHeight(motion.start + (motion.target - motion.start) * eased, motion.modernRail)
+    if progress == 1 then stopHeightAnimation() end
+end
+
+local function applyCollapsedLayout()
+    if not trackerLayout then return end
+    local db = tracker.Settings()
+    local compact = db.collapsed or trackerLayout.count == 0
+    limit:ClearAllPoints()
+    if db.growUp or compact then limit:SetPoint("RIGHT", header, "RIGHT", -8, 0)
+    else limit:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -10, 6) end
+    local height = compact and header:GetHeight() + 6 or trackerLayout.expandedHeight
+    updateTrackerHeight(height, trackerLayout.visible, trackerLayout.modernRail)
+end
+
 local function build()
     frame = CreateFrame("Frame", "BaziUIQuestTracker", UIParent)
     frame:SetPoint("TOPRIGHT", UIParent, "TOPRIGHT", -35, -192)
@@ -150,29 +284,22 @@ local function build()
     frame:SetClampedToScreen(true)
     frame:SetMovable(true)
     frame:Hide()
+    frame:SetScript("OnHide", hideTracker)
+    frame:SetScript("OnUpdate", updateTracker)
     body = frame:CreateTexture(nil, "BACKGROUND")
     border = addon.Theme:CreateFrameBorder(frame, frame, frame)
     addon.Theme:AddDropShadow("Quest", frame, border)
 
     header = CreateFrame("Button", nil, frame)
-    header:SetPoint("TOPLEFT", 3, -3)
-    header:SetPoint("TOPRIGHT", -3, -3)
+    header:SetPoint("TOPLEFT", headerInset, -headerInset)
+    header:SetPoint("TOPRIGHT", -headerInset, -headerInset)
     header:SetHeight(29)
     header:RegisterForDrag("LeftButton")
     header:SetScript("OnClick", function()
         local db = tracker.Settings()
         db.collapsed = not db.collapsed
-        tracker.Refresh()
+        applyCollapsedLayout()
     end)
-    header:SetScript("OnEnter", function(self)
-        if not tracker.Settings().currentRegionOnly or not self.trackedQuests or self.shownQuests == self.trackedQuests then return end
-        GameTooltip:SetOwner(self, "ANCHOR_TOP")
-        GameTooltip:SetText("Only quests in the current region")
-        GameTooltip:AddLine(("%d shown here · %d tracked in total"):format(self.shownQuests, self.trackedQuests), 1, 1, 1)
-        GameTooltip:AddLine("Change the region filter in Bazi UI / Quest / Tracking.", 0.78, 0.72, 0.62)
-        GameTooltip:Show()
-    end)
-    header:SetScript("OnLeave", function(self) if GameTooltip:IsOwned(self) then GameTooltip:Hide() end end)
     header:SetScript("OnDragStart", function()
         if not tracker.Settings().locked then frame:StartMoving() end
     end)
@@ -199,11 +326,8 @@ local function build()
     summary:SetWordWrap(false)
     limit = header:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     limit:SetPoint("RIGHT", -8, 0)
-    summary:SetPoint("RIGHT", limit, "LEFT", -7, 0)
-    accent = header:CreateTexture(nil, "ARTWORK")
-    accent:SetPoint("TOPLEFT", 2, -4)
-    accent:SetPoint("BOTTOMLEFT", 2, 4)
-    accent:SetWidth(3)
+    summary:SetPoint("RIGHT", header, "RIGHT", -65, 0)
+    ornament = addon.Theme:RailOrnament(header, frame, railInset)
 
     scroll = CreateFrame("ScrollFrame", nil, frame)
     scroll:SetPoint("TOPLEFT", 11, -39)
@@ -216,42 +340,85 @@ local function build()
     content = CreateFrame("Frame", nil, scroll)
     content:SetSize(278, 1)
     scroll:SetScrollChild(content)
-    itemScroll = CreateFrame("ScrollFrame", nil, frame)
+    -- The protected item buttons must not make the tracker itself protected.
+    itemScroll = CreateFrame("ScrollFrame", nil, UIParent)
     itemScroll:SetWidth(22)
+    itemScroll:Hide()
     itemScroll:SetClipsChildren(true)
     itemContent = CreateFrame("Frame", nil, itemScroll)
     itemContent:SetSize(22, 1)
     itemScroll:SetScrollChild(itemContent)
-    scroll:HookScript("OnVerticalScroll", function(_, offset) itemScroll:SetVerticalScroll(offset) end)
+    rail = CreateFrame("Slider", nil, frame)
+    rail:SetOrientation("VERTICAL")
+    rail:SetWidth(railWidth)
+    rail:SetFrameLevel(scroll:GetFrameLevel() + 3)
+    rail:EnableMouse(true)
+    rail:Hide()
+    sliderThumb = rail:CreateTexture(nil, "BACKGROUND")
+    sliderThumb:SetSize(railWidth, 1)
+    sliderThumb:SetColorTexture(0, 0, 0, 0)
+    rail:SetThumbTexture(sliderThumb)
+    railThumb = rail:CreateTexture(nil, "OVERLAY")
+    railThumb:SetWidth(4)
+    rail:SetScript("OnValueChanged", function(_, value)
+        if value ~= scroll:GetVerticalScroll() then scroll:SetVerticalScroll(value) end
+    end)
+    scroll:SetScript("OnScrollRangeChanged", syncScrollRail)
+    scroll:HookScript("OnVerticalScroll", function(_, offset)
+        if not InCombatLockdown() then itemScroll:SetVerticalScroll(offset) end
+        if offset ~= rail:GetValue() then rail:SetValue(offset) end
+        positionRailThumb()
+    end)
 end
 
 local function getRow(index)
     local row = rows[index]
     if row then return row end
     row = CreateFrame("Button", nil, content)
-    row:SetScript("OnClick", function(self) openQuest(self.questID) end)
+    row:SetScript("OnClick", function(self)
+        questCollapsed[self.questID] = not questCollapsed[self.questID]
+        tracker.Refresh()
+    end)
+    row.card = addon.Theme:RoundedCard(row)
+    row.card:SetAllPoints()
+    row.card:SetFrameLevel(row:GetFrameLevel())
+    row.card:EnableMouse(false)
+
     local hover = row:CreateTexture(nil, "HIGHLIGHT")
     hover:SetAllPoints()
     hover:SetColorTexture(0.42, 0.25, 0.17, 0.24)
-    row.divider = row:CreateTexture(nil, "ARTWORK")
-    row.divider:SetPoint("BOTTOMLEFT", 1, 1)
-    row.divider:SetPoint("BOTTOMRIGHT", -1, 1)
-    row.divider:SetHeight(1)
-    row.divider:SetColorTexture(0.90, 0.84, 0.73, 0.24)
     row.name = row:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    row.zone = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    row.zone:SetPoint("TOPLEFT", 1, -1)
-    row.zoneCount = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    row.zoneCount:SetPoint("TOPRIGHT", -2, -1)
     row.level = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    row.levelFill = row:CreateTexture(nil, "ARTWORK")
+    row.levelFill = addon.Theme:RoundedCard(row)
+    row.levelFill:EnableMouse(false)
+    row.levelFill:SetFrameLevel(row.card:GetFrameLevel())
     row.levelFill:SetPoint("TOPLEFT", row.level, "TOPLEFT", 0, 2)
     row.levelFill:SetPoint("BOTTOMRIGHT", row.level, "BOTTOMRIGHT", 0, -2)
-    row.level:SetTextColor(0.05, 0.04, 0.035)
+    row.level:SetDrawLayer("OVERLAY", 3)
     row.name:SetPoint("TOPLEFT")
     row.name:SetPoint("TOPRIGHT")
     row.name:SetJustifyH("LEFT")
     rows[index] = row
+    return row
+end
+
+local function zoneRow(index)
+    if zoneRows[index] then return zoneRows[index] end
+    local row = CreateFrame("Button", nil, content)
+    row.categoryIcon = row:CreateTexture(nil, "OVERLAY")
+    row.categoryIcon:SetSize(14, 14)
+    row.expandIcon = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    row.expandIcon:SetPoint("LEFT", 3, 0)
+    row.expandIcon:SetText("+")
+    row.label = row:CreateFontString(nil, "OVERLAY")
+    row.label:SetPoint("LEFT", row.categoryIcon, "RIGHT", 5, 0)
+    row.count = row:CreateFontString(nil, "OVERLAY")
+    row.count:SetPoint("RIGHT", -5, 0)
+    row:SetScript("OnClick", function(self)
+        zoneExpanded[self.zone] = not self.open
+        tracker.Refresh()
+    end)
+    zoneRows[index] = row
     return row
 end
 
@@ -318,12 +485,7 @@ local function currentRegion()
     return names, quests
 end
 
-function tracker.DashboardQuests()
-    local names, mapped = currentRegion()
-    local entries, watched = questLogEntries(), {}
-    for _, id in ipairs(watchedQuests()) do watched[id] = true end
-    return entries, names, mapped, watched
-end
+tracker.DashboardQuests = questLogEntries
 
 tracker.OpenQuest = openQuest
 
@@ -340,7 +502,8 @@ local function objectiveRow(row, index)
     row.details = row.details or {}
     local detail = row.details[index]
     if detail then return detail end
-    detail = CreateFrame("Frame", nil, row)
+    detail = CreateFrame("Button", nil, row)
+    detail:SetScript("OnClick", function() openQuest(row.questID) end)
     detail:SetHeight(17)
     detail.text = detail:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     detail.text:SetPoint("TOPLEFT")
@@ -452,7 +615,7 @@ local function updateTimers()
         row:SetHeight(db.timerHeight)
         row:SetMinMaxValues(0, total)
         row:SetValue(left)
-        row:SetStatusBarColor(unpack(db.accent))
+        row:SetStatusBarColor(addon.Theme:Accent())
         applyFont(row.title, db.questFont, db.questSize, "OUTLINE")
         applyFont(row.time, db.questFont, db.questSize, "OUTLINE")
         row.title:SetText(name)
@@ -467,7 +630,7 @@ local function updateTimers()
         end
     end
     local running = count > 0
-    if timerPreview and not running then show("Timed quest preview", 78, 120) end
+    if not running and (timerPreview or addon.Movers and addon.Movers.IsActive()) then show("Timed quest preview", 78, 120) end
     if timerTicker and not running then timerTicker:Cancel(); timerTicker = nil end
     if not timerFrame then return end
     for i = count + 1, #timerRows do timerRows[i]:Hide() end
@@ -492,7 +655,8 @@ function tracker.RefreshTimers()
         table.sort(timedQuests, function(a, b) return a.index < b.index end)
     end
     local running = updateTimers()
-    if timerFrame and timerFrame:IsShown() and not timerFrame.dragging then
+    if timerFrame and timerFrame:IsShown() and not timerFrame.dragging
+        and not (addon.Movers and addon.Movers.IsDragging(timerFrame)) then
         timerFrame:ClearAllPoints()
         timerFrame:SetPoint("CENTER", UIParent, "CENTER", db.timerX or 320, db.timerY or 145)
     end
@@ -530,7 +694,6 @@ function tracker.RefreshHeader()
     end
 end
 
-local itemButtonsCreated
 local function applyQuestItem(row, record, offset)
     local item = row.item
     if record.itemLink then
@@ -572,7 +735,8 @@ function tracker.Refresh()
         return
     end
     pendingRefresh = false
-    if not db.enabled then
+    local arranging = addon.Movers and addon.Movers.IsActive()
+    if not db.enabled and not arranging then
         if distanceTicker then distanceTicker:Cancel(); distanceTicker = nil end
         syncNative(false)
         if frame then frame:Hide() end
@@ -614,33 +778,27 @@ function tracker.Refresh()
     scroll:ClearAllPoints()
     body:ClearAllPoints()
     if db.growUp then
-        header:SetPoint("BOTTOMLEFT", 3, 3)
-        header:SetPoint("BOTTOMRIGHT", -3, 3)
+        header:SetPoint("BOTTOMLEFT", headerInset, headerInset)
+        header:SetPoint("BOTTOMRIGHT", -headerInset, headerInset)
         scroll:SetPoint("TOPLEFT", 11, -9)
         scroll:SetPoint("BOTTOMRIGHT", -11, 39)
         body:SetPoint("TOPLEFT", frame, "TOPLEFT", 2, -2)
         body:SetPoint("BOTTOMRIGHT", header, "TOPRIGHT", 1, 0)
     else
-        header:SetPoint("TOPLEFT", 3, -3)
-        header:SetPoint("TOPRIGHT", -3, -3)
+        header:SetPoint("TOPLEFT", headerInset, -headerInset)
+        header:SetPoint("TOPRIGHT", -headerInset, -headerInset)
         scroll:SetPoint("TOPLEFT", 11, -39)
         scroll:SetPoint("BOTTOMRIGHT", -11, 9)
         body:SetPoint("TOPLEFT", header, "BOTTOMLEFT", -1, 0)
         body:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -2, 2)
     end
-
     local modern, classic = db.skin == "Modern", db.skin == "Classic"
     local opacity = db.backgroundOpacity / 100
-    if classic then
-        body:SetColorTexture(0.16, 0.092, 0.045, opacity)
-    else
-        body:SetColorTexture(0.085, 0.085, 0.105, opacity)
-    end
+    body:SetColorTexture(0.035, 0.028, 0.024, opacity)
     border:SetBackdropBorderColor(unpack(db.border))
     border:SetShown(modern or classic)
     tracker.RefreshHeader()
-    accent:SetColorTexture(db.accent[1], db.accent[2], db.accent[3], 1)
-    accent:SetShown(not classic)
+
     local outline = modern and "OUTLINE" or ""
     applyFont(title, db.headerFont, db.headerSize, outline, "Header")
     applyFont(headerArrow, db.headerFont, db.headerSize, outline, "Header")
@@ -650,13 +808,13 @@ function tracker.Refresh()
     local log, records, groups, order = questLogEntries(), {}, {}, {}
     local ready, xp = 0, 0
     local watched = watchedQuests()
-    local regionNames, regionQuests
-    if db.currentRegionOnly then regionNames, regionQuests = currentRegion() end
+    local regionNames, regionQuests = currentRegion()
+    local nearby = {}
     for _, id in ipairs(watched) do
         local entry = log[id] or {}
         local info = entry.info or {}
         local name = info.title or (C_QuestLog.GetTitleForQuestID and C_QuestLog.GetTitleForQuestID(id))
-        if name and (not regionNames or regionNames[entry.zone] or regionQuests[id]) then
+        if name then
             local done = C_QuestLog.IsComplete and C_QuestLog.IsComplete(id)
             local objectives = C_QuestLog.GetQuestObjectives and C_QuestLog.GetQuestObjectives(id) or {}
             local progress = 0
@@ -670,7 +828,7 @@ function tracker.Refresh()
             local level = readableNumber(info.level) and info.level or 0
             local record = {id = id, name = name, level = level, done = not not done, index = #records + 1,
                 objectives = objectives, progress = done and 1 or progress / math.max(1, #objectives),
-                distance = (db.sort == "distance" or db.showDistance) and questDistance(id) or math.huge}
+                distance = (db.sort == "distance" or db.showDistance or db.groupZones) and questDistance(id) or math.huge}
             if not (done and db.hideCompleted) then
                 if db.showItems and GetQuestLogSpecialItemInfo then
                     local index = entry.index or (C_QuestLog.GetLogIndexForQuestID and C_QuestLog.GetLogIndexForQuestID(id))
@@ -685,6 +843,7 @@ function tracker.Refresh()
                 local zone = modern and db.groupZones and (entry.zone or "Quests") or ""
                 if not groups[zone] then groups[zone] = {}; order[#order + 1] = zone end
                 table.insert(groups[zone], record)
+                nearby[zone] = nearby[zone] or regionNames[zone] or regionQuests[id]
             end
             if done then
                 ready = ready + 1
@@ -700,23 +859,57 @@ function tracker.Refresh()
         if db.sort == "distance" and a.distance ~= b.distance then return a.distance < b.distance end
         return a.index < b.index
     end
-    for _, group in pairs(groups) do table.sort(group, before) end
-    table.sort(order, function(a, b) return before(groups[a][1], groups[b][1]) end)
-    local y, used, hasItems = 0, 0, false
+    for zone, group in pairs(groups) do
+        table.sort(group, function(a, b)
+            if nearby[zone] and a.distance ~= b.distance then return a.distance < b.distance end
+            return before(a, b)
+        end)
+    end
+    table.sort(order, function(a, b)
+        if not not nearby[a] ~= not not nearby[b] then return not not nearby[a] end
+        if nearby[a] and groups[a][1].distance ~= groups[b][1].distance then
+            return groups[a][1].distance < groups[b][1].distance
+        end
+        return before(groups[a][1], groups[b][1])
+    end)
+    local y, used, zoneCount, hasItems = 0, 0, 0, false
     for _, zone in ipairs(order) do
-        for i, record in ipairs(groups[zone]) do
+        local open = zoneExpanded[zone]
+        if open == nil then open = zone == "" or nearby[zone] end
+        if zone ~= "" then
+            zoneCount = zoneCount + 1
+            local heading = zoneRow(zoneCount)
+            heading.zone, heading.open = zone, open
+            heading:ClearAllPoints()
+            heading:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -y)
+            heading:SetPoint("TOPRIGHT", content, "TOPRIGHT", 0, -y)
+            heading:SetHeight(db.zoneSize + 9)
+            applyFont(heading.label, db.questFont, db.zoneSize, outline, "Zone")
+            applyFont(heading.count, db.questFont, db.zoneSize, outline, "Zone")
+            local category = zone == "Camping" and "Campfire" or (zone == "Cooking" or zone == _G.PROFESSIONS_COOKING) and "CookingPot"
+                or nearby[zone] and "Pin" or "QuestProgress"
+            heading.categoryIcon:SetTexture("Interface\\AddOns\\BaziUI\\Assets\\Icons\\Bazi\\" .. category .. ".tga")
+            if category == "Pin" then
+                heading.categoryIcon:SetVertexColor(238 / 255, 188 / 255, 109 / 255)
+            else
+                heading.categoryIcon:SetVertexColor(1, 1, 1)
+            end
+            heading.categoryIcon:SetPoint("LEFT", heading, "LEFT", open and 5 or 16, 0)
+            heading.expandIcon:SetShown(not open)
+            heading.label:SetText(zone)
+            heading.label:SetTextColor(addon.Headers.Text("quest", 1, 0.82, 0.49))
+            heading.count:SetText(tostring(#groups[zone]))
+            heading:Show()
+            y = y + heading:GetHeight()
+        end
+        for _, record in ipairs(open and groups[zone] or {}) do
             used = used + 1
             local row = getRow(used)
             row.questID = record.id
             row:ClearAllPoints()
             row:SetPoint('TOPLEFT', content, 'TOPLEFT', 0, -y)
             row:SetPoint('TOPRIGHT', content, 'TOPRIGHT', 0, -y)
-            local showZone = i == 1 and zone ~= ''
-            row.zone:SetText(zone:upper())
-            row.zoneCount:SetText(tostring(#groups[zone]))
-            row.zone:SetShown(showZone)
-            row.zoneCount:SetShown(showZone)
-            local inset = showZone and 22 or 2
+            local inset = 5
             local level = record.level
             local showLevel = db.showLevels and readableNumber(level) and level > 0
             local color = showLevel and GetQuestDifficultyColor and GetQuestDifficultyColor(level)
@@ -733,13 +926,15 @@ function tracker.Refresh()
             end
             local item = applyQuestItem(row, record, y + inset)
             hasItems = hasItems or item
-            local left, right = 1, -1
-            row.divider:SetShown(used < #records)
+            local left, right = 5, -5
+            addon.Theme:PaintQuestCard(row.card)
             row.level:SetText(showLevel and tostring(level) or '')
             row.level:ClearAllPoints()
             row.level:SetPoint('TOPLEFT', left, -inset)
             row.level:SetShown(showLevel)
-            row.levelFill:SetColorTexture(r, g, b, 1)
+            row.levelFill:SetBackdropColor(r * 0.52, g * 0.52, b * 0.52, 0.64)
+            row.levelFill:SetBackdropBorderColor(r, g, b, 1)
+            row.level:SetTextColor(r, g, b)
             row.levelFill:SetShown(showLevel)
             applyFont(row.name, db.questFont, db.questSize, outline)
             local badgeWidth, badgeHeight = 0, 0
@@ -760,7 +955,7 @@ function tracker.Refresh()
             local height, detailCount = inset + math.max(row.name:GetStringHeight(), badgeHeight, item and 22 or 0) + 4, 0
             local objectives = record.objectives
             if record.done then objectives = {{text = 'Ready for turn-in', finished = true}} end
-            for _, objective in ipairs(objectives or {}) do
+            for _, objective in ipairs(not questCollapsed[record.id] and objectives or {}) do
                 if type(objective.text) == 'string' and objective.text ~= '' then
                     detailCount = detailCount + 1
                     local detail = objectiveRow(row, detailCount)
@@ -783,7 +978,7 @@ function tracker.Refresh()
                         detail.bar:SetHeight(db.progressThickness)
                         detail.bar:SetMinMaxValues(0, need)
                         detail.bar:SetValue(have)
-                        detail.bar:SetStatusBarColor(db.accent[1], db.accent[2], db.accent[3])
+                        detail.bar:SetStatusBarColor(addon.Theme:Accent())
                     end
                     detail:ClearAllPoints()
                     detail:SetPoint('TOPLEFT', row, 'TOPLEFT', 3, -height)
@@ -804,9 +999,10 @@ function tracker.Refresh()
         rows[i]:Hide()
         if rows[i].item then rows[i].item:Hide() end
     end
+    for i = zoneCount + 1, #zoneRows do zoneRows[i]:Hide() end
     local count = #records
     title:SetText("Quests")
-    headerArrow:SetText(db.collapsed and "v" or "^")
+    headerArrow:SetText("")
     headerArrow:SetPoint("LEFT", title, "RIGHT", 7, db.collapsed and 0 or -3)
     local headerParts = {}
     if db.showReadyCount and ready > 0 then headerParts[#headerParts + 1] = ready .. " ready" end
@@ -816,27 +1012,16 @@ function tracker.Refresh()
     summary:SetText(caption ~= "" and (textColor and caption or ("|cff83cf83" .. caption .. "|r")) or "")
     local cap = Constants and Constants.QuestWatchConsts and Constants.QuestWatchConsts.MAX_QUEST_WATCHES
     header.shownQuests, header.trackedQuests = count, #watched
-    limit:SetText(tostring(db.currentRegionOnly and count or #watched) .. (cap and ("/" .. cap) or ""))
+    limit:SetText(tostring(#watched) .. (cap and ("/" .. cap) or ""))
     content:SetHeight(math.max(1, y))
     itemContent:SetHeight(math.max(1, y))
-    local headerOnly = db.collapsed or (db.currentRegionOnly and count == 0)
-    scroll:SetShown(not headerOnly)
-    itemScroll:ClearAllPoints()
-    local itemTop, itemBottom = db.growUp and -9 or -39, db.growUp and 39 or 9
-    if db.itemsLeft then
-        itemScroll:SetPoint("TOPRIGHT", frame, "TOPLEFT", -4, itemTop)
-        itemScroll:SetPoint("BOTTOMRIGHT", frame, "BOTTOMLEFT", -4, itemBottom)
-    else
-        itemScroll:SetPoint("TOPLEFT", frame, "TOPRIGHT", 4, itemTop)
-        itemScroll:SetPoint("BOTTOMLEFT", frame, "BOTTOMRIGHT", 4, itemBottom)
-    end
-    itemScroll:SetShown(not headerOnly and hasItems)
-    body:SetShown(not headerOnly)
-    frame:SetHeight(headerOnly and (header:GetHeight() + 6) or 48 + math.min(y, db.maxHeight))
-    scroll:SetVerticalScroll(math.min(scroll:GetVerticalScroll(), scroll:GetVerticalScrollRange()))
-    itemScroll:SetVerticalScroll(scroll:GetVerticalScroll())
-    frame:SetShown(count > 0 or #watched > 0)
-    syncNative(true)
+    addon.Theme:ColorRailOrnament(ornament, not classic, not classic)
+    ornament.track:SetShown(not classic)
+    if not classic then placeScrollRail(db.growUp) end
+    trackerLayout = {count = count, expandedHeight = (db.growUp and 48 or 63) + math.min(y, db.maxHeight),
+        visible = arranging or count > 0 or #watched > 0, hasItems = hasItems, modernRail = not classic}
+    applyCollapsedLayout()
+    syncNative(db.enabled)
 end
 
 local events = CreateFrame("Frame")
@@ -848,6 +1033,7 @@ local queued, editLayoutChanged
 local function requestRefresh(event)
     if event == "PLAYER_REGEN_ENABLED" and not pendingRefresh then return end
     if event == "EDIT_MODE_LAYOUTS_UPDATED" then editLayoutChanged = true end
+    if event == "ZONE_CHANGED_NEW_AREA" or event == "PLAYER_ENTERING_WORLD" then wipe(zoneExpanded) end
     if queued then return end
     queued = true
     C_Timer.After(0, function()

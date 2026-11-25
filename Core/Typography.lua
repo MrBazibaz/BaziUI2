@@ -12,14 +12,15 @@ fonts.groups = {
     {"ActionBars", "Action Bars", {{"Labels", "Button labels"}, {"Experience", "Experience bar"}}},
     {"Chat", "Chat", {{"Messages", "Messages"}, {"Tabs", "Tabs"}}},
     {"Combat", "Damage Meter", {{"Header", "Header"}, {"Rows", "Rows"}}},
+    {"Dashboard", "Dashboard", {{"Title", "Window title"}, {"Header", "Widget titles"}, {"Body", "Row labels"}, {"Value", "Values"}}},
     {"Dialogue", "Dialogue", {{"Header", "Headings"}, {"Body", "Quest text"}, {"Options", "NPC options"}}},
     {"Gathering", "Gathering"},
     {"HUD", "HUD", {{"Bar", "Cast and timer text"}, {"Aura", "Aura duration"}, {"Ammo", "Ammunition"}}},
-    {"Inventory", "Inventory", {{"Header", "Window text"}, {"Items", "Item labels"}, {"Cleanup", "Cleanup items"}}},
+    {"Inventory", "Inventory", {{"Header", "Window text"}, {"Items", "Item labels"}, {"Capacity", "Bag capacity"}, {"Cleanup", "Cleanup items"}}},
     {"Map", "Map", {{"Header", "Header"}, {"Coordinates", "Coordinates"}}},
     {"Minimap", "Minimap", {{"Zone", "Zone name"}, {"Clock", "Clock"}, {"Info", "Coordinates and stats"}}},
     {"Nameplates", "Nameplates", {{"Friendly", "Friendly players"}, {"NPC", "NPCs"}, {"Enemy", "Enemies"}}},
-    {"Quest", "Quest Tracker", {{"Header", "Header"}, {"Objectives", "Quests and objectives"}}},
+    {"Quest", "Quest Tracker", {{"Header", "Header"}, {"Zone", "Zone headers"}, {"Objectives", "Quests and objectives"}}},
     {"Tooltip", "Tooltip", {{"Title", "Titles"}, {"Body", "Body text"}}},
     {"UnitFrames", "Unit Frames", {{"Name", "Names"}, {"Health", "Health"}, {"Power", "Power"}, {"Level", "Levels"}}},
 }
@@ -143,6 +144,7 @@ function fonts.Refresh(group)
     refresh("Chat", chat and chat.active and chat.Fonts.Refresh)
     refresh("Quest", addon.QuestTracker and addon.QuestTracker.Refresh)
     refresh("Combat", addon.DamageMeter and addon.DamageMeter.Refresh)
+    refresh("Dashboard", addon.Dashboard and addon.Dashboard.Render)
     refresh("Dialogue", addon.Dialogue and addon.Dialogue.Refresh)
     refresh("HUD", function()
         if addon.CastBars then addon.CastBars.Refresh() end

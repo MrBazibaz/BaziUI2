@@ -183,7 +183,7 @@ function ns.Refresh(key)
         ns.Fonts.Refresh()
     elseif key == "lineSpacing" then
         ns.Timestamps.ApplySpacing()
-    elseif key == "showSeparators" then
+    elseif key == "showSeparators" or key == "channelSize" then
         ns.Timestamps.RefreshSeparators()
     elseif key == "timestamps" then
         ns.Timestamps.Refresh()

@@ -879,12 +879,8 @@ end
 -- string (read, never changed), so it works in every language. `crown` is
 -- where the front figure's head is, across the icon (PlaceCrowns).
 local GROUP_ATLAS = { name = "socialqueuing-icon-group", width = 29, height = 26, crown = 0.39 }
--- The raid's three figures, the one in the middle in front (the idea of the
--- game's own Raid tab icon), are Everchat's art in the group icon's colors,
--- so the chat's color tints both alike (art/group-icons.py): the figures fill
--- the first 42 of the file's 64x32 texels.
 local RAID_ICON = {
-	file = "Interface\\AddOns\\BaziUI\\Assets\\Chat\\Everchat\\IconRaid", fileWidth = 64, width = 42, height = 32, crown = 0.476,
+	file = "Interface\\AddOns\\BaziUI\\Assets\\Icons\\Bazi\\Shield.tga", fileWidth = 32, width = 32, height = 32, crown = 0.48,
 }
 RAID_ICON.marker = "|T" .. RAID_ICON.file .. ":"
 GROUP_ATLAS.marker = "|A:" .. GROUP_ATLAS.name .. ":"
@@ -1479,37 +1475,20 @@ function Channels.ShortLabel(text, event)
 	return text
 end
 
--- The edit box's header while typing (EditBox.lua) under the name the lines
--- show, where that isn't the game's: "[1. General: Elwynn Forest]: " becomes
--- a numbered channel's own name or its short one, "Guild: " the guild's own
--- name while its crest isn't shown. `current` is the header the game wrote,
--- `number` a numbered channel's; nil keeps it.
+-- Use the channel name in the edit box, including any user-defined name.
 function Channels.HeaderText(chatType, channelName, current, number)
 	if type(current) ~= "string" or current == "" then
 		return nil
 	end
 	if chatType == "CHANNEL" then
+		local listed = number and ListedChannels()[number]
 		if type(channelName) ~= "string" or channelName == "" then
-			return nil
+			channelName = listed or current:match("%[(.-)%]")
 		end
-		local own = Channels.OwnName(ChannelKey(number, channelName))
-		if own then
-			local first, last = current:find("[", 1, true), current:match(".*()%]")
-			if first and last and last > first then
-				return current:sub(1, first) .. own .. current:sub(last)
-			end
-			return nil
-		end
-		if ns.db.shortChannels and tonumber(number) and tonumber(number) > 0 then
-			local prefix = current:gsub("%[.-%]", tostring(number) .. ".", 1)
-			if prefix ~= current then return prefix end
-		end
-		local short = ns.db.shortChannels and ShortName(channelName)
-		local start, stop = current:find(channelName, 1, true)
-		if short and short ~= channelName and start then
-			return current:sub(1, start - 1) .. short .. current:sub(stop + 1)
-		end
-		return nil
+		if not channelName or channelName == "" then return nil end
+		local name = Channels.OwnName(ChannelKey(number, channelName)) or Channels.BaseName(listed or channelName)
+		if name == "" then return nil end
+		return name .. (current:match("%s*:%s*$") or ": ")
 	end
 	if not (GROUP_LABELS[chatType] or chatType == "GUILD" or chatType == "OFFICER") or Channels.ShowsIcon(chatType) then
 		return nil
