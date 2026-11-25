@@ -110,6 +110,12 @@ Modules\Dashboard.lua
 Modules\DashboardProgress.lua
 Modules\DashboardActivity.lua
 Modules\DashboardPreview.lua
+Modules\AdventureData.lua
+Modules\AltManager.lua
+Modules\EquipmentAdvisor.lua
+Modules\Journey.lua
+Modules\SmartAlerts.lua
+Modules\AdventureUI.lua
 Modules\Movers.lua
 Modules\MoverModules.lua
 Config\Options.lua

@@ -134,7 +134,28 @@ function T:Initialize()
     end
     local equipment = CreateFrame("Frame")
     equipment:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
-    equipment:SetScript("OnEvent", function()
+    equipment:RegisterEvent("MODIFIER_STATE_CHANGED")
+    equipment:SetScript("OnEvent", function(_, event, key)
+        if event == "MODIFIER_STATE_CHANGED" then
+            if not (Allowed() and (key == "LSHIFT" or key == "RSHIFT") and tip:IsShown()) then return end
+            local adventure = addon.Adventure
+            local itemShift
+            if adventure and tip:IsShown() and tip.GetTooltipData then
+                local data = adventure.Call(tip.GetTooltipData, tip)
+                local kind = data and data.type
+                if adventure.Read(kind) and Enum and Enum.TooltipDataType and kind == Enum.TooltipDataType.Item then
+                    for _, id in ipairs({"alts", "advisor"}) do
+                        local cfg = adventure.Settings(id)
+                        itemShift = itemShift or cfg.enabled and cfg.tooltip and cfg.shift
+                    end
+                end
+            end
+            if itemShift then
+                if tip.RefreshDataNextUpdate then tip:RefreshDataNextUpdate()
+                elseif tip.RefreshData then tip:RefreshData() end
+            end
+            return
+        end
         if not tip:IsShown() or not tip.RefreshDataNextUpdate or not Enum or not Enum.TooltipDataType then return end
         local owner = tip:GetOwner()
         if owner and owner.baziInventorySlot then return end

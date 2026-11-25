@@ -133,6 +133,9 @@ local function scanSkills()
     return result
 end
 
+D.ReadSkills = scanSkills
+D.InvalidateSkills = skillEvent
+
 local function skills(isProfession, options)
     local rows, relevant, recently, time = {}, false, false, GetTime()
     local tracking = D.Tracking()

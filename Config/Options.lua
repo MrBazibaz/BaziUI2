@@ -16,7 +16,7 @@ local ASSET = "Interface\\AddOns\\BaziUI\\Assets\\"
 local NAV_ICONS = {
     General = 0, Profiles = 3, ["Quality of Life"] = 1, UnitFrames = 2,
     Nameplates = 3, ActionBars = 4, Chat = 5, Quest = 6, Gathering = 7,
-    Dialogue = 5, Dashboard = 2, HUD = 2, Inventory = 6, Minimap = 8, Tooltip = 9, Combat = 10, BugTab = 11,
+    Dialogue = 5, Dashboard = 2, ["Smart Alerts"] = 1, Journey = 6, ["Alt Manager"] = 4, ["Equipment Advisor"] = 10, HUD = 2, Inventory = 6, Minimap = 8, Tooltip = 9, Combat = 10, BugTab = 11,
 }
 local MAP_ICON = ASSET .. "Settings\\Map.png"
 
@@ -6152,6 +6152,7 @@ function addon.Options:Create()
         {"Gameplay", {"ActionBars", "Chat", "Quest", "Dialogue", "Gathering", "Dashboard", "HUD", "Inventory"}},
         {"Interface", {"Map", "Minimap", "Tooltip", "Combat", "BugTab"}},
     }
+    navigationGroups[#navigationGroups + 1] = {"Progression", {"Smart Alerts", "Journey", "Alt Manager", "Equipment Advisor"}}
     for _, group in ipairs(navigationGroups) do
         group.heading = CreateLabel(scrollChild, group[1]:upper(), "GameFontNormalSmall")
         group.heading:SetTextColor(unpack(addon.Theme.colors.headerText))
@@ -6190,6 +6191,10 @@ function addon.Options:Create()
     index("General", "Headers", "Headers", "header title opacity color text")
     index("Profiles", "Character profiles", nil, "create copy switch default new character save settings")
     index("Dashboard", "Smart widgets", nil, "quest professions gathering skills crafting supplies reputation dungeon raid pvp")
+    index("Smart Alerts", "Smart Alerts", nil, "notifications thresholds durability ammo history")
+    index("Journey", "Journey", nil, "journal timeline sessions milestones records")
+    index("Alt Manager", "Alt Manager", nil, "account inventory bank gold professions")
+    index("Equipment Advisor", "Equipment Advisor", nil, "upgrade equipment weights loot reward stats")
     index("ActionBars", "Experience", "experience", "exp xp rested quest reputation status bar opacity transparency")
     for _, bar in ipairs(addon.ActionBars.bars) do index("ActionBars", bar.title, bar.key) end
     for _, name in ipairs({"Player", "Target", "Focus", "Pet", "Target of Target", "Boss", "Party", "Raid"}) do
@@ -6328,6 +6333,16 @@ function addon.Options:Create()
     pageFactories.BugTab = CreateBugTabPage
     pageFactories.Inventory = CreateInventoryPage
     pageFactories.Dashboard = function() self:CreateDashboardPage() end
+    for title, kind in pairs({["Smart Alerts"] = "alerts", Journey = "journey", ["Alt Manager"] = "alts",
+        ["Equipment Advisor"] = "advisor"}) do
+        local name, module = title, kind
+        pageFactories[name] = function()
+            local page = CreateFrame("Frame", nil, contentFrame)
+            page:SetAllPoints(contentFrame)
+            pages[name] = page
+            addon.AdventureUI.Settings(module, page, {panel = CreatePanel, section = CreateSection, label = CreateLabel, slider = CreateSlider})
+        end
+    end
 
     ShowPage("General")
 end

@@ -42,6 +42,7 @@ local function ensureSession()
 end
 
 function D.ResetSession()
+    if addon.Journey and addon.db then addon.Journey.Save() end
     session = nil
     local tracking = D.Tracking()
     if tracking then tracking.session = nil end
@@ -53,7 +54,18 @@ function D.ResetSession()
     D.Invalidate()
 end
 
+function D.GetSessionMetrics()
+    local state = ensureSession()
+    return {xp = state.xp, quest = state.quest, deaths = state.deaths, earned = state.earned, spent = state.spent,
+        looted = state.looted, materials = state.materials}
+end
+
 local function sessionEvent(event, ...)
+    if addon.Adventure and addon.Adventure.SessionDriver then return end
+    D.RecordSessionEvent(event, ...)
+end
+
+function D.RecordSessionEvent(event, ...)
     local state = ensureSession()
     if event == "PLAYER_LOGOUT" then
         local tracking = D.Tracking()
@@ -78,17 +90,24 @@ local function sessionEvent(event, ...)
         state.level, state.currentXP, state.levelCap = level, current, cap
     elseif event == "QUEST_TURNED_IN" then state.quest = state.quest + 1
     elseif event == "PLAYER_DEAD" then state.deaths = state.deaths + 1
-    elseif event == "CHAT_MSG_LOOT" and not D.WidgetSettings("gathering").enabled then lootEvent(event, ...) end
+    elseif event == "CHAT_MSG_LOOT" and (addon.Adventure and addon.Adventure.SessionDriver or not D.WidgetSettings("gathering").enabled) then lootEvent(event, ...) end
 end
 
-lootEvent = function(event, message)
-    if event ~= "CHAT_MSG_LOOT" or not D.Read(message) or type(message) ~= "string" then return end
+function D.ReadSelfLoot(message)
+    if not D.Read(message) or type(message) ~= "string" then return end
     local pattern = _G.LOOT_ITEM_SELF
     local prefix = type(pattern) == "string" and pattern:match("^(.-)%%")
     local id = tonumber(message:match("|Hitem:(%d+)"))
     if not id or not prefix or prefix == "" or message:sub(1, #prefix) ~= prefix then return end
     local suffix = message:match("|h[^|]*|h|r(.*)$") or message:match("|h[^|]*|h(.*)$") or ""
     local amount = tonumber(suffix:match("[x×]%s*(%d+)")) or 1
+    return id, amount, message:match("(|c%x+|Hitem:.-|h.-|h|r)") or message:match("(|Hitem:.-|h.-|h)")
+end
+
+lootEvent = function(event, message)
+    if event ~= "CHAT_MSG_LOOT" then return end
+    local id, amount = D.ReadSelfLoot(message)
+    if not id then return end
     local state = ensureSession()
     state.looted = state.looted + amount
     local _, _, _, _, class = D.Item(id)
@@ -139,7 +158,9 @@ local function gathering(options)
     return rowsResult(rows, recent or next(tracking) ~= nil, recent)
 end
 D.Register({id = "gathering", label = "Gathering", priority = 60, duration = 120, tick = true, read = gathering,
-    event = lootEvent, events = {"CHAT_MSG_LOOT", "BAG_UPDATE_DELAYED", "GET_ITEM_INFO_RECEIVED"}})
+    event = function(...)
+        if not (addon.Adventure and addon.Adventure.SessionDriver) then lootEvent(...) end
+    end, events = {"CHAT_MSG_LOOT", "BAG_UPDATE_DELAYED", "GET_ITEM_INFO_RECEIVED"}})
 
 function D.TrackMaterial(item)
     local id = trackedID(item)
@@ -391,12 +412,14 @@ local function scanFactions()
             local row = D.Value(name, math.max(0, current - low), high > low and high - low or nil, detail)
             if high <= low then row.value = standing end
             row.pin = D.Pin("factions", id)
-            factions[#factions + 1] = {id = id, activity = entry.activity, row = row}
+            factions[#factions + 1] = {id = id, activity = entry.activity, rank = rank, standing = standing, row = row}
         end
     end
     factionSnapshot = factions
     return factions
 end
+D.ReadFactions = scanFactions
+D.InvalidateFactions = factionEvent
 local nextFactionExpiry
 local function factionRows(options)
     local data = D.Tracking()

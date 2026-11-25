@@ -273,6 +273,9 @@ function inventory.RefreshRolls()
         local row = rows[i] or makeRow(i)
         local new = row.drop ~= drop
         row.drop = drop
+        if addon.EquipmentAdvisor then
+            addon.EquipmentAdvisor.PaintIndicator(row, not (drop.demo or drop.winner) and drop.link, "rolls", "TOPRIGHT", -103, -4)
+        end
         row.icon:SetTexture(drop.icon)
         row.title:SetText(drop.name or drop.link or "Loot")
         row.winner:SetText(drop.winner and winnerName(drop.winner) or "")

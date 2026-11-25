@@ -90,6 +90,11 @@ local function styleRow(row, incoming)
     end
     local data = row.GetElementData and row:GetElementData()
     local isIncoming = incoming and data and data.slotIndex == incoming.slot
+    if addon.EquipmentAdvisor then
+        local index = data and data.slotIndex
+        local link = not isIncoming and type(index) == "number" and addon.Adventure.Call(GetLootSlotLink, index)
+        addon.EquipmentAdvisor.PaintIndicator(row, link, "loot", "RIGHT", -6, 0)
+    end
     if isIncoming and not row.baziCleanupPrice then
         row.baziCleanupPrice = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
         row.baziCleanupPrice:SetPoint("RIGHT", -8, 0)
@@ -138,6 +143,7 @@ function inventory.RefreshLoot()
         for _, border in pairs(qualityBorders) do border:Hide() end
         if loot.ScrollBox and loot.ScrollBox.ForEachFrame then
             loot.ScrollBox:ForEachFrame(function(row)
+                if row.baziAdvisor then row.baziAdvisor:Hide() end
                 if row.baziCleanupPrice then
                     row.baziCleanupPrice:Hide()
                     row.baziCleanupAccent:Hide()

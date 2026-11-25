@@ -84,6 +84,11 @@ local function itemContents(frame, data)
         if ok and text(link) then id = tonumber(link:match("item:(%d+)")) end
     end
     idLine(frame, "Item ID", id)
+    if frame == tip and DB() and addon.AltManager and safe(id) and type(id) == "number" then
+        addon.AltManager.AddTooltip(frame, id)
+        local ok, _, link = pcall(frame.GetItem, frame)
+        addon.EquipmentAdvisor.AddTooltip(frame, ok and text(link) and link or id)
+    end
 end
 local function spellContents(frame, data)
     idLine(frame, "Spell ID", data and data.id)

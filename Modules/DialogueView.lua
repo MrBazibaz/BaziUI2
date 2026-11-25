@@ -429,6 +429,9 @@ local function itemList(page, label, kind, count, markValue)
         local ok, link = pcall(GetQuestItemLink, kind, index)
         local entry = {label = (name or "…") .. (amount and amount > 1 and " ×" .. amount or ""), icon = icon,
             link = ok and link or nil}
+        local advisor = addon.EquipmentAdvisor
+        local comparison = advisor and (kind == "reward" or kind == "choice") and advisor.Badge(entry.link, "quests")
+        if comparison then entry.label = entry.label .. "  |cffbb94db" .. comparison .. "|r" end
         if markValue and entry.link then
             local info = C_Item and C_Item.GetItemInfo or GetItemInfo
             local price = select(11, info(entry.link))

@@ -18,6 +18,13 @@ spec("Dashboard", dashboard.GetFrame, dashboard.Settings, dashboard.Render, {
     {"maxWidgets", "Widgets", 1, 15},
 }, {canDrag = function() return not dashboard.Settings().locked end})
 
+local alerts = A.SmartAlerts
+if alerts then
+    spec("Smart Alerts", alerts.GetFrame, alerts.Settings, alerts.Render, {
+        width(170, 550), scale, {"maximum", "Visible alerts", 1, 10},
+    })
+end
+
 local bars = A.ActionBars
 local function applyBars() bars:Apply() end
 for index, def in ipairs(bars.bars) do

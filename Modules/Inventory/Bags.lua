@@ -386,7 +386,15 @@ function inventory.RefreshBags()
         local category = groupFor(item, db)
         category = categoryNames[category:lower()] or category
         local name = item.name or item.hyperlink or ""
-        if query == "" or name:lower():find(query, 1, true) or category:lower():find(query, 1, true) then
+        local advisor = BaziUI.EquipmentAdvisor
+        local upgrades = query == "upgrade:" and advisor and BaziUI.Adventure.Settings("advisor").enabled
+        local visible
+        if upgrades then
+            visible = advisor.IsUpgrade(item.hyperlink)
+        else
+            visible = query == "" or name:lower():find(query, 1, true) or category:lower():find(query, 1, true)
+        end
+        if visible then
             grouped[category] = grouped[category] or {}
             table.insert(grouped[category], item)
         end
@@ -444,6 +452,9 @@ function inventory.RefreshBags()
                 cellIndex = cellIndex + 1
                 local button = cell(cellIndex)
                 button.item = item
+                if BaziUI.EquipmentAdvisor then
+                    BaziUI.EquipmentAdvisor.PaintIndicator(button, not item.empty and item.hyperlink, "bags", "BOTTOMLEFT", 3, 3)
+                end
                 button.category = category
                 local itemSlot = not item.empty and not item.tab and ("%d %d"):format(item.bag, item.slot) or nil
                 local targeting = mode == "bags" and (feedingPet or targetingItem)
