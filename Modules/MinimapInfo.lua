@@ -26,26 +26,39 @@ local function fontPath(config)
     end
     return fonts.FRIZQT
 end
-local function applyFont(fs, config)
+local function applyFont(fs, config, key)
     if not fs or not config then return end
     local outline = config.outline
     if outline ~= "OUTLINE" and outline ~= "THICKOUTLINE" then outline = "" end
-    pcall(fs.SetFont, fs, fontPath(config), config.size or 11, outline)
-    if config.shadow then
+    local path, size, flags, shadow = addon.Typography.Resolve(key, fontPath(config), config.size or 11, outline,
+        config.font == "GLOBAL")
+    pcall(fs.SetFont, fs, path, size, flags)
+    if shadow == "on" or shadow ~= "off" and config.shadow then
         fs:SetShadowColor(0, 0, 0, 0.85)
         fs:SetShadowOffset(1, -1)
     else
         fs:SetShadowOffset(0, 0)
     end
 end
+local function updateZoneColor()
+    local cfg = db()
+    if cfg and cfg.enabled and _G.MinimapZoneText then
+        _G.MinimapZoneText:SetTextColor(addon.Headers.Text("minimap", 1, 0.82, 0.49))
+    end
+end
+
 function M:ApplyFonts()
     local cfg = db()
     if not cfg or not cfg.enabled then return end
-    applyFont(_G.MinimapZoneText, cfg.zoneFont)
-    applyFont(_G.TimeManagerClockTicker, cfg.clockFont)
+    applyFont(_G.MinimapZoneText, cfg.zoneFont, "Minimap:Zone")
+    updateZoneColor()
+    applyFont(_G.TimeManagerClockTicker, cfg.clockFont, "Minimap:Clock")
+    if _G.TimeManagerClockTicker then
+        _G.TimeManagerClockTicker:SetTextColor(addon.Headers.Text("minimap", 1, 1, 1))
+    end
     local c = coords()
-    if c then applyFont(c.CoordText, cfg.infoFont) end
-    for _, fs in pairs(stats) do applyFont(fs, cfg.infoFont) end
+    if c then applyFont(c.CoordText, cfg.infoFont, "Minimap:Info") end
+    for _, fs in pairs(stats) do applyFont(fs, cfg.infoFont, "Minimap:Info") end
 end
 local function update()
     if stats.fps then stats.fps:SetFormattedText("%.0f fps", GetFramerate()) end
@@ -148,7 +161,14 @@ function M:Apply()
 end
 local f = CreateFrame("Frame")
 f:RegisterEvent("PLAYER_LOGIN")
-f:SetScript("OnEvent", function(self)
-    self:UnregisterEvent("PLAYER_LOGIN")
-    if C_Timer and C_Timer.After then C_Timer.After(0.5, function() M:Apply() end) end
+f:RegisterEvent("ZONE_CHANGED")
+f:RegisterEvent("ZONE_CHANGED_INDOORS")
+f:RegisterEvent("ZONE_CHANGED_NEW_AREA")
+f:SetScript("OnEvent", function(self, event)
+    if event == "PLAYER_LOGIN" then
+        self:UnregisterEvent(event)
+        C_Timer.After(0.5, function() M:Apply() end)
+    else
+        C_Timer.After(0, updateZoneColor)
+    end
 end)

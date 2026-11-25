@@ -122,6 +122,7 @@ local function createMember(kind, index)
     border:SetAllPoints()
     border:SetBackdrop({edgeFile="Interface\\Tooltips\\UI-Tooltip-Border",edgeSize=10})
     border:SetBackdropBorderColor(.90,.72,.42,1)
+    BaziUI.Theme:AddDropShadow("UnitFrames", frame, border)
     local hp = CreateFrame("StatusBar",nil,frame)
     hp:SetStatusBarTexture("Interface\\TargetingFrame\\UI-StatusBar")
     hp:SetStatusBarColor(.33,.53,.34)
@@ -423,7 +424,7 @@ local function updateMember(f, preview)
     f.power:SetMinMaxValues(0,UnitPowerMax(f.unitToken))
     f.power:SetValue(UnitPower(f.unitToken))
     f.label:SetText(UnitName(f.unitToken) or "")
-    if f.levelText then f.levelText:SetText(UnitLevel(f.unitToken)) end
+    if f.levelText then BaziUI.SetUnitDifficulty(f.levelText, f.unitToken) end
     -- Forward protected numbers directly to Blizzard StatusBars. Never calculate with secrets.
     -- Text remains hidden unless an unprotected numeric value can be read safely.
     local index=tonumber(f.unitToken:match("%d+"))
@@ -479,10 +480,5 @@ function M:Initialize()
     if addon.PartyFrames then addon.PartyFrames:Initialize() end
     if addon.BossFrames then addon.BossFrames:Initialize() end
     if addon.RaidFrames then addon.RaidFrames:Initialize() end
-    local events=CreateFrame("Frame")
-    for _,event in ipairs({"PLAYER_ENTERING_WORLD","GROUP_ROSTER_UPDATE","PLAYER_REGEN_ENABLED","UNIT_HEALTH","UNIT_MAXHEALTH","UNIT_POWER_UPDATE","UNIT_MAXPOWER","UNIT_NAME_UPDATE","UNIT_AURA","RAID_TARGET_UPDATE","PLAYER_ROLES_ASSIGNED","UNIT_FLAGS"}) do
-        events:RegisterEvent(event)
-    end
-    events:SetScript("OnEvent",function() M:Refresh() end)
-    self:Refresh()
+    -- Dedicated renderers own game events. Refresh remains available for settings changes.
 end

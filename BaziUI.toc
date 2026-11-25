@@ -3,12 +3,19 @@
 ## Notes: A clean, modular World of Warcraft UI.
 ## IconTexture: Interface\AddOns\BaziUI\Assets\Icons\BaziUI_Emblem_64.png
 ## Author: Bazi
-## Version: 0.2.1
-## SavedVariables: BaziUIDB
+## Version: 1.1.3
+## SavedVariables: BaziUIDB, BaziUIBugLog
 
 Core\Bootstrap.lua
 Core\Database.lua
+Config\DefaultProfile.lua
 Core\Theme.lua
+Core\Setup.lua
+Core\Typography.lua
+Core\Backgrounds.lua
+Core\Headers.lua
+Core\UnitDifficulty.lua
+Modules\BugTab.lua
 Modules\ItemLevel.lua
 Modules\ILVLForeverPlayer.lua
 Modules\IlvlForeverPlayerTooltip.lua
@@ -21,6 +28,7 @@ Modules\MinimapInfo.lua
 Modules\MinimapButtons.lua
 Modules\MinimapDebug.lua
 Modules\QoLSounds.lua
+Modules\QoLAutomation.lua
 Modules\WindowResize.lua
 Modules\UnitFrames.lua
 Modules\GroupFrames.lua
@@ -28,7 +36,75 @@ Modules\PartyFrames.lua
 Modules\BossFrames.lua
 Modules\RaidFrames.lua
 Modules\NPCServices.lua
+Modules\EnemyNameplates.lua
 Modules\Nameplates.lua
 Modules\NameplatesOptions.lua
+Modules\ActionBars\Libs\LibStub\LibStub.lua
+Modules\ActionBars\Libs\CallbackHandler-1.0\CallbackHandler-1.0.lua
+Modules\ActionBars\Libs\LibButtonGlow-1.0\LibButtonGlow-1.0.lua
+Modules\ActionBars\Libs\LibActionButton-1.0.lua
+Modules\ActionBars\ActionBars.lua
+Modules\ActionBars\OwnedBars.lua
+Modules\ActionBars\Experience.lua
+Modules\ActionBars\Options.lua
+Modules\HUD.lua
+Modules\HUDAmmo.lua
+Modules\Auras.lua
+Modules\CastBars.lua
+Modules\Gathering\Bootstrap.lua
+Modules\Gathering\Lueur\Words.lua
+Modules\Gathering\Lueur\Effects.lua
+Modules\Gathering\Lueur\Classify.lua
+Modules\Gathering\Gathering.lua
+Modules\Gathering\Fishing.lua
+Modules\Chat\Chat.lua
+Modules\Chat\Everchat\Locales\enUS.lua
+Modules\Chat\Everchat\Locales\esES.lua
+Modules\Chat\Everchat\Locales\frFR.lua
+Modules\Chat\Everchat\Locales\deDE.lua
+Modules\Chat\Everchat\Locales\ptBR.lua
+Modules\Chat\Everchat\Locales\itIT.lua
+Modules\Chat\Everchat\Locales\ruRU.lua
+Modules\Chat\Everchat\Locales.lua
+Modules\Chat\Everchat\Theme.lua
+Modules\Chat\Everchat\Shapes.lua
+Modules\Chat\Everchat\Fonts.lua
+Modules\Chat\Everchat\Players.lua
+Modules\Chat\Everchat\Skin.lua
+Modules\Chat\Everchat\Tabs.lua
+Modules\Chat\Everchat\NewTab.lua
+Modules\Chat\Everchat\Header.lua
+Modules\Chat\Everchat\Buttons.lua
+Modules\Chat\Everchat\EditBox.lua
+Modules\Chat\Everchat\Resize.lua
+Modules\Chat\Everchat\Padlock.lua
+Modules\Chat\Everchat\Timestamps.lua
+Modules\Chat\Everchat\Channels.lua
+Modules\Chat\Everchat\Bubbles.lua
+Modules\Chat\Everchat\Whispers.lua
+Modules\Chat\Everchat\Names.lua
+Modules\Chat\Everchat\Filters.lua
+Modules\Chat\Everchat\Lines.lua
+Modules\Chat\Everchat\Alerts.lua
+Modules\Chat\Everchat\Scroll.lua
+Modules\Chat\Everchat\History.lua
+Modules\Chat\Everchat\Links.lua
+Modules\Chat\Everchat\Search.lua
+Modules\Chat\Everchat\TabCopy.lua
+Modules\Chat\Options.lua
+Modules\Chat\FriendToasts.lua
+Modules\QuestTracker.lua
+Modules\VanillaQuestIDs.lua
+Modules\Dialogue.lua
+Modules\DialogueVoice.lua
+Modules\DialogueView.lua
+Modules\DamageMeter.lua
+Modules\Inventory\Core.lua
+Modules\Inventory\Bags.lua
+Modules\Inventory\Rolls.lua
+Modules\Inventory\Cleanup.lua
+Modules\Inventory\Loot.lua
+Modules\MapData.lua
+Modules\Map.lua
 Config\Options.lua
 Core\Commands.lua

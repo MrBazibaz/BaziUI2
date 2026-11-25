@@ -4,7 +4,7 @@ BaziUI = BaziUI or namespace or {}
 local addon = BaziUI
 
 addon.name = addonName or "BaziUI"
-addon.version = "0.2.1"
+addon.version = "1.1.3"
 addon.modules = addon.modules or {}
 
 function addon:Print(message)
@@ -56,6 +56,11 @@ function addon:OnInitialize()
         if not ok then self:Print("Nameplates initialization failed: " .. tostring(err)) end
     end
 
+    if self.ActionBars then
+        local ok, err = pcall(self.ActionBars.Initialize, self.ActionBars)
+        if not ok then self:Print("Action Bars initialization failed: " .. tostring(err)) end
+    end
+
     if self.ItemLevel and self.ItemLevel.Initialize then
         local ok, err = pcall(function() self.ItemLevel:Initialize() end)
         if not ok then self:Print("Item Level initialization failed: " .. tostring(err)) end
@@ -73,8 +78,16 @@ end
 
 local loader = CreateFrame("Frame")
 loader:RegisterEvent("ADDON_LOADED")
-loader:SetScript("OnEvent", function(_, event, loadedAddon)
-    if event == "ADDON_LOADED" and loadedAddon == addon.name then
-        addon:OnInitialize()
+loader:RegisterEvent("PLAYER_LOGIN")
+local savedVariablesLoaded
+loader:SetScript("OnEvent", function(self, event, loadedAddon)
+    if event == "ADDON_LOADED" then
+        if loadedAddon ~= addon.name then return end
+        savedVariablesLoaded = true
+        self:UnregisterEvent("ADDON_LOADED")
+        if not addon.Database:CharacterKey() then return end
     end
+    if not savedVariablesLoaded then return end
+    self:UnregisterEvent("PLAYER_LOGIN")
+    addon:OnInitialize()
 end)

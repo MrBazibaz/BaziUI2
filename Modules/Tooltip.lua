@@ -5,6 +5,7 @@ local tip = GameTooltip
 local pending = 0
 local marker
 local health
+local dropShadow
 local function DB()
     return addon.db and addon.db.profile and addon.db.profile.tooltip
 end
@@ -31,6 +32,7 @@ end
 function T:Apply()
     local db = DB()
     if not db then return end
+    if dropShadow then dropShadow:RefreshVisibility() end
     if tip then
         tip:SetScale(db.scale or 1)
         tip:SetAlpha(db.opacity or 1)
@@ -232,6 +234,20 @@ local function UnitContent()
     if not db or not db.enabled then return end
     local unit = UnitToken()
     if not unit then return end
+    local _, difficulty = addon.GetUnitDifficulty(unit)
+    if difficulty then
+        local prefix = (TOOLTIP_UNIT_LEVEL or "Level %s"):match("^(.-)%%") or "Level "
+        if prefix ~= "" then
+            for i = 2, tip:NumLines() do
+                local row = _G["GameTooltipTextLeft" .. i]
+                local text = row and row:GetText()
+                if Readable(text) and text:sub(1, #prefix) == prefix then
+                    row:SetTextColor(difficulty.r, difficulty.g, difficulty.b)
+                    break
+                end
+            end
+        end
+    end
     if not db.guild then RemoveLine(GetGuildInfo(unit), false) end
     if db.hideFaction then
         RemoveLine(_G.FACTION_HORDE, true)
@@ -276,16 +292,7 @@ local function ItemContent(_, data)
     if db.itemLevel then
         local id = data and data.id
         if not Readable(id) then id = link and tonumber(link:match("item:(%d+)")) end
-        local level
-        local getter = GetDetailedItemLevelInfo or (C_Item and C_Item.GetDetailedItemLevelInfo)
-        if getter then
-            local ok, result = pcall(getter, link or id)
-            if ok and Readable(result) and type(result) == "number" then level = result end
-        end
-        if level and level > 1 and not FindLine("Item Level")
-            and not FindLine("iLvl") then
-            tip:AddLine(string.format("Item Level %d", level), 1, 0.82, 0.42)
-        end
+        addon.ItemLevel.AddItemTooltipLine(tip, link or id)
     end
     if tip:IsShown() then tip:Show() end
 end
@@ -346,6 +353,9 @@ end
 function T:Initialize()
     if self.initialized then return end
     self.initialized = true
+    dropShadow = addon.Theme:AddDropShadow("Tooltip", tip, tip.NineSlice or tip, function()
+        return DB() and DB().enabled == true
+    end)
     marker = CreateFrame("Button", nil, UIParent)
     marker:SetSize(170, 34)
     marker:SetFrameStrata("TOOLTIP")

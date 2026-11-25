@@ -1,6 +1,4 @@
 -- Bazi UI Nameplates: isolated settings page.
--- This file is deliberately not registered in BaziUI.toc yet.
--- Integration into Config/Options.lua requires explicit approval.
 local addon = BaziUI
 addon.NameplatesOptions = addon.NameplatesOptions or {}
 local ASSET = "Interface\\AddOns\\BaziUI\\Assets\\"
@@ -12,21 +10,15 @@ local defaults = {
     friendlyTextX = 0, friendlyTextY = 0, friendlyTextSize = 20,
     petEnabled = true, petShowIcon = false, petIconVisibility = "always",
     npcEnabled = true, npcIcons = false,
-    enemyWidth = 160, enemyHeight = 16, enemyScale = 1,
-    enemyName = true, enemyLevel = true, enemyQuest = true,
-    enemyThreat = true, enemyDebuffs = true, enemyCastbar = true,
-    enemyNameX = 0, enemyNameY = 0, enemyLevelX = 0, enemyLevelY = 0,
-    enemyQuestX = 0, enemyQuestY = 0, enemyDebuffX = 0, enemyDebuffY = 0,
-    enemyCastX = 0, enemyCastY = -20,
-    enemyNameFont = "general", enemyLevelFont = "general",
-    enemyCastFont = "general", enemyNameSize = 0, enemyLevelSize = 0,
-    enemyCastSize = 0,
 }
 local function Settings()
     local profile = addon.db and addon.db.profile
     if not profile then return nil end
     if type(profile.nameplates) ~= "table" then profile.nameplates = {} end
     for key, value in pairs(defaults) do
+        if profile.nameplates[key] == nil then profile.nameplates[key] = value end
+    end
+    for key, value in pairs(addon.EnemyNameplates.defaults) do
         if profile.nameplates[key] == nil then profile.nameplates[key] = value end
     end
     return profile.nameplates
@@ -39,7 +31,7 @@ end
 local function Background(parent)
     local bg = parent:CreateTexture(nil, "BACKGROUND")
     bg:SetAllPoints()
-    bg:SetColorTexture(0.25, 0.125, 0.055, 0.94)
+    addon.Theme:Paint(bg, "row", 0.94)
     local art = parent:CreateTexture(nil, "BACKGROUND", nil, 1)
     art:SetAllPoints()
     art:SetTexture(ASSET .. "Panels\\Panel_Dark.png")
@@ -48,7 +40,7 @@ end
 local function PanelArtwork(frame)
     local fill = frame:CreateTexture(nil, "BACKGROUND")
     fill:SetAllPoints(frame)
-    fill:SetColorTexture(0.19, 0.105, 0.052, 0.97)
+    addon.Theme:Paint(fill, "panel", 0.97)
     local art = frame:CreateTexture(nil, "BACKGROUND", nil, 1)
     art:SetAllPoints(frame)
     art:SetTexture(ASSET .. "Panels\\Panel_Dark.png")
@@ -74,11 +66,25 @@ local function Row(parent, text, y, height)
     title:SetTextColor(1, 0.78, 0.39)
     return frame
 end
-local function Notify()
-    -- A single future hook for live application, not an invented dependency.
-    if addon.Nameplates and addon.Nameplates.Apply then addon.Nameplates:Apply() end
+local function Notify(key)
+    if key then
+        local scope = key:match("^enemy") and "Nameplates:Enemy"
+            or key:match("^friendly") and "Nameplates:Friendly" or "Nameplates:NPC"
+        if key:match("Font$") then addon.Typography.ModuleChanged(scope, "font")
+        elseif key == "friendlyTextSize" or key == "npcTextSize"
+            or key:match("^enemy.*(Size)$") and (key:match("^enemyName") or key:match("^enemyHealth")
+                or key:match("^enemyLevel") or key:match("^enemyCast") or key:match("^enemyDebuffTime")) then
+            addon.Typography.ModuleChanged(scope, "size")
+        end
+    end
+    if key and key:match("^enemy") then
+        addon.EnemyNameplates:RefreshPreview()
+        addon.Nameplates:ApplyEnemy()
+    elseif addon.Nameplates then
+        addon.Nameplates:Apply()
+    end
 end
-local function NumberBox(parent, width, initial, commit)
+local function NumberBox(parent, width, initial, commit, readSaved)
     local edit = CreateFrame("EditBox", nil, parent)
     edit:SetSize(width or 36, 19)
     edit:SetAutoFocus(false)
@@ -90,7 +96,7 @@ local function NumberBox(parent, width, initial, commit)
     -- Match the dark input fields and thin bronze outline used by Bazi UI.
     local fill = edit:CreateTexture(nil, "BACKGROUND")
     fill:SetAllPoints(edit)
-    fill:SetColorTexture(0.12, 0.07, 0.045, 0.98)
+    addon.Theme:Paint(fill, "field", 0.98)
     for _, edge in ipairs({"TOP", "BOTTOM", "LEFT", "RIGHT"}) do
         local border = edit:CreateTexture(nil, "ARTWORK")
         border:SetColorTexture(0.70, 0.50, 0.27, 0.85)
@@ -106,17 +112,19 @@ local function NumberBox(parent, width, initial, commit)
     end
     edit:SetText(tostring(initial))
     edit:SetScript("OnEditFocusGained", function(self) self:HighlightText() end)
-    local function Save()
+    local function Commit()
         local n = tonumber(((edit:GetText() or ""):gsub(",", ".")))
-        if n then commit(n) end
-        edit:ClearFocus()
+        if n then commit(n) elseif readSaved then edit:SetText(readSaved()) end
     end
-    edit:SetScript("OnEnterPressed", Save)
-    edit:SetScript("OnEditFocusLost", function()
-        local n = tonumber(((edit:GetText() or ""):gsub(",", ".")))
-        if n then commit(n) end
+    edit:SetScript("OnEnterPressed", function()
+        if not readSaved then Commit() end
+        edit:ClearFocus()
     end)
-    edit:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
+    edit:SetScript("OnEditFocusLost", Commit)
+    edit:SetScript("OnEscapePressed", function(self)
+        if readSaved then self:SetText(readSaved()) end
+        self:ClearFocus()
+    end)
     return edit
 end
 local function Numeric(parent, title, y, db, key, low, high, step)
@@ -125,11 +133,14 @@ local function Numeric(parent, title, y, db, key, low, high, step)
         return math.max(low, math.min(high, math.floor(v / step + 0.5) * step))
     end
     local box
+    local function ReadSaved() return string.format("%g", db[key]) end
     box = NumberBox(row, 36, db[key], function(value)
-        db[key] = Clamp(value)
-        box:SetText(string.format("%g", db[key]))
-        Notify()
-    end)
+        local saved = Clamp(value)
+        local changed = saved ~= db[key]
+        db[key] = saved
+        box:SetText(ReadSaved())
+        if changed or not key:match("^enemy") then Notify(key) end
+    end, key:match("^enemy") and ReadSaved or nil)
     box:SetPoint("RIGHT", row, "RIGHT", -14, 0)
 
     -- Reuse the horizontal 21x24 step-button pattern from UnitFrames.
@@ -142,13 +153,13 @@ local function Numeric(parent, title, y, db, key, low, high, step)
         button:SetPoint("LEFT", box, "RIGHT", 5 + (i - 1) * 22, 0)
         local bg = button:CreateTexture(nil, "BACKGROUND")
         bg:SetAllPoints()
-        bg:SetColorTexture(0.23, 0.12, 0.065, 1)
+        addon.Theme:Paint(bg, "panel", 1)
         local glyph = Label(button, delta == 1 and "+" or "-", "GameFontNormal")
         glyph:SetPoint("CENTER")
         button:SetScript("OnClick", function()
             db[key] = Clamp(db[key] + delta * step)
             box:SetText(string.format("%g", db[key]))
-            Notify()
+            Notify(key)
         end)
     end
     return row
@@ -156,12 +167,12 @@ end
 
 local function Toggle(parent, title, y, db, key)
     local row = Row(parent, title, y)
-    local check = CreateFrame("CheckButton", nil, row, "UICheckButtonTemplate")
+    local check = addon.Theme:CreateCheckbox(row)
     check:SetPoint("RIGHT", row, "RIGHT", -16, 0)
     check:SetChecked(db[key])
     check:SetScript("OnClick", function(self)
         db[key] = not not self:GetChecked()
-        Notify()
+        Notify(key)
     end)
     return row
 end
@@ -174,7 +185,7 @@ local function Dropdown(parent, title, y, db, key, choices)
     button:SetPoint("RIGHT", row, "RIGHT", -14, 0)
     local fill = button:CreateTexture(nil, "BACKGROUND")
     fill:SetAllPoints()
-    fill:SetColorTexture(0.12, 0.07, 0.045, 1)
+    addon.Theme:Paint(fill, "field", 1)
     local caption = Label(button, "", "GameFontNormal")
     caption:SetPoint("CENTER")
     local arrow = Label(button, "v", "GameFontHighlightSmall")
@@ -186,7 +197,7 @@ local function Dropdown(parent, title, y, db, key, choices)
     menu:SetSize(156, #choices * 24 + 4)
     local background = menu:CreateTexture(nil, "BACKGROUND")
     background:SetAllPoints()
-    background:SetColorTexture(0.12, 0.07, 0.045, 1)
+    addon.Theme:Paint(background, "field", 1)
     local function Refresh()
         for _, choice in ipairs(choices) do
             if db[key] == choice[1] then
@@ -207,7 +218,7 @@ local function Dropdown(parent, title, y, db, key, choices)
             db[key] = choice[1]
             Refresh()
             menu:Hide()
-            Notify()
+            Notify(key)
         end)
     end
     menu:Hide()
@@ -244,10 +255,11 @@ local function Slider(parent, title, y, db, key, low, high, step)
     box:SetPoint("RIGHT", row, "RIGHT", -13, 0)
     slider:SetScript("OnValueChanged", function(_, value)
         local n = math.max(low, math.min(high, math.floor(value / step + 0.5) * step))
+        local changed = n ~= db[key]
         db[key] = n
         if not box:HasFocus() then box:SetText(string.format("%g", n)) end
         fill:SetWidth(math.max(1, 115 * (n - low) / (high - low)))
-        Notify()
+        if changed then Notify(key) end
     end)
     slider:SetValue(db[key])
     return row
@@ -289,9 +301,8 @@ function addon.NameplatesOptions:CreatePage(parent)
     local heading = Label(headingPanel, "NAMEPLATES", "GameFontNormalLarge")
     heading:SetPoint("TOPLEFT", headingPanel, "TOPLEFT", 22, -12)
     heading:SetTextColor(1, 0.79, 0.42)
-    -- Match Minimap's enable checkbox in the header, without changing
-    -- Blizzard nameplates until the runtime module is implemented.
-    local enabled = CreateFrame("CheckButton", nil, headingPanel, "UICheckButtonTemplate")
+    -- Match Minimap's enable checkbox in the header.
+    local enabled = addon.Theme:CreateCheckbox(headingPanel)
     enabled:SetSize(25, 25)
     enabled:SetPoint("TOPLEFT", headingPanel, "TOPLEFT", 16, -41)
     enabled:SetChecked(db.enabled)
@@ -319,8 +330,7 @@ function addon.NameplatesOptions:CreatePage(parent)
     local function RefreshTabs()
         for name, button in pairs(tabButtons) do
             local selected = name == activeTab
-            button.fill:SetColorTexture(selected and 0.34 or 0.23,
-                selected and 0.17 or 0.12, selected and 0.25 or 0.07, 0.98)
+            addon.Theme:Paint(button.fill, selected and "purple" or "panel", 0.98)
             button.label:SetTextColor(selected and 1 or 0.95,
                 selected and 0.85 or 0.80, selected and 0.55 or 0.66)
             button.accent:SetColorTexture(selected and 0.83 or 0.54,
@@ -367,7 +377,7 @@ function addon.NameplatesOptions:CreatePage(parent)
         b.label:SetPoint("LEFT", b, "LEFT", 12, 0)
         b:SetScript("OnClick", function() activeTab = name; RefreshTabs() end)
         b:SetScript("OnEnter", function()
-            if activeTab ~= name then b.fill:SetColorTexture(0.28, 0.15, 0.085, 0.98) end
+            if activeTab ~= name then addon.Theme:Paint(b.fill, "muted", 0.98) end
         end)
         b:SetScript("OnLeave", RefreshTabs)
         tabButtons[name] = b
@@ -394,7 +404,7 @@ function addon.NameplatesOptions:CreatePage(parent)
         scrollbar:SetValueStep(1)
         local track = scrollbar:CreateTexture(nil, "BACKGROUND")
         track:SetAllPoints()
-        track:SetColorTexture(0.12, 0.07, 0.04, 0.9)
+        addon.Theme:Paint(track, "field", 0.9)
         local thumb = scrollbar:CreateTexture(nil, "OVERLAY")
         thumb:SetSize(14, 38)
         thumb:SetTexture(ASSET .. "Sliders\\Slider_Gem.png")
@@ -480,43 +490,175 @@ function addon.NameplatesOptions:CreatePage(parent)
     npcNote:SetJustifyH("LEFT")
     npcNote:SetTextColor(0.66, 0.63, 0.59, 1)
 
-    local enemy = NewTab("Enemy", 1530)
-    Heading(enemy, "HEALTH BARS", -12)
-    Slider(enemy, "HEALTH WIDTH", -48, db, "enemyWidth", 80, 300, 1)
-    Slider(enemy, "HEALTH HEIGHT", -106, db, "enemyHeight", 6, 45, 1)
-    Slider(enemy, "NAMEPLATE SCALE", -164, db, "enemyScale", 0.5, 2, 0.05)
-    Heading(enemy, "TEXT AND FONTS", -232)
-    Toggle(enemy, "SHOW NAME", -266, db, "enemyName")
-    Dropdown(enemy, "NAME FONT", -314, db, "enemyNameFont", {
+    local enemy = NewTab("Enemy", 2885)
+    -- Same bronze action button as UnitFrames' indicator preview.
+    local previewButton = CreateFrame("Button", nil, headingPanel)
+    previewButton:SetSize(170, 27)
+    previewButton:SetPoint("BOTTOMRIGHT", headingPanel, "BOTTOMRIGHT", -14, 12)
+    local previewFill = previewButton:CreateTexture(nil, "BACKGROUND")
+    previewFill:SetAllPoints()
+    addon.Theme:Paint(previewFill, "panel", 0.98)
+    for _, side in ipairs({"TOP", "BOTTOM", "LEFT", "RIGHT"}) do
+        local edge = previewButton:CreateTexture(nil, "BORDER")
+        edge:SetColorTexture(0.72, 0.52, 0.27, 0.95)
+        if side == "TOP" then
+            edge:SetPoint("TOPLEFT"); edge:SetPoint("TOPRIGHT"); edge:SetHeight(1)
+        elseif side == "BOTTOM" then
+            edge:SetPoint("BOTTOMLEFT"); edge:SetPoint("BOTTOMRIGHT"); edge:SetHeight(1)
+        elseif side == "LEFT" then
+            edge:SetPoint("TOPLEFT"); edge:SetPoint("BOTTOMLEFT"); edge:SetWidth(1)
+        else
+            edge:SetPoint("TOPRIGHT"); edge:SetPoint("BOTTOMRIGHT"); edge:SetWidth(1)
+        end
+    end
+    local previewText = Label(previewButton, "Preview enemy nameplate", "GameFontNormal")
+    previewText:SetPoint("CENTER")
+    previewText:SetTextColor(1, 0.79, 0.42)
+    previewButton:SetScript("OnEnter", function() addon.Theme:Paint(previewFill, "muted", 0.98) end)
+    previewButton:SetScript("OnLeave", function() addon.Theme:Paint(previewFill, "panel", 0.98) end)
+    local previewOn = false
+    local function SetPreview(shown)
+        previewOn = shown
+        addon.EnemyNameplates:SetPreview(shown and db or nil)
+        previewText:SetText(shown and "Stop preview" or "Preview enemy nameplate")
+    end
+    previewButton:Hide()
+    previewButton:SetScript("OnClick", function() SetPreview(not previewOn) end)
+    tabPanels.Enemy:HookScript("OnShow", function() previewButton:Show() end)
+    tabPanels.Enemy:HookScript("OnHide", function()
+        previewButton:Hide()
+        if previewOn then SetPreview(false) end
+    end)
+    local y = -12
+    local fontChoices = {
         {"general", "General (Default)"}, {"friz", "Friz Quadrata"}, {"arial", "Arial Narrow"},
+    }
+    local anchorChoices = {
+        {"DEFAULT", "Default"}, {"CENTER", "Center"},
+        {"TOPLEFT", "Top left"}, {"TOP", "Top"}, {"TOPRIGHT", "Top right"},
+        {"LEFT", "Left"}, {"RIGHT", "Right"},
+        {"BOTTOMLEFT", "Bottom left"}, {"BOTTOM", "Bottom"}, {"BOTTOMRIGHT", "Bottom right"},
+    }
+    local function Section(title)
+        Heading(enemy, title, y)
+        y = y - 36
+    end
+    local function Check(title, key)
+        Toggle(enemy, title, y, db, key)
+        y = y - 48
+    end
+    local function Number(title, key, low, high, step)
+        Numeric(enemy, title, y, db, key, low, high, step or 1)
+        y = y - 48
+    end
+    local function Offsets(key, prefix)
+        prefix = prefix or ""
+        Number(prefix .. "X OFFSET", key .. "X", -300, 300)
+        Number(prefix .. "Y OFFSET", key .. "Y", -300, 300)
+    end
+    local function TextOptions(key, positionKey)
+        positionKey = positionKey or key
+        Dropdown(enemy, "FONT", y, db, key .. "Font", fontChoices)
+        y = y - 48
+        Number("FONT SIZE (0 = GENERAL)", key .. "Size", 0, 32)
+        Dropdown(enemy, "TEXT ANCHOR", y, db, positionKey .. "Anchor", anchorChoices)
+        y = y - 48
+        Offsets(positionKey, positionKey ~= key and "TEXT " or nil)
+    end
+    Section("HEALTH BAR")
+    Check("ENABLE ENEMY NAMEPLATES", "enemyEnabled")
+    Number("HEALTH WIDTH", "enemyWidth", 80, 300)
+    Number("HEALTH HEIGHT", "enemyHeight", 6, 45)
+    Number("NAMEPLATE SCALE", "enemyScale", 0.5, 2, 0.05)
+    Offsets("enemyPlate")
+    Check("HIGHLIGHT CURRENT TARGET", "enemyTarget")
+    Number("TARGET GLOW WIDTH (0 = OFF)", "enemyTargetGlowWidth", 0, 24)
+    Check("GRAY OUT TAGGED MOBS", "enemyTapped")
+    Check("SHOW HEALTH PERCENT", "enemyHealth")
+    TextOptions("enemyHealth")
+    Section("RANGE")
+    Check("FADE OUT-OF-RANGE ENEMIES", "enemyRange")
+    Number("OUT-OF-RANGE OPACITY (%)", "enemyRangeAlpha", 15, 100)
+    Number("RANGE SPELL ID (0 = AUTO)", "enemyRangeSpell", 0, 999999)
+    Section("NAME")
+    Check("SHOW NAME", "enemyName")
+    TextOptions("enemyName")
+    Check("SHOW OPPOSING FACTION BADGE", "enemyFaction")
+    Number("FACTION BADGE SIZE", "enemyFactionSize", 8, 64)
+    Offsets("enemyFaction", "FACTION BADGE ")
+    Section("COMBO POINTS")
+    Check("SHOW COMBO POINTS ON TARGETS", "enemyCombo")
+    Dropdown(enemy, "COMBO POINT STYLE", y, db, "enemyComboStyle", {
+        {"orb", "Gold orb"}, {"square", "Gold square"}, {"star", "Star"},
+        {"skull", "Skull"}, {"moon", "Moon"}, {"goldGem", "Gold gem"},
+        {"silverGem", "Silver gem"}, {"plumGem", "Plum gem"},
     })
-    Slider(enemy, "NAME SIZE (0 = GENERAL)", -362, db, "enemyNameSize", 0, 32, 1)
-    Numeric(enemy, "NAME X OFFSET", -420, db, "enemyNameX", -300, 300, 1)
-    Numeric(enemy, "NAME Y OFFSET", -468, db, "enemyNameY", -300, 300, 1)
-    Toggle(enemy, "SHOW LEVEL", -516, db, "enemyLevel")
-    Dropdown(enemy, "LEVEL FONT", -564, db, "enemyLevelFont", {
-        {"general", "General (Default)"}, {"friz", "Friz Quadrata"}, {"arial", "Arial Narrow"},
+    y = y - 48
+    Number("COMBO POINT SIZE", "enemyComboSize", 6, 40)
+    Offsets("enemyCombo", "COMBO POINT ")
+    Section("LEVEL")
+    Check("SHOW LEVEL", "enemyLevel")
+    TextOptions("enemyLevel")
+    Section("ELITE / RARE")
+    Check("SHOW DRAGON AROUND LEVEL", "enemyClassification")
+    Number("DRAGON SIZE", "enemyClassificationIconSize", 10, 80)
+    Offsets("enemyClassification")
+    Section("QUEST OBJECTIVE")
+    Check("SHOW QUEST ICON", "enemyQuest")
+    Dropdown(enemy, "QUEST ICON STYLE", y, db, "enemyQuestStyle", {
+        {"glow", "Gold exclamation"}, {"atlas", "Blizzard icon"},
     })
-    Slider(enemy, "LEVEL SIZE (0 = GENERAL)", -612, db, "enemyLevelSize", 0, 32, 1)
-    Numeric(enemy, "LEVEL X OFFSET", -670, db, "enemyLevelX", -300, 300, 1)
-    Numeric(enemy, "LEVEL Y OFFSET", -718, db, "enemyLevelY", -300, 300, 1)
-    Heading(enemy, "INDICATORS", -776)
-    Toggle(enemy, "QUEST OBJECTIVE ICON", -810, db, "enemyQuest")
-    Numeric(enemy, "QUEST ICON X", -858, db, "enemyQuestX", -300, 300, 1)
-    Numeric(enemy, "QUEST ICON Y", -906, db, "enemyQuestY", -300, 300, 1)
-    Toggle(enemy, "THREAT INDICATOR", -954, db, "enemyThreat")
-    Toggle(enemy, "MY DEBUFFS", -1002, db, "enemyDebuffs")
-    Numeric(enemy, "DEBUFF X", -1050, db, "enemyDebuffX", -300, 300, 1)
-    Numeric(enemy, "DEBUFF Y", -1098, db, "enemyDebuffY", -300, 300, 1)
-    Heading(enemy, "CASTBAR", -1156)
-    Toggle(enemy, "SHOW CASTBAR", -1190, db, "enemyCastbar")
-    Dropdown(enemy, "CASTBAR FONT", -1238, db, "enemyCastFont", {
-        {"general", "General (Default)"}, {"friz", "Friz Quadrata"}, {"arial", "Arial Narrow"},
+    y = y - 48
+    Number("ICON SIZE", "enemyQuestSize", 8, 48)
+    Offsets("enemyQuest")
+    Section("THREAT")
+    Check("COLOR HEALTH BY THREAT", "enemyThreat")
+    Dropdown(enemy, "THREAT ROLE", y, db, "enemyThreatRole", {
+        {"auto", "Auto"}, {"damage", "DPS / Healer"}, {"tank", "Tank"},
     })
-    Slider(enemy, "CASTBAR TEXT SIZE (0 = GENERAL)", -1286, db, "enemyCastSize", 0, 32, 1)
-    Numeric(enemy, "CASTBAR X OFFSET", -1344, db, "enemyCastX", -300, 300, 1)
-    Numeric(enemy, "CASTBAR Y OFFSET", -1392, db, "enemyCastY", -300, 300, 1)
+    y = y - 48
+    Number("DPS / HEALER WARNING (%)", "enemyThreatWarning", 1, 99)
+    Section("COLORS")
+    for _, option in ipairs(addon.EnemyNameplates.colorOptions) do
+        local key, title = option[1], option[2]
+        Heading(enemy, title, y)
+        local swatch = addon.Theme:CreateColorSwatch(enemy, function()
+            return addon.EnemyNameplates:GetColor(db, key)
+        end, function(color)
+            db.enemyColors = db.enemyColors or {}
+            db.enemyColors[key] = color
+            Notify()
+            if previewOn then addon.EnemyNameplates:SetPreview(db, key) end
+        end)
+        swatch:SetPoint("TOPRIGHT", enemy, "TOPRIGHT", -25, y)
+        y = y - 36
+    end
+    Section("DEBUFFS")
+    Check("SHOW MY DEBUFFS", "enemyDebuffs")
+    Check("SHOW DEBUFF STACKS", "enemyDebuffStacks")
+    Number("ICON SIZE", "enemyDebuffSize", 8, 48)
+    Offsets("enemyDebuff")
+    Section("DEBUFF TIMER")
+    Check("SHOW DEBUFF TIMER", "enemyDebuffTimer")
+    TextOptions("enemyDebuffTime")
+    Section("RAID MARKER")
+    Check("SHOW RAID MARKER", "enemyRaid")
+    Number("ICON SIZE", "enemyRaidSize", 8, 48)
+    Offsets("enemyRaid")
+    Section("CASTBAR")
+    Check("SHOW CASTBAR", "enemyCastbar")
+    Number("CASTBAR HEIGHT", "enemyCastHeight", 6, 35)
+    Number("CASTBAR WIDTH (0 = HEALTH WIDTH)", "enemyCastWidth", 0, 300)
+    Offsets("enemyCast", "BAR ")
+    TextOptions("enemyCast", "enemyCastText")
+    Section("CAST TIME")
+    Check("SHOW REMAINING CAST TIME", "enemyCastTimer")
+    TextOptions("enemyCastTime")
+    enemy:SetHeight(-y + 12)
 
+    function page:SelectSubpage(name)
+        if tabButtons[name] then activeTab = name; RefreshTabs() end
+    end
     page:HookScript("OnShow", RefreshTabs)
     page:HookScript("OnSizeChanged", RefreshTabs)
     RefreshTabs()

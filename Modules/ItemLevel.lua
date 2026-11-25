@@ -36,11 +36,25 @@ local function characterEnabled()
     return p and p.qol and p.qol.characterItemLevel
 end
 local function getLevel(link)
-    if not stringValue(link) then return end
-    local getter = GetDetailedItemLevelInfo or (C_Item and C_Item.GetDetailedItemLevelInfo)
+    if not stringValue(link) and not number(link) then return end
+    local getter = (C_Item and C_Item.GetDetailedItemLevelInfo) or GetDetailedItemLevelInfo
     if not getter then return end
     local ok, level = pcall(getter, link)
     if ok and number(level) and level > 0 then return level end
+end
+M.GetItemLevel = getLevel
+
+function M.AddItemTooltipLine(tooltip, item)
+    local level = getLevel(item)
+    if not level or level <= 1 then return end
+    local name = tooltip:GetName()
+    if not name then return end
+    for i = 2, tooltip:NumLines() do
+        local line = _G[name .. "TextLeft" .. i]
+        local text = line and line:GetText()
+        if stringValue(text) and (text:find("Item Level", 1, true) or text:find("iLvl", 1, true)) then return end
+    end
+    tooltip:AddLine(("Item Level %d"):format(level), 1, 0.82, 0.42)
 end
 local function ownAverage()
     if not GetAverageItemLevel then return end

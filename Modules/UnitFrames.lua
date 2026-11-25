@@ -7,11 +7,11 @@ local M = addon.UnitFrames
 
 -- Use a grayscale gradient as the actual StatusBar fill, like FlareUI.
 -- Tinting stays with the existing health/power code; no extra overlay layers.
-local function applyBarGradient(bar, direction)
+local function applyBarGradient(bar, direction, health)
     if not bar then return end
-    local texture = direction == "LEFT"
-        and "Interface\\AddOns\\BaziUI\\Assets\\Bars\\BaziGradientLeft.tga"
-        or "Interface\\AddOns\\BaziUI\\Assets\\Bars\\BaziGradientRight.tga"
+    local texture = "Interface\\AddOns\\BaziUI\\Assets\\Bars\\Bazi"
+        .. (health and "HealthGradient" or "Gradient")
+        .. (direction == "LEFT" and "Left.tga" or "Right.tga")
     if bar.baziGradientTexture ~= texture then
         bar:SetStatusBarTexture(texture)
         bar.baziGradientTexture = texture
@@ -28,6 +28,12 @@ local units = {
     targettarget = {unit="targettarget", x=420, y=-250},
 }
 local frames = {}
+
+function M.GetCastBarAnchor(unit)
+    local settings = cfg()
+    local frame = frames[unit]
+    if frame and settings and settings.enabled ~= false and settings[unit] then return frame.health end
+end
 local movers = {}
 local moving = false
 local previewIndicators = false
@@ -370,27 +376,61 @@ end
 
 -- Pass secret unit values directly to Blizzard's FontString formatter.
 -- Never do Lua arithmetic or string concatenation with secret numbers.
-local function setBarText(fontString, unit, template, health)
+function M.SetBarText(fontString, unit, template, health)
     if not template or template == "" then fontString:SetText(""); return end
-    local current = health and UnitHealth(unit) or UnitPower(unit)
-    local maximum = health and UnitHealthMax(unit) or UnitPowerMax(unit)
-    local percent
-    if health and UnitHealthPercent then
-        percent = UnitHealthPercent(unit)
-    elseif not health and UnitPowerPercent then
-        percent = UnitPowerPercent(unit)
-    end
+    local current, maximum
+    if health then current, maximum = UnitHealth(unit), UnitHealthMax(unit)
+    else current, maximum = UnitPower(unit), UnitPowerMax(unit) end
     local args = {}
-    local fmt = template:gsub("{([%a]+)}", function(tag)
+    local percentFormat, percent = "%s", "?"
+    if template:find("{percent}", 1, true) then
+        local curve = CurveConstants and CurveConstants.ScaleTo100
+        if curve and health and UnitHealthPercent then
+            percent = UnitHealthPercent(unit, true, curve)
+        elseif curve and not health and UnitPowerPercent then
+            percent = UnitPowerPercent(unit, nil, false, curve)
+        elseif not (issecretvalue and (issecretvalue(current) or issecretvalue(maximum)))
+            and type(current) == "number" and type(maximum) == "number" and maximum > 0 then
+            percent = current / maximum * 100
+        end
+        if (issecretvalue and issecretvalue(percent)) or type(percent) == "number" then percentFormat = "%.0f%%"
+        else percent = "?" end
+        -- Accept older layouts that supplied their own trailing percent sign.
+        template = template:gsub("{percent}%%", "{percent}")
+    end
+    local fmt = template:gsub("%%", "%%%%"):gsub("{([%a]+)}", function(tag)
         if tag == "current" then args[#args + 1] = current; return "%s" end
         if tag == "max" then args[#args + 1] = maximum; return "%s" end
         if tag == "percent" then
-            args[#args + 1] = percent or "?"; return "%s"
+            args[#args + 1] = percent; return percentFormat
         end
         return "{" .. tag .. "}"
     end)
     -- SetFormattedText is implemented by WoW and accepts secret numeric arguments.
     fontString:SetFormattedText(fmt, unpack(args))
+end
+
+function M.ColorName(label, class)
+    local color = not (issecretvalue and issecretvalue(class)) and class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
+    if color then label:SetTextColor(color.r * 0.82, color.g * 0.82, color.b * 0.82)
+    else label:SetTextColor(1, 0.80, 0.38) end
+end
+
+function M.SetName(label, unit, firstNameOnly)
+    local player = UnitIsPlayer(unit)
+    local isPlayer = not (issecretvalue and issecretvalue(player)) and player
+    local name
+    if firstNameOnly then
+        name = (UnitNameUnmodified or UnitName)(unit)
+    elseif isPlayer and UnitPVPName then name = UnitPVPName(unit) end
+    if not (issecretvalue and issecretvalue(name)) and (not name or name == "") then name = UnitName(unit) end
+    if firstNameOnly and not (issecretvalue and issecretvalue(name)) and type(name) == "string" then
+        name = name:match("^%S+") or name
+    end
+    label:SetText(name)
+    local _, class
+    if isPlayer then _, class = UnitClass(unit) end
+    M.ColorName(label, class)
 end
 local function updateExtras(f, own)
     local unit = f.unit
@@ -408,18 +448,24 @@ local function updateExtras(f, own)
     elseif role == "HEALER" then f.roleIcon:SetTexCoord(20/64, 39/64, 1/64, 20/64)
     else f.roleIcon:SetTexCoord(20/64, 39/64, 22/64, 41/64) end
     -- Pet happiness is only exposed on clients with the classic hunter-pet API.
-    local happiness
+    local happiness, damage, loyalty
     if unit == "pet" then
         if C_PetInfo and type(C_PetInfo.GetPetHappiness) == "function" then
-            happiness = readable(C_PetInfo.GetPetHappiness())
+            happiness, damage, loyalty = C_PetInfo.GetPetHappiness()
         elseif type(GetPetHappiness) == "function" then
-            happiness = readable(GetPetHappiness())
+            happiness, damage, loyalty = GetPetHappiness()
         end
+        happiness, damage, loyalty = readable(happiness), readable(damage), readable(loyalty)
     end
-    f.happinessIcon:SetShown(unit == "pet" and own.showHappiness ~= false and
-        (previewIndicators or type(happiness) == "number"))
-    -- Blizzard's happiness atlas is a single icon; don't crop the old sprite sheet.
+    local showHappiness = unit == "pet" and own.showHappiness ~= false
+        and (previewIndicators or type(happiness) == "number")
+    f.happinessIcon:SetShown(showHappiness)
+    if f.happinessHover then
+        f.happinessHover:SetShown(showHappiness)
+        f.happinessHover.happiness, f.happinessHover.damage, f.happinessHover.loyalty = happiness, damage, loyalty
+    end
     if f.happinessIcon.SetAtlas and C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo("UI-PetHappiness") then
+        f.happinessIcon:SetTexCoord(0, 1, 0, 1)
         f.happinessIcon:SetAtlas("UI-PetHappiness", false)
     else
         local index = type(happiness) == "number" and (math.max(1, math.min(3, happiness)) - 1) or 2
@@ -473,51 +519,26 @@ local function layout(f, settings)
     f:SetHitRectInsets(-math.ceil(leftExtra), -math.ceil(rightExtra),
         -math.ceil(topExtra), -math.ceil(bottomExtra))
     if f.petXPRing then
-        -- Radial tick marks: the long axis points towards the portrait centre.
-        -- Keep each tick separated to avoid opaque quads merging into a disc.
-        -- Match the visible outer edge of the gold portrait ring. Keep
-        -- tick depth modest so the XP track hugs the rim instead of floating.
-        -- The XP marks sit INSIDE the bronze rim's annulus, not outside it.
-        -- Their radial thickness scales with the portrait ring itself.
-        local tickHeight = rimSize * 0.085
-        -- The gold atlas rim has a narrower visible annulus at small
-        -- portrait sizes. Inset the XP ticks at 36, blending back to the
-        -- approved geometry at 60+. Rotation and tick width stay unchanged.
+        -- Keep the XP arc in the same annulus as the portrait rim.
         local smallInset = 2 * math.max(0, math.min(1, (60 - portraitSize) / 24))
-        local radius = rimSize * 0.445 - smallInset + (tonumber(settings.petXPRadiusOffset) or 0)
+        local radius = math.max(1, rimSize * 0.445 - smallInset + (tonumber(settings.petXPRadiusOffset) or 0))
         local count = #f.petXPRing.segments
-        -- Calculate the badge position from its actual anchor rather than
-        -- guessing a fixed angle. Its centre is offset from the portrait's
-        -- bottom edge by the atlas badge placement.
-        -- Match the level badge's actual SetPoint below. Both offsets must
-        -- scale with portraitSize, especially at the minimum size of 36.
         local badgeX = (side == "LEFT" and -1 or 1) * portraitSize * 17 / 48
         local badgeY = -portraitSize * (1 / 4 + 9 / 48)
         local badgeAngle = math.atan2(badgeY, badgeX)
-        local gapHalf = math.rad(36)
-        local sweep = 2 * math.pi - math.rad(47) -- extend endpoint another 15 degrees; start fixed
-        local step = sweep / math.max(1, count - 1)
-        -- Start at the upper edge of the level badge opening. Clockwise
-        -- movement uses decreasing polar angles, ending below the badge.
-        -- User-adjustable rotation, in degrees. Zero preserves the current
-        -- orientation; this must not change tick width, sweep or XP values.
+        local step = 2 * math.pi / count
         local rotation = math.max(-180, math.min(180, tonumber(settings.petXPRotation) or 0))
-        local startAngle = badgeAngle - gapHalf - math.rad(5) - math.rad(rotation)
-        local tickWidth = math.min(rimSize * 0.048, radius * step * 0.78)
-        -- Do not impose a pixel minimum: it made ticks disproportionately large at portrait size 36.
+        -- Start clear of the level badge so the first earned section is visible.
+        local startAngle = badgeAngle - math.rad(41 + rotation)
+        local textureSize = radius / 0.445
         for i, segment in ipairs(f.petXPRing.segments) do
             local angle = startAngle - (i - 1) * step
-            local x, y = math.cos(angle) * radius, math.sin(angle) * radius
-            local background = f.petXPRing.backgrounds[i]
-            for _, tile in ipairs({background, segment}) do
-                tile:ClearAllPoints()
-                tile:SetPoint("CENTER", f.portraitAnchor, "CENTER", x, y)
-                tile:SetSize(tickWidth, tickHeight)
-                tile:SetRotation(angle + math.pi / 2)
-            end
+            segment:SetSize(textureSize, textureSize)
+            segment:SetRotation(angle - math.pi / 2)
         end
     end
     f.rim:SetSize(rimSize, rimSize)
+    if f.portraitShadow then f.portraitShadow:FitPortrait() end
     -- Restore the last clean circular ring crop; asymmetric mask exposed
     -- a rectangular section of Blizzard's atlas behind the portrait.
     f.rimMask:SetSize(rimSize, rimSize)
@@ -557,6 +578,7 @@ local function layout(f, settings)
         end
     end
     f.levelDisc:SetSize(portraitSize / 2, portraitSize / 2)
+    if f.restingIcon then f.restingIcon:SetSize(portraitSize / 3, portraitSize / 3) end
     f.levelDisc:ClearAllPoints()
     f.levelDisc:SetPoint("BOTTOM", f.portrait, "BOTTOM", side == "LEFT" and -portraitSize * 17 / 48 or portraitSize * 17 / 48, -portraitSize * 9 / 48)
     f:SetSize(width + 62, math.max(48, hpHeight + powerHeight + 16))
@@ -598,12 +620,12 @@ local function layout(f, settings)
     f.power:SetSize(width, powerHeight)
     local font = settings.fontFace == "arial" and "Fonts\\ARIALN.TTF" or settings.fontFace == "friz" and "Fonts\\FRIZQT__.TTF" or (GameFontNormal and select(1, GameFontNormal:GetFont())) or "Fonts\\FRIZQT__.TTF"
     local size = math.max(8, math.min(28, tonumber(settings.fontSize) or 12))
-    f.level:SetFont(font, math.max(8, math.min(28, tonumber(settings.levelFontSize) or 12)), "OUTLINE")
+    addon.Typography.Apply(f.level, "UnitFrames:Level", font, math.max(8, math.min(28, tonumber(settings.levelFontSize) or 12)), "OUTLINE", settings.fontFace == "general")
     f.level:ClearAllPoints()
     f.level:SetPoint("CENTER", f.levelDisc, "CENTER", tonumber(settings.levelTextX) or 0, tonumber(settings.levelTextY) or 0)
-    f.name:SetFont(font, tonumber(settings.nameFontSize) or size, "OUTLINE")
-    f.value:SetFont(font, tonumber(settings.hpFontSize) or size, "OUTLINE")
-    f.powerText:SetFont(font, tonumber(settings.powerFontSize) or size, "OUTLINE")
+    addon.Typography.Apply(f.name, "UnitFrames:Name", font, tonumber(settings.nameFontSize) or size, "OUTLINE", settings.fontFace == "general")
+    addon.Typography.Apply(f.value, "UnitFrames:Health", font, tonumber(settings.hpFontSize) or size, "OUTLINE", settings.fontFace == "general")
+    addon.Typography.Apply(f.powerText, "UnitFrames:Power", font, tonumber(settings.powerFontSize) or size, "OUTLINE", settings.fontFace == "general")
     f.name:SetShown(settings.showName ~= false)
     local function anchorText(text, bar, anchor, x, y)
         local point = anchor == "LEFT" and "LEFT" or anchor == "CENTER" and "CENTER" or "RIGHT"
@@ -626,12 +648,16 @@ local function layout(f, settings)
     end
     tint(f.value, settings.hpFontColor)
     tint(f.powerText, f.unit == "player" and "white" or settings.powerFontColor)
-    applyBarGradient(f.health, settings.gradientDirection or "RIGHT")
+    applyBarGradient(f.health, settings.gradientDirection or "RIGHT", true)
     applyBarGradient(f.power, settings.gradientDirection or "RIGHT")
     if f.baziThreat then
         local threat = f.baziThreat
         threat:ClearAllPoints()
-        threat:SetPoint("CENTER", f, "CENTER", tonumber(settings.threatX) or 0, tonumber(settings.threatY) or -40)
+        if settings.threatOnPortrait then
+            threat:SetPoint("CENTER", f.portrait, "CENTER", 0, 0)
+        else
+            threat:SetPoint("CENTER", f, "CENTER", tonumber(settings.threatX) or 0, tonumber(settings.threatY) or -40)
+        end
         local font = settings.fontFace == "arial" and "Fonts\\ARIALN.TTF" or "Fonts\\FRIZQT__.TTF"
         threat:SetFont(font, math.max(7, math.min(40, tonumber(settings.threatFontSize) or 14)), "OUTLINE")
         if settings.showThreat == false then threat:Hide() end
@@ -701,11 +727,11 @@ local function update(f)
     f.health:SetValue(health)
     f.power:SetMinMaxValues(0, powerMax)
     f.power:SetValue(power)
-    f.name:SetText(UnitName(f.unit) or "")
     -- UnitHealth can be a secret number in Forever. Do not compare or calculate it in Lua.
     local own = unitSettings(cfg() or {}, f.unit)
-    setBarText(f.value, f.unit, own.hpText or "", true)
-    setBarText(f.powerText, f.unit, own.powerText or "", false)
+    M.SetName(f.name, f.unit, own.firstNameOnly)
+    M.SetBarText(f.value, f.unit, own.hpText or "", true)
+    M.SetBarText(f.powerText, f.unit, own.powerText or "", false)
     updateExtras(f, own)
     if f.unit == "pet" then updatePetExtras(f) end
     -- FlareUI's so-called "3d" mode is a Blizzard-rendered static portrait.
@@ -714,7 +740,12 @@ local function update(f)
     f.portrait:SetTexCoord(own.flipPortrait and 1 or 0, own.flipPortrait and 0 or 1, 0, 1)
     f.model:Hide()
     f.portrait:Show()
-    if f.level then f.level:SetText(UnitLevel(f.unit)) end
+    if f.level then addon.SetUnitDifficulty(f.level, f.unit, f.levelDisc) end
+    if f.restingIcon then
+        local resting = IsResting and IsResting()
+        f.restingIcon:SetShown(not not resting)
+        f.level:SetShown(not resting)
+    end
     updateHealthColor(f)
     local kind = UnitPowerType(f.unit)
     local c = PowerBarColor and PowerBarColor[kind]
@@ -746,8 +777,11 @@ updatePetExtras = function(f)
         if showRing and not (issecretvalue and (issecretvalue(xp) or issecretvalue(xpMax))) then
             local fraction = xpMax > 0 and math.max(0, math.min(1, xp / xpMax)) or 0
             local count = #f.petXPRing.segments
+            local visible = fraction > 0 and math.max(1, math.floor(fraction * count)) or 0
+            local color = own.petXPColor or addon.Theme.colors.experience
             for i, segment in ipairs(f.petXPRing.segments) do
-                segment:SetShown(i <= math.floor(fraction * count + 0.5))
+                segment:SetVertexColor(color[1], color[2], color[3], 1)
+                segment:SetShown(i <= visible)
             end
         end
     end
@@ -804,25 +838,24 @@ local function createPetExtras(f)
         border:EnableMouse(false)
         return holder
     end
-    local xp = bar(-5, {0.53, 0.31, 0.72})
+    local xpColor = addon.Theme.colors.experience
+    local xp = bar(-5, xpColor)
     xp.text = xp:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     xp.text:SetPoint("CENTER")
     xp.text:SetTextColor(1, 0.9, 0.72)
     f.petXP = xp
-    -- Draw XP marks above the bronze rim texture but below the level badge
-    -- and other indicators. Otherwise the opaque rim hides almost all ticks.
+    -- Fill the XP arc above the bronze rim and below the level badge.
     local ring = CreateFrame("Frame", nil, f.portraitAnchor:GetParent())
     ring:SetAllPoints(f.portraitAnchor)
     ring:SetFrameLevel(f.portraitAnchor:GetParent():GetFrameLevel() + 1)
     ring:EnableMouse(false)
     ring.segments = {}
-    ring.backgrounds = {}
     for i = 1, 36 do
-        local background = ring:CreateTexture(nil, "ARTWORK")
-        background:SetColorTexture(0, 0, 0, 0)
-        ring.backgrounds[i] = background
         local segment = ring:CreateTexture(nil, "OVERLAY")
-        segment:SetColorTexture(0.73, 0.14, 0.80, 1)
+        segment:SetPoint("CENTER", ring, "CENTER")
+        segment:SetTexture("Interface\\AddOns\\BaziUI\\Assets\\Bars\\BaziPetXPArc.tga")
+        segment:SetVertexColor(xpColor[1], xpColor[2], xpColor[3], 1)
+        segment:Hide()
         ring.segments[i] = segment
     end
     f.petXPRing = ring
@@ -906,17 +939,13 @@ local function updateTargetThreat(f)
             local _, _, value = UnitDetailedThreatSituation("player", "target")
             scaled = value
         end
-        -- nil means no threat table yet; display zero while acquiring aggro.
-        if scaled == nil then
-            pct = 0
-        elseif (issecretvalue and issecretvalue(scaled))
+        if scaled == nil or (issecretvalue and issecretvalue(scaled))
             or (canaccessvalue and not canaccessvalue(scaled))
-            or type(scaled) ~= "number" then
+            or type(scaled) ~= "number" or scaled < 1 then
             text:Hide()
             return
-        else
-            pct = math.max(0, math.floor(scaled + 0.5))
         end
+        pct = math.floor(scaled + 0.5)
     else
         text:Hide()
         return
@@ -943,13 +972,6 @@ local function create(key, spec)
     applyPosition(f, cfg() or {}, key)
     f:SetFrameStrata("MEDIUM")
     f.unit = spec.unit
-    if key == "target" then
-        local threat = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-        threat:SetDrawLayer("OVERLAY", 7)
-        threat:SetTextColor(1, 1, 1)
-        threat:Hide()
-        f.baziThreat = threat
-    end
     f.portraitSide = (key == "player" or key == "pet") and "LEFT" or "RIGHT"
     local bg = f:CreateTexture(nil, "BACKGROUND")
     bg:SetPoint("TOPLEFT", f, "TOPLEFT", (key == "player" or key == "pet") and 49 or 4, -4)
@@ -964,6 +986,7 @@ local function create(key, spec)
     local border = CreateFrame("Frame", nil, f, "BackdropTemplate")
     border:SetAllPoints(bg)
     f.barBorder = border
+    addon.Theme:AddDropShadow("UnitFrames", f, border)
     border:SetFrameLevel(f:GetFrameLevel() + 5)
     border:SetBackdrop({edgeFile="Interface\\Tooltips\\UI-Tooltip-Border", edgeSize=12})
     border:SetBackdropBorderColor(0.90, 0.72, 0.42, 1)
@@ -1010,6 +1033,7 @@ local function create(key, spec)
     local rim = portraitLayer:CreateTexture(nil, "OVERLAY")
     rim:SetSize(62,62)
     f.rim = rim
+    f.portraitShadow = BaziUI.Theme:AddPortraitDropShadow(portraitAnchor, rim)
     rim:SetPoint("CENTER", portraitAnchor, "CENTER")
     rim:SetAtlas("UI-HUD-UnitFrame-Target-PortraitOn")
     rim:SetTexCoord(252.78/384, 375/384, 1.67/134, 123.89/134)
@@ -1032,6 +1056,14 @@ local function create(key, spec)
     local level = badgeLayer:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     level:SetPoint("CENTER", disc, "CENTER", 0, 0)
     f.level = level
+    if key == "player" then
+        local resting = badgeLayer:CreateTexture(nil, "OVERLAY", nil, 2)
+        resting:SetPoint("CENTER", disc, "CENTER")
+        resting:SetTexture("Interface\\CharacterFrame\\UI-StateIcon")
+        resting:SetTexCoord(0, 0.5, 0, 0.421875)
+        resting:Hide()
+        f.restingIcon = resting
+    end
     local hp = CreateFrame("StatusBar", nil, f)
     hp:SetStatusBarTexture("Interface\\Buttons\\WHITE8X8")
     -- Inset the actual bar fills inside the thin tooltip-style border.
@@ -1044,6 +1076,7 @@ local function create(key, spec)
     hpBackground:SetAllPoints(hp)
     hpBackground:SetColorTexture(0.085, 0.065, 0.045, 1)
     f.hpBackground = hpBackground
+    addon.Backgrounds.Track("unitFrames", hpBackground)
     local pp = CreateFrame("StatusBar", nil, f)
     pp:SetStatusBarTexture("Interface\\Buttons\\WHITE8X8")
     pp:SetPoint("TOPLEFT", hp, "BOTTOMLEFT", 0, -1)
@@ -1054,6 +1087,7 @@ local function create(key, spec)
     powerBackground:SetAllPoints(pp)
     powerBackground:SetColorTexture(0.065, 0.055, 0.075, 1)
     f.powerBackground = powerBackground
+    addon.Backgrounds.Track("unitFrames", powerBackground)
     local divider = border:CreateTexture(nil, "OVERLAY")
     divider:SetColorTexture(0.22, 0.16, 0.10, 1)
     divider:SetHeight(2)
@@ -1084,6 +1118,35 @@ local function create(key, spec)
     -- Native Blizzard boss portrait decoration, selected per classification.
     f.classIcon = icon(-26, -23, "Interface\\TargetingFrame\\UI-RaidTargetingIcons")
     f.happinessIcon = icon(24, -3, "Interface\\PetPaperDollFrame\\UI-PetHappiness")
+    if key == "pet" then
+        local hover = CreateFrame("Frame", nil, f.happinessIcon:GetParent())
+        hover:SetAllPoints(f.happinessIcon)
+        if hover.SetMouseMotionEnabled and hover.SetMouseClickEnabled then
+            hover:SetMouseMotionEnabled(true)
+            hover:SetMouseClickEnabled(false)
+        else
+            hover:EnableMouse(true)
+            if hover.SetPassThroughButtons then hover:SetPassThroughButtons("LeftButton", "RightButton") end
+        end
+        hover:SetScript("OnEnter", function(self)
+            GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+            local happiness = self.happiness or 3
+            local labels = {"Unhappy", "Content", "Happy"}
+            GameTooltip:SetText(_G["PET_HAPPINESS" .. happiness] or labels[happiness] or "Pet happiness")
+            if type(self.damage) == "number" then
+                GameTooltip:AddLine(("%d%% of normal damage"):format(self.damage), 1, 1, 1)
+            end
+            if type(self.loyalty) == "number" and _G["PET_LOYALTYGAIN" .. self.loyalty] then
+                GameTooltip:AddLine(_G["PET_LOYALTYGAIN" .. self.loyalty], 1, 1, 1)
+            end
+            GameTooltip:Show()
+        end)
+        local function hideTooltip(self) if GameTooltip:IsOwned(self) then GameTooltip:Hide() end end
+        hover:SetScript("OnLeave", hideTooltip)
+        hover:SetScript("OnHide", hideTooltip)
+        hover:Hide()
+        f.happinessHover = hover
+    end
     -- Elite/rare decoration is above the portrait rim, but must stay below
     -- the level badge and every other indicator.
     local dragonLayer = CreateFrame("Frame", nil, portraitLayer)
@@ -1100,6 +1163,13 @@ local function create(key, spec)
             f[iconName]:SetParent(indicatorLayer)
         end
     end
+    if key == "target" then
+        local threat = indicatorLayer:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        threat:SetDrawLayer("OVERLAY", 7)
+        threat:SetTextColor(1, 1, 1)
+        threat:Hide()
+        f.baziThreat = threat
+    end
     f:RegisterEvent("UNIT_FLAGS")
     f:RegisterEvent("GROUP_ROSTER_UPDATE")
     f:RegisterEvent("RAID_TARGET_UPDATE")
@@ -1114,6 +1184,7 @@ local function create(key, spec)
     f:RegisterEvent("PLAYER_FOCUS_CHANGED")
     f:RegisterEvent("UNIT_PET")
     f:RegisterEvent("UNIT_HAPPINESS")
+    if key == "player" then f:RegisterEvent("PLAYER_UPDATE_RESTING") end
     if key == "pet" then
         for _, event in ipairs({"UNIT_SPELLCAST_START", "UNIT_SPELLCAST_STOP", "UNIT_SPELLCAST_DELAYED", "UNIT_SPELLCAST_CHANNEL_START", "UNIT_SPELLCAST_CHANNEL_STOP", "UNIT_SPELLCAST_CHANNEL_UPDATE", "UNIT_SPELLCAST_INTERRUPTED", "UNIT_SPELLCAST_FAILED", "UNIT_PET_EXPERIENCE", "PET_XP_UPDATE"}) do
             pcall(f.RegisterEvent, f, event)
@@ -1180,6 +1251,7 @@ local originals = {
     target = "TargetFrame",
     focus = "FocusFrame",
     pet = "PetFrame",
+    targettarget = "TargetFrameToT",
 }
 local originalState = {}
 local function syncOriginal(key, settings)
@@ -1195,7 +1267,21 @@ local function syncOriginal(key, settings)
         end
         frame:SetAlpha(0)
         frame:EnableMouse(false)
+        local selection = frame.Selection
+        if selection then
+            if state.selection ~= selection then
+                state.selection = selection
+                state.selectionAlpha = selection:GetAlpha()
+                state.selectionMouse = selection:IsMouseEnabled()
+            end
+            selection:SetAlpha(0)
+            selection:EnableMouse(false)
+        end
     elseif state then
+        if state.selection then
+            state.selection:SetAlpha(state.selectionAlpha)
+            state.selection:EnableMouse(state.selectionMouse)
+        end
         frame:SetAlpha(state.alpha)
         frame:EnableMouse(state.mouse)
         originalState[key] = nil
@@ -1583,7 +1669,21 @@ function M:Initialize()
     events:RegisterEvent("PLAYER_REGEN_ENABLED")
     events:RegisterEvent("PLAYER_ENTERING_WORLD")
     events:RegisterEvent("ADDON_LOADED")
+    pcall(events.RegisterEvent, events, "UPDATE_EDIT_MODE_LAYOUTS")
+    local function refreshNativeEditMode()
+        C_Timer.After(0, function()
+            local settings = cfg()
+            if settings then
+                for key in pairs(originals) do syncOriginal(key, settings) end
+            end
+        end)
+    end
+    if EditModeManagerFrame then EditModeManagerFrame:HookScript("OnShow", refreshNativeEditMode) end
     events:SetScript("OnEvent", function(eventFrame, event)
+        if event == "UPDATE_EDIT_MODE_LAYOUTS" then
+            refreshNativeEditMode()
+            return
+        end
         if event == "PLAYER_REGEN_ENABLED" then
             -- Only rebuild layout when a settings change was deferred in combat.
             if pendingCombatRefresh then M:Refresh() end

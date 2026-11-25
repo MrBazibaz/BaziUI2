@@ -441,30 +441,7 @@ function M:CopyLayout(source, destination)
     return true
 end
 
--- Pass secret unit values directly to Blizzard's FontString formatter.
--- Never do Lua arithmetic or string concatenation with secret numbers.
-local function setBarText(fontString, unit, template, health)
-    if not template or template == "" then fontString:SetText(""); return end
-    local current = health and UnitHealth(unit) or UnitPower(unit)
-    local maximum = health and UnitHealthMax(unit) or UnitPowerMax(unit)
-    local percent
-    if health and UnitHealthPercent then
-        percent = UnitHealthPercent(unit)
-    elseif not health and UnitPowerPercent then
-        percent = UnitPowerPercent(unit)
-    end
-    local args = {}
-    local fmt = template:gsub("{([%a]+)}", function(tag)
-        if tag == "current" then args[#args + 1] = current; return "%s" end
-        if tag == "max" then args[#args + 1] = maximum; return "%s" end
-        if tag == "percent" then
-            args[#args + 1] = percent or "?"; return "%s"
-        end
-        return "{" .. tag .. "}"
-    end)
-    -- SetFormattedText is implemented by WoW and accepts secret numeric arguments.
-    fontString:SetFormattedText(fmt, unpack(args))
-end
+local unitFrames = BaziUI.UnitFrames
 local function updateExtras(f, own)
     local unit = f.unit
     local function readable(v) return not (issecretvalue and issecretvalue(v)) and v end
@@ -706,10 +683,10 @@ local function layout(f, settings)
     end
     local font = settings.fontFace == "arial" and "Fonts\\ARIALN.TTF" or settings.fontFace == "friz" and "Fonts\\FRIZQT__.TTF" or (GameFontNormal and select(1, GameFontNormal:GetFont())) or "Fonts\\FRIZQT__.TTF"
     local size = math.max(8, math.min(28, tonumber(settings.fontSize) or 12))
-    f.level:SetFont(font, math.max(8, math.min(28, tonumber(settings.levelFontSize) or 12)), "OUTLINE")
+    addon.Typography.Apply(f.level, "UnitFrames:Level", font, math.max(8, math.min(28, tonumber(settings.levelFontSize) or 12)), "OUTLINE", settings.fontFace == "general")
     f.level:ClearAllPoints()
     f.level:SetPoint("CENTER", f.levelDisc, "CENTER", tonumber(settings.levelTextX) or 0, tonumber(settings.levelTextY) or 0)
-    f.name:SetFont(font, math.max(1,tonumber(settings.nameFontSize) or tonumber(settings.fontSize) or size), "OUTLINE")
+    addon.Typography.Apply(f.name, "UnitFrames:Name", font, math.max(1,tonumber(settings.nameFontSize) or tonumber(settings.fontSize) or size), "OUTLINE", settings.fontFace == "general")
     f.name:ClearAllPoints()
     local namePoint=settings.nameAnchor or "LEFT"
     local nameVisible=namePoint~="HIDDEN"
@@ -718,8 +695,8 @@ local function layout(f, settings)
         f.name:SetPoint(point,f.health,point,(tonumber(settings.nameX) or 0)+(point=="LEFT" and 4 or point=="RIGHT" and -4 or 0),tonumber(settings.nameY) or 0)
         f.name:SetJustifyH(point)
     end
-    f.value:SetFont(font, tonumber(settings.hpFontSize) or size, "OUTLINE")
-    f.powerText:SetFont(font, tonumber(settings.powerFontSize) or size, "OUTLINE")
+    addon.Typography.Apply(f.value, "UnitFrames:Health", font, tonumber(settings.hpFontSize) or size, "OUTLINE", settings.fontFace == "general")
+    addon.Typography.Apply(f.powerText, "UnitFrames:Power", font, tonumber(settings.powerFontSize) or size, "OUTLINE", settings.fontFace == "general")
     f.name:SetShown(settings.showName ~= false and settings.nameAnchor ~= "HIDDEN" and (tonumber(settings.nameFontSize) or tonumber(settings.fontSize) or 12)>0)
     f.level:SetShown(settings.showLevel ~= false)
     local function anchorText(text, bar, anchor, x, y)
@@ -809,11 +786,11 @@ local function update(f)
     f.health:SetValue(health)
     f.power:SetMinMaxValues(0, powerMax)
     f.power:SetValue(power)
-    f.name:SetText(UnitName(f.unit) or "")
     -- UnitHealth can be a secret number in Forever. Do not compare or calculate it in Lua.
     local own = unitSettings(cfg() or {}, f.unit)
-    setBarText(f.value, f.unit, own.hpText or "", true)
-    setBarText(f.powerText, f.unit, own.powerText or "", false)
+    unitFrames.SetName(f.name, f.unit, own.firstNameOnly)
+    unitFrames.SetBarText(f.value, f.unit, own.hpText or "", true)
+    unitFrames.SetBarText(f.powerText, f.unit, own.powerText or "", false)
     updateExtras(f, own)
     if f.unit == "pet" then updatePetExtras(f) end
     -- FlareUI's so-called "3d" mode is a Blizzard-rendered static portrait.
@@ -822,7 +799,7 @@ local function update(f)
     f.portrait:SetTexCoord(own.flipPortrait and 1 or 0, own.flipPortrait and 0 or 1, 0, 1)
     f.model:Hide()
     f.portrait:Show()
-    if f.level then f.level:SetText(UnitLevel(f.unit)) end
+    if f.level then BaziUI.SetUnitDifficulty(f.level, f.unit) end
     updateHealthColor(f)
     local kind = UnitPowerType(f.unit)
     local c = PowerBarColor and PowerBarColor[kind]
@@ -1091,6 +1068,7 @@ local function create(key, spec)
     local border = CreateFrame("Frame", nil, f, "BackdropTemplate")
     border:SetAllPoints(bg)
     f.barBorder = border
+    BaziUI.Theme:AddDropShadow("UnitFrames", f, border)
     border:SetFrameLevel(f:GetFrameLevel() + 5)
     border:SetBackdrop({edgeFile="Interface\\Tooltips\\UI-Tooltip-Border", edgeSize=12})
     border:SetBackdropBorderColor(0.90, 0.72, 0.42, 1)
@@ -1184,6 +1162,7 @@ local function create(key, spec)
     hpBackground:SetAllPoints(hp)
     hpBackground:SetColorTexture(0.085, 0.065, 0.045, 1)
     f.hpBackground = hpBackground
+    addon.Backgrounds.Track("raidFrames", hpBackground)
     local pp = CreateFrame("StatusBar", nil, f)
     pp:SetStatusBarTexture("Interface\\Buttons\\WHITE8X8")
     pp:SetPoint("TOPLEFT", hp, "BOTTOMLEFT", 0, -1)
@@ -1194,6 +1173,7 @@ local function create(key, spec)
     powerBackground:SetAllPoints(pp)
     powerBackground:SetColorTexture(0.065, 0.055, 0.075, 1)
     f.powerBackground = powerBackground
+    addon.Backgrounds.Track("raidFrames", powerBackground)
     local divider = border:CreateTexture(nil, "OVERLAY")
     divider:SetColorTexture(0.22, 0.16, 0.10, 1)
     divider:SetHeight(2)
@@ -1376,10 +1356,7 @@ local function updateSample(f,index)
     f.power:SetMinMaxValues(0,100)
     f.power:SetValue(sample.power)
     f.name:SetText(sample.name)
-    if RAID_CLASS_COLORS and RAID_CLASS_COLORS[sample.class] then
-        local c=RAID_CLASS_COLORS[sample.class]
-        f.name:SetTextColor(c.r,c.g,c.b)
-    end
+    unitFrames.ColorName(f.name, sample.class)
     local own=unitSettings(cfg() or {},f.unit)
     local function previewText(template,value)
         if not template or template=="" then return "" end
@@ -1453,22 +1430,12 @@ function M:Refresh()
                 updateSample(f,i)
             end
             updatePartyCast(f,preview and not exists)
-            -- Raid is intentionally text-light: centered white names only.
+            -- Raid uses centered names as its only bar text.
             f.value:Hide()
             f.powerText:Hide()
             f.name:ClearAllPoints()
             f.name:SetPoint("CENTER",f.health,"CENTER",0,0)
             f.name:SetJustifyH("CENTER")
-            local class
-            if exists then
-                _,class=UnitClass(key)
-            elseif preview then
-                local sample=samples[(i-1)%#samples+1]
-                class=sample and sample.class
-            end
-            local color=class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
-            if color then f.name:SetTextColor(color.r,color.g,color.b)
-            else f.name:SetTextColor(1,1,1) end
             -- Preview/live updates may show portrait textures again.
             -- Raid intentionally has no portrait, ring, level disc or portrait decorations.
             for _,region in ipairs({f.portrait,f.portraitBack,f.rim,f.model,f.roleArt,f.levelDisc,f.level,f.classIcon,f.pvpIcon,f.leaderIcon,f.roleIcon,f.happinessIcon}) do

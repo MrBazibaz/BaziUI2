@@ -4,8 +4,9 @@
 local addon = BaziUI
 addon.Nameplates = addon.Nameplates or {}
 local M = addon.Nameplates
+local Enemy = addon.EnemyNameplates
 local active = {}
-local plateUnits = {} -- NAME_PLATE_UNIT_ADDED is the reliable source of unit tokens.
+local plateUnits, unitPlates = {}, {} -- Track both sides because removed tokens may no longer resolve.
 -- Save original text presentation so disabling Bazi UI restores Blizzard styling.
 local styledNames = {}
 local hiddenUnitFrames = {} -- reversible alpha override for the nameplate test
@@ -121,8 +122,17 @@ local function Config()
     return profile and profile.nameplates
 end
 
+local function readable(value)
+    return (not issecretvalue or not issecretvalue(value))
+        and (not canaccessvalue or canaccessvalue(value))
+end
+
+local function groupFlag(value)
+    return readable(value) and value
+end
+
 local function InGroup(unit)
-    return UnitIsUnit(unit, "player") or UnitInParty(unit) or UnitInRaid(unit)
+    return groupFlag(UnitIsUnit(unit, "player")) or groupFlag(UnitInParty(unit)) or groupFlag(UnitInRaid(unit))
 end
 
 local function IsRaid()
@@ -138,9 +148,10 @@ local function Role(unit)
 end
 
 local function Friendly(unit)
-    if not UnitExists(unit) or not UnitIsPlayer(unit) then return false end
+    if not groupFlag(UnitExists(unit)) or not groupFlag(UnitIsPlayer(unit)) then return false end
     if InGroup(unit) then return true end
-    return UnitIsFriend("player", unit) and not UnitIsEnemy("player", unit)
+    local enemy = UnitIsEnemy("player", unit)
+    return groupFlag(UnitIsFriend("player", unit)) and readable(enemy) and not enemy
 end
 
 local ROLE_TEXTURES = {
@@ -176,14 +187,14 @@ local function RestoreUnitFrame(plate)
     local frame = plate and plate.UnitFrame
     local original = hiddenUnitFrames[plate]
     if original ~= nil then
-        if frame and frame.SetAlpha then frame:SetAlpha(original) end
         hiddenUnitFrames[plate] = nil
+        if frame and frame.SetAlpha then frame:SetAlpha(original) end
     end
 end
 
 local nonPlayerMarkers = {} -- separate, reversible pet/NPC overlays
 -- React immediately when Blizzard resets native plate opacity, instead of
--- waiting for the next 50ms pet marker update. Only pet/NPC overlays opt in.
+-- waiting for the next marker update.
 local nativeAlphaHooks = setmetatable({}, {__mode = "k"})
 local nativeAlphaReentry = setmetatable({}, {__mode = "k"})
 local function KeepNativePlateHidden(plate)
@@ -192,14 +203,15 @@ local function KeepNativePlateHidden(plate)
     if type(hooksecurefunc) ~= "function" then return end
     nativeAlphaHooks[frame] = true
     hooksecurefunc(frame, "SetAlpha", function(self)
-        if nativeAlphaReentry[self] then return end
-        local marker = nonPlayerMarkers[plate]
-        if not marker or not marker:IsShown() or hiddenUnitFrames[plate] == nil then return end
+        if nativeAlphaReentry[self] or self ~= plate.UnitFrame or hiddenUnitFrames[plate] == nil then return end
+        local marker, player = nonPlayerMarkers[plate], active[plate]
+        if not (marker and marker:IsShown() or player and player.textAnchor and player.textAnchor:IsShown()) then return end
         local unit = plateUnits[plate]
-        if not unit or not UnitExists(unit) or UnitIsPlayer(unit) then return end
+        if not unit or not groupFlag(UnitExists(unit)) then return end
         if C_NamePlate and C_NamePlate.GetNamePlateForUnit
             and C_NamePlate.GetNamePlateForUnit(unit) ~= plate then return end
-        if self:GetAlpha() ~= 0 then
+        local alpha = self:GetAlpha()
+        if readable(alpha) and alpha ~= 0 then
             nativeAlphaReentry[self] = true
             self:SetAlpha(0)
             nativeAlphaReentry[self] = nil
@@ -217,18 +229,37 @@ local function HidePlate(plate)
     if nonPlayerMarkers[plate] then nonPlayerMarkers[plate]:Hide() end
 end
 
+local function UpdateEnemyPlate(unit, plate, friendly)
+    if friendly then Enemy:Remove(unit)
+    else Enemy:Update(unit, plate) end
+end
+
 local UpdateNonPlayerPlate -- defined below; separate from approved Friendly Player logic
 local function UpdatePlate(unit)
     if not (C_NamePlate and C_NamePlate.GetNamePlateForUnit) then return end
     local plate = C_NamePlate.GetNamePlateForUnit(unit)
     if not plate then return end
-    plateUnits[plate] = unit
+    local previous = unitPlates[unit]
+    if previous and previous ~= plate and plateUnits[previous] == unit then
+        plateUnits[previous] = nil
+        HidePlate(previous)
+    end
+    local previousUnit = plateUnits[plate]
+    if previousUnit and previousUnit ~= unit then
+        if unitPlates[previousUnit] == plate then unitPlates[previousUnit] = nil end
+        Enemy:Remove(previousUnit)
+        HidePlate(plate)
+    end
+    plateUnits[plate], unitPlates[unit] = unit, plate
+    local friendly = Friendly(unit)
+    UpdateEnemyPlate(unit, plate, friendly)
     local cfg = Config()
-    if cfg and cfg.enabled and UnitExists(unit) and not UnitIsPlayer(unit) then
+    local isPlayer = UnitIsPlayer(unit)
+    if cfg and cfg.enabled and groupFlag(UnitExists(unit)) and readable(isPlayer) and not isPlayer then
         UpdateNonPlayerPlate(unit, plate, cfg)
         return
     end
-    if not cfg or not cfg.enabled or cfg.friendlyIcon == "off" or not Friendly(unit) then
+    if not cfg or not cfg.enabled or cfg.friendlyIcon == "off" or not friendly then
         HidePlate(plate)
         if nonPlayerMarkers[plate] then nonPlayerMarkers[plate]:Hide() end
         return
@@ -301,6 +332,7 @@ local function UpdatePlate(unit)
         if hiddenUnitFrames[plate] == nil then
             hiddenUnitFrames[plate] = unitFrame:GetAlpha()
         end
+        KeepNativePlateHidden(plate)
         unitFrame:SetAlpha(0)
     end
     local anchor = plate
@@ -323,22 +355,33 @@ local function UpdatePlate(unit)
     -- Keep the approved single-layer appearance. The user selected size 20.
     -- FontString text inherits the nameplate's frame transforms.
     for _, label in ipairs({marker.name, marker.guild}) do
-        local font = UNIT_NAME_FONT
-        local ok, applied = pcall(label.SetFont, label, font, cfg.friendlyTextSize or 20, "")
+        local font, size, flags, shadow = addon.Typography.Resolve("Nameplates:Friendly",
+            UNIT_NAME_FONT, cfg.friendlyTextSize or 20, "")
+        local ok, applied = pcall(label.SetFont, label, font, size, flags)
         if not ok or applied == false then
             local fallback = GameFontNormal and select(1, GameFontNormal:GetFont())
-            if fallback then pcall(label.SetFont, label, fallback, cfg.friendlyTextSize or 20, "") end
+            if fallback then pcall(label.SetFont, label, fallback, size, flags) end
         end
         label:SetTextColor(115 / 255, 115 / 255, 217 / 255, 1)
         label:SetShadowColor(0, 0, 0, 0.35)
         label:SetShadowOffset(0, 0)
+        addon.Typography.Shadow(label, shadow)
     end
     PositionFriendlyText(plate, marker, cfg)
     marker.name:ClearAllPoints()
     marker.name:SetPoint("TOP", marker.textAnchor, "TOP", 0, 0)
     marker.guild:ClearAllPoints()
     marker.guild:SetPoint("TOP", marker.name, "BOTTOM", 0, 0)
-    local displayName = UnitName(unit)
+    local displayName, surname = (UnitNameUnmodified or UnitName)(unit)
+    local function readable(value)
+        return (not issecretvalue or not issecretvalue(value))
+            and (not canaccessvalue or canaccessvalue(value)) and type(value) == "string"
+    end
+    if readable(displayName) and readable(surname) and surname ~= "" then
+        local constants = Constants and Constants.CharacterNameSeparatorConsts
+        local separator = constants and constants.CHARACTERNAME_SURNAME_SEPARATOR or " "
+        displayName = displayName .. separator .. surname
+    end
     if marker.name then
         marker.name:SetText(displayName or "")
         marker.name:SetWidth(math.max(160, (cfg.friendlySize or 28) * 4))
@@ -506,6 +549,7 @@ local function NPCServiceIcon(title, unit)
     if type(title) ~= "string" then return nil end
     local value = title:lower()
     if value:find("flight master", 1, true) or value:find("gryphon master", 1, true)
+        or value:find("hippogryph master", 1, true)
         or value:find("wind rider", 1, true) then return NPC_SERVICE_TEXTURES.flight end
     if value:find("innkeeper", 1, true) then return NPC_SERVICE_TEXTURES.inn end
     if value:find("auctioneer", 1, true) then return NPC_SERVICE_TEXTURES.auction end
@@ -526,6 +570,59 @@ local function NPCServiceIcon(title, unit)
     if value:find("barber", 1, true) then return NPC_SERVICE_TEXTURES.barber end
     if value:find("trainer", 1, true) then return NPC_SERVICE_TEXTURES.trainer end
     return nil
+end
+
+local flightCheckAt, nearbyUndiscovered = 0, false
+local function learnedFlights()
+    local guid = UnitGUID("player")
+    if type(guid) ~= "string" or not addon.db then return end
+    addon.db.learnedFlights = addon.db.learnedFlights or {}
+    local learned = addon.db.learnedFlights[guid] or {}
+    addon.db.learnedFlights[guid] = learned
+    return learned
+end
+
+local function rememberTaxiNodes()
+    flightCheckAt = 0
+    if not (C_TaxiMap and C_TaxiMap.GetAllTaxiNodes and GetTaxiMapID) then return end
+    local learned = learnedFlights()
+    local map = GetTaxiMapID()
+    if not learned or not map then return end
+    local state = Enum and Enum.FlightPathState
+    for _, node in ipairs(C_TaxiMap.GetAllTaxiNodes(map) or {}) do
+        if node.nodeID and (node.state == (state and state.Current or 0)
+            or node.state == (state and state.Reachable or 1)) then
+            learned[node.nodeID] = true
+        end
+    end
+end
+
+local function unlearnedFlightNearby()
+    local now = GetTime()
+    if now < flightCheckAt then return nearbyUndiscovered end
+    flightCheckAt, nearbyUndiscovered = now + 1, false
+    if not (C_TaxiMap and C_TaxiMap.GetTaxiNodesForMap and C_Map and C_Map.GetBestMapForUnit) then return false end
+    local map = C_Map.GetBestMapForUnit("player")
+    if not map then return false end
+    local position = C_Map.GetPlayerMapPosition(map, "player")
+    local px, py
+    if position then px, py = position:GetXY() end
+    local named, namedCount, nearest, best = nil, 0, nil, 0.025 ^ 2
+    local subzone = GetSubZoneText()
+    for _, node in ipairs(C_TaxiMap.GetTaxiNodesForMap(map) or {}) do
+        local place = node.name and node.name:match("^([^,]+)")
+        if place and place == subzone then named, namedCount = node, namedCount + 1 end
+        if px and py and node.position then
+            local x, y = node.position:GetXY()
+            local distance = (x - px) ^ 2 + (y - py) ^ 2
+            if distance < best then nearest, best = node, distance end
+        end
+    end
+    local node = namedCount == 1 and named or nearest
+    local learned = learnedFlights()
+    nearbyUndiscovered = node ~= nil and node.isUndiscovered == true
+        and not (learned and learned[node.nodeID])
+    return nearbyUndiscovered
 end
 
 -- NPC labels are intentionally fixed at 16 UI points. Never compensate
@@ -562,13 +659,18 @@ local function NonPlayerMarker(plate)
         "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
     marker.rimMask:SetPoint("CENTER", marker.iconAnchor, "CENTER", 0, 0)
     marker.rim:AddMaskTexture(marker.rimMask)
-    -- NPCs have their own unmasked artwork. Pet portrait, mask and gold rim
-    -- remain untouched and are never reused for NPC service markers.
+    -- NPC service markers and the pet combat paw use unmasked artwork.
     marker.npcIcon = marker.iconAnchor:CreateTexture(nil, "OVERLAY", nil, 3)
     marker.npcIcon:SetPoint("CENTER", marker.iconAnchor, "CENTER")
     -- Blizzard tracking textures are complete icons, not cropped item portraits.
     marker.npcIcon:SetTexCoord(0, 1, 0, 1)
     marker.npcIcon:Hide()
+    marker.flightAlert = marker.iconAnchor:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+    marker.flightAlert:SetPoint("LEFT", marker.npcIcon, "RIGHT", -2, 0)
+    marker.flightAlert:SetText("!")
+    marker.flightAlert:SetTextColor(0.22, 1, 0.18)
+    marker.flightAlert:SetShadowOffset(1, -1)
+    marker.flightAlert:Hide()
     nonPlayerMarkers[plate] = marker
     -- Blizzard may reset UnitFrame alpha after NAME_PLATE_UNIT_ADDED.
     -- Reapply only for an actively styled pet/NPC, never for locked player plates.
@@ -615,6 +717,7 @@ local function NonPlayerMarker(plate)
             local texture = cfg.npcIcons and NPCServiceIcon(title, unit)
             if texture then self.npcIcon:SetTexture(texture) end
             self.npcIcon:SetShown(texture ~= nil)
+            self.flightAlert:SetShown(texture == NPC_SERVICE_TEXTURES.flight and unlearnedFlightNearby())
             self.iconAnchor:SetShown(texture ~= nil)
         end
         if cfg and cfg.petIconVisibility == "combat" and self.isOwnPet then
@@ -664,11 +767,11 @@ UpdateNonPlayerPlate = function(unit, plate, cfg)
     end
     local size = cfg.friendlyTextSize or NPC_FONT_SIZE
     for _, label in ipairs({marker.name, marker.owner}) do
-        local font = UNIT_NAME_FONT
-        local ok, applied = pcall(label.SetFont, label, font, size, "")
+        local font, height, flags, shadow = addon.Typography.Resolve("Nameplates:NPC", UNIT_NAME_FONT, size, "")
+        local ok, applied = pcall(label.SetFont, label, font, height, flags)
         if not ok or applied == false then
             local fallback = GameFontNormal and select(1, GameFontNormal:GetFont())
-            if fallback then pcall(label.SetFont, label, fallback, size, "") end
+            if fallback then pcall(label.SetFont, label, fallback, height, flags) end
         end
         if pet then
             label:SetTextColor(115 / 255, 115 / 255, 217 / 255, 1)
@@ -677,6 +780,7 @@ UpdateNonPlayerPlate = function(unit, plate, cfg)
         end
         label:SetShadowColor(0, 0, 0, 0.35)
         label:SetShadowOffset(0, 0)
+        addon.Typography.Shadow(label, shadow)
     end
     marker:ClearAllPoints()
     if pet then
@@ -707,7 +811,7 @@ UpdateNonPlayerPlate = function(unit, plate, cfg)
     -- Keep NPC presentation at UIParent's fixed scale, not nameplate distance.
     if not pet and marker:GetScale() ~= 1 then marker:SetScale(1) end
     if not pet then
-        marker:SetFrameStrata("HIGH")
+        marker:SetFrameStrata("LOW")
         marker:SetFrameLevel(100)
     else
         marker:SetFrameStrata(plate:GetFrameStrata())
@@ -727,13 +831,24 @@ UpdateNonPlayerPlate = function(unit, plate, cfg)
         local texture = cfg.npcIcons and NPCServiceIcon(ownerText, unit)
         if texture then marker.npcIcon:SetTexture(texture) end
         marker.npcIcon:SetSize(36, 36)
+        marker.npcIcon:SetAlpha(1)
         marker.npcIcon:SetShown(texture ~= nil)
+        marker.flightAlert:SetShown(texture == NPC_SERVICE_TEXTURES.flight and unlearnedFlightNearby())
         iconVisible = texture ~= nil
     else
-        marker.npcIcon:Hide()
-        marker.icon:Show()
-        marker.rim:Show()
-        marker.icon:SetTexture("Interface\\Icons\\Ability_Hunter_BeastCall")
+        marker.flightAlert:Hide()
+        local combatPaw = cfg.petIconVisibility == "combat"
+        marker.icon:SetShown(not combatPaw)
+        marker.rim:SetShown(not combatPaw)
+        if combatPaw then
+            marker.npcIcon:SetTexture(NPC_SERVICE_TEXTURES.pet)
+            local pawSize = (cfg.friendlySize or 28) * 0.8
+            marker.npcIcon:SetSize(pawSize, pawSize)
+            marker.npcIcon:SetAlpha(0.85)
+        else
+            marker.icon:SetTexture("Interface\\Icons\\Ability_Hunter_BeastCall")
+        end
+        marker.npcIcon:SetShown(combatPaw)
     end
     marker.iconAnchor:SetShown(iconVisible)
     -- NPC icons use only known service titles, not inferred unit names.
@@ -836,10 +951,23 @@ SlashCmdList.BAZINPTEST = function()
     addon:Print("Friendly nameplate role preview " .. (friendlyPreviewEnabled and "ON" or "OFF"))
 end
 
+function M:ApplyEnemy()
+    Enemy:Prepare()
+    if not (C_NamePlate and C_NamePlate.GetNamePlateForUnit) then return end
+    for plate, unit in pairs(plateUnits) do
+        if C_NamePlate.GetNamePlateForUnit(unit) == plate then
+            UpdateEnemyPlate(unit, plate, Friendly(unit))
+        else
+            Enemy:Remove(unit)
+        end
+    end
+end
+
 function M:Apply()
     RefreshFriendlyPreview()
     local cfg = Config()
     if not cfg or not cfg.enabled then
+        Enemy:Clear()
         for plate in pairs(active) do HidePlate(plate) end
         for plate in pairs(styledNames) do RestoreName(plate) end
         for plate in pairs(hiddenUnitFrames) do RestoreUnitFrame(plate) end
@@ -848,12 +976,17 @@ function M:Apply()
     -- A nameplate frame does not reliably expose namePlateUnitToken on this
     -- client. Retain the token from NAME_PLATE_UNIT_ADDED instead of hiding
     -- existing markers whenever a setting changes.
+    Enemy:Prepare()
     for plate, unit in pairs(plateUnits) do
         if C_NamePlate and C_NamePlate.GetNamePlateForUnit
             and C_NamePlate.GetNamePlateForUnit(unit) == plate then
             UpdatePlate(unit)
         else
             plateUnits[plate] = nil
+            if unitPlates[unit] == plate then
+                unitPlates[unit] = nil
+                Enemy:Remove(unit)
+            end
             HidePlate(plate)
         end
     end
@@ -868,21 +1001,42 @@ function M:Apply()
     end
 end
 
+local pendingPlayers = {}
+local function queueFriendlyPlate(unit)
+    pendingPlayers[unit] = true
+    if eventFrame:GetScript("OnUpdate") then return end
+    eventFrame:SetScript("OnUpdate", function(self)
+        local start = debugprofilestop and debugprofilestop()
+        for _ = 1, 4 do
+            local token = next(pendingPlayers)
+            if not token then break end
+            pendingPlayers[token] = nil
+            UpdatePlate(token)
+            if start and debugprofilestop() - start >= 1.2 then break end
+        end
+        if not next(pendingPlayers) then self:SetScript("OnUpdate", nil) end
+    end)
+end
+
 function M:Initialize()
     if self.initialized then return end
     self.initialized = true
+    Enemy:Initialize()
     eventFrame:RegisterEvent("NAME_PLATE_UNIT_ADDED")
     eventFrame:RegisterEvent("NAME_PLATE_UNIT_REMOVED")
     eventFrame:RegisterEvent("GROUP_ROSTER_UPDATE")
     eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
     eventFrame:RegisterEvent("PLAYER_ROLES_ASSIGNED")
-    eventFrame:RegisterEvent("PLAYER_REGEN_DISABLED")
     eventFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
     eventFrame:RegisterEvent("UNIT_PET")
+    eventFrame:RegisterEvent("TAXIMAP_OPENED")
     -- Unlike COMBAT_LOG_EVENT_UNFILTERED, UNIT_COMBAT does not require protected log data.
     eventFrame:RegisterEvent("UNIT_COMBAT")
     eventFrame:SetScript("OnEvent", function(_, event, unit, ...)
-        if event == "UNIT_COMBAT" then
+        if event == "TAXIMAP_OPENED" then
+            rememberTaxiNodes()
+            return
+        elseif event == "UNIT_COMBAT" then
             PetUnitCombatInteraction(unit, ...)
             return
         elseif event == "PLAYER_REGEN_ENABLED" then
@@ -894,16 +1048,22 @@ function M:Initialize()
             petCombatEngaged = false
         end
         if event == "NAME_PLATE_UNIT_ADDED" then
-            UpdatePlate(unit)
-        elseif event == "NAME_PLATE_UNIT_REMOVED" then
-            if C_NamePlate and C_NamePlate.GetNamePlateForUnit then
-                local plate = C_NamePlate.GetNamePlateForUnit(unit)
-                if plate then
-                    plateUnits[plate] = nil
-                    HidePlate(plate)
-                end
+            local cfg = Config()
+            if cfg and cfg.enabled and cfg.friendlyIcon ~= "off" and Friendly(unit) then
+                queueFriendlyPlate(unit)
+            else
+                UpdatePlate(unit)
             end
-        else
+        elseif event == "NAME_PLATE_UNIT_REMOVED" then
+            pendingPlayers[unit] = nil
+            Enemy:Remove(unit)
+            local plate = unitPlates[unit]
+            unitPlates[unit] = nil
+            if plate and plateUnits[plate] == unit then
+                plateUnits[plate] = nil
+                HidePlate(plate)
+            end
+        elseif event ~= "UNIT_PET" or unit == "player" or (unit and InGroup(unit)) then
             M:Apply()
         end
     end)

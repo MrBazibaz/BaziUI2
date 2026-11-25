@@ -119,8 +119,9 @@ local function focusDetails(frame)
         current = parent
     end
     local mouse = read(function() return frame.IsMouseEnabled and frame:IsMouseEnabled() end)
+    local clicks = read(function() return frame.IsMouseClickEnabled and frame:IsMouseClickEnabled() end)
     local level = read(function() return frame.GetFrameLevel and frame:GetFrameLevel() end)
-    return table.concat(chain, " <- ") .. " mouse=" .. mouse .. " level=" .. level
+    return table.concat(chain, " <- ") .. " mouse=" .. mouse .. " clicks=" .. clicks .. " level=" .. level
         .. " identity=" .. focusIdentity(frame)
 end
 -- Compare mouse focus by object identity with known minimap frames.
@@ -296,15 +297,33 @@ local function borderMouseTest()
         out("TEST OFF: border mouse restored=" .. tostring(border:IsMouseEnabled()))
     end
 end
+local clickProbe = CreateFrame("Frame")
+local function stopClickProbe() clickProbe:UnregisterEvent("GLOBAL_MOUSE_DOWN") end
+clickProbe:SetScript("OnEvent", function(_, _, button)
+    if button ~= "LeftButton" and button ~= "RightButton" then return end
+    stopClickProbe()
+    local frames = GetMouseFoci and GetMouseFoci() or {GetMouseFocus and GetMouseFocus()}
+    out(button .. " focus at click:")
+    if #frames == 0 then out("No UI frame reported mouse focus.") end
+    for index = 1, math.min(#frames, 6) do out(index .. ". " .. focusDetails(frames[index])) end
+end)
+local clickTimeout
+local function startClickProbe()
+    if clickTimeout then clickTimeout:Cancel() end
+    clickProbe:RegisterEvent("GLOBAL_MOUSE_DOWN")
+    clickTimeout = C_Timer.NewTimer(20, stopClickProbe)
+    out("Click the blocked area once within 20 seconds.")
+end
 SLASH_BAZIDEBUG1 = "/bazidebug"
 SlashCmdList.BAZIDEBUG = function(arg)
     if arg == "border" then borderMouseTest(); return end
     if arg == "hover" then startHover(); return end
     if arg == "marks" then showMarks(); return end
     if arg == "bounds" then showBounds(); return end
-    if arg == "clear" then clearMarks(); stopHover(); return end
+    if arg == "click" then startClickProbe(); return end
+    if arg == "clear" then clearMarks(); stopHover(); stopClickProbe(); return end
     if arg ~= "minimap" then
-        out("Usage: /bazidebug minimap | hover | border | marks | bounds | clear")
+        out("Usage: /bazidebug minimap | hover | border | marks | bounds | click | clear")
         return
     end
     local ok, err = pcall(run)

@@ -4,6 +4,12 @@
 local addon = BaziUI
 addon.MinimapButtons = addon.MinimapButtons or {}
 local M = addon.MinimapButtons
+
+function M.RefreshBackground()
+    if M.Menu then
+        M.Menu:SetBackdropColor(0.14, 0.075, 0.035, (addon.Backgrounds.Get("minimapMenu") or 97) / 100)
+    end
+end
 local map = _G.Minimap
 local cluster = _G.MinimapCluster
 local function db()
@@ -89,7 +95,7 @@ local function makeMenu()
     menu:SetClampedToScreen(true)
     menu:EnableMouse(true)
     menu:SetBackdrop({bgFile="Interface\\Buttons\\WHITE8x8",edgeFile="Interface\\Tooltips\\UI-Tooltip-Border",edgeSize=16,insets={left=4,right=4,top=4,bottom=4}})
-    menu:SetBackdropColor(0.14,0.075,0.035,0.97)
+    menu:SetBackdropColor(0.14, 0.075, 0.035, (addon.Backgrounds.Get("minimapMenu") or 97) / 100)
     menu:SetBackdropBorderColor(0.8,0.61,0.32,1)
     local rows, width = 0, 0
     for _, entry in ipairs(entries) do

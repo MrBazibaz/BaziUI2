@@ -5,7 +5,8 @@ local addon = BaziUI
 addon.Tooltip = addon.Tooltip or {}
 local T = addon.Tooltip
 local tip = GameTooltip
-local marker
+local marker, backgroundFill
+local nativeOpacity = {}
 
 local function DB()
     return addon.db and addon.db.profile and addon.db.profile.tooltip
@@ -38,15 +39,29 @@ local function ApplyAnchor(tooltip, owner)
     end
 end
 local function ApplyBackgroundOpacity(alpha)
-    -- Set opacity on the artwork, never on GameTooltip itself: the latter
-    -- fades text and the Blizzard status bar too.
-    local regions = {tip:GetRegions()}
-    for _, region in ipairs(regions) do
-        if region and region.GetObjectType and region:GetObjectType() == "Texture" then
-            region:SetAlpha(alpha)
+    local center = tip.NineSlice and tip.NineSlice.Center
+    if alpha == nil then
+        if backgroundFill then backgroundFill:Hide() end
+        for background, previous in pairs(nativeOpacity) do
+            background:SetAlpha(previous)
+            nativeOpacity[background] = nil
         end
+        return
     end
-    if tip.NineSlice then tip.NineSlice:SetAlpha(alpha) end
+    local function clear(background)
+        if not background or not background.SetAlpha then return end
+        if nativeOpacity[background] == nil then nativeOpacity[background] = background:GetAlpha() end
+        background:SetAlpha(0)
+    end
+    clear(center)
+    clear(tip.Background)
+    if not backgroundFill then
+        backgroundFill = tip:CreateTexture(nil, "BACKGROUND", nil, -8)
+        backgroundFill:SetPoint("TOPLEFT", tip, "TOPLEFT", 3, -3)
+        backgroundFill:SetPoint("BOTTOMRIGHT", tip, "BOTTOMRIGHT", -3, 3)
+    end
+    backgroundFill:SetColorTexture(0.035, 0.028, 0.049, alpha)
+    backgroundFill:Show()
 end
 function T:Apply()
     if not tip then return end
@@ -55,7 +70,7 @@ function T:Apply()
     if not db.enabled then
         tip:SetScale(1)
         tip:SetAlpha(1)
-        ApplyBackgroundOpacity(1)
+        ApplyBackgroundOpacity(nil)
         if marker then marker:Hide() end
         return
     end
@@ -111,6 +126,24 @@ function T:Initialize()
     hooksecurefunc("GameTooltip_SetDefaultAnchor", ApplyAnchor)
     tip:HookScript("OnShow", function()
         T:Apply()
+    end)
+    if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and TooltipDataProcessor.AllTypes then
+        TooltipDataProcessor.AddTooltipPostCall(TooltipDataProcessor.AllTypes, function(tooltip)
+            if tooltip == tip and Allowed() then ApplyBackgroundOpacity(SafeNumber(DB().opacity, 1)) end
+        end)
+    end
+    local equipment = CreateFrame("Frame")
+    equipment:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
+    equipment:SetScript("OnEvent", function()
+        if not tip:IsShown() or not tip.RefreshDataNextUpdate or not Enum or not Enum.TooltipDataType then return end
+        local owner = tip:GetOwner()
+        if owner and owner.baziInventorySlot then return end
+        local data = tip.GetTooltipData and tip:GetTooltipData()
+        if issecretvalue and issecretvalue(data) then return end
+        local kind = data and data.type
+        if kind and not (issecretvalue and issecretvalue(kind)) and Enum.TooltipDataType.Item == kind then
+            tip:RefreshDataNextUpdate()
+        end
     end)
     self:Apply()
 end
