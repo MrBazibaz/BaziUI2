@@ -97,7 +97,7 @@ function M:SetMoveMode(value)
     return true
 end
 function M:IsMoveMode() return moving end
-local layoutKeys = {"gradientDirection","indicatorSize", "indicatorX", "indicatorY","barWidth", "hpHeight", "powerHeight", "portraitSize", "portraitX", "portraitY", "flipPortrait", "showPvP", "showLeader", "showRaidMarker", "showRole", "showClassification", "showHappiness", "hpText", "powerText", "fontSize", "nameFontSize", "hpFontSize", "powerFontSize", "fontFace", "showName", "hpTextX", "hpTextY", "powerTextX", "powerTextY", "hpFontColor", "powerFontColor", "hpTextAnchor", "powerTextAnchor", "levelFontSize", "levelTextX", "levelTextY"}
+local layoutKeys = {"incomingHealing","gradientDirection","indicatorSize", "indicatorX", "indicatorY","barWidth", "hpHeight", "powerHeight", "portraitSize", "portraitX", "portraitY", "flipPortrait", "showPvP", "showLeader", "showRaidMarker", "showRole", "showClassification", "showHappiness", "hpText", "powerText", "fontSize", "nameFontSize", "hpFontSize", "powerFontSize", "fontFace", "showName", "hpTextX", "hpTextY", "powerTextX", "powerTextY", "hpFontColor", "powerFontColor", "hpTextAnchor", "powerTextAnchor", "levelFontSize", "levelTextX", "levelTextY"}
 local function unitSettings(settings, key)
     settings.frames = settings.frames or {}
     local own = settings.frames[key]
@@ -740,8 +740,54 @@ local function updateHealthColor(f)
         f.health:SetStatusBarColor(cr, cg, cb)
     end
 end
+
+-- Incoming healing: native calculator values go straight to the status bar.
+function M.RefreshIncomingHealing(f, own)
+    local bar = f.incomingHealing
+    if not bar or f.incomingHealingFailed then return end
+    if not own or own.incomingHealing == false or not UnitExists(f.unit) then
+        bar:Hide()
+        return
+    end
+    local ok = pcall(function()
+        UnitGetDetailedHealPrediction(f.unit, "player", f.healCalculator)
+        bar:SetWidth(f.health:GetWidth())
+        bar:SetMinMaxValues(0, f.healCalculator:GetMaximumHealth())
+        local incoming = f.healCalculator:GetIncomingHeals()
+        bar:SetValue(incoming)
+        bar:Show()
+    end)
+    if not ok then
+        bar:Hide()
+        f.incomingHealingFailed = true
+    end
+end
+
+function M.CreateIncomingHealing(f)
+    if not CreateUnitHealPredictionCalculator or not UnitGetDetailedHealPrediction then return end
+    local ok = pcall(function()
+        local calculator = CreateUnitHealPredictionCalculator()
+        calculator:SetIncomingHealOverflowPercent(1)
+        local hp = f.health
+        local bar = CreateFrame("StatusBar", nil, hp)
+        bar:Hide()
+        bar:SetStatusBarTexture("Interface\\Buttons\\WHITE8X8")
+        bar:SetStatusBarColor(0.15, 1, 0.25, 0.45)
+        bar:SetPoint("TOP")
+        bar:SetPoint("BOTTOM")
+        bar:SetPoint("LEFT", hp:GetStatusBarTexture(), "RIGHT")
+        bar:SetWidth(hp:GetWidth())
+        bar:SetMinMaxValues(0, 1)
+        bar:SetValue(0)
+        f.healCalculator = calculator
+        f.incomingHealing = bar
+    end)
+    if not ok then f.incomingHealingFailed = true end
+end
+
 local function update(f)
     if not f or not UnitExists(f.unit) then
+        if f and f.incomingHealing then f.incomingHealing:Hide() end
         if f then f.health:SetValue(0); f.power:SetValue(0); f.name:SetText("") end
         if f then f.classIcon:Hide() end
         return
@@ -754,6 +800,7 @@ local function update(f)
     f.power:SetValue(power)
     -- UnitHealth can be a secret number in Forever. Do not compare or calculate it in Lua.
     local own = unitSettings(cfg() or {}, f.unit)
+    M.RefreshIncomingHealing(f, own)
     M.SetName(f.name, f.unit, own.firstNameOnly)
     M.SetBarText(f.value, f.unit, own.hpText or "", true)
     M.SetBarText(f.powerText, f.unit, own.powerText or "", false)
@@ -1100,6 +1147,7 @@ local function create(key, spec)
     hp:SetPoint("TOPRIGHT", f, "TOPRIGHT", side == "LEFT" and -9 or -53, -8)
     hp:SetHeight(23)
     f.health = hp
+    M.CreateIncomingHealing(f)
     local hpBackground = hp:CreateTexture(nil, "BACKGROUND")
     hpBackground:SetAllPoints(hp)
     hpBackground:SetColorTexture(0.085, 0.065, 0.045, 1)
@@ -1203,6 +1251,7 @@ local function create(key, spec)
     f:RegisterEvent("RAID_TARGET_UPDATE")
     f:RegisterEvent("UNIT_HEALTH")
     f:RegisterEvent("UNIT_MAXHEALTH")
+    if f.incomingHealing then pcall(f.RegisterEvent, f, "UNIT_HEAL_PREDICTION") end
     f:RegisterEvent("UNIT_POWER_UPDATE")
     f:RegisterEvent("UNIT_MAXPOWER")
     f:RegisterEvent("UNIT_DISPLAYPOWER")
@@ -1232,6 +1281,10 @@ local function create(key, spec)
         end
     end)
     f:SetScript("OnEvent", function(self, event, unit)
+        if event == "UNIT_HEAL_PREDICTION" then
+            if unit == self.unit then M.RefreshIncomingHealing(self, unitSettings(cfg() or {}, self.unit)) end
+            return
+        end
         if not unit or unit == self.unit or event == "PLAYER_TARGET_CHANGED" or event == "PLAYER_FOCUS_CHANGED" or event == "PLAYER_ENTERING_WORLD" or event == "UNIT_PET" or event == "GROUP_ROSTER_UPDATE" or event == "RAID_TARGET_UPDATE" then
             update(self)
             if self.baziThreat then updateTargetThreat(self) end

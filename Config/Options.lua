@@ -2524,6 +2524,7 @@ local function CreateUnitFramesPage()
                 groupToggle(panel,"Show health percentage","showHealthPercent",-75)
                 groupToggle(panel,"Show power percentage","showPowerPercent",-115)
             end
+            groupToggle(panel,"Incoming Healing","incomingHealing",-285)
             panel=sections.Fonts
             CreateSection(panel,"FONTS",-12)
             CreateDivider(panel,-45)
@@ -2664,6 +2665,17 @@ local function CreateUnitFramesPage()
                 if addon.UnitFrames then addon.UnitFrames:Refresh() end
             end)
             refreshers[#refreshers+1] = function() flip:SetChecked(own.flipPortrait == true) end
+            local healing = addon.Theme:CreateCheckbox(panel)
+            healing:SetSize(25, 25)
+            healing:SetPoint("TOPLEFT", panel, "TOPLEFT", 260, -330)
+            local healingLabel = CreateLabel(panel, "Incoming Healing", "GameFontHighlight")
+            healingLabel:SetPoint("LEFT", healing, "RIGHT", 5, 0)
+            healing:SetChecked(own.incomingHealing ~= false)
+            healing:SetScript("OnClick", function(self)
+                own.incomingHealing = self:GetChecked() == true
+                if addon.UnitFrames then addon.UnitFrames:Refresh() end
+            end)
+            refreshers[#refreshers+1] = function() healing:SetChecked(own.incomingHealing ~= false) end
             syncControls[name] = function()
                 for _, refresh in ipairs(refreshers) do refresh() end
             end
