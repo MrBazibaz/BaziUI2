@@ -5,6 +5,17 @@ local revealUpgrade, scrollToUpgrade
 local moversOpenedBags
 local mode, atBank, atGuild = "bags", false, false
 local cells, headings, dividers, known, knownSlots, fresh = {}, {}, {}, {}, {}, {}
+local hoveredBag
+local function updateBagHighlight(button)
+    local item = button.item
+    local matches = mode == "bags" and hoveredBag ~= nil and item and not item.dropTarget
+        and (not item.empty and item.bag == hoveredBag or item.empty and item.emptyBags and item.emptyBags[hoveredBag])
+    button.bagHighlight:SetShown(not not matches)
+end
+local function setHoveredBag(bag)
+    hoveredBag = bag
+    for _, button in ipairs(cells) do updateBagHighlight(button) end
+end
 local draggedCategory, draggingItem
 local feedingPet, targetingItem, targetRefreshQueued = false, false, false
 local feedPetSpell = 6991
@@ -112,6 +123,8 @@ local function itemsForView(hideEmpty)
                     emptyByKind[kind] = stack
                     items[#items + 1] = stack
                 end
+                stack.emptyBags = stack.emptyBags or {}
+                stack.emptyBags[bag] = true
                 stack.stackCount = stack.stackCount + 1
             end
         end
@@ -394,6 +407,13 @@ local function cell(index)
     button.addMark:SetTextColor(1, 0.82, 0.24)
     button.addMark:SetShadowOffset(1, -1)
     button:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
+    button.bagHighlight = button:CreateTexture(nil, "OVERLAY", nil, 1)
+    button.bagHighlight:SetAllPoints()
+    button.bagHighlight:SetTexture("Interface\\Buttons\\ButtonHilight-Square")
+    button.bagHighlight:SetBlendMode("ADD")
+    button.bagHighlight:SetVertexColor(1, 0.78, 0.25, 0.65)
+    button.bagHighlight:Hide()
+    button:HookScript("OnHide", function(self) self.bagHighlight:Hide() end)
     local flash = button:CreateTexture(nil, "OVERLAY")
     flash:SetAllPoints()
     if C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo("bags-glow-orange") then
@@ -721,6 +741,7 @@ function inventory.RefreshBags(rebuildMerchantLayout, prepareHidden)
                 cellIndex = cellIndex + 1
                 local button = cell(cellIndex)
                 button.item = item
+                updateBagHighlight(button)
                 button.vendorVacant = nil
                 button.vendorGUID = merchant and not item.empty and slotGUID(item) or nil
                 button:Enable()
@@ -911,6 +932,7 @@ local function createBag()
     bagStrip = CreateFrame("Frame", nil, frame)
     bagStrip:SetSize(28, 155)
     bagStrip.buttons = {}
+    bagStrip:HookScript("OnHide", function() setHoveredBag(nil) end)
     bagStrip:Hide()
     for _, bag in ipairs(inventory.BagIDs(true)) do
         local slot = bag > 0 and container.ContainerIDToInventoryID and container.ContainerIDToInventoryID(bag)
@@ -919,6 +941,7 @@ local function createBag()
             button:SetSize(26, 26)
             button:SetPoint("TOP", 0, -#bagStrip.buttons * 30)
             button.slot = slot
+            button.bag = bag
             button:RegisterForDrag("LeftButton")
             button.icon = button:CreateTexture(nil, "ARTWORK")
             button.icon:SetPoint("TOPLEFT", 1, -1)
@@ -941,12 +964,16 @@ local function createBag()
                 if not InCombatLockdown() then PickupBagFromSlot(slot) end
             end)
             button:SetScript("OnEnter", function(self)
+                setHoveredBag(self.bag)
                 GameTooltip:SetOwner(self, "ANCHOR_TOP")
                 if GetInventoryItemTexture("player", slot) then GameTooltip:SetInventoryItem("player", slot)
                 else GameTooltip:SetText("Empty bag slot") end
                 GameTooltip:Show()
             end)
-            button:SetScript("OnLeave", function() GameTooltip:Hide() end)
+            button:SetScript("OnLeave", function()
+                setHoveredBag(nil)
+                GameTooltip:Hide()
+            end)
             bagStrip.buttons[#bagStrip.buttons + 1] = button
         end
     end
@@ -1102,6 +1129,7 @@ local function createBag()
     end)
     wallet:SetScript("OnLeave", function() GameTooltip:Hide() end)
     frame:SetScript("OnHide", function()
+        setHoveredBag(nil)
         revealUpgrade, scrollToUpgrade = nil, nil
         if inventory.CancelCleanupChoice then inventory.CancelCleanupChoice() end
         for _, button in ipairs(cells) do
