@@ -1,8 +1,11 @@
 local inventory = BaziUI.Inventory
 local container = C_Container
-local frame, content, emptyLabel, scroll, scrollbar, protectedButton
+local frame, content, emptyLabel, scroll, scrollbar, protectedButton, chooseButton
 function inventory.GetCleanupMoverFrame() return frame end
-local origin, pendingLoot, target
+local origin, pendingLoot, target, choosing
+local lootOpen, selectedLoot, queued, queueCleanupRefresh
+local questOpen, questAttempt, questBlocked
+local rolls = {}
 local protected = {[7005] = true, [2901] = true, [5956] = true, [6219] = true,
     [6256] = true, [6218] = true, [6339] = true, [11130] = true, [11145] = true, [16207] = true,
     [6948] = true, [4470] = true}
@@ -19,34 +22,61 @@ local function ignored(item, settings)
     return protected[item.itemID] or false
 end
 
+local function isKeyring(bag)
+    local index = Enum and Enum.BagIndex
+    return bag == (index and index.Keyring or KEYRING_CONTAINER or -2)
+end
+
 local function eligible(item, settings)
     if not (item and item.name and item.price and item.stackCount and item.hyperlink and not item.isLocked
         and item.quality and item.quality <= settings.maxDeleteQuality and item.class ~= 12
-        and not ignored(item, settings)) then return false end
+        and not isKeyring(item.bag) and not ignored(item, settings)) then return false end
     local quest = container.GetContainerItemQuestInfo and container.GetContainerItemQuestInfo(item.bag, item.slot)
-    return not (quest and (quest.isQuestItem or quest.questID))
+    return not (quest and (quest.isQuestItem or quest.questID)) and not inventory.RequiredByQuest(item)
+end
+
+local function read(value)
+    return (not issecretvalue or not issecretvalue(value)) and (not canaccessvalue or canaccessvalue(value))
+end
+
+local function incomingItem(link, count, id)
+    if not read(link) then link = nil end
+    if type(link) == "string" then
+        id = id or tonumber(link:match("|Hitem:(%d+)") or link:match("^item:(%d+)"))
+    end
+    if not read(id) or type(id) ~= "number" or id <= 0 or not read(count) then return end
+    local _, _, _, _, _, _, _, stack, _, _, price, class, _, _, _, _, reagent = inventory.GetItemInfo(link or id)
+    if not stack and C_Item and C_Item.GetItemMaxStackSizeByID then stack = C_Item.GetItemMaxStackSizeByID(id) end
+    if not stack or stack <= 0 then return end
+    count = count or 1
+    return {id = id, link = link or id, count = count, stack = stack,
+        quest = class == 12, reagent = reagent == true, key = class == 13, total = (price or 0) * count}
 end
 
 local function lootItem(slot)
-    local link = GetLootSlotLink(slot)
-    if type(link) ~= "string" or (issecretvalue and issecretvalue(link)) then return end
-    local id = tonumber(link:match("|Hitem:(%d+)"))
-    if not id then return end
-    local _, _, count, _, _, locked, isQuestItem = GetLootSlotInfo(slot)
-    if issecretvalue and (issecretvalue(count) or issecretvalue(locked) or issecretvalue(isQuestItem)) then return end
-    if locked then return end
-    local _, _, _, _, _, _, _, stack, _, _, price, class = inventory.GetItemInfo(link)
-    if not stack or stack <= 0 then return end
-    count = count or 1
-    return {slot = slot, id = id, link = link, count = count, stack = stack,
-        quest = isQuestItem == true or class == 12, total = (price or 0) * count}
+    local _, name, count, _, _, locked, isQuestItem, questID = GetLootSlotInfo(slot)
+    if not read(locked) or not read(isQuestItem) or locked then return end
+    local item = incomingItem(GetLootSlotLink(slot), count)
+    if item then
+        item.slot = slot
+        item.quest = item.quest or isQuestItem == true or read(questID) and questID ~= nil
+            or inventory.RequiredByQuest({itemID = item.id, name = name}) ~= nil
+    end
+    return item
+end
+
+local function capacityFamily(bag, family)
+    if isKeyring(bag) then return "keyring" end
+    local index = Enum and Enum.BagIndex
+    if index and index.ReagentBag == bag then return "reagent" end
+    return family or 0
 end
 
 local function bagCapacity()
     local partial, free = {}, {}
-    for _, bag in ipairs(inventory.BagIDs()) do
+    for _, bag in ipairs(inventory.BagIDs(true)) do
         local slots, family = container.GetContainerNumFreeSlots(bag)
-        family = family or 0
+        family = capacityFamily(bag, family)
         free[family] = (free[family] or 0) + (slots or 0)
         for slot = 1, container.GetContainerNumSlots(bag) do
             local item = container.GetContainerItemInfo(bag, slot)
@@ -61,35 +91,66 @@ local function bagCapacity()
     return partial, free
 end
 
-local function fits(item, partial, free, replacing)
-    if not partial then partial, free = bagCapacity() end
+local function neededSlots(item, partial, replacing)
     local remaining = item.count
     for _, count in ipairs(partial[item.id] or {}) do
         remaining = remaining - math.max(0, item.stack - count)
     end
-    local freedFamily
-    if replacing then
-        freedFamily = select(2, container.GetContainerNumFreeSlots(replacing.bag)) or 0
-        if replacing.itemID == item.id then
-            remaining = remaining + math.max(0, item.stack - replacing.stackCount)
-        end
+    if replacing and replacing.itemID == item.id then
+        remaining = remaining + math.max(0, item.stack - replacing.stackCount)
     end
-    local needed = math.ceil(remaining / item.stack)
-    local available = (free[0] or 0) + (freedFamily == 0 and 1 or 0)
-    if needed <= available then return true end
+    return math.max(0, math.ceil(remaining / item.stack))
+end
+
+local function acceptsFamily(family, item)
+    if family == "reagent" then return item.reagent end
+    if family == "keyring" then return item.key end
     local familyOf = C_Item and C_Item.GetItemFamily or GetItemFamily
-    local family = familyOf and familyOf(item.link) or 0
-    if bit and family ~= 0 then
-        if freedFamily and bit.band(family, freedFamily) ~= 0 then available = available + 1 end
-        for bagFamily, slots in pairs(free) do
-            if bit.band(family, bagFamily) ~= 0 then available = available + slots end
-        end
+    local mask = familyOf and familyOf(item.link)
+    return bit and mask and bit.band(mask, family) ~= 0
+end
+
+local function shortage(items, partial, free, replacing)
+    if not partial then partial, free = bagCapacity() end
+    local available = {}
+    for family, slots in pairs(free) do available[family] = slots end
+    if replacing then
+        local family = capacityFamily(replacing.bag, select(2, container.GetContainerNumFreeSlots(replacing.bag)))
+        available[family] = (available[family] or 0) + 1
     end
-    return needed <= available
+    local missing = 0
+    for _, item in ipairs(items) do
+        local needed = neededSlots(item, partial, replacing)
+        for family, slots in pairs(available) do
+            if needed > 0 and slots > 0 and family ~= 0 and acceptsFamily(family, item) then
+                local used = math.min(needed, slots)
+                available[family], needed = slots - used, needed - used
+            end
+        end
+        local used = math.min(available[0] or 0, needed)
+        available[0] = (available[0] or 0) - used
+        missing = missing + needed - used
+    end
+    return missing
+end
+
+local function fits(item, partial, free, replacing)
+    return shortage(item.items or {item}, partial, free, replacing) == 0
+end
+
+local function makesRoom(item, partial, free, replacing)
+    if not item.items then return fits(item, partial, free, replacing) end
+    if not partial then partial, free = bagCapacity() end
+    return shortage(item.items, partial, free, replacing) < shortage(item.items, partial, free)
 end
 
 local function blockedLoot()
     local best, partial, free
+    if selectedLoot then
+        local item = lootItem(selectedLoot.slot)
+        if item and item.link == selectedLoot.link and not fits(item) then return item end
+        selectedLoot = nil
+    end
     for slot = 1, GetNumLootItems() do
         local item = lootItem(slot)
         if item then
@@ -97,6 +158,69 @@ local function blockedLoot()
             if not fits(item, partial, free)
                 and (not best or item.quest and not best.quest or item.quest == best.quest and item.total > best.total) then
                 best = item
+            end
+        end
+    end
+    return best
+end
+
+local function selectableLoot(slot)
+    if not lootOpen or origin ~= "loot" or not target or not frame:IsShown() then return end
+    if not read(slot) or type(slot) ~= "number" or slot < 1 or slot > GetNumLootItems() then return end
+    local item = lootItem(slot)
+    if item and not fits(item) then return item end
+end
+
+function inventory.CanSelectCleanupLoot(slot)
+    return selectableLoot(slot) ~= nil
+end
+
+function inventory.SelectCleanupLoot(slot)
+    local item = selectableLoot(slot)
+    if item then
+        selectedLoot, target = item, item
+        inventory.RefreshCleanup()
+        inventory.RefreshLoot()
+    end
+end
+
+local function questReward(choice)
+    local items, byID = {}, {}
+    local function add(kind, index)
+        local _, _, count, _, _, id = GetQuestItemInfo(kind, index)
+        local item = incomingItem(GetQuestItemLink(kind, index), count, id)
+        if not item then return end
+        if byID[item.id] then
+            byID[item.id].count = byID[item.id].count + item.count
+        else
+            byID[item.id] = item
+            items[#items + 1] = item
+        end
+    end
+    for index = 1, GetNumQuestRewards() do add("reward", index) end
+    local choices = GetNumQuestChoices()
+    if choices == 1 then choice = 1 end
+    if read(choice) and type(choice) == "number" and choice > 0 and choice <= choices then add("choice", choice) end
+    return {items = items, id = questOpen, choice = choice or 0}
+end
+
+local function blockedQuest()
+    if not questBlocked or not questOpen then return end
+    local item = questReward(questAttempt or QuestInfoFrame and QuestInfoFrame.itemChoice)
+    if #item.items > 0 and not fits(item) then return item end
+end
+
+local function blockedRoll()
+    local now = GetTime()
+    local best
+    for id, deadline in pairs(rolls) do
+        if deadline <= now then
+            rolls[id] = nil
+        else
+            local _, _, count = GetLootRollItemInfo(id)
+            local item = incomingItem(GetLootRollItemLink(id), count)
+            if item and not fits(item) and (not best or item.total > best.total) then
+                item.slot, best = id, item
             end
         end
     end
@@ -115,21 +239,26 @@ local function lootAfterDeletion()
 end
 
 local function deleteItem(request)
-    if GetCursorInfo() or InCombatLockdown() then return end
+    if GetCursorInfo() or InCombatLockdown() or origin ~= request.origin then return end
     local snapshot = request.item
-    local best = request.origin == "loot" and blockedLoot()
-    if not best or not request.replacement or best.link ~= request.replacement.link
-        or best.slot ~= request.replacement.slot then return end
+    local best
+    if origin == "loot" then best = blockedLoot()
+    elseif origin == "quest" then best = blockedQuest()
+    elseif origin == "roll" then best = blockedRoll() end
+    local requested = request.replacement
+    if not best or not requested or best.link ~= requested.link or best.slot ~= requested.slot
+        or best.id ~= requested.id or best.choice ~= requested.choice then return end
     local current = inventory.Item(snapshot.bag, snapshot.slot)
     local db = inventory.Settings()
     if not db.enabled or not db.cleanup or not eligible(current, db) or current.itemID ~= snapshot.itemID
         or current.hyperlink ~= snapshot.hyperlink or current.stackCount ~= snapshot.stackCount
-        or not fits(best, nil, nil, current) then return end
+        or not makesRoom(best, nil, nil, current) then return end
     container.PickupContainerItem(current.bag, current.slot)
     local kind, itemID = GetCursorInfo()
     if kind ~= "item" or itemID ~= current.itemID then ClearCursor(); return end
     DeleteCursorItem()
     if GetCursorInfo() then ClearCursor(); return end
+    if origin ~= "loot" then queueCleanupRefresh(); return end
     pendingLoot = best
     C_Timer.After(1, function()
         if pendingLoot ~= best then return end
@@ -146,6 +275,24 @@ StaticPopupDialogs.BAZI_INVENTORY_DELETE = {
     timeout = 0, whileDead = false, hideOnEscape = true,
 }
 
+function inventory.CancelCleanupChoice()
+    choosing = nil
+    if chooseButton then chooseButton:SetText("Choose item") end
+end
+
+function inventory.ChooseCleanupItem(item)
+    if not choosing then return false end
+    if origin == "preview" or not target or not frame:IsShown() then inventory.CancelCleanupChoice(); return false end
+    if not eligible(item, inventory.Settings()) or not makesRoom(target, nil, nil, item) then
+        BaziUI:Print("Choose an unprotected item that frees compatible bag space.")
+        return true
+    end
+    inventory.CancelCleanupChoice()
+    StaticPopup_Show("BAZI_INVENTORY_DELETE", item.name .. " ×" .. item.stackCount, nil,
+        {item = item, origin = origin, replacement = target})
+    return true
+end
+
 local rows, showProtected = {}, false
 
 local function build()
@@ -153,13 +300,22 @@ local function build()
     frame, header = inventory.Window("BaziUIInventoryCleanup", "Inventory Full", 425, 192, nil, nil, "cleanupOpacity")
     frame.lootLinked, frame.lootAbove = true, true
     frame.closeButton:Hide()
-    frame:HookScript("OnHide", function() inventory.RefreshLoot() end)
+    frame:HookScript("OnHide", function() inventory.CancelCleanupChoice(); inventory.RefreshLoot() end)
     protectedButton = inventory.Button(header, "Protected", 79, function(self)
         showProtected = not showProtected
         self:SetText(showProtected and "Items" or "Protected")
         inventory.RefreshCleanup()
     end)
     protectedButton:SetPoint("RIGHT", -4, 0)
+    chooseButton = inventory.Button(header, "Choose item", 91, function(self)
+        if choosing then inventory.CancelCleanupChoice(); return end
+        if InCombatLockdown() or not target or origin == "preview" or not inventory.OpenBags then return end
+        inventory.OpenBags("bags")
+        choosing = true
+        self:SetText("Cancel choice")
+        BaziUI:Print(origin == "loot" and "Click an item in your bags to replace it." or "Click an item in your bags to delete it.")
+    end)
+    chooseButton:SetPoint("RIGHT", protectedButton, "LEFT", -5, 0)
     content, scroll, scrollbar = inventory.Scroll(frame, -7, 34, true)
     emptyLabel = inventory.Label(content)
     emptyLabel:SetPoint("BOTTOMLEFT", 5, 5)
@@ -210,7 +366,7 @@ local function makeRow(i)
             return
         end
         local request = {item = item, origin = origin, replacement = target}
-        if item.quality <= 1 then deleteItem(request)
+        if origin == "loot" and item.quality <= 1 then deleteItem(request)
         else StaticPopup_Show("BAZI_INVENTORY_DELETE", item.name .. " ×" .. item.stackCount, nil, request) end
     end)
     row.action:SetPoint("RIGHT", -5, 0)
@@ -251,10 +407,10 @@ function inventory.RefreshCleanup()
         end
     else
         local partial, free = bagCapacity()
-        for _, bag in ipairs(inventory.BagIDs()) do
+        for _, bag in ipairs(inventory.BagIDs(true)) do
             for slot = 1, container.GetContainerNumSlots(bag) do
                 local item = inventory.Item(bag, slot)
-                if eligible(item, db) and target and fits(target, partial, free, item) then items[#items + 1] = item end
+                if eligible(item, db) and target and makesRoom(target, partial, free, item) then items[#items + 1] = item end
             end
         end
         table.sort(items, function(a, b)
@@ -274,9 +430,10 @@ function inventory.RefreshCleanup()
         inventory.GeneralFont(row.vendor, -1, nil, "Inventory:Cleanup", size)
         row.title:SetText(item.name .. (item.stackCount and " ×" .. item.stackCount or ""))
         local delta = (target and target.total or 1250) - (showProtected and 0 or value(item))
-        row.vendor:SetText(showProtected and "" or ("Vendor  " .. money(value(item))
-            .. (delta >= 0 and "  |cff83cf83+" or "  |cffff795e-") .. money(math.abs(delta)) .. "|r"))
-        row.action:SetText(showProtected and "Unprotect" or "Replace")
+        local replace = origin == "loot" or origin == "preview"
+        row.vendor:SetText(showProtected and "" or ("Vendor  " .. money(value(item)) .. (replace
+            and ((delta >= 0 and "  |cff83cf83+" or "  |cffff795e-") .. money(math.abs(delta)) .. "|r") or "")))
+        row.action:SetText(showProtected and "Unprotect" or replace and "Replace" or "Delete")
         row.action:SetEnabled(origin ~= "preview")
         row.icon:GetParent():EnableMouse(origin ~= "preview")
         row:Show()
@@ -294,16 +451,20 @@ end
 
 function inventory.IsCleanupProtected(id)
     if type(id) ~= "number" then return false end
-    local _, _, _, _, _, _, _, _, _, _, _, class = inventory.GetItemInfo(id)
-    return class == 12 or ignored({itemID = id}, inventory.Settings())
+    local name, _, _, _, _, _, _, _, _, _, _, class = inventory.GetItemInfo(id)
+    return class == 12 or not not inventory.RequiredByQuest({itemID = id, name = name})
+        or ignored({itemID = id}, inventory.Settings())
 end
 
 function inventory.CloseCleanupPreview()
-    if origin == "preview" and frame then frame:Hide() end
+    if origin ~= "preview" then return end
+    origin, target = nil, nil
+    if frame then frame:Hide() end
+    queueCleanupRefresh()
 end
 
-local function closeLootCleanup()
-    if origin ~= "loot" then return end
+local function closeCleanup()
+    if not origin or origin == "preview" then return end
     origin, target = nil, nil
     StaticPopup_Hide("BAZI_INVENTORY_DELETE")
     frame:Hide()
@@ -315,7 +476,8 @@ function inventory.OpenCleanup(source)
     if not frame then build() end
     origin, showProtected = source, false
     protectedButton:SetText("Protected")
-    frame:SetFrameStrata(source == "preview" and "FULLSCREEN_DIALOG" or "DIALOG")
+    chooseButton:SetShown(source ~= "preview")
+    frame:SetFrameStrata(source == "loot" and "DIALOG" or "FULLSCREEN_DIALOG")
     frame:Show()
     frame:Raise()
     inventory.RefreshCleanup()
@@ -324,39 +486,74 @@ function inventory.OpenCleanup(source)
 end
 
 local events = CreateFrame("Frame")
-local lootOpen, queued
 local function refreshLootCleanup()
     queued = nil
-    if not lootOpen or origin == "preview" then return end
+    if origin == "preview" then return end
     local db = inventory.Settings()
-    if not db.enabled or not db.cleanup then closeLootCleanup(); return end
-    lootAfterDeletion()
-    if not lootOpen then return end
-    target = not pendingLoot and blockedLoot() or nil
+    if not db.enabled or not db.cleanup then closeCleanup(); return end
+    if lootOpen then lootAfterDeletion() end
+    local source = "loot"
+    target = lootOpen and not pendingLoot and blockedLoot() or nil
+    if not target then source, target = "quest", blockedQuest() end
+    if not target then source, target = "roll", blockedRoll() end
     if not target then
-        closeLootCleanup()
-    elseif origin == "loot" and frame:IsShown() then
+        closeCleanup()
+    elseif origin == source and frame:IsShown() then
         inventory.RefreshCleanup()
         inventory.RefreshLoot()
     else
-        inventory.OpenCleanup("loot")
+        StaticPopup_Hide("BAZI_INVENTORY_DELETE")
+        inventory.OpenCleanup(source)
     end
 end
 
-for _, event in ipairs({"LOOT_OPENED", "LOOT_CLOSED", "LOOT_SLOT_CHANGED", "LOOT_SLOT_CLEARED",
-    "BAG_UPDATE_DELAYED", "GET_ITEM_INFO_RECEIVED"}) do
-    events:RegisterEvent(event)
+queueCleanupRefresh = function()
+    if queued or not (lootOpen or questBlocked or next(rolls) or origin and origin ~= "preview") then return end
+    queued = true
+    C_Timer.After(0, refreshLootCleanup)
 end
-events:SetScript("OnEvent", function(_, event)
+
+if GetQuestReward then
+    hooksecurefunc("GetQuestReward", function(choice)
+        if questOpen and read(choice) then questAttempt = choice end
+    end)
+end
+if RollOnLoot then
+    hooksecurefunc("RollOnLoot", function(id, choice)
+        if read(id) and read(choice) and choice == 0 and rolls[id] then
+            rolls[id] = nil
+            queueCleanupRefresh()
+        end
+    end)
+end
+
+for _, event in ipairs({"LOOT_OPENED", "LOOT_CLOSED", "LOOT_SLOT_CHANGED", "LOOT_SLOT_CLEARED",
+    "BAG_UPDATE_DELAYED", "GET_ITEM_INFO_RECEIVED", "QUEST_LOG_UPDATE", "UI_ERROR_MESSAGE",
+    "QUEST_COMPLETE", "QUEST_FINISHED", "QUEST_TURNED_IN", "START_LOOT_ROLL", "CANCEL_LOOT_ROLL",
+    "CANCEL_ALL_LOOT_ROLLS"}) do
+    pcall(events.RegisterEvent, events, event)
+end
+events:SetScript("OnEvent", function(_, event, id, value)
     if event == "LOOT_OPENED" then
-        lootOpen = true
+        lootOpen, selectedLoot = true, nil
     elseif event == "LOOT_CLOSED" then
-        lootOpen, pendingLoot = nil, nil
-        closeLootCleanup()
-        return
+        lootOpen, pendingLoot, selectedLoot = nil, nil, nil
+        if origin == "loot" then closeCleanup() end
+    elseif event == "QUEST_COMPLETE" then
+        questOpen, questAttempt, questBlocked = GetQuestID() or true, nil, nil
+    elseif event == "QUEST_FINISHED" or event == "QUEST_TURNED_IN" and id == questOpen then
+        questOpen, questAttempt, questBlocked = nil, nil, nil
+    elseif event == "START_LOOT_ROLL" then
+        if not read(id) or not read(value) or type(id) ~= "number" or type(value) ~= "number" or value <= 0 then return end
+        rolls[id] = GetTime() + value / 1000
+        C_Timer.After(value / 1000, queueCleanupRefresh)
+    elseif event == "CANCEL_LOOT_ROLL" then
+        if read(id) and id then rolls[id] = nil end
+    elseif event == "CANCEL_ALL_LOOT_ROLLS" then
+        wipe(rolls)
+    elseif event == "UI_ERROR_MESSAGE" then
+        if not read(value) or value ~= ERR_INV_FULL then return end
+        if questOpen and (not lootOpen or questAttempt ~= nil) then questBlocked = true end
     end
-    if lootOpen and not queued then
-        queued = true
-        C_Timer.After(0, refreshLootCleanup)
-    end
+    queueCleanupRefresh()
 end)

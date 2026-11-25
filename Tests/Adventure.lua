@@ -117,7 +117,7 @@ function GetItemInfo(link)
     local id = itemID(link)
     local item = items[id]
     if not item then return end
-    return item[1], "item:" .. id, item[7] or 3, 20, item[4], "Weapon", "Dagger", 1, item[2], 1, 150, item[6] or 2, 15, item[5] or 2
+    return item[1], "item:" .. id, item[7] or 3, 20, item[4], "Weapon", "Dagger", 1, item[2], 1, 150, item[6] or 2, item[8] or 15, item[5] or 2
 end
 local skill = 50
 GetNumSkillLines = function() return 1 end
@@ -436,8 +436,10 @@ advance(0.5)
 
 items[26] = {"Sharpened Letter Opener", "INVTYPE_WEAPON", 0, 2}
 items[27] = {"Camping Knife", "INVTYPE_WEAPON", 0, 0, nil, 2, 1}
-items[28] = {"Wolf Handler Gloves", "INVTYPE_HAND", 0, 0, nil, 4, 1}
-items[29] = {"Driving Gloves", "INVTYPE_HAND", 0, 0, nil, 4, 1}
+items[28] = {"Wolf Handler Gloves", "INVTYPE_HAND", 0, 0, nil, 4, 1, 2}
+items[29] = {"Driving Gloves", "INVTYPE_HAND", 0, 0, nil, 4, 1, 2}
+items[30] = {"Cloth Gloves", "INVTYPE_HAND", 0, 0, nil, 4, 1, 1}
+stats[30] = {ITEM_MOD_AGILITY_SHORT = 50}
 local originalClass, originalBagLink = UnitClass, C_Container.GetContainerItemLink
 UnitClass = function() return "Hunter", "HUNTER", 3 end
 GetInventoryItemID = function(unit, slot)
@@ -472,6 +474,7 @@ event("BAG_UPDATE_DELAYED")
 advance(0.5)
 assert(U.Compare("item:27", A.current).slot == "MainHand", "Hunter notices a stronger melee weapon")
 assert(U.Compare("item:29", A.current).slot == "Hands", "Armor-only gloves can use tooltip data")
+assert(not U.Compare("item:30", A.current), "A hunter must not be advised to wear cloth gloves")
 assert(U.Mark({bag = 0, slot = 2, hyperlink = "item:27"}))
 assert(U.Mark({bag = 0, slot = 3, hyperlink = "item:29"}))
 assert(S.active["upgrade:item:27"] and S.active["upgrade:item:29"])

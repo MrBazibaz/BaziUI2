@@ -12,7 +12,7 @@ local defaults = {
     cleanupWidth = 465, cleanupHeight = 340, cleanupFontSize = 0, cleanupX = 0, cleanupY = 0,
     enabled = false, columns = 10, bankColumns = 12, guildColumns = 14,
     size = 32, fontSize = 12, opacity = 85, x = 280, y = -150,
-    hideEmptyCategory = false, capacityFontSize = 10,
+    hideEmptyCategory = true, capacityFontSize = 10,
     rollX = 265, rollY = 120, openRoll = true, rolls = true, cleanup = true,
     rollGlow = true, rollTips = true, rollAnimations = true,
     maxDeleteQuality = 2,
@@ -25,6 +25,10 @@ function inventory.Settings()
     local profile = addon.db.profile
     profile.inventory = profile.inventory or {}
     local db = profile.inventory
+    if not db.capacityIconsUpdated then
+        db.hideEmptyCategory = true
+        db.capacityIconsUpdated = true
+    end
     for key, value in pairs(defaults) do
         if db[key] == nil then db[key] = value end
     end
@@ -325,6 +329,78 @@ function inventory.BagIDs(includeSpecial)
     end
     return ids
 end
+
+inventory.capacityLabels = {general = "Bags", ammo = "Quiver", reagent = "Reagent"}
+inventory.capacityOrder = {"general", "ammo", "reagent"}
+
+local function canRead(value)
+    return (not issecretvalue or not issecretvalue(value)) and (not canaccessvalue or canaccessvalue(value))
+end
+
+function inventory.BagKind(bag, family)
+    local index = Enum and Enum.BagIndex
+    if index and index.ReagentBag == bag then return "reagent" end
+    if index and index.Keyring == bag then return end
+    if not canRead(family) then return end
+    if family and family >= 1 and family <= 3 then return "ammo" end
+    if not family or family == 0 then return "general" end
+    return "reagent"
+end
+
+function inventory.Capacity()
+    local capacity = {}
+    for _, bag in ipairs(inventory.BagIDs(true)) do
+        local free, family = C_Container.GetContainerNumFreeSlots(bag)
+        local total = C_Container.GetContainerNumSlots(bag)
+        local kind = inventory.BagKind(bag, family)
+        if kind and canRead(total) and type(total) == "number" and total > 0
+            and canRead(free) and type(free) == "number" then
+            local row = capacity[kind] or {total = 0, free = 0}
+            row.total, row.free = row.total + total, row.free + free
+            capacity[kind] = row
+        end
+    end
+    return capacity
+end
+
+function inventory.QuestStarter(bag, slot)
+    local quest = C_Container.GetContainerItemQuestInfo and C_Container.GetContainerItemQuestInfo(bag, slot)
+    return quest and quest.questID and (not C_QuestLog or not C_QuestLog.IsQuestFlaggedCompleted
+        or not C_QuestLog.IsQuestFlaggedCompleted(quest.questID)) and not quest.isActive and quest.questID
+end
+
+local questItems, questNames
+local function cacheQuestItems()
+    questItems, questNames = {}, {}
+    local tracker = BaziUI.QuestTracker
+    local objectives = C_QuestLog and C_QuestLog.GetQuestObjectives
+    if not (tracker and tracker.DashboardQuests and objectives) then return end
+    for id, entry in pairs(tracker.DashboardQuests()) do
+        for _, objective in ipairs(objectives(id) or {}) do
+            local itemID = objective.itemID or objective.itemId
+            local title = entry.info.title
+            if itemID then questItems[itemID] = title end
+            if objective.type == "item" then
+                local text = objective.text or ""
+                local name = text:match("^(.-)%s*:%s*%d+%s*/%s*%d+$")
+                    or text:match("^%d+%s*/%s*%d+%s+(.+)$") or text
+                if name ~= "" then questNames[name:lower()] = title end
+            end
+        end
+    end
+end
+
+function inventory.RequiredByQuest(item)
+    if not item or not canRead(item.itemID) or not item.itemID then return end
+    if not questItems then cacheQuestItems() end
+    local name = item.name or item.itemName
+    return questItems[item.itemID] or (canRead(name) and type(name) == "string" and questNames[name:lower()] or nil)
+end
+
+local questEvents = CreateFrame("Frame")
+questEvents:RegisterEvent("QUEST_LOG_UPDATE")
+questEvents:RegisterEvent("PLAYER_ENTERING_WORLD")
+questEvents:SetScript("OnEvent", function() questItems, questNames = nil, nil end)
 
 function inventory.Item(bag, slot)
     local info = C_Container.GetContainerItemInfo(bag, slot)

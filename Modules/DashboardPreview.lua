@@ -6,15 +6,18 @@ local function art(entry, icon)
 end
 
 D.scenarios = {
-    {"mixed", "Multiple activities"}, {"questing", "Questing"}, {"gathering", "Gathering"},
+    {"mixed", "Multiple activities"}, {"questing", "Questing"},
     {"crafting", "Crafting"}, {"skills", "Skill progression"}, {"dungeon", "Dungeon"},
     {"raid", "Raid"}, {"pvp", "Battleground"}, {"supplies", "Low supplies"}, {"activity", "Recent activity"},
 }
 local samples = {
-    recentActivity = {rows = {
+    recentActivity = {countdown = {duration = 20, remaining = 12}, rows = {
+        {label = "Rampage", value = "12", icon = 132338, streakTier = 3, streakCount = 12,
+            labelColor = {1, 0.46, 0.34}, tooltip = "Personal best: 18 kills"},
         art(row("Experience", "+80"), 135932),
+        art(row("Coins", BaziUI.Inventory.Money(110)), 133784),
         art(row("Chunk of Boar Meat", "×2"), 133970),
-        {label = "9 Copper", icon = 133784},
+        art(row("Linen Cloth", "×3"), 132889),
     }},
     quests = {title = "Redridge Mountains", questItems = {{id = "preview", icon = 133469}}, rows = {
         row("Greater Tarantula", 6, 12, "Underbelly Scales"),
@@ -28,10 +31,8 @@ local samples = {
         art(row("Skinning", 24, 75), 134366),
     }},
     skills = {rows = {row("Daggers", 28, 30), row("Defense", 29, 30), row("Lockpicking", 15, 30)}},
-    gathering = {rows = {
-        art(row("Copper Ore", "34"), 134566), art(row("Rough Stone", "18"), 135232),
-    }},
-    crafting = {rows = {
+    crafting = {rows = {art(row("Copper Modulator", "×2"), 133216)}},
+    craftingGoals = {rows = {
         row("Copper Modulator ×2", "1 craftable"),
         art(row("Copper Bar", 6, 8), 133216), art(row("Linen Cloth", 4, 4), 132889),
     }},
@@ -61,10 +62,10 @@ samples.professions.rows[1].progress, samples.professions.rows[1].highlight = 62
 samples.skills.rows[1].highlight = true
 samples.reputation.rows[1].value = "|cff92d785+25|r  1051 / 12000"
 local profiles = {
-    mixed = {quests = true, professions = true, skills = true, gathering = true, crafting = true, reputation = true,
+    mixed = {quests = true, professions = true, skills = true, crafting = true, reputation = true,
         supplies = true, items = true, status = true, session = true, recentActivity = true},
-    questing = {quests = true, items = true}, gathering = {gathering = true, professions = true},
-    crafting = {crafting = true, gathering = true}, skills = {skills = true, professions = true},
+    questing = {quests = true, items = true},
+    crafting = {crafting = true, craftingGoals = true}, skills = {skills = true, professions = true},
     dungeon = {dungeon = true, quests = true}, raid = {raid = true, supplies = true},
     pvp = {pvp = true}, supplies = {supplies = true, status = true}, activity = {recentActivity = true},
 }

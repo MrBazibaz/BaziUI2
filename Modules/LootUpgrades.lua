@@ -15,6 +15,18 @@ local slots = {
 }
 local armorSlots = {HEAD=true, SHOULDER=true, CLOAK=true, CHEST=true, ROBE=true,
     WRIST=true, HAND=true, WAIST=true, LEGS=true, FEET=true, SHIELD=true}
+local primaryArmor = {WARRIOR=3, PALADIN=3, HUNTER=2, SHAMAN=2,
+    ROGUE=2, DRUID=2, PRIEST=1, MAGE=1, WARLOCK=1}
+
+local function preferredArmor(item, player)
+    if item.class ~= 4 or not armorSlots[item.kind] or item.kind == "CLOAK" or item.kind == "SHIELD" then return true end
+    local preferred = primaryArmor[player.token]
+    if player.level >= 40 then
+        if player.token == "WARRIOR" or player.token == "PALADIN"
+            or player.token == "HUNTER" or player.token == "SHAMAN" then preferred = preferred + 1 end
+    end
+    return not preferred or item.sub == preferred
+end
 local stats = {
     str = {"STRENGTH"}, agi = {"AGILITY"}, sta = {"STAMINA"}, int = {"INTELLECT"}, spi = {"SPIRIT"},
     ap = {"ATTACK_POWER"}, rap = {"RANGED_ATTACK_POWER"}, sp = {"SPELL_DAMAGE_DONE", "SPELL_POWER"},
@@ -198,7 +210,7 @@ local function compare(link, snapshot, profile, key)
     if not player or not gear then return end
     local item = details(link)
     if not item or type(item.required) ~= "number" or type(player.level) ~= "number" or item.required > player.level
-        or not canUse(link, item) then return end
+        or not preferredArmor(item, player) or not canUse(link, item) then return end
     if not profile then return end
     local main, mainKnown = equipped(gear, "MainHand")
     local off, offKnown = equipped(gear, "SecondaryHand")

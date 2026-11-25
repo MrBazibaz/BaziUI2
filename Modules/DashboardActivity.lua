@@ -1,6 +1,6 @@
 local addon, D = BaziUI, BaziUI.Dashboard
 local call, rowsResult = D.Call, D.Rows
-local loot, reputation = {}, {}
+local reputation = {}
 local factionSnapshot
 local function factionEvent() factionSnapshot = nil end
 local session, run, battleground, playedTotal
@@ -46,7 +46,6 @@ function D.ResetSession()
     session = nil
     local tracking = D.Tracking()
     if tracking then tracking.session = nil end
-    wipe(loot)
     wipe(reputation)
     factionSnapshot = nil
     if D.ResetSkills then D.ResetSkills() end
@@ -90,7 +89,7 @@ function D.RecordSessionEvent(event, ...)
         state.level, state.currentXP, state.levelCap = level, current, cap
     elseif event == "QUEST_TURNED_IN" then state.quest = state.quest + 1
     elseif event == "PLAYER_DEAD" then state.deaths = state.deaths + 1
-    elseif event == "CHAT_MSG_LOOT" and (addon.Adventure and addon.Adventure.SessionDriver or not D.WidgetSettings("gathering").enabled) then lootEvent(event, ...) end
+    elseif event == "CHAT_MSG_LOOT" then lootEvent(event, ...) end
 end
 
 function D.ReadSelfLoot(message, created)
@@ -100,8 +99,9 @@ function D.ReadSelfLoot(message, created)
         return prefix and prefix ~= "" and message:sub(1, #prefix) == prefix
     end
     if created then
-        if not hasPrefix(_G.LOOT_ITEM_CREATED_SELF) then return end
-    elseif not (hasPrefix(_G.LOOT_ITEM_SELF) or hasPrefix(_G.LOOT_ITEM_PUSHED_SELF)) then return end
+        if not (hasPrefix(_G.LOOT_ITEM_CREATED_SELF) or hasPrefix(_G.LOOT_ITEM_CREATED_SELF_MULTIPLE)) then return end
+    elseif hasPrefix(_G.LOOT_ITEM_CREATED_SELF) or hasPrefix(_G.LOOT_ITEM_CREATED_SELF_MULTIPLE)
+        or not (hasPrefix(_G.LOOT_ITEM_SELF) or hasPrefix(_G.LOOT_ITEM_PUSHED_SELF)) then return end
     local id = tonumber(message:match("|Hitem:(%d+)"))
     if not id then return end
     local suffix = message:match("|h[^|]*|h|r(.*)$") or message:match("|h[^|]*|h(.*)$") or ""
@@ -117,62 +117,19 @@ lootEvent = function(event, message)
     state.looted = state.looted + amount
     local _, _, _, _, class = D.Item(id)
     local kind, skin
-    if addon.Gathering.DashboardContext then kind, skin = addon.Gathering.DashboardContext() end
+    if addon.Gathering and addon.Gathering.DashboardContext then kind, skin = addon.Gathering.DashboardContext() end
     local material = class == 7 or class == 5 or skin or kind == "ore" or kind == "herb"
     if not material then D.Invalidate("session"); return end
-    local record = loot[id]
-    if not record then
-        if not D.HasRoom(loot) then
-            local oldestID, oldest
-            for key, entry in pairs(loot) do if not oldest or entry.last < oldest then oldestID, oldest = key, entry.last end end
-            if oldestID then loot[oldestID] = nil end
-        end
-        record = {gained = 0, since = GetTime()}
-        loot[id] = record
-    end
-    record.last, record.gained = GetTime(), record.gained + amount
     state.materials = state.materials + amount
     D.Invalidate("session")
 end
-
-local function gathering(options)
-    local rows, recent = {}, false
-    local time = GetTime()
-    local data = D.Tracking()
-    local tracking = data and data.materials or {}
-    local ids = {}
-    for id in pairs(loot) do ids[id] = true end
-    for id in pairs(tracking) do ids[id] = true end
-    for id in pairs(ids) do
-        local record = loot[id]
-        local active = record and time - record.last < options.duration
-        if tracking[id] or options.pinned or options.mode == "always" or active then
-            local name, icon, link, price = D.Item(id)
-            local gained = record and record.gained or 0
-            local tooltip = ("%d looted this session"):format(gained)
-            local duration = record and time - record.since or 0
-            if duration >= 120 then tooltip = tooltip .. ("\n~%.0f per hour"):format(gained * 3600 / duration) end
-            if type(price) == "number" and price > 0 then tooltip = tooltip .. "\nVendor value " .. addon.Inventory.Money(price * gained) end
-            local count = D.Count(id)
-            rows[#rows + 1] = {label = name, icon = icon, link = link, itemID = id, tooltip = tooltip,
-                value = count and tostring(count) or "?", pin = D.Pin("materials", id)}
-            recent = recent or active
-        end
-    end
-    table.sort(rows, function(a, b) return a.label < b.label end)
-    return rowsResult(rows, recent or next(tracking) ~= nil, recent)
-end
-D.Register({id = "gathering", label = "Gathering", priority = 60, tick = true, read = gathering,
-    event = function(...)
-        if not (addon.Adventure and addon.Adventure.SessionDriver) then lootEvent(...) end
-    end, events = {"CHAT_MSG_LOOT", "BAG_UPDATE_DELAYED", "GET_ITEM_INFO_RECEIVED"}})
 
 function D.TrackMaterial(item)
     local id = trackedID(item)
     local data = D.Tracking()
     if not id or not data or InCombatLockdown() or not data.materials[id] and not D.HasRoom(data.materials) then return false end
     data.materials[id] = true
-    D.Invalidate("gathering")
+    D.Invalidate("items")
     return true
 end
 
@@ -199,7 +156,7 @@ function D.TrackRecipe(recipe, amount)
     if not data.goals[id] and not D.HasRoom(data.goals) then return false, "The crafting list is full." end
     data.goals[id] = {name = type(info) == "table" and info.name or call(C_Spell and C_Spell.GetSpellName, id) or "Recipe #" .. id,
         amount = amount, materials = materials}
-    D.Invalidate("crafting")
+    D.Invalidate("craftingGoals")
     return true
 end
 
@@ -226,7 +183,7 @@ function D.TrackSelectedRecipe(amount)
     local data = D.Tracking()
     if not data or not data.goals[name] and not D.HasRoom(data.goals) then return false, "The crafting list is full." end
     data.goals[name] = {name = name, amount = amount, materials = materials}
-    D.Invalidate("crafting")
+    D.Invalidate("craftingGoals")
     return true
 end
 
@@ -246,7 +203,7 @@ local function recordCraft(event, message)
 end
 
 local function crafting(options)
-    local rows, keys = {}, {}
+    local rows = {}
     local now, recent = GetTime(), {}
     craftExpiry = nil
     for id, entry in pairs(crafted) do
@@ -265,6 +222,14 @@ local function crafting(options)
         rows[#rows + 1] = {label = entry.name, value = "×" .. entry.count, icon = entry.icon, link = entry.link,
             done = true, tooltip = "Crafted recently"}
     end
+    return rowsResult(rows, #rows > 0, #rows > 0)
+end
+D.Register({id = "crafting", label = "Crafting", priority = 60, read = crafting, event = recordCraft,
+    tick = function() return craftExpiry and GetTime() >= craftExpiry end,
+    events = {"GET_ITEM_INFO_RECEIVED", "CHAT_MSG_LOOT"}})
+
+local function craftingGoals(options)
+    local rows, keys = {}, {}
     local data = D.Tracking()
     local goals = data and data.goals or {}
     for key in pairs(goals) do keys[#keys + 1] = key end
@@ -292,19 +257,18 @@ local function crafting(options)
             for _, row in ipairs(materialRows) do rows[#rows + 1] = row end
         end
     end
-    return rowsResult(rows, #rows > 0, #recent > 0, #rows == #recent and #recent > 0 and "Crafted" or nil)
+    return rowsResult(rows, #rows > 0, false)
 end
-D.Register({id = "crafting", label = "Crafting", priority = 60, read = crafting, event = recordCraft,
-    tick = function() return craftExpiry and GetTime() >= craftExpiry end,
-    events = {"BAG_UPDATE_DELAYED", "GET_ITEM_INFO_RECEIVED", "TRADE_SKILL_LIST_UPDATE", "CHAT_MSG_LOOT"}})
+D.Register({id = "craftingGoals", label = "Crafting goals", priority = 60, read = craftingGoals,
+    events = {"BAG_UPDATE_DELAYED", "GET_ITEM_INFO_RECEIVED", "TRADE_SKILL_LIST_UPDATE"}})
 
-local function freeBags()
-    local count
-    for _, bag in ipairs(addon.Inventory.BagIDs()) do
-        local free, family = call(C_Container and C_Container.GetContainerNumFreeSlots, bag)
-        if type(free) == "number" and D.Read(family) and (not family or family == 0) then count = (count or 0) + free end
+local function bagRows(add)
+    local inventory = addon.Inventory
+    local capacity = inventory.Capacity()
+    for _, kind in ipairs(inventory.capacityOrder) do
+        local slots = capacity[kind]
+        if slots then add(kind == "general" and "Free bag slots" or inventory.capacityLabels[kind], slots.free, kind) end
     end
-    return count
 end
 local function durability()
     local lowest, wornSlot
@@ -342,7 +306,10 @@ local function supplies(options)
             return rows[#rows]
         end
     end
-    add("Free bag slots", freeBags(), cfg.slots or 3)
+    bagRows(function(label, free, kind)
+        if kind == "general" then add(label, free, cfg.slots or 3)
+        else rows[#rows + 1] = {label = label, value = tostring(free), warning = free == 0} end
+    end)
     local wear, wornItem = durability()
     local wearRow = add("Durability", wear, cfg.durability or 20, "%")
     if wearRow then
@@ -370,7 +337,7 @@ local function status(options)
         if cfg[key] ~= false and value ~= nil then rows[#rows + 1] = {label = label, value = tostring(value)} end
     end
     add("gold", "Money", addon.Inventory.Money(money()))
-    add("bags", "Free bag slots", freeBags())
+    bagRows(function(label, free) add("bags", label, free) end)
     local wear = durability()
     add("durability", "Durability", wear and wear .. "%")
     local fps = call(GetFramerate)

@@ -8,6 +8,7 @@ local D = {widgets = {}, byID = {}, modes = {
 addon.Dashboard = D
 
 local activityDuration = 20
+local durationByWidget = {session = 120}
 local defaults = {
     enabled = false, x = 330, y = -5, width = 192, maxHeight = 385, scale = 100, opacity = 85,
     growUp = false, spacing = 5, maxWidgets = 8, context = true, locked = false, border = true,
@@ -43,12 +44,24 @@ function D.Settings()
     lastConfig = cfg
     cfg.widgets, cfg.thresholds, cfg.status = cfg.widgets or {}, cfg.thresholds or {}, cfg.status or {}
     if not cfg.activityDurationUpdated then
-        local legacyDurations = {gathering = 120, recentActivity = 7}
+        local legacyDurations = {recentActivity = 7}
         for id, options in pairs(cfg.widgets) do
             if options.duration == (legacyDurations[id] or 60) then options.duration = activityDuration end
         end
         if cfg.completedDuration == 15 then cfg.completedDuration = activityDuration end
         cfg.activityDurationUpdated = true
+    end
+    if not cfg.broadcastDurationsUpdated then
+        for id, duration in pairs(durationByWidget) do
+            local options = cfg.widgets[id]
+            if options and options.duration == activityDuration then options.duration = duration end
+        end
+        cfg.broadcastDurationsUpdated = true
+    end
+    if not cfg.recentActivityDurationUpdated then
+        local recent = cfg.widgets.recentActivity
+        if recent and recent.duration == 30 then recent.duration = activityDuration end
+        cfg.recentActivityDurationUpdated = true
     end
     if not cfg.compactLayout then
         if cfg.width == 210 then cfg.width = defaults.width end
@@ -98,9 +111,10 @@ function D.WidgetSettings(id)
     local settings = D.Settings().widgets
     local widget = D.byID[id]
     if not settings[id] then
-        settings[id] = {enabled = true, mode = "automatic", duration = activityDuration,
+        settings[id] = {enabled = true, mode = "automatic", duration = durationByWidget[id] or activityDuration,
             priority = widget.priority, order = widget.order, background = 85}
     end
+    if not settings[id].duration then settings[id].duration = durationByWidget[id] or activityDuration end
     return settings[id]
 end
 
@@ -167,7 +181,45 @@ local function makeRow(parent)
     row.track:SetColorTexture(0.22, 0.19, 0.16, 0.9)
     row.bar = row:CreateTexture(nil, "ARTWORK")
     row.bar:SetPoint("BOTTOMLEFT")
+    row.streakGlow = false
     return row
+end
+
+local function paintStreak(row, value)
+    local tier = value.streakTier or 0
+    if tier == 0 then
+        if row.streakGlow then
+            row.streakPulse:Stop()
+            row.streakGlow:Hide()
+        end
+        row.streakCount = nil
+        return
+    end
+    if not row.streakGlow then
+        local glow = row:CreateTexture(nil, "BACKGROUND", nil, 1)
+        glow:SetPoint("TOPLEFT", -3, 2)
+        glow:SetPoint("BOTTOMRIGHT", 3, -2)
+        local pulse = glow:CreateAnimationGroup()
+        local rise = pulse:CreateAnimation("Alpha")
+        rise:SetFromAlpha(0.64)
+        rise:SetToAlpha(1)
+        rise:SetDuration(0.16)
+        rise:SetOrder(1)
+        local fall = pulse:CreateAnimation("Alpha")
+        fall:SetFromAlpha(1)
+        fall:SetToAlpha(0.64)
+        fall:SetDuration(0.30)
+        fall:SetOrder(2)
+        pulse:SetToFinalAlpha(true)
+        row.streakGlow, row.streakPulse = glow, pulse
+    end
+    local r, g, b = unpack(value.labelColor)
+    row.streakGlow:SetColorTexture(r, g, b, 0.09 + 0.055 * tier)
+    if not row.streakGlow:IsShown() then row.streakGlow:SetAlpha(0.64); row.streakGlow:Show() end
+    if row.streakCount ~= value.streakCount then
+        row.streakCount = value.streakCount
+        row.streakPulse:Restart()
+    end
 end
 
 local function makeCard(id)
@@ -178,8 +230,57 @@ local function makeCard(id)
     card.title:SetJustifyH("LEFT")
     card.title:SetWordWrap(false)
     card.rows = {}
+    card.countdownBar = false
     cards[id] = card
     return card
+end
+
+local function updateCountdown(card)
+    local countdown = card.countdown
+    if not countdown then return end
+    local remaining = countdown.remaining or countdown.start + countdown.duration - GetTime()
+    local bar = card.countdownBar
+    local width = bar:GetWidth() * math.max(0, math.min(1, remaining / countdown.duration))
+    local edge = math.min(3, width)
+    bar.fill:SetWidth(math.max(0.001, width - edge))
+    bar.fill:SetShown(width > edge)
+    bar.tip:SetWidth(math.max(0.001, edge))
+    bar.tip:SetShown(edge > 0)
+end
+
+local function paintCountdown(card, countdown, height, r, g, b)
+    card.countdown = countdown
+    if not countdown then
+        if card.countdownBar then card.countdownBar:Hide() end
+        return 0
+    end
+    local bar = card.countdownBar
+    if not bar then
+        bar = CreateFrame("Frame", nil, card)
+        bar:SetPoint("BOTTOMLEFT", card, "BOTTOMLEFT", cardInset, 5)
+        bar:SetPoint("BOTTOMRIGHT", card, "BOTTOMRIGHT", -cardInset, 5)
+        local track = bar:CreateTexture(nil, "BACKGROUND")
+        track:SetAllPoints()
+        track:SetColorTexture(0.22, 0.19, 0.16, 0.9)
+        bar.fill = bar:CreateTexture(nil, "ARTWORK")
+        bar.fill:SetPoint("TOPLEFT")
+        bar.fill:SetPoint("BOTTOMLEFT")
+        bar.tip = bar:CreateTexture(nil, "ARTWORK")
+        bar.tip:SetPoint("TOPLEFT", bar.fill, "TOPRIGHT")
+        bar.tip:SetPoint("BOTTOMLEFT", bar.fill, "BOTTOMRIGHT")
+        for _, texture in ipairs({bar.fill, bar.tip}) do
+            texture:SetSnapToPixelGrid(false)
+            texture:SetTexelSnappingBias(0)
+        end
+        card.countdownBar = bar
+    end
+    bar:SetHeight(height)
+    bar.fill:SetColorTexture(r, g, b, 1)
+    bar.tip:SetColorTexture(1, 1, 1, 1)
+    bar.tip:SetGradient("HORIZONTAL", CreateColor(r, g, b, 1), CreateColor(r, g, b, 0))
+    updateCountdown(card)
+    bar:Show()
+    return height + 4
 end
 
 local function setHeight(height)
@@ -227,6 +328,8 @@ local function makeFrame()
     frame:SetScript("OnEnter", function() D.Render(true) end)
     frame:SetScript("OnLeave", function() C_Timer.After(0, function() D.Render(true) end) end)
     frame:SetScript("OnUpdate", function(self, elapsed)
+        local activity = cards.recentActivity
+        if activity and activity:IsShown() then updateCountdown(activity) end
         local motion = heightAnimation
         if not motion or self.baziMoving == true or addon.Movers and addon.Movers.IsDragging(self) then return end
         motion.elapsed = motion.elapsed + elapsed
@@ -299,24 +402,6 @@ local function sortedWidgets()
         if a.options.order ~= b.options.order then return a.options.order < b.options.order end
         return a.widget.order < b.widget.order
     end)
-    if not preview then
-        local recent, gatheringIndex
-        for index, entry in ipairs(result) do
-            if index > cfg.maxWidgets then break end
-            if entry.widget.id == "recentActivity" then recent = entry.data.rows end
-            if entry.widget.id == "gathering" then gatheringIndex = index end
-        end
-        if recent and gatheringIndex then
-            local looted, rows = {}, {}
-            for _, row in ipairs(recent) do if row.itemID then looted[row.itemID] = true end end
-            local entry = result[gatheringIndex]
-            for _, row in ipairs(entry.data.rows) do
-                if not looted[row.itemID] then rows[#rows + 1] = row end
-            end
-            if #rows == 0 then table.remove(result, gatheringIndex)
-            else entry.data = D.Rows(rows, entry.data.active, entry.data.activity, entry.data.title) end
-        end
-    end
     return result, mouseover
 end
 
@@ -395,8 +480,10 @@ function D.Render(animate)
                 if value.labelColor then row.label:SetTextColor(unpack(value.labelColor))
                 else row.label:SetTextColor(1, 1, 1) end
                 row.value:SetText(value.value or "")
+                paintStreak(row, value)
                 if value.warning then row.value:SetTextColor(1, 0.48, 0.42)
                 elseif value.done then row.value:SetTextColor(0.62, 0.89, 0.59)
+                elseif value.streakTier and value.streakTier > 0 then row.value:SetTextColor(unpack(value.labelColor))
                 elseif value.highlight then row.value:SetTextColor(r, g, b)
                 else row.value:SetTextColor(0.91, 0.80, 0.64) end
                 row.track:SetShown(hasProgress)
@@ -412,7 +499,8 @@ function D.Render(animate)
             offset = offset + row:GetHeight() + cfg.rowSpacing
         end
         for index = #data.rows + 1, #card.rows do card.rows[index]:Hide() end
-        card:SetHeight(math.max(12, offset + 5 - cfg.rowSpacing))
+        local footer = paintCountdown(card, data.countdown, cfg.barHeight, r, g, b)
+        card:SetHeight(math.max(12, offset + 5 - cfg.rowSpacing + footer))
         card:Show()
         y = y + card:GetHeight() + cfg.spacing
     end

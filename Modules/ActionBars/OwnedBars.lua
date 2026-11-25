@@ -4,6 +4,7 @@ local pages = {1, 6, 5, 3, 4, 13, 14, 15}
 local bars = {}
 function module.GetOwnedMoverFrame(index) return bars[index] end
 local nativeParents = {}
+local sideBarVisibility
 local nativeHolder
 local bindingMode = false
 local bindingSelection, bindingFrame
@@ -276,6 +277,25 @@ function module:DisableOwnedBars()
         frame:SetParent(parent)
         nativeParents[frame] = nil
     end
+    if sideBarVisibility then
+        for frame, wasShown in pairs(sideBarVisibility) do
+            if wasShown then frame:Show() end
+        end
+        sideBarVisibility = nil
+    end
+end
+
+function module:HideOwnedNativeSideBars()
+    if sideBarVisibility then return end
+    sideBarVisibility = {}
+    for _, bar in pairs({MultiBarRight, MultiBarLeft}) do
+        if bar.HideBase then
+            sideBarVisibility[bar] = bar:IsShown()
+            bar:HideBase()
+        end
+    end
+    -- A hidden parent doesn't change IsShown(), which right-side Edit Mode uses.
+    for bar in pairs(sideBarVisibility) do bar:Hide() end
 end
 
 function module:SuspendNativeBar(frame)

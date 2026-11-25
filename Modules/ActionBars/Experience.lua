@@ -13,10 +13,9 @@ local questColor = {181 / 255, 138 / 255, 18 / 255}
 local backgroundColor = {0.075, 0.048, 0.031}
 local bar, options, reputationBar
 function module.GetExperienceMoverFrame(reputation) return reputation and reputationBar or (not reputation and bar) end
-local nativeBar, nativeAlpha, inputFrame
-local nativeInput = {}
+local nativeHolder, inputFrame, nativeInput
+local nativeXP, nativeChrome = {}, {}
 local nativeHooks = {}
-local alphaHooks = {}
 local questXP
 
 local function completedQuestXP()
@@ -34,84 +33,96 @@ local function completedQuestXP()
     return questXP
 end
 
-local function nativeExperienceBar()
-    for _, holder in pairs({MainStatusTrackingBarContainer, SecondaryStatusTrackingBarContainer}) do
-        local shown = holder.GetShownBar and holder:GetShownBar()
-        if shown and shown.isExpBar then return holder end
+local function parkExperience(frame, combat)
+    if not frame or frame.IsForbidden and frame:IsForbidden() then return end
+    local state = nativeXP[frame]
+    if not state then
+        state = {alpha = frame:GetAlpha()}
+        nativeXP[frame] = state
     end
-    if MainMenuExpBar then return MainMenuExpBar end
-    for _, holder in pairs({MainStatusTrackingBarContainer, SecondaryStatusTrackingBarContainer, StatusTrackingBarManager}) do
-        for _, child in ipairs({holder:GetChildren()}) do
-            if child.isExpBar then return child end
+    if frame:GetAlpha() ~= 0 then frame:SetAlpha(0) end
+    if combat then return end
+    if not state.points then
+        state.points = {}
+        for i = 1, frame:GetNumPoints() do state.points[i] = {frame:GetPoint(i)} end
+    end
+    local point, relative, target, x, y = frame:GetPoint(1)
+    if point ~= "TOP" or relative ~= UIParent or target ~= "BOTTOM" or x ~= 0 or y ~= -64 then
+        frame:ClearAllPoints()
+        frame:SetPoint("TOP", UIParent, "BOTTOM", 0, -64)
+    end
+end
+
+local function restoreExperience(combat)
+    for frame, state in pairs(nativeXP) do
+        if frame:GetAlpha() ~= state.alpha then frame:SetAlpha(state.alpha) end
+        if not combat and state.points then
+            frame:ClearAllPoints()
+            for _, point in ipairs(state.points) do frame:SetPoint(unpack(point)) end
         end
+        if not combat or not state.points then nativeXP[frame] = nil end
     end
 end
 
 local function hideNativeBar(hide)
-    local frame = hide and nativeExperienceBar() or nil
-    if frame and frame.IsForbidden and frame:IsForbidden() then frame = nil end
     local combat = InCombatLockdown()
-    if frame and not combat then
-        local system = frame.Selection and frame or frame:GetParent()
-        module:SuppressEditSelection(system, function()
-            if not options or not bar:IsShown() then return false end
-            local current = nativeExperienceBar()
-            return current == system or (current and current:GetParent() == system)
-        end)
-    end
-    if nativeBar and frame ~= nativeBar then
-        local previous = nativeBar
-        nativeBar = nil
-        previous:SetAlpha(nativeAlpha)
-    end
-    if not combat and inputFrame ~= frame then
-        for region, state in pairs(nativeInput) do
-            region:EnableMouse(state[1])
-            if state[2] ~= nil then region:SetMouseClickEnabled(state[2]) end
-            if state[3] ~= nil then region:SetMouseMotionEnabled(state[3]) end
-        end
-        wipe(nativeInput)
-        inputFrame = nil
-    end
-    if frame then
-        if frame ~= nativeBar then nativeBar, nativeAlpha = frame, frame:GetAlpha() end
-        if not alphaHooks[frame] then
-            alphaHooks[frame] = true
-            hooksecurefunc(frame, "SetAlpha", function(self, alpha)
-                if self ~= nativeBar or alpha <= 0 then return end
-                nativeAlpha = alpha
-                if nativeExperienceBar() == self then
-                    self:SetAlpha(0)
+    local holder
+    if hide then
+        parkExperience(MainMenuExpBar, combat)
+        for _, container in pairs({MainStatusTrackingBarContainer, SecondaryStatusTrackingBarContainer}) do
+            local types = StatusTrackingBarInfo and StatusTrackingBarInfo.BarsEnum
+            local xp = types and container.bars and container.bars[types.Experience]
+            if not xp then
+                for _, child in ipairs({container:GetChildren()}) do
+                    if child.isExpBar then xp = child; break end
                 end
-            end)
-        end
-        if frame:GetAlpha() ~= 0 then frame:SetAlpha(0) end
-        -- Alpha is visual. Leave protected mouse and Edit Mode state alone in combat.
-        if combat then return end
-        inputFrame = frame
-        local function disableInput(region)
-            if not nativeInput[region] then
-                nativeInput[region] = {region:IsMouseEnabled(),
-                    region.IsMouseClickEnabled and region:IsMouseClickEnabled(),
-                    region.IsMouseMotionEnabled and region:IsMouseMotionEnabled()}
             end
-            region:EnableMouse(false)
-            if region.SetMouseClickEnabled then region:SetMouseClickEnabled(false) end
-            if region.SetMouseMotionEnabled then region:SetMouseMotionEnabled(false) end
-            for _, child in ipairs({region:GetChildren()}) do disableInput(child) end
+            parkExperience(xp, combat)
+            if xp and container.GetShownBar and container:GetShownBar() == xp then holder = container end
         end
-        disableInput(frame)
-        local owner = GameTooltip and GameTooltip:GetOwner()
-        if owner and nativeInput[owner] then GameTooltip:Hide() end
+    else
+        restoreExperience(combat)
+    end
+
+    if nativeHolder ~= holder then
+        for region, alpha in pairs(nativeChrome) do region:SetAlpha(alpha) end
+        wipe(nativeChrome)
+        nativeHolder = holder
+    end
+    if holder then
+        local function hideChrome(region)
+            if not region then return end
+            if nativeChrome[region] == nil then nativeChrome[region] = region:GetAlpha() end
+            if region:GetAlpha() ~= 0 then region:SetAlpha(0) end
+        end
+        hideChrome(holder.BarFrameTexture)
+        if holder.HorizontalDividersPool then
+            for divider in holder.HorizontalDividersPool:EnumerateActive() do hideChrome(divider) end
+        end
+    end
+
+    if combat or inputFrame == holder then return end
+    if inputFrame then
+        inputFrame:EnableMouse(nativeInput[1])
+        if nativeInput[2] ~= nil then inputFrame:SetMouseClickEnabled(nativeInput[2]) end
+        if nativeInput[3] ~= nil then inputFrame:SetMouseMotionEnabled(nativeInput[3]) end
+    end
+    inputFrame = holder
+    if holder then
+        nativeInput = {holder:IsMouseEnabled(), holder.IsMouseClickEnabled and holder:IsMouseClickEnabled(),
+            holder.IsMouseMotionEnabled and holder:IsMouseMotionEnabled()}
+        holder:EnableMouse(false)
+        if holder.SetMouseClickEnabled then holder:SetMouseClickEnabled(false) end
+        if holder.SetMouseMotionEnabled then holder:SetMouseMotionEnabled(false) end
+        if GameTooltip and GameTooltip:IsOwned(holder) then GameTooltip:Hide() end
+        module:SuppressEditSelection(holder, function() return nativeHolder == holder end)
     end
 end
 
 local function refreshNativeBar()
     local saved = BaziUI.db and BaziUI.db.profile.actionbars
     local xp = options or saved and saved.experience
-    local eligible = xp and xp.enabled and not (IsPlayerAtEffectiveMaxLevel and IsPlayerAtEffectiveMaxLevel())
-        and not (IsXPUserDisabled and IsXPUserDisabled())
-    hideNativeBar(eligible)
+    hideNativeBar(xp and xp.enabled)
 end
 
 local function watchBlizzardContainers()
@@ -123,6 +134,7 @@ local function watchBlizzardContainers()
                 hooksecurefunc(holder, "ApplyPendingBarToShow", refreshNativeBar)
             end
             if holder.Layout then hooksecurefunc(holder, "Layout", refreshNativeBar) end
+            if holder.UpdateDividers then hooksecurefunc(holder, "UpdateDividers", refreshNativeBar) end
             if holder.FadeInAnimation then
                 holder.FadeInAnimation:HookScript("OnPlay", refreshNativeBar)
                 holder.FadeInAnimation:HookScript("OnFinished", refreshNativeBar)
@@ -249,7 +261,7 @@ local function update(_, event)
         or (IsXPUserDisabled and IsXPUserDisabled()) then
         if GameTooltip:IsOwned(bar) then GameTooltip:Hide() end
         bar:Hide()
-        hideNativeBar(false)
+        hideNativeBar(true)
         return
     end
     local xp = math.min(UnitXP("player") or 0, total)
@@ -478,13 +490,12 @@ function module:ApplyExperience(settings)
     applyReputation(settings)
     local arranging = BaziUI.Movers and BaziUI.Movers.IsActive()
     if not settings.enabled then
-        if nativeBar or inputFrame then hideNativeBar(false) end
         if bar and options then
             options = nil
             bar:UnregisterAllEvents()
             if GameTooltip:IsOwned(bar) then GameTooltip:Hide() end
-            hideNativeBar(false)
         end
+        hideNativeBar(false)
         if arranging then
             if not bar then bar = createBar() end
             layout(bar, settings, settings.y)

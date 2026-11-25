@@ -1,17 +1,32 @@
 local addon, D = BaziUI, BaziUI.Dashboard
 local widgetID = "recentActivity"
 local notices, nextExpiry = {}, nil
-local tracking, lastXP, lastLevel, lastCap, lastXPNotice
+local tracking, lastXP, lastLevel, lastCap
+local streaks = {}
+local activityTime, lootedItems = nil, {}
 local filtersInstalled
 
 local moneyFormats = {"YOU_LOOT_MONEY_GUILD", "LOOT_MONEY_SPLIT_GUILD", "YOU_LOOT_MONEY", "LOOT_MONEY_SPLIT"}
 local chatGroups = {CHAT_MSG_LOOT = "LOOT", CHAT_MSG_MONEY = "MONEY",
     CHAT_MSG_COMBAT_XP_GAIN = "COMBAT_XP_GAIN", CHAT_MSG_SYSTEM = "SYSTEM"}
 local routeHistory
+local function grouped()
+    return IsInGroup and (IsInGroup() or LE_PARTY_CATEGORY_INSTANCE and IsInGroup(LE_PARTY_CATEGORY_INSTANCE))
+end
+local killFormats = {"COMBATLOG_XPGAIN_FIRSTPERSON_UNNAMED", "COMBATLOG_XPGAIN_FIRSTPERSON",
+    "COMBATLOG_XPGAIN_FIRSTPERSON_GROUP", "COMBATLOG_XPGAIN_FIRSTPERSON_RAID",
+    "COMBATLOG_XPGAIN_EXHAUSTION1", "COMBATLOG_XPGAIN_EXHAUSTION2",
+    "COMBATLOG_XPGAIN_EXHAUSTION4", "COMBATLOG_XPGAIN_EXHAUSTION5"}
+local milestones = {
+    {at = 3, title = "On a roll", color = {0.73, 0.58, 0.96}},
+    {at = 5, title = "Killing spree", color = {0.96, 0.69, 0.39}},
+    {at = 10, title = "Rampage", color = {1, 0.46, 0.34}},
+    {at = 20, title = "Unstoppable", color = {1, 0.79, 0.33}},
+}
 
-local function matchFormat(message, template)
+local function matchFormat(message, template, partial)
     if type(template) ~= "string" then return end
-    local pattern, positions, cursor = {"^"}, {}, 1
+    local pattern, positions, cursor = {partial and "" or "^"}, {}, 1
     while true do
         local first, last, position, kind = template:find("%%(%d*%$?)([sd])", cursor)
         local literal = template:sub(cursor, first and first - 1 or #template)
@@ -22,11 +37,22 @@ local function matchFormat(message, template)
         cursor = last + 1
     end
     if #positions == 0 then return end
-    pattern[#pattern + 1] = "$"
+    if not partial then pattern[#pattern + 1] = "$" end
     local captures = {message:match(table.concat(pattern))}
     for index, position in ipairs(positions) do
         if position == 1 then return captures[index] end
     end
+end
+
+local coinValues = {GOLD = 10000, SILVER = 100, COPPER = 1}
+local function readCoins(text)
+    local total = 0
+    for denomination, multiplier in pairs(coinValues) do
+        local amount = tonumber(matchFormat(text, _G[denomination .. "_AMOUNT"], true)
+            or matchFormat(text, _G[denomination .. "_AMOUNT_TEXTURE"], true))
+        if amount then total = total + amount * multiplier end
+    end
+    return total > 0 and total or nil
 end
 
 local function classify(event, message)
@@ -42,33 +68,61 @@ local function classify(event, message)
     elseif event == "CHAT_MSG_MONEY" then
         for _, key in ipairs(moneyFormats) do
             local amount = matchFormat(message, _G[key])
-            if amount then return "money", amount end
+            local copper = amount and readCoins(amount)
+            if copper then return "money", copper end
         end
     end
 end
 
-local function addNotice(key, row, count)
-    local now, duration = GetTime(), D.WidgetSettings(widgetID).duration
-    for index = #notices, 1, -1 do
-        local old = notices[index]
-        if old.key == key then
-            if count and now - old.time < duration then count = count + old.count end
-            table.remove(notices, index)
-        end
+local function expireActivity(now, duration)
+    if activityTime and now - activityTime >= duration then
+        activityTime = nil
+        notices.xp, notices.money = nil, nil
+        streaks.xp, streaks.loot, streaks.money = nil, nil, nil
+        wipe(lootedItems)
     end
-    if count and count > 1 then row.value = "×" .. count end
-    table.insert(notices, 1, {key = key, time = now, row = row, count = count})
-    if #notices > 5 then table.remove(notices) end
+end
+
+local function accumulate(key, amount)
+    local now = GetTime()
+    local duration = D.WidgetSettings(widgetID).duration
+    if key ~= "kills" then
+        expireActivity(now, duration)
+        activityTime = now
+    end
+    local previous = streaks[key]
+    local total = amount + (previous and (key ~= "kills" or now - previous.time < duration) and previous.total or 0)
+    streaks[key] = {time = now, total = total}
+    local character = D.Tracking()
+    if not character then return total, total end
+    character.activityRecords = character.activityRecords or {}
+    local best = math.max(total, character.activityRecords[key] or 0)
+    character.activityRecords[key] = best
+    return total, best
 end
 
 local function xpNotice(amount)
-    local now = GetTime()
-    local recent = lastXPNotice and now - lastXPNotice < 0.4
-    if not amount and recent then return end
-    lastXPNotice = now
-    addNotice("xp", {label = amount and "Experience" or "Experience gained", icon = 135932,
-        value = amount and ("+" .. (BreakUpLargeNumbers and BreakUpLargeNumbers(amount) or tostring(amount))) or nil})
-    if not recent then D.Notify("dashboardXP", amount and ("Experience +" .. amount) or "Experience gained") end
+    local total, best = accumulate("xp", amount)
+    notices.xp = {label = "Experience", icon = 135932,
+        value = "+" .. (BreakUpLargeNumbers and BreakUpLargeNumbers(total) or total),
+        tooltip = ("Personal best: +%d XP"):format(best)}
+    D.Notify("dashboardXP", "Experience +" .. amount)
+end
+
+local function killNotice(message)
+    if grouped() then return end
+    for _, key in ipairs(killFormats) do
+        if matchFormat(message, _G[key]) then
+            local total, best = accumulate("kills", 1)
+            local tier = 0
+            for index, milestone in ipairs(milestones) do if total >= milestone.at then tier = index end end
+            local milestone = milestones[tier]
+            notices.kills = {label = milestone and milestone.title or "Kill streak", icon = 132338,
+                value = tostring(total), tooltip = ("Personal best: %d kills"):format(best),
+                labelColor = milestone and milestone.color, streakTier = tier, streakCount = total}
+            return
+        end
+    end
 end
 
 local function readXP()
@@ -85,8 +139,7 @@ local function updateXP()
     if lastXP then
         if level == lastLevel then amount = xp - lastXP
         elseif level == lastLevel + 1 and type(lastCap) == "number" and lastCap > 0 then amount = lastCap - lastXP + xp end
-        if amount and amount > 0 then xpNotice(amount)
-        elseif level > lastLevel then xpNotice() end
+        if amount and amount > 0 then xpNotice(amount) end
     end
     lastXP, lastLevel, lastCap = xp, level, cap
 end
@@ -98,20 +151,30 @@ local function event(name, value)
         updateXP()
     elseif name == "PLAYER_LEVEL_UP" then
         updateXP()
-        xpNotice()
+    elseif name == "PLAYER_DEAD" or name == "GROUP_ROSTER_UPDATE" then
+        if name == "PLAYER_DEAD" or grouped() then streaks.kills, notices.kills = nil, nil end
     else
         local kind, first, count, link = classify(name, value)
         if kind then routeHistory(name, value) end
         if kind == "xp" then
-            xpNotice(first)
+            updateXP()
+            if name == "CHAT_MSG_COMBAT_XP_GAIN" then killNotice(value) end
         elseif kind == "item" then
             local label, icon, itemLink = D.Item(first)
             label = link and link:match("|h%[(.-)%]|h") or label
-            addNotice("item:" .. first, {label = label, icon = icon, link = link or itemLink, itemID = first}, count)
+            count = count or 1
+            local _, best = accumulate("loot", count)
+            local item = lootedItems[first] or {count = 0}
+            item.label, item.icon, item.link, item.count = label, icon, link or itemLink, item.count + count
+            item.value = item.count > 1 and "×" .. item.count or ""
+            item.tooltip = ("Personal best: %d items looted in one streak"):format(best)
+            lootedItems[first] = item
             D.Notify("dashboardLoot", "Looted " .. (link or itemLink or label))
         elseif kind == "money" then
-            addNotice("money:" .. first, {label = first, icon = 133784, tooltip = "Looted money"}, 1)
-            D.Notify("dashboardMoney", "Looted " .. first)
+            local total, best = accumulate("money", first)
+            local money = addon.Inventory.Money
+            notices.money = {label = "Coins", icon = 133784, value = money(total), tooltip = "Personal best: " .. money(best)}
+            D.Notify("dashboardMoney", "Looted " .. money(first))
         end
     end
 end
@@ -119,14 +182,25 @@ end
 local function rows(options)
     local now = GetTime()
     local result = {}
-    nextExpiry = nil
-    for index = #notices, 1, -1 do
-        local expiry = notices[index].time + options.duration
-        if now >= expiry then table.remove(notices, index)
-        elseif not nextExpiry then nextExpiry = expiry end
+    local duration = options.duration
+    expireActivity(now, duration)
+    local killTime = streaks.kills and streaks.kills.time
+    if killTime and now - killTime >= duration then
+        killTime, streaks.kills, notices.kills = nil, nil, nil
     end
-    for _, entry in ipairs(notices) do result[#result + 1] = entry.row end
-    return D.Rows(result, #result > 0, #result > 0)
+    local start = killTime or activityTime
+    local first = start and math.min(start, activityTime or start)
+    nextExpiry = first and first + duration
+    for _, key in ipairs({"kills", "xp", "money"}) do
+        if notices[key] then result[#result + 1] = notices[key] end
+    end
+    local items = {}
+    for _, item in pairs(lootedItems) do items[#items + 1] = item end
+    table.sort(items, function(a, b) return a.label < b.label end)
+    for _, item in ipairs(items) do result[#result + 1] = item end
+    local data = D.Rows(result, #result > 0, #result > 0)
+    if start then data.countdown = {start = start, duration = duration} end
+    return data
 end
 
 local function lootTab()
@@ -171,7 +245,9 @@ function D.RefreshActivityNotices(cfg)
         tracking = enabled
         wipe(notices)
         lastXP, lastLevel, lastCap = readXP()
-        lastXPNotice, nextExpiry = nil, nil
+        wipe(streaks)
+        wipe(lootedItems)
+        nextExpiry, activityTime = nil, nil
     end
     if enabled and cfg.hideActivityChat and not filtersInstalled then
         local register = ChatFrameUtil and ChatFrameUtil.AddMessageEventFilter or ChatFrame_AddMessageEventFilter
@@ -183,5 +259,5 @@ end
 
 D.Register({id = widgetID, label = "Recent activity", priority = 105, read = rows, event = event,
     tick = function() return nextExpiry and GetTime() >= nextExpiry end,
-    events = {"PLAYER_ENTERING_WORLD", "PLAYER_XP_UPDATE", "PLAYER_LEVEL_UP", "CHAT_MSG_COMBAT_XP_GAIN",
+    events = {"PLAYER_ENTERING_WORLD", "PLAYER_XP_UPDATE", "PLAYER_LEVEL_UP", "PLAYER_DEAD", "GROUP_ROSTER_UPDATE", "CHAT_MSG_COMBAT_XP_GAIN",
         "CHAT_MSG_SYSTEM", "CHAT_MSG_LOOT", "CHAT_MSG_MONEY"}})

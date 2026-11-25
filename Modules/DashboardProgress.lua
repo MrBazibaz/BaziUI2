@@ -261,6 +261,13 @@ local function items(options)
             rows[#rows + 1] = row
         end
     end
+    for id in pairs(data and data.materials or {}) do
+        if not data.items[id] then
+            local name, icon, link = D.Item(id)
+            rows[#rows + 1] = {label = name, icon = icon, link = link,
+                value = tostring(D.Count(id) or "?"), pin = function() data.materials[id] = nil end}
+        end
+    end
     table.sort(rows, function(a, b) return a.label < b.label end)
     return rowsResult(rows, true, true)
 end

@@ -288,6 +288,11 @@ end
 local function applyLayout(frame, settings, enabled, def)
     local state = frameStates[frame]
     if not state then state = {}; frameStates[frame] = state end
+    local pet = frame == _G.PetActionBar
+    -- The native Edit Mode wrappers edit snap state even for a visual move.
+    local setPoint = pet and frame.SetPointBase or frame.SetPoint
+    local clearPoints = pet and frame.ClearAllPointsBase or frame.ClearAllPoints
+    local setScale = pet and frame.SetScaleBase or frame.SetScale
     setVisible(frame, state, settings.visible)
     -- The pet bar's container can span several rows of empty world space.
     -- Its individual secure buttons keep their own mouse input.
@@ -314,6 +319,7 @@ local function applyLayout(frame, settings, enabled, def)
         local first = frame.actionButtons and frame.actionButtons[1]
         if not first and def and def.prefix then first = _G[def.prefix .. "1"] end
         local containerScale = first and first.container and first.container:GetScale() or 1
+        if containerScale <= 0 then containerScale = 1 end
         local sizeFactor = 1
         local buttonSize = def and def.key == "pet" and settings.petButtonSize or settings.nativeButtonSize
         if buttonSize > 0 and first then
@@ -322,22 +328,22 @@ local function applyLayout(frame, settings, enabled, def)
         end
         -- Edit Mode also scales the button containers inside the bar.
         local scale = settings.scale * sizeFactor / (100 * containerScale)
-        if math.abs(frame:GetScale() - scale) > 0.001 then frame:SetScale(scale) end
+        if scale > 0 and math.abs(frame:GetScale() - scale) > 0.001 then setScale(frame, scale) end
         local ratio = UIParent:GetEffectiveScale() / frame:GetEffectiveScale()
         local x, y = settings.x * ratio, settings.y * ratio
         local point, parent, relative, oldX, oldY = frame:GetPoint(1)
         if frame:GetNumPoints() ~= 1 or point ~= "CENTER" or parent ~= UIParent or relative ~= "CENTER"
             or math.abs((oldX or 0) - x) > 0.01 or math.abs((oldY or 0) - y) > 0.01 then
-            frame:ClearAllPoints()
-            frame:SetPoint("CENTER", UIParent, "CENTER", x, y)
+            clearPoints(frame)
+            setPoint(frame, "CENTER", UIParent, "CENTER", x, y)
         end
         if def and def.prefix then applyNativeRows(frame, state, getButtons(def, frame), settings) end
         state.settingPosition = nil
     elseif state.points then
         applyNativeRows(frame, state)
-        frame:SetScale(state.scale)
-        frame:ClearAllPoints()
-        for _, point in ipairs(state.points) do frame:SetPoint(unpack(point)) end
+        if state.scale > 0 then setScale(frame, state.scale) end
+        clearPoints(frame)
+        for _, point in ipairs(state.points) do setPoint(frame, unpack(point)) end
         state.points, state.scale = nil, nil
     end
 end
@@ -1078,6 +1084,7 @@ function M:Apply()
         updateStatusTicker()
         return
     end
+    self:HideOwnedNativeSideBars()
     for _, def in ipairs(self.bars) do
         local frame = getFrame(def)
         if frame and not (frame.IsForbidden and frame:IsForbidden()) then

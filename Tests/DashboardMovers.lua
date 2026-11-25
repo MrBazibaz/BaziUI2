@@ -88,6 +88,7 @@ end
 unpack = unpack or table.unpack
 function wipe(t) for k in pairs(t) do t[k] = nil end end
 CreateFrame = frame
+function CreateColor(...) return {...} end
 UIParent = frame()
 GameTooltip = {IsOwned = function() return false end}
 RegisterStateDriver, UnregisterStateDriver = noop, noop
@@ -112,7 +113,9 @@ local items = {[100] = 4, [101] = 1}
 LOOT_ITEM_SELF = "You receive loot: %s."
 YOU_LOOT_MONEY = "You loot %s"
 LOOT_MONEY_SPLIT_GUILD = "%2$s to the guild. Your share is %1$s."
+GOLD_AMOUNT, SILVER_AMOUNT, COPPER_AMOUNT = "%d Gold", "%d Silver", "%d Copper"
 ERR_QUEST_REWARD_EXP_I = "Experience gained: %d."
+COMBATLOG_XPGAIN_FIRSTPERSON = "%s dies, you gain %d experience."
 local xp, level = 100, 10
 function UnitXP() return xp end
 function UnitXPMax() return 200 end
@@ -178,6 +181,9 @@ BaziUI = {
         end,
         Label = frame,
         BagIDs = function() return {0} end,
+        Capacity = function() return {general = {free = bagFree, total = 16}, ammo = {free = 1, total = 8}} end,
+        capacityOrder = {"general", "ammo", "reagent"},
+        capacityLabels = {general = "Bags", ammo = "Quiver / ammo pouch", reagent = "Reagent bag"},
         Money = tostring,
         GetItemInfo = function(id) return "Item " .. id, "item:" .. id, nil, nil, nil, nil, nil, nil, nil, 123, 1, id == 102 and 6 or 7 end,
     },
@@ -283,7 +289,8 @@ D.WidgetSettings("supplies").mode = "always"
 assert(D.TrackSupply(102, 5))
 assert(D.TrackSupply(100, 5))
 local supplyRows = model("supplies").rows
-assert(#supplyRows == 2 and supplyRows[1].label == "Free bag slots" and supplyRows[2].label == "Item 100")
+assert(#supplyRows == 3 and supplyRows[1].label == "Free bag slots" and supplyRows[2].value == "1"
+    and supplyRows[3].label == "Item 100")
 D.Tracking().supplies[100] = nil
 D.WidgetSettings("supplies").mode = "automatic"
 skill, profession, faction, bagFree = 21, 61, 170, 0
@@ -298,10 +305,10 @@ assert(model("reputation").rows[1].value == "|cff92d785+50|r  170 / 3000")
 local wear = 1
 GetInventoryItemDurability = function(slot) if slot == 16 then return wear, 150 end end
 GetInventoryItemLink = function(_, slot) if slot == 16 then return "item:101" end end
-local equippedWear = model("supplies").rows[2]
+local equippedWear = model("supplies").rows[3]
 assert(equippedWear.label == "Durability" and equippedWear.value == "1%" and equippedWear.link == "item:101")
 wear = 0
-assert(model("supplies").rows[2].value == "0%")
+assert(model("supplies").rows[3].value == "0%")
 GetInventoryItemDurability, GetInventoryItemLink = nil, nil
 advance(61)
 assert(not model("skills").active and not model("reputation").active)
@@ -312,19 +319,20 @@ D.WidgetSettings("reputation").mode = "automatic"
 assert(D.TrackItem("item:100", 6))
 assert(D.TrackRecipe(99, 2))
 assert(model("items").rows[1].value == "4 / 6")
-assert(model("crafting").rows[1].done)
+assert(model("craftingGoals").rows[1].done)
 items[100] = 3
 event("BAG_UPDATE_DELAYED")
-assert(not model("crafting").rows[1].done)
+assert(not model("craftingGoals").rows[1].done)
 key = "Character-2"
 assert(not next(D.Tracking().goals) and not next(D.Tracking().items))
 key = "Character-1"
 assert(D.Tracking().goals[99])
 event("BAG_UPDATE_DELAYED")
-assert(#model("gathering").rows == 0)
+assert(not D.byID.gathering and #model("crafting").rows == 0)
 event("CHAT_MSG_LOOT", "You receive loot: |cff33ff00|Hitem:101:0|h[Ore]|h|rx2.")
-local gatheringRow = model("gathering").rows[1]
-assert(gatheringRow.value == "1" and gatheringRow.tooltip:find("2 looted this session", 1, true))
+assert(D.GetSessionMetrics().materials == 2)
+assert(D.TrackMaterial("item:101"))
+assert(model("items").rows[2].value == "1")
 zoneType = "party"
 event("PLAYER_ENTERING_WORLD")
 event("ENCOUNTER_START", 7, "Test boss", 1, 5)
@@ -476,7 +484,8 @@ D.Settings().enabled = true
 D.Refresh()
 flush()
 assert(D.PreviewData("activity", "recentActivity") and #model("recentActivity").rows == 0)
-assert(D.WidgetSettings("recentActivity").duration == 20 and D.WidgetSettings("gathering").duration == 20)
+assert(D.WidgetSettings("recentActivity").duration == 20 and D.WidgetSettings("crafting").duration == 20)
+assert(D.WidgetSettings("session").duration == 120)
 event("PLAYER_XP_UPDATE", "player")
 assert(#model("recentActivity").rows == 0)
 D.Render()
@@ -494,11 +503,21 @@ assert(heightBeforeXP < heightDuringXP and heightDuringXP < dashboard:GetHeight(
 local gathered = "You receive loot: |Hitem:100|h[Tarantula Egg]|hx2."
 event("CHAT_MSG_LOOT", gathered)
 event("CHAT_MSG_LOOT", "Other receives loot: |Hitem:100|h[Tarantula Egg]|h.")
-event("CHAT_MSG_MONEY", "You loot 9 Copper")
-event("CHAT_MSG_MONEY", "4 Copper to the guild. Your share is 1 Silver.")
-activity = model("recentActivity").rows
-assert(#activity == 4 and activity[1].label == "1 Silver" and activity[2].label == "9 Copper")
-assert(activity[3].label == "Tarantula Egg" and activity[3].value == "×2")
+event("CHAT_MSG_MONEY", "You loot 5 Copper")
+event("CHAT_MSG_MONEY", "4 Copper to the guild. Your share is 1 Silver 5 Copper.")
+event("CHAT_MSG_LOOT", "You receive loot: |Hitem:101|h[Spider Fang]|h.")
+event("CHAT_MSG_LOOT", gathered)
+local recent = model("recentActivity")
+activity = recent.rows
+assert(#activity == 4 and activity[1].value == "+50" and activity[2].label == "Coins" and activity[2].value == "110")
+assert(activity[3].label == "Spider Fang" and activity[3].value == "")
+assert(activity[4].label == "Tarantula Egg" and activity[4].value == "×4")
+assert(recent.countdown.duration == 20 and recent.countdown.start == GetTime())
+local activityBar
+for _, object in ipairs(frames) do
+    if rawget(object, "tip") then activityBar = object end
+end
+assert(activityBar)
 D.Settings().hideActivityChat = true
 D.Refresh()
 flush()
@@ -514,8 +533,14 @@ assert(history[1] == "Experience gained: 80." and history[2] == "You gain 12 exp
 ChatFrame3.isDocked = false
 ChatFrame3:Hide()
 assert(not filters.CHAT_MSG_LOOT(DEFAULT_CHAT_FRAME, "CHAT_MSG_LOOT", gathered))
-advance(19)
+advance(19.01)
 assert(#model("recentActivity").rows == 4)
+dashboard.scripts.OnUpdate(dashboard, 0.02)
+local size = activityBar.fill:GetWidth() + activityBar.tip:GetWidth()
+assert(math.abs(size - activityBar:GetWidth() * 0.99 / 20) < 0.001)
+advance(0.02)
+dashboard.scripts.OnUpdate(dashboard, 0.02)
+assert(activityBar.fill:GetWidth() + activityBar.tip:GetWidth() < size)
 local heightBeforeExpiry = dashboard:GetHeight()
 advance(2)
 assert(#model("recentActivity").rows == 0)
@@ -528,6 +553,31 @@ level, xp = 11, 20
 event("PLAYER_XP_UPDATE", "player")
 event("PLAYER_LEVEL_UP")
 assert(#model("recentActivity").rows == 1 and model("recentActivity").rows[1].value == "+70")
+for i = 1, 5 do
+    xp = xp + 10
+    event("CHAT_MSG_COMBAT_XP_GAIN", "Spider dies, you gain 10 experience.")
+    event("PLAYER_XP_UPDATE", "player")
+    if i < 5 then advance(5) end
+end
+local streak = model("recentActivity").rows
+assert(streak[1].label == "Killing spree" and streak[1].value == "5" and streak[1].streakTier == 2)
+assert(streak[2].value == "+120")
+assert(model("recentActivity").countdown.start == GetTime())
+assert(D.Tracking().activityRecords.kills == 5 and D.Tracking().activityRecords.xp == 120)
+local inGroup = true
+IsInGroup = function() return inGroup end
+event("GROUP_ROSTER_UPDATE")
+event("CHAT_MSG_COMBAT_XP_GAIN", "Spider dies, you gain 10 experience.")
+assert(model("recentActivity").rows[1].label == "Experience")
+inGroup = false
+event("GROUP_ROSTER_UPDATE")
+event("CHAT_MSG_COMBAT_XP_GAIN", "Spider dies, you gain 10 experience.")
+assert(model("recentActivity").rows[1].value == "1")
+event("PLAYER_DEAD")
+assert(model("recentActivity").rows[1].label == "Experience")
+assert(D.Tracking().activityRecords.kills == 5)
+advance(21)
+assert(model("session").rows[1].label == "Level reached")
 assert(#warnings == 0)
 GetQuestLogSpecialItemInfo = function(index)
     if index == 5 then return "|Hitem:200|h[Quest device]|h", 133469 end
@@ -617,16 +667,12 @@ LOOT_ITEM_CREATED_SELF = "You create: %s."
 wipe(D.Tracking().goals)
 event("CHAT_MSG_LOOT", "You create: |Hitem:101|h[Crafted item]|hx2.")
 local crafting = model("crafting")
-assert(crafting.title == "Crafted" and #crafting.rows == 1
+assert(#crafting.rows == 1
     and crafting.rows[1].label == "Crafted item" and crafting.rows[1].value == "×2")
 assert(#model("recentActivity").rows == 0, "Crafted items have their own card")
 event("CHAT_MSG_LOOT", "You receive loot: |Hitem:101|h[Ore]|h.")
 assert(D.IsShowingRow("recentActivity", "Ore"))
-for _, row in ipairs(model("gathering").rows) do
-    if row.itemID == 101 then
-        assert(not D.IsShowingRow("gathering", row.label), "Recently looted material appears once")
-    end
-end
+assert(not D.IsShowingRow("crafting", "Ore"))
 advance(21)
 assert(#model("crafting").rows == 0)
 print("Dashboard providers, settings, previews, combat lifecycle and live Movers passed.")

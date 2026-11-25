@@ -89,6 +89,30 @@ local function styleRow(row, incoming)
         anchor(row.Text, "LEFT", item, "RIGHT", 8, 0)
     end
     local data = row.GetElementData and row:GetElementData()
+    local selectable = incoming and data and inventory.CanSelectCleanupLoot(data.slotIndex)
+    if selectable and not row.baziCleanupSelect then
+        local selector = CreateFrame("Button", nil, row)
+        selector:SetAllPoints(row)
+        selector:SetFrameLevel(item:GetFrameLevel() + 2)
+        selector:RegisterForClicks("LeftButtonUp")
+        selector:SetScript("OnClick", function()
+            local current = row:GetElementData()
+            if current then inventory.SelectCleanupLoot(current.slotIndex) end
+        end)
+        selector:SetScript("OnEnter", function(self)
+            local current = row:GetElementData()
+            if not current or not inventory.CanSelectCleanupLoot(current.slotIndex) then return end
+            GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+            GameTooltip:SetLootItem(current.slotIndex)
+            GameTooltip:AddLine("Click to select for Cleanup", 1, 0.82, 0.49)
+            GameTooltip:Show()
+        end)
+        selector:SetScript("OnLeave", function(self)
+            if GameTooltip:IsOwned(self) then GameTooltip:Hide() end
+        end)
+        row.baziCleanupSelect = selector
+    end
+    if row.baziCleanupSelect then row.baziCleanupSelect:SetShown(not not selectable) end
     local isIncoming = incoming and data and data.slotIndex == incoming.slot
     if isIncoming and not row.baziCleanupPrice then
         row.baziCleanupPrice = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
@@ -138,6 +162,7 @@ function inventory.RefreshLoot()
         for _, border in pairs(qualityBorders) do border:Hide() end
         if loot.ScrollBox and loot.ScrollBox.ForEachFrame then
             loot.ScrollBox:ForEachFrame(function(row)
+                if row.baziCleanupSelect then row.baziCleanupSelect:Hide() end
                 if row.baziCleanupPrice then
                     row.baziCleanupPrice:Hide()
                     row.baziCleanupAccent:Hide()

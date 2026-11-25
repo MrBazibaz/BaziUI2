@@ -13,20 +13,26 @@ local canPetEatItem = C_PetInfo and C_PetInfo.CanPetEatItem
 local container = C_Container
 local slotAtlas = "UI-HUD-ActionBar-IconFrame"
 local emptyIcon = "Interface\\Icons\\INV_Misc_Bag_08"
+local capacityIcons = {general = emptyIcon, ammo = "Interface\\Icons\\INV_Misc_Quiver_09",
+    reagent = "Interface\\Icons\\INV_Misc_Herb_19"}
 local recentDuration = 120
 local bagInset, scrollbarSpace = 8, 18
 local function slotKey(item) return item.bag .. ":" .. item.slot end
 local sortBags = container.SortBags or SortBags
 local sortBank = container.SortBankBags or SortBankBags
 local merchantLayout = false
+local function readable(value)
+    return (not issecretvalue or not issecretvalue(value)) and (not canaccessvalue or canaccessvalue(value))
+end
 if container.SortBank and Enum and Enum.BankType and Enum.BankType.Character then
     sortBank = function() container.SortBank(Enum.BankType.Character) end
 end
 
 local function updateCharacter()
     local guid = UnitGUID("player")
-    if not guid then return end
+    if not readable(guid) or not guid then return end
     local db = BaziUI.db
+    if not db then return end
     db.inventoryCharacters = db.inventoryCharacters or {}
     local used, total = 0, 0
     for _, bag in ipairs(inventory.BagIDs(true)) do
@@ -34,11 +40,16 @@ local function updateCharacter()
         total = total + slots
         used = used + slots - (container.GetContainerNumFreeSlots(bag) or 0)
     end
-    db.inventoryCharacters[guid] = {
-        name = UnitName("player"), realm = GetRealmName(),
-        copper = GetMoney(), used = used, total = total,
-    }
-    if wallet then wallet.text:SetText(inventory.Money(GetMoney())) end
+    local character = db.inventoryCharacters[guid] or {}
+    character.name, character.realm = UnitName("player"), GetRealmName()
+    character.used, character.total = used, total
+    local copper = GetMoney()
+    if readable(copper) and type(copper) == "number" then
+        character.copper = copper
+        character.updated = GetServerTime()
+    end
+    db.inventoryCharacters[guid] = character
+    if wallet then wallet.text:SetText(inventory.Money(character.copper)) end
 end
 
 local function itemsForView(hideEmpty)
@@ -147,14 +158,66 @@ end
 local function acceptsTarget(item, feeding)
     if not item or item.empty or item.tab or item.isLocked or not item.itemID then return false end
     if feeding then return canPetEatItem and canPetEatItem(item.itemID) end
-    if not (ItemLocation and C_Item) then return false end
-    local location = ItemLocation:CreateFromBagAndSlot(item.bag, item.slot)
-    return (C_Item.DoesItemMatchSpellItemCondition and C_Item.DoesItemMatchSpellItemCondition(location))
-        or (C_Item.DoesItemMatchTargetEnchantingSpell and C_Item.DoesItemMatchTargetEnchantingSpell(location))
+    -- The client validates the target when the secure click uses the bag slot.
+    return true
 end
 
 local function atMerchant()
     return mode == "bags" and MerchantFrame and MerchantFrame:IsShown()
+end
+
+local function refillAmmoBag()
+    if InCombatLockdown() or atBank or atGuild or hasItemTarget() or GetCursorInfo()
+        or MerchantFrame and MerchantFrame:IsShown() or TradeFrame and TradeFrame:IsShown()
+        or MailFrame and MailFrame:IsShown() then return end
+    local familyOf = C_Item and C_Item.GetItemFamily or GetItemFamily
+    if not familyOf or not bit then return end
+    local ammoBags, sources = {}, {}
+    for _, bag in ipairs(inventory.BagIDs(true)) do
+        local _, family = container.GetContainerNumFreeSlots(bag)
+        local kind = inventory.BagKind(bag, family)
+        if kind == "ammo" then ammoBags[bag] = family
+        elseif kind == "general" then sources[#sources + 1] = bag end
+    end
+    if not next(ammoBags) then return end
+    for _, bag in ipairs(sources) do
+        for slot = 1, container.GetContainerNumSlots(bag) do
+            local source = inventory.Item(bag, slot)
+            if source and source.class == 6 and not source.isLocked then
+                local family = familyOf(source.hyperlink or source.itemID)
+                local stack = select(8, inventory.GetItemInfo(source.hyperlink or source.itemID))
+                for target, mask in pairs(ammoBags) do
+                    if family and bit.band(family, mask) ~= 0 then
+                        local destination, merge, split, splitCount
+                        for targetSlot = 1, container.GetContainerNumSlots(target) do
+                            local current = container.GetContainerItemInfo(target, targetSlot)
+                            if not current then destination = destination or targetSlot
+                            elseif not current.isLocked and current.itemID == source.itemID and stack then
+                                local room = stack - current.stackCount
+                                if room >= source.stackCount then merge = targetSlot; break end
+                                if room > (splitCount or 0) then split, splitCount = targetSlot, room end
+                            end
+                        end
+                        destination = merge or destination
+                        if not destination and split and container.SplitContainerItem then
+                            container.SplitContainerItem(bag, slot, splitCount)
+                            destination = split
+                        elseif destination then
+                            container.PickupContainerItem(bag, slot)
+                        end
+                        if destination then
+                            local kind, id = GetCursorInfo()
+                            if kind == "item" and id == source.itemID then
+                                container.PickupContainerItem(target, destination)
+                                if GetCursorInfo() then container.PickupContainerItem(bag, slot) end
+                            end
+                            return
+                        end
+                    end
+                end
+            end
+        end
+    end
 end
 
 local function slotGUID(item)
@@ -178,13 +241,10 @@ local function merchantSlot(button)
     button.text:SetText("")
     button.level:SetText("")
     button.questGlow:Hide()
+    button.questStarter:Hide()
     button.upgrade:Hide()
     button:SetRecentPulse(false)
     if GameTooltip:IsOwned(button) then GameTooltip:Hide() end
-end
-
-local function readable(value)
-    return (not issecretvalue or not issecretvalue(value)) and (not canaccessvalue or canaccessvalue(value))
 end
 
 local function currentBagItem(item)
@@ -195,6 +255,20 @@ local function currentBagItem(item)
     if item.hyperlink and (not readable(live.hyperlink) or live.hyperlink ~= item.hyperlink) then return end
     return live
 end
+
+StaticPopupDialogs.BAZI_QUEST_ITEM_SELL = {
+    text = "%s is used by %s. Sell it anyway?",
+    button1 = SELL or YES, button2 = CANCEL, timeout = 0, hideOnEscape = true,
+    OnAccept = function(_, data)
+        if InCombatLockdown() or not atMerchant() or MerchantFrame.selectedTab == 2 then return end
+        local live = currentBagItem(data.item)
+        if live and not live.isLocked and live.stackCount == data.item.stackCount
+            and (not data.guid or slotGUID(data.item) == data.guid) then
+            container.UseContainerItem(data.item.bag, data.item.slot)
+            merchantSlot(data.button)
+        end
+    end,
+}
 
 local function showItemTooltip(button)
     local item = button.item
@@ -210,6 +284,8 @@ local function showItemTooltip(button)
     GameTooltip:SetOwner(button, "ANCHOR_RIGHT")
     if item.tab then GameTooltip:SetGuildBankItem(item.tab, item.slot)
     else GameTooltip:SetBagItem(item.bag, item.slot) end
+    local quest = mode == "bags" and inventory.RequiredByQuest(item)
+    if quest then GameTooltip:AddLine("Quest objective: " .. quest, 1, 0.82, 0.32, true) end
     BaziUI.ItemLevel.AddItemTooltipLine(GameTooltip, item.hyperlink or item.itemID)
     GameTooltip:Show()
     if GameTooltip_ShowCompareItem and (IsModifiedClick("COMPAREITEMS") or GetCVarBool("alwaysCompareItems")) then
@@ -245,6 +321,10 @@ local function dragBagItem(button)
         return
     end
     if item.isLocked or (atMerchant() and not merchantSlot(button)) then return end
+    if atMerchant() and inventory.RequiredByQuest(item) then
+        BaziUI:Print("Right-click this quest item to confirm a sale.")
+        return
+    end
     draggingItem = true
     pickup(item)
     draggingItem = GetCursorInfo() == "item"
@@ -283,6 +363,11 @@ local function cell(index)
     button.questGlow = button:CreateTexture(nil, "OVERLAY", nil, 2)
     button.questGlow:SetAllPoints()
     button.questGlow:SetTexture("Interface\\AddOns\\BaziUI\\Assets\\Bars\\BaziActionGold.tga")
+    button.questStarter = button:CreateTexture(nil, "OVERLAY", nil, 5)
+    button.questStarter:SetTexture("Interface\\AddOns\\BaziUI\\Assets\\Icons\\Bazi\\QuestAvailable.tga")
+    button.questStarter:SetSize(16, 16)
+    button.questStarter:SetPoint("BOTTOMLEFT", 1, 1)
+    button.questStarter:Hide()
     button.text = inventory.Label(button)
     button.text:SetPoint("BOTTOMRIGHT", -2, 2)
     button.level = inventory.Label(button)
@@ -404,14 +489,25 @@ local function cell(index)
             elseif self.vendorClick and MerchantFrame:IsShown() and MerchantFrame.selectedTab ~= 2 then
                 local live = merchantSlot(self)
                 if live and not live.isLocked then
-                    container.UseContainerItem(item.bag, item.slot)
-                    merchantSlot(self)
+                    local quest = inventory.RequiredByQuest(live) or inventory.RequiredByQuest(item)
+                    if quest then
+                        StaticPopup_Show("BAZI_QUEST_ITEM_SELL", item.name or live.itemName or "This item", quest,
+                            {item = item, guid = self.vendorGUID, button = self})
+                    else
+                        container.UseContainerItem(item.bag, item.slot)
+                        merchantSlot(self)
+                    end
                 end
             end
             return
         end
         if item.dropTarget then assignCursor(self.category); return end
         if not item.empty and IsModifiedClick() and item.hyperlink and HandleModifiedItemClick(item.hyperlink) then return end
+        if self.vendorClick and inventory.RequiredByQuest(item) then
+            BaziUI:Print("Right-click this quest item to confirm a sale.")
+            return
+        end
+        if inventory.ChooseCleanupItem and inventory.ChooseCleanupItem(item) then return end
         pickup(item)
     end)
     cells[index] = button
@@ -527,21 +623,28 @@ function inventory.RefreshBags(rebuildMerchantLayout, prepareHidden)
     end
     guildTabs:SetShown(mode == "guild")
     viewToggle:SetShown(atBank or atGuild)
-    local capacity, free = 0, 0
-    if mode == "bags" then
-        for _, bag in ipairs(inventory.BagIDs()) do
-            capacity = capacity + container.GetContainerNumSlots(bag)
-            free = free + (container.GetContainerNumFreeSlots(bag) or 0)
+    local capacity = mode == "bags" and inventory.Capacity() or {}
+    local capacityHeight = 0
+    for _, kind in ipairs(inventory.capacityOrder) do
+        local bar, slots = frame.capacity.bars[kind], capacity[kind]
+        bar.slots = slots
+        bar:SetShown(slots ~= nil)
+        if slots then
+            bar.fill:SetMinMaxValues(0, slots.total)
+            bar.fill:SetValue(slots.total - slots.free)
+            bar.fill:SetStatusBarColor(BaziUI.Theme:Accent())
+            inventory.GeneralFont(bar.count, 0, "OUTLINE", "Inventory:Capacity", db.capacityFontSize)
+            bar.count:SetFormattedText("%d / %d", slots.total - slots.free, slots.total)
+            local height = math.max(12, math.ceil(bar.count:GetStringHeight()))
+            bar:ClearAllPoints()
+            bar:SetPoint("TOPLEFT", frame.capacity, "TOPLEFT", 0, -capacityHeight)
+            bar:SetPoint("TOPRIGHT", frame.capacity, "TOPRIGHT", 0, -capacityHeight)
+            bar:SetHeight(height)
+            capacityHeight = capacityHeight + height + 1
         end
     end
-    frame.capacity:SetShown(capacity > 0)
-    frame.capacity.bar:SetMinMaxValues(0, math.max(1, capacity))
-    frame.capacity.bar:SetValue(capacity - free)
-    frame.capacity.bar:SetStatusBarColor(BaziUI.Theme:Accent())
-    inventory.GeneralFont(frame.capacity.count, 0, "OUTLINE", "Inventory:Capacity", db.capacityFontSize)
-    frame.capacity.count:SetFormattedText("%d / %d", capacity - free, capacity)
-    local capacityHeight = math.max(4, math.ceil(frame.capacity.count:GetStringHeight()) - 8)
-    frame.capacity:SetHeight(capacityHeight)
+    frame.capacity:SetShown(capacityHeight > 0)
+    frame.capacity:SetHeight(math.max(1, capacityHeight))
     local query = search:GetText():lower()
     local grouped, categoryNames = {}, {}
     for _, name in ipairs(db.categories) do categoryNames[name:lower()] = name end
@@ -640,11 +743,14 @@ function inventory.RefreshBags(rebuildMerchantLayout, prepareHidden)
                 if item.iconFileID and not db.hideIcons then button.icon:SetTexture(item.iconFileID) end
                 local unusable = not revealed and db.unusable and item.hyperlink and IsUsableItem and not IsUsableItem(item.hyperlink)
                     and (item.class == 2 or item.class == 4)
-                button.icon:SetDesaturated(dim or item.empty or not revealed and db.junk and item.quality == 0)
+                button.baseDesaturation = item.empty or db.junk and item.quality == 0
+                button.icon:SetDesaturated(dim or not revealed and button.baseDesaturation)
                 local shade = item.empty and 0.53 or 1
                 button.icon:SetVertexColor(shade, unusable and 0.33 or shade, unusable and 0.33 or shade,
                     item.isLocked and 0.45 or 1)
-                local isQuest = not item.empty and (category == "Quest" or item.class == 12)
+                local startsQuest = not item.empty and not item.tab and inventory.QuestStarter(item.bag, item.slot)
+                button.questStarter:SetShown(not not startsQuest)
+                local isQuest = not item.empty and (startsQuest or category == "Quest" or item.class == 12)
                 local color = db.quality and (item.quality or 0) >= 2 and ITEM_QUALITY_COLORS[item.quality]
                 button.questGlow:SetShown(isQuest or not not color or not not item.dropTarget)
                 if color and not isQuest then
@@ -855,17 +961,37 @@ local function createBag()
     glass:SetPoint("LEFT", 5, 0)
     glass:SetVertexColor(0.75, 0.63, 0.44)
     frame.capacity = CreateFrame("Frame", nil, frame)
-    local capacityBar = CreateFrame("StatusBar", nil, frame.capacity)
-    capacityBar:SetHeight(4)
-    capacityBar:SetPoint("LEFT")
-    capacityBar:SetPoint("RIGHT")
-    capacityBar:SetStatusBarTexture("Interface\\Buttons\\WHITE8X8")
-    frame.capacity.bar = capacityBar
-    local capacityTrack = capacityBar:CreateTexture(nil, "BACKGROUND")
-    capacityTrack:SetAllPoints()
-    capacityTrack:SetColorTexture(0.18, 0.14, 0.12, 1)
-    frame.capacity.count = inventory.Label(capacityBar)
-    frame.capacity.count:SetPoint("RIGHT", frame.capacity, "RIGHT")
+    frame.capacity.bars = {}
+    for _, kind in ipairs(inventory.capacityOrder) do
+        local bar = CreateFrame("Frame", nil, frame.capacity)
+        local icon = bar:CreateTexture(nil, "ARTWORK")
+        icon:SetSize(12, 12)
+        icon:SetPoint("LEFT")
+        icon:SetTexture(capacityIcons[kind])
+        bar:EnableMouse(true)
+        bar:SetScript("OnEnter", function(self)
+            if not self.slots then return end
+            GameTooltip:SetOwner(self, "ANCHOR_TOPLEFT")
+            GameTooltip:SetText(inventory.capacityLabels[kind])
+            GameTooltip:AddLine(("%d free of %d"):format(self.slots.free, self.slots.total), 1, 1, 1)
+            GameTooltip:Show()
+        end)
+        bar:SetScript("OnLeave", function(self)
+            if GameTooltip:IsOwned(self) then GameTooltip:Hide() end
+        end)
+        local fill = CreateFrame("StatusBar", nil, bar)
+        fill:SetHeight(4)
+        fill:SetPoint("LEFT", icon, "RIGHT", 5, 0)
+        fill:SetPoint("RIGHT")
+        fill:SetStatusBarTexture("Interface\\Buttons\\WHITE8X8")
+        local track = fill:CreateTexture(nil, "BACKGROUND")
+        track:SetAllPoints()
+        track:SetColorTexture(0.18, 0.14, 0.12, 1)
+        bar.count = inventory.Label(fill)
+        bar.count:SetPoint("RIGHT", bar, "RIGHT")
+        bar.fill = fill
+        frame.capacity.bars[kind] = bar
+    end
     local placeholder = inventory.Label(search)
     placeholder:SetPoint("LEFT", 22, 0)
     placeholder:SetText("Search items")
@@ -938,19 +1064,38 @@ local function createBag()
     wallet:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_TOPLEFT")
         GameTooltip:SetText("Character Gold")
-        local characters, total = {}, 0
+        updateCharacter()
+        local byName, characters, total = {}, {}, 0
+        local function key(name, realm) return name .. "-" .. (realm or ""):gsub("%s+", "") end
         for _, character in pairs(BaziUI.db.inventoryCharacters or {}) do
+            if character.name then byName[key(character.name, character.realm)] = character end
+        end
+        for _, character in pairs(BaziUI.AltManager and BaziUI.AltManager.Characters() or {}) do
+            local meta = character.identity
+            if meta and meta.name and meta.realm and type(meta.money) == "number" then
+                local id = key(meta.name, meta.realm)
+                local prior = byName[id]
+                if not prior or type(prior.copper) ~= "number" or (not prior.updated and prior.copper == 0)
+                    or (character.updated or 0) > (prior.updated or 0) then
+                    byName[id] = {name = meta.name, realm = meta.realm, copper = meta.money,
+                        used = prior and prior.used, total = prior and prior.total}
+                end
+            end
+        end
+        for _, character in pairs(byName) do
             characters[#characters + 1] = character
-            total = total + character.copper
+            total = total + (character.copper or 0)
         end
         table.sort(characters, function(a, b)
-            if a.copper ~= b.copper then return a.copper > b.copper end
+            if (a.copper or -1) ~= (b.copper or -1) then return (a.copper or -1) > (b.copper or -1) end
             return a.name < b.name
         end)
         for _, character in ipairs(characters) do
-            local text = character.name .. " · " .. character.used .. "/" .. character.total .. " slots"
-            if character.realm ~= GetRealmName() then text = text .. " · " .. character.realm end
-            GameTooltip:AddDoubleLine(text, inventory.Money(character.copper), 1, 0.94, 0.80, 1, 1, 1)
+            local text = character.name
+            if character.used and character.total then text = text .. " · " .. character.used .. "/" .. character.total .. " slots" end
+            if character.realm and character.realm ~= GetRealmName() then text = text .. " · " .. character.realm end
+            GameTooltip:AddDoubleLine(text, type(character.copper) == "number" and inventory.Money(character.copper)
+                or "Unknown", 1, 0.94, 0.80, 1, 1, 1)
         end
         GameTooltip:AddDoubleLine("Total", inventory.Money(total), 1, 0.82, 0.44, 1, 1, 1)
         GameTooltip:Show()
@@ -958,6 +1103,11 @@ local function createBag()
     wallet:SetScript("OnLeave", function() GameTooltip:Hide() end)
     frame:SetScript("OnHide", function()
         revealUpgrade, scrollToUpgrade = nil, nil
+        if inventory.CancelCleanupChoice then inventory.CancelCleanupChoice() end
+        for _, button in ipairs(cells) do
+            button:SetAlpha(1)
+            button.icon:SetDesaturated(not not button.baseDesaturation)
+        end
         frame.bagStripOpen = false
         if InCombatLockdown() then return end
         bagStrip:Hide()
@@ -1113,10 +1263,11 @@ local bindings = {ToggleBackpack = "toggle", ToggleAllBags = "toggle", ToggleBag
     CloseAllBags = "close", CloseBackpack = "close"}
 
 local events = CreateFrame("Frame")
-for _, event in ipairs({"PLAYER_LOGIN", "PLAYER_ENTERING_WORLD", "UPDATE_BINDINGS", "PLAYER_MONEY", "PLAYER_LOGOUT", "BAG_UPDATE_DELAYED", "ITEM_LOCK_CHANGED", "GET_ITEM_INFO_RECEIVED",
+for _, event in ipairs({"PLAYER_LOGIN", "PLAYER_ENTERING_WORLD", "UPDATE_BINDINGS", "PLAYER_MONEY", "BAG_UPDATE_DELAYED", "ITEM_LOCK_CHANGED", "GET_ITEM_INFO_RECEIVED",
     "MERCHANT_SHOW", "MERCHANT_CLOSED", "BANKFRAME_OPENED", "BANKFRAME_CLOSED", "AUCTION_HOUSE_SHOW",
     "GUILDBANKFRAME_OPENED", "GUILDBANKFRAME_CLOSED", "GUILDBANKBAGSLOTS_CHANGED", "CURSOR_CHANGED",
-    "MODIFIER_STATE_CHANGED", "PLAYER_EQUIPMENT_CHANGED", "PLAYER_REGEN_ENABLED", "CURRENT_SPELL_CAST_CHANGED"}) do
+    "MODIFIER_STATE_CHANGED", "PLAYER_EQUIPMENT_CHANGED", "PLAYER_REGEN_ENABLED", "CURRENT_SPELL_CAST_CHANGED",
+    "QUEST_LOG_UPDATE"}) do
     pcall(events.RegisterEvent, events, event)
 end
 events:SetScript("OnEvent", function(_, event)
@@ -1124,7 +1275,7 @@ events:SetScript("OnEvent", function(_, event)
         syncCombatBagBindings(inventory.Settings().enabled)
         return
     end
-    if event == "PLAYER_ENTERING_WORLD" then prepareBagWindow(); return end
+    if event == "PLAYER_ENTERING_WORLD" then updateCharacter(); prepareBagWindow(); return end
     if event == "MODIFIER_STATE_CHANGED" then
         if frame and frame:IsShown() and not InCombatLockdown() then
             local db = inventory.Settings()
@@ -1156,17 +1307,19 @@ events:SetScript("OnEvent", function(_, event)
         if moversOpenedBags and not (BaziUI.Movers and BaziUI.Movers.IsActive()) then inventory.MoversLayout(false) end
         refreshItemTarget()
         inventory.UpdateWindows()
+        if inventory.Settings().enabled then refillAmmoBag() end
         return
     end
     local db = inventory.Settings()
     if event == "MERCHANT_CLOSED" then
         merchantLayout = false
+        StaticPopup_Hide("BAZI_QUEST_ITEM_SELL")
         inventory.RefreshBags(true)
         return
     end
-    if db.enabled and (event == "PLAYER_MONEY" or event == "PLAYER_LOGOUT"
-        or event == "BAG_UPDATE_DELAYED" or event == "PLAYER_LOGIN") then updateCharacter() end
-    if event == "PLAYER_LOGOUT" or event == "PLAYER_MONEY" then return end
+    if event == "PLAYER_MONEY" or event == "PLAYER_LOGIN"
+        or db.enabled and event == "BAG_UPDATE_DELAYED" then updateCharacter() end
+    if event == "PLAYER_MONEY" then return end
     if event == "BANKFRAME_OPENED" then
         atBank = true
         if db.bank then inventory.OpenBags("bank") end
@@ -1234,6 +1387,7 @@ events:SetScript("OnEvent", function(_, event)
     else
         inventory.RefreshBags(nil, db.enabled and mode == "bags" and event == "BAG_UPDATE_DELAYED")
     end
+    if db.enabled and (event == "BAG_UPDATE_DELAYED" or event == "PLAYER_LOGIN") then refillAmmoBag() end
     if (event == "PLAYER_EQUIPMENT_CHANGED" or event == "BAG_UPDATE_DELAYED") and GameTooltip:IsShown() then
         local owner = GameTooltip:GetOwner()
         for _, button in ipairs(cells) do
