@@ -16,7 +16,7 @@ local ASSET = "Interface\\AddOns\\BaziUI\\Assets\\"
 local NAV_ICONS = {
     General = 0, Profiles = 3, ["Quality of Life"] = 1, UnitFrames = 2,
     Nameplates = 3, ActionBars = 4, Chat = 5, Quest = 6, Gathering = 7,
-    Dialogue = 5, HUD = 2, Inventory = 6, Minimap = 8, Tooltip = 9, Combat = 10, BugTab = 11,
+    Dialogue = 5, Dashboard = 2, HUD = 2, Inventory = 6, Minimap = 8, Tooltip = 9, Combat = 10, BugTab = 11,
 }
 local MAP_ICON = ASSET .. "Settings\\Map.png"
 
@@ -5658,6 +5658,221 @@ function addon.Options:OpenBugTab()
     ShowPage("BugTab")
 end
 
+function addon.Options:CreateDashboardPage()
+    local D = addon.Dashboard
+    local cfg = D.Settings()
+    local page = CreateFrame("Frame", nil, contentFrame)
+    page:SetAllPoints(contentFrame)
+    pages.Dashboard = page
+    local content, _, scrollBar = addon.Inventory.Scroll(page, 0, 4)
+    local tabs, sections = {}, {}
+    local function selectTab(name)
+        for key, entry in pairs(sections) do
+            entry:SetShown(name == key)
+            addon.Theme:SetButtonActive(tabs[key], name == key)
+        end
+        content:SetHeight(sections[name]:GetHeight() + 54)
+        scrollBar:SetValue(0)
+    end
+    local names = {"General", "Widgets", "Appearance", "Behaviour", "Tracking", "Session"}
+    for index, name in ipairs(names) do
+        local button = addon.Theme:CreateButton(content, name, 89, 25)
+        button:SetPoint("TOPLEFT", 12 + 94 * (index - 1), -8)
+        button:SetScript("OnClick", function() selectTab(name) end)
+        tabs[name] = button
+        sections[name] = CreatePanel(content, -43, 300)
+        CreateSection(sections[name], name, -13)
+    end
+    local function update() D.Refresh() end
+    local function toggle(panel, y, label, read, write)
+        local check = addon.Theme:CreateCheckbox(panel)
+        check:SetSize(22, 22)
+        check:SetPoint("TOPLEFT", 25, y)
+        local text = CreateLabel(panel, label, "GameFontHighlight")
+        text:SetPoint("LEFT", check, "RIGHT", 7, 0)
+        check:SetChecked(read())
+        check:SetScript("OnClick", function(self) write(self:GetChecked() == true); update() end)
+        return function() check:SetChecked(read()) end
+    end
+    local function flag(panel, y, label, key)
+        return toggle(panel, y, label, function() return cfg[key] == true end, function(value) cfg[key] = value end)
+    end
+    local function slider(panel, y, label, key, min, max)
+        local row = CreateSlider(panel, label, "", min, max, 1, cfg[key], y, function(value)
+            cfg[key] = value; update()
+        end, true, true)
+        page:HookScript("OnShow", function() row:DisplayValue(cfg[key]) end)
+        return row
+    end
+    local function dropdown(panel, y, choices, read, write)
+        local control = addon.Theme:CreateSettingsDropdown(panel)
+        control:SetSize(205, 25)
+        control:SetPoint("TOPRIGHT", -24, y)
+        local function sync()
+            local value = read()
+            for _, entry in ipairs(choices) do if value == entry[1] then control:SetText(entry[2]); return end end
+            control:SetText("Select")
+        end
+        control:SetupMenu(function(_, root)
+            if #choices > 10 and root.SetScrollMode then root:SetScrollMode(250) end
+            for _, entry in ipairs(choices) do
+                root:CreateRadio(entry[2], function() return read() == entry[1] end, function()
+                    write(entry[1])
+                    sync()
+                end)
+            end
+        end)
+        sync()
+        return sync
+    end
+    local function action(panel, label, x, y, width, callback)
+        local button = addon.Theme:CreateButton(panel, label, width, 26)
+        button:SetPoint("TOPLEFT", x, y)
+        button:SetScript("OnClick", callback)
+        return button
+    end
+    local general = sections.General
+    general:SetHeight(491)
+    page:HookScript("OnShow", flag(general, -47, "Enable Dashboard", "enabled"))
+    flag(general, -72, "Grow upward", "growUp")
+    flag(general, -97, "Lock position", "locked")
+    flag(general, -122, "Automatic context detection", "context")
+    action(general, "Move Dashboard", 25, -149, 150, function()
+        if addon.Options.OpenMovers then addon.Options:OpenMovers("Dashboard") end
+    end)
+    local chosenScenario = "mixed"
+    dropdown(general, -149, D.scenarios, function() return chosenScenario end, function(value)
+        chosenScenario = value
+        if D.IsPreview() then D.Preview(value) end
+    end)
+    action(general, "Toggle preview", 183, -149, 142, function()
+        if D.IsPreview() then D.Preview(nil) else D.Preview(chosenScenario) end
+    end)
+    for index, item in ipairs({
+        {"WIDTH", "width", 145, 550}, {"MAXIMUM HEIGHT", "maxHeight", 90, 700}, {"SCALE (%)", "scale", 50, 175},
+        {"X", "x", -2000, 2000}, {"Y", "y", -1400, 1400}, {"WIDGET SPACING", "spacing", 0, 24},
+        {"MAXIMUM VISIBLE WIDGETS", "maxWidgets", 1, 15},
+    }) do slider(general, -186 - (index - 1) * 41, unpack(item)) end
+
+    local widgets = sections.Widgets
+    widgets:SetHeight(363)
+    local chosen = D.widgets[1].id
+    local choices, controls = {}, {}
+    for _, widget in ipairs(D.widgets) do choices[#choices + 1] = {widget.id, widget.label} end
+    local function selected() return D.WidgetSettings(chosen) end
+    local function syncWidget()
+        for _, refresh in ipairs(controls) do refresh() end
+    end
+    dropdown(widgets, -42, choices, function() return chosen end, function(value) chosen = value; syncWidget() end)
+    for index, item in ipairs({
+        {"Enabled", "enabled"}, {"Pin widget", "pinned"}, {"Hide completed goals", "hideCompleted"},
+        {"Keep completed quest objectives", "keepCompleted"},
+    }) do
+        local key = item[2]
+        controls[#controls + 1] = toggle(widgets, -75 - (index - 1) * 25, item[1],
+            function() return selected()[key] == true end, function(value) selected()[key] = value end)
+    end
+    local modeText = CreateLabel(widgets, "Visibility", "GameFontNormal")
+    modeText:SetPoint("TOPLEFT", 27, -180)
+    controls[#controls + 1] = dropdown(widgets, -174, D.modes, function() return selected().mode end, function(value)
+        selected().mode = value; update()
+    end)
+    for index, item in ipairs({
+        {"PRIORITY", "priority", 0, 150}, {"ORDER (TIE BREAK)", "order", 1, #D.widgets},
+        {"ACTIVITY DURATION (SECONDS)", "duration", 5, 600}, {"WIDGET BACKGROUND (%)", "background", 0, 100},
+    }) do
+        local label, key, minimum, maximum = unpack(item)
+        local row = CreateSlider(widgets, label, "", minimum, maximum, 1, selected()[key], -206 - (index - 1) * 37,
+            function(value) selected()[key] = value; update() end, true, true)
+        controls[#controls + 1] = function() row:DisplayValue(selected()[key]) end
+    end
+
+    local appearance = sections.Appearance
+    appearance:SetHeight(334)
+    flag(appearance, -43, "Show border", "border")
+    flag(appearance, -68, "Show widget headers", "headers")
+    local accent = addon.Theme:CreateColorSwatch(appearance, function()
+        return cfg.accent or {addon.Theme:Accent()}
+    end, function(color) cfg.accent = color; D.Render() end)
+    accent:SetPoint("TOPLEFT", 27, -97)
+    local accentLabel = CreateLabel(appearance, "Dashboard accent", "GameFontNormal")
+    accentLabel:SetPoint("LEFT", accent, "RIGHT", 9, 0)
+    for index, item in ipairs({
+        {"BACKGROUND OPACITY (%)", "opacity", 0, 100}, {"PROGRESS BAR HEIGHT", "barHeight", 1, 12},
+        {"ICON SIZE", "iconSize", 8, 32}, {"ROW SPACING", "rowSpacing", 0, 18}, {"FONT SIZE", "fontSize", 8, 25},
+    }) do slider(appearance, -128 - (index - 1) * 39, unpack(item)) end
+
+    local behaviour = sections.Behaviour
+    behaviour:SetHeight(347)
+    flag(behaviour, -44, "Automatically hide inactive widgets", "autoHide")
+    flag(behaviour, -70, "Hide maxed combat skills", "hideMaxed")
+    dropdown(behaviour, -44, {{"always", "Any combat state"}, {"hide", "Hide during combat"}, {"only", "Combat only"}},
+        function() return cfg.combat end, function(value) cfg.combat = value; update() end)
+    slider(behaviour, -100, "COMPLETED OBJECTIVE TIME (SECONDS)", "completedDuration", 0, 120)
+    for index, item in ipairs({{"FREE SLOT WARNING", "slots", 0, 20, 3},
+        {"DURABILITY WARNING (%)", "durability", 0, 100, 20}, {"AMMUNITION WARNING", "ammo", 0, 1500, addon.HUD.Settings("ammo").low}}) do
+        local label, key, minimum, maximum, default = unpack(item)
+        CreateSlider(behaviour, label, "", minimum, maximum, 1, cfg.thresholds[key] or default, -141 - 39 * (index - 1),
+            function(value) cfg.thresholds[key] = value; update() end, true, true)
+    end
+    flag(behaviour, -270, "Fade in when the dashboard opens", "fade")
+
+    local tracking = sections.Tracking
+    tracking:SetHeight(284)
+    local function input(panel, x, y, width, hint)
+        local caption = CreateLabel(panel, hint, "GameFontNormalSmall")
+        caption:SetPoint("TOPLEFT", x, y)
+        local box = CreateFrame("EditBox", nil, panel, "InputBoxTemplate")
+        box:SetSize(width, 24)
+        box:SetPoint("TOPLEFT", x, y - 18)
+        box:SetAutoFocus(false)
+        box:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
+        box:SetScript("OnReceiveDrag", function(self)
+            local kind, id = GetCursorInfo()
+            if kind == "item" and type(id) == "number" then self:SetText(tostring(id)); ClearCursor() end
+        end)
+        return box
+    end
+    local id = input(tracking, 25, -51, 245, "Item ID, link or drag from your bags")
+    local target = input(tracking, 290, -51, 90, "Quantity")
+    target:SetText("1")
+    local recipe = input(tracking, 25, -145, 245, "Recipe ID or spell link")
+    local amount = input(tracking, 290, -145, 90, "Crafting quantity")
+    amount:SetText("1")
+    local function announce(ok, message)
+        addon:Print(ok and "Dashboard tracking saved." or message or "Enter a valid item and quantity.")
+    end
+    action(tracking, "Track item", 25, -98, 120, function() announce(D.TrackItem(id:GetText(), target:GetText())) end)
+    action(tracking, "Track as supply", 154, -98, 145, function() announce(D.TrackSupply(id:GetText(), target:GetText())) end)
+    action(tracking, "Track material", 308, -98, 145, function() announce(D.TrackMaterial(id:GetText())) end)
+    action(tracking, "Track recipe", 25, -193, 120, function() announce(D.TrackRecipe(recipe:GetText(), amount:GetText())) end)
+    action(tracking, "Track selected recipe", 154, -193, 175, function() announce(D.TrackSelectedRecipe(amount:GetText())) end)
+    local pinHint = CreateLabel(tracking, "Right-click a quest objective, profession, skill or faction row to track it.", "GameFontHighlightSmall")
+    pinHint:SetPoint("TOPLEFT", 25, -238)
+
+    local session = sections.Session
+    session:SetHeight(351)
+    flag(session, -46, "Exclude AFK time from rate estimates", "afk")
+    flag(session, -71, "Keep counters across reloads and logouts", "persistSession")
+    action(session, "Reset session counters", 25, -103, 173, function() D.ResetSession() end)
+    CreateSection(session, "Character status rows", -153)
+    for index, entry in ipairs({{"gold", "Money"}, {"bags", "Free bag slots"}, {"durability", "Durability"}, {"fps", "FPS"},
+        {"latency", "Latency"}, {"zone", "Zone"}, {"coordinates", "Coordinates"}, {"mail", "New mail"}, {"rested", "Rested XP"},
+        {"played", "Time played"}}) do
+        local key = entry[1]
+        local parent = session
+        if index > 5 then
+            parent = CreateFrame("Frame", nil, session)
+            parent:SetPoint("TOPLEFT", 245, 0)
+            parent:SetSize(210, 310)
+        end
+        toggle(parent, -185 - ((index - 1) % 5) * 26, entry[2],
+            function() return cfg.status[key] ~= false end, function(value) cfg.status[key] = value end)
+    end
+    page:HookScript("OnHide", function() if D.IsPreview() then D.Preview(nil) end end)
+    selectTab("General")
+end
+
 function addon.Options:Create()
     local db = addon.db and addon.db.profile
     if not db then
@@ -5929,7 +6144,7 @@ function addon.Options:Create()
 
     local navigationGroups = {
         {"General", {"General", "Profiles", "Quality of Life", "UnitFrames", "Nameplates"}},
-        {"Gameplay", {"ActionBars", "Chat", "Quest", "Dialogue", "Gathering", "HUD", "Inventory"}},
+        {"Gameplay", {"ActionBars", "Chat", "Quest", "Dialogue", "Gathering", "Dashboard", "HUD", "Inventory"}},
         {"Interface", {"Map", "Minimap", "Tooltip", "Combat", "BugTab"}},
     }
     for _, group in ipairs(navigationGroups) do
@@ -5969,6 +6184,7 @@ function addon.Options:Create()
     index("General", "Backgrounds", "Backgrounds", "window opacity transparency")
     index("General", "Headers", "Headers", "header title opacity color text")
     index("Profiles", "Character profiles", nil, "create copy switch default new character save settings")
+    index("Dashboard", "Smart widgets", nil, "quest professions gathering skills crafting supplies reputation dungeon raid pvp")
     index("ActionBars", "Experience", "experience", "exp xp rested quest reputation status bar opacity transparency")
     for _, bar in ipairs(addon.ActionBars.bars) do index("ActionBars", bar.title, bar.key) end
     for _, name in ipairs({"Player", "Target", "Focus", "Pet", "Target of Target", "Boss", "Party", "Raid"}) do
@@ -6106,6 +6322,7 @@ function addon.Options:Create()
     pageFactories.Combat = CreateCombatPage
     pageFactories.BugTab = CreateBugTabPage
     pageFactories.Inventory = CreateInventoryPage
+    pageFactories.Dashboard = function() self:CreateDashboardPage() end
 
     ShowPage("General")
 end

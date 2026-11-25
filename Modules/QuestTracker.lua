@@ -310,6 +310,15 @@ local function currentRegion()
     return names, quests
 end
 
+function tracker.DashboardQuests()
+    local names, mapped = currentRegion()
+    local entries, watched = questLogEntries(), {}
+    for _, id in ipairs(watchedQuests()) do watched[id] = true end
+    return entries, names, mapped, watched
+end
+
+tracker.OpenQuest = openQuest
+
 local function questDistance(id)
     if C_QuestLog.GetDistanceSqToQuest then
         local squared, sameContinent = C_QuestLog.GetDistanceSqToQuest(id)

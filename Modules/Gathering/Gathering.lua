@@ -379,6 +379,9 @@ end
 
 local driver = CreateFrame("Frame")
 local worldEffect, ticker, currentObject, currentCategory
+function G.DashboardContext()
+    return currentCategory, next(corpseEffects) ~= nil or isSkinnable("mouseover")
+end
 local iconUnits = setmetatable({}, {__mode = "k"})
 local function suppressIconForUnit(icon, unit)
     if not ticker or not unit or safe(UnitIsGameObject, unit) ~= true then return end

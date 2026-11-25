@@ -106,5 +106,9 @@ Modules\Inventory\Cleanup.lua
 Modules\Inventory\Loot.lua
 Modules\MapData.lua
 Modules\Map.lua
+Modules\Dashboard.lua
+Modules\DashboardProgress.lua
+Modules\DashboardActivity.lua
+Modules\DashboardPreview.lua
 Config\Options.lua
 Core\Commands.lua

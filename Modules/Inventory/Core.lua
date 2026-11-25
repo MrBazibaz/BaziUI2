@@ -209,7 +209,7 @@ function inventory.Window(name, title, width, height, xKey, yKey, opacityKey)
         local headerKey = frame.headerStyleKey or (opacityKey == "rollOpacity" and "rolls")
             or (opacityKey == "cleanupOpacity" and "cleanup") or "inventory"
         caption:SetTextColor(addon.Headers.Text(headerKey, 1, 0.82, 0.49))
-        fill:SetColorTexture(0.045, 0.026, 0.012, (db[frame.backgroundKey or opacityKey] or db.opacity) / 100)
+        fill:SetColorTexture(0.045, 0.026, 0.012, (frame.baziOpacity or db[frame.backgroundKey or opacityKey] or db.opacity) / 100)
         band:SetColorTexture(addon.Headers.Fill(headerKey, inventory.HeaderColor()))
         frame.border:SetShown(not db.removeBorder)
         if frame.lootLinked then inventory.PositionLootWindow(frame, frame.lootAbove)

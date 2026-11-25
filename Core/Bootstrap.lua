@@ -73,6 +73,8 @@ function addon:OnInitialize()
         end
     end
 
+    if self.Dashboard then self.Dashboard.Refresh() end
+
     self:Print("loaded. Type /bazi or /bui to open settings.")
 end
 
