@@ -1051,6 +1051,10 @@ local function CreateInventoryPage()
         if key == "cleanupFontSize" then addon.Typography.ModuleChanged("Inventory:Cleanup", "size") end
         db[key] = value
         inventory.UpdateWindows()
+        if key == "showAmmoCapacity" or key == "showReagentCapacity" then
+            addon.Dashboard.Invalidate("supplies")
+            addon.Dashboard.Invalidate("status")
+        end
     end
     local function check(parent, key, label, x, y)
         local button = addon.Theme:CreateCheckbox(parent)
@@ -1115,7 +1119,7 @@ local function CreateInventoryPage()
     end
 
     local bags = inventory.Scroll(sections.Bags, -12, 8)
-    bags:SetHeight(692)
+    bags:SetHeight(720)
     action(bags, "Open inventory", function() inventory.OpenBags() end, -183)
     local bagChecks = {
         {"locked", "Lock windows"}, {"growUp", "Grow upwards"}, {"emptyTop", "Empty slots at top"},
@@ -1125,6 +1129,7 @@ local function CreateInventoryPage()
         {"auction", "Auto-open at auction house"}, {"guild", "Auto-open at guild bank"},
         {"hideKeyCount", "Hide empty keyring count"}, {"bagsOnAlt", "Show bag buttons only with Alt"},
         {"hideEmptyCategory", "Hide Empty bag category"},
+        {"showAmmoCapacity", "Show quiver or ammo bag"}, {"showReagentCapacity", "Show reagent bag"},
     }
     for i, spec in ipairs(bagChecks) do
         check(bags, spec[1], spec[2], (i % 2 == 1) and 12 or 223, -4 - math.floor((i - 1) / 2) * 26)
@@ -5716,6 +5721,11 @@ function addon.Options:Open()
     optionsFrame:Show()
     optionsFrame:Raise()
  end
+
+function addon.Options:OpenModule(page, subpage)
+    self:Open()
+    ShowPage(page, subpage)
+end
 
 function addon.Options:OpenChat()
     self:Open()

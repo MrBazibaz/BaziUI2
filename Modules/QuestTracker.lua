@@ -1,5 +1,23 @@
 local addon = BaziUI
 local tracker = {}
+
+-- Sapta is a granted consumable on these stages, not a quest-log special item.
+local earthSapta = {[1520] = true, [1525] = true, [9449] = true, [92467] = true, [94374] = true}
+function tracker.QuestUseItem(questID, index)
+    if index and GetQuestLogSpecialItemInfo then
+        local link, icon = GetQuestLogSpecialItemInfo(index)
+        if (not canaccessvalue or canaccessvalue(link)) and type(link) == "string" and icon then return link, icon end
+    end
+    if not earthSapta[questID] or not C_Container or not BaziUI.Inventory then return end
+    for _, bag in ipairs(BaziUI.Inventory.BagIDs(true)) do
+        for slot = 1, C_Container.GetContainerNumSlots(bag) do
+            local item = C_Container.GetContainerItemInfo(bag, slot)
+            if item and (not canaccessvalue or canaccessvalue(item.itemID)) and item.itemID == 6635 then
+                return item.hyperlink, item.iconFileID
+            end
+        end
+    end
+end
 addon.QuestTracker = tracker
 
 local frame, header, title, headerArrow, scroll, content, summary, limit
@@ -830,14 +848,9 @@ function tracker.Refresh()
                 objectives = objectives, progress = done and 1 or progress / math.max(1, #objectives),
                 distance = (db.sort == "distance" or db.showDistance or db.groupZones) and questDistance(id) or math.huge}
             if not (done and db.hideCompleted) then
-                if db.showItems and GetQuestLogSpecialItemInfo then
+                if db.showItems then
                     local index = entry.index or (C_QuestLog.GetLogIndexForQuestID and C_QuestLog.GetLogIndexForQuestID(id))
-                    if index then
-                        local link, icon = GetQuestLogSpecialItemInfo(index)
-                        if (not canaccessvalue or canaccessvalue(link)) and type(link) == "string" and icon then
-                            record.itemLink, record.itemIcon = link, icon
-                        end
-                    end
+                    record.itemLink, record.itemIcon = tracker.QuestUseItem(id, index)
                 end
                 records[#records + 1] = record
                 local zone = modern and db.groupZones and (entry.zone or "Quests") or ""
@@ -1026,7 +1039,7 @@ end
 
 local events = CreateFrame("Frame")
 for _, event in ipairs({"PLAYER_ENTERING_WORLD", "ZONE_CHANGED", "ZONE_CHANGED_NEW_AREA", "ZONE_CHANGED_INDOORS",
-    "QUEST_LOG_UPDATE", "QUEST_WATCH_LIST_CHANGED", "QUEST_WATCH_UPDATE", "QUEST_ACCEPTED", "PLAYER_REGEN_ENABLED", "EDIT_MODE_LAYOUTS_UPDATED"}) do
+    "QUEST_LOG_UPDATE", "QUEST_WATCH_LIST_CHANGED", "QUEST_WATCH_UPDATE", "QUEST_ACCEPTED", "BAG_UPDATE_DELAYED", "PLAYER_REGEN_ENABLED", "EDIT_MODE_LAYOUTS_UPDATED"}) do
     events:RegisterEvent(event)
 end
 local queued, editLayoutChanged

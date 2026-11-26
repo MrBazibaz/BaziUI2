@@ -229,7 +229,7 @@ local dirtyEvents = {
     ZONE_CHANGED = "identity", ZONE_CHANGED_INDOORS = "identity", ZONE_CHANGED_NEW_AREA = "identity",
     QUEST_LOG_UPDATE = "quests", QUEST_WATCH_UPDATE = "quests", UPDATE_PENDING_MAIL = "mail",
     UNIT_PET = "class", UNIT_AURA = "class", PET_UI_UPDATE = "class", UPDATE_FACTION = "reputation",
-    PLAYER_AMMO_CHANGED = "class",
+    PLAYER_AMMO_CHANGED = "class", UNIT_INVENTORY_CHANGED = "class", SPELLS_CHANGED = "class",
     PLAYER_REGEN_DISABLED = "class", PLAYER_REGEN_ENABLED = "class",
 }
 local extraEvents = {"PLAYER_LOGIN", "PLAYER_ENTERING_WORLD", "PLAYER_LOGOUT", "QUEST_TURNED_IN", "CHAT_MSG_LOOT",

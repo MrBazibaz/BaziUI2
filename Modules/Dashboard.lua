@@ -71,7 +71,7 @@ function D.Settings()
     return cfg
 end
 
-local lastNotificationSound
+local lastNotificationSound, lastUpgradeSound
 function D.NotificationSettings(key)
     local cfg = D.Settings()
     cfg.notifications = cfg.notifications or {}
@@ -85,10 +85,11 @@ function D.Notify(key, message, delivered)
     local cfg = D.NotificationSettings(key)
     local now = GetTime()
     local alerts = addon.SmartAlerts
+    local previous = key == "upgrade" and lastUpgradeSound or key ~= "upgrade" and lastNotificationSound
     if alerts and cfg.sound and cfg.sound ~= "none" and not (delivered and delivered.sound)
-        and (not lastNotificationSound or now - lastNotificationSound >= 1.5) then
+        and (not previous or now - previous >= 1.5) then
         alerts.PlaySound(cfg.sound)
-        lastNotificationSound = now
+        if key == "upgrade" then lastUpgradeSound = now else lastNotificationSound = now end
     end
     if cfg.chat and not (delivered and delivered.chatWarning) then addon:Print(message) end
 end
@@ -187,7 +188,7 @@ end
 
 local function paintStreak(row, value)
     local tier = value.streakTier or 0
-    if tier == 0 then
+    if not value.streakCount then
         if row.streakGlow then
             row.streakPulse:Stop()
             row.streakGlow:Hide()
@@ -196,25 +197,28 @@ local function paintStreak(row, value)
         return
     end
     if not row.streakGlow then
-        local glow = row:CreateTexture(nil, "BACKGROUND", nil, 1)
+        local glow = CreateFrame("Frame", nil, row, "BackdropTemplate")
         glow:SetPoint("TOPLEFT", -3, 2)
         glow:SetPoint("BOTTOMRIGHT", 3, -2)
+        glow:SetBackdrop({edgeFile = "Interface\\Buttons\\WHITE8X8", edgeSize = 1})
+        glow:EnableMouse(false)
         local pulse = glow:CreateAnimationGroup()
         local rise = pulse:CreateAnimation("Alpha")
         rise:SetFromAlpha(0.64)
         rise:SetToAlpha(1)
-        rise:SetDuration(0.16)
+        rise:SetDuration(0.75)
         rise:SetOrder(1)
         local fall = pulse:CreateAnimation("Alpha")
         fall:SetFromAlpha(1)
         fall:SetToAlpha(0.64)
-        fall:SetDuration(0.30)
+        fall:SetDuration(1.1)
         fall:SetOrder(2)
-        pulse:SetToFinalAlpha(true)
+        pulse:SetLooping("REPEAT")
         row.streakGlow, row.streakPulse = glow, pulse
     end
-    local r, g, b = unpack(value.labelColor)
-    row.streakGlow:SetColorTexture(r, g, b, 0.09 + 0.055 * tier)
+    local r, g, b = addon.Theme:Accent()
+    if value.labelColor then r, g, b = unpack(value.labelColor) end
+    row.streakGlow:SetBackdropBorderColor(r, g, b, 0.16 + 0.07 * tier)
     if not row.streakGlow:IsShown() then row.streakGlow:SetAlpha(0.64); row.streakGlow:Show() end
     if row.streakCount ~= value.streakCount then
         row.streakCount = value.streakCount
@@ -394,6 +398,7 @@ local function sortedWidgets()
         end
     end
     table.sort(result, function(a, b)
+        if not not a.data.levelUp ~= not not b.data.levelUp then return not not a.data.levelUp end
         local aLocal = a.widget.id == "quests"
         local bLocal = b.widget.id == "quests"
         if aLocal ~= bLocal then return aLocal end
@@ -547,6 +552,10 @@ function D.Render(animate)
     resizeHeight(height, animate and (opening or not layoutChanged))
     if needsScrollLayout then viewport:UpdateScrollChildRect(); scrollbar:SyncRange() end
     window:Show()
+    if opening and not preview and not layoutMode and addon.Inventory.ShowFirstUseGuide then
+        addon.Inventory.ShowFirstUseGuide(window, "hideDashboardGuide",
+            "The Dashboard shows nearby objectives and recent activity. Use /today for daily totals or /session for your current session.")
+    end
     if D.ShowQuestItems then D.ShowQuestItems(window, viewport, questCard, questItems, preview or layoutMode) end
     if opening and cfg.fade and not layoutMode then window.baziFade:Play() end
 end

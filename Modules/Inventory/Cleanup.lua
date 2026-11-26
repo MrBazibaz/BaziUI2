@@ -31,6 +31,8 @@ local function eligible(item, settings)
     if not (item and item.name and item.price and item.stackCount and item.hyperlink and not item.isLocked
         and item.quality and item.quality <= settings.maxDeleteQuality and item.class ~= 12
         and not isKeyring(item.bag) and not ignored(item, settings)) then return false end
+    local _, family = container.GetContainerNumFreeSlots(item.bag)
+    if inventory.BagKind(item.bag, family) ~= "general" then return false end
     local quest = container.GetContainerItemQuestInfo and container.GetContainerItemQuestInfo(item.bag, item.slot)
     return not (quest and (quest.isQuestItem or quest.questID)) and not inventory.RequiredByQuest(item)
 end
@@ -65,26 +67,20 @@ local function lootItem(slot)
     return item
 end
 
-local function capacityFamily(bag, family)
-    if isKeyring(bag) then return "keyring" end
-    local index = Enum and Enum.BagIndex
-    if index and index.ReagentBag == bag then return "reagent" end
-    return family or 0
-end
-
 local function bagCapacity()
-    local partial, free = {}, {}
+    local partial, free = {}, {[0] = 0}
     for _, bag in ipairs(inventory.BagIDs(true)) do
         local slots, family = container.GetContainerNumFreeSlots(bag)
-        family = capacityFamily(bag, family)
-        free[family] = (free[family] or 0) + (slots or 0)
-        for slot = 1, container.GetContainerNumSlots(bag) do
-            local item = container.GetContainerItemInfo(bag, slot)
-            if item and item.itemID and not item.isLocked then
-                local id = item.itemID
-                partial[id] = partial[id] or {}
-                local counts = partial[id]
-                counts[#counts + 1] = item.stackCount or 1
+        if inventory.BagKind(bag, family) == "general" then
+            free[0] = free[0] + (slots or 0)
+            for slot = 1, container.GetContainerNumSlots(bag) do
+                local item = container.GetContainerItemInfo(bag, slot)
+                if item and item.itemID and not item.isLocked then
+                    local id = item.itemID
+                    partial[id] = partial[id] or {}
+                    local counts = partial[id]
+                    counts[#counts + 1] = item.stackCount or 1
+                end
             end
         end
     end
@@ -102,36 +98,15 @@ local function neededSlots(item, partial, replacing)
     return math.max(0, math.ceil(remaining / item.stack))
 end
 
-local function acceptsFamily(family, item)
-    if family == "reagent" then return item.reagent end
-    if family == "keyring" then return item.key end
-    local familyOf = C_Item and C_Item.GetItemFamily or GetItemFamily
-    local mask = familyOf and familyOf(item.link)
-    return bit and mask and bit.band(mask, family) ~= 0
-end
-
 local function shortage(items, partial, free, replacing)
     if not partial then partial, free = bagCapacity() end
-    local available = {}
-    for family, slots in pairs(free) do available[family] = slots end
-    if replacing then
-        local family = capacityFamily(replacing.bag, select(2, container.GetContainerNumFreeSlots(replacing.bag)))
-        available[family] = (available[family] or 0) + 1
-    end
-    local missing = 0
+    local available = free[0] or 0
+    if replacing then available = available + 1 end
+    local needed = 0
     for _, item in ipairs(items) do
-        local needed = neededSlots(item, partial, replacing)
-        for family, slots in pairs(available) do
-            if needed > 0 and slots > 0 and family ~= 0 and acceptsFamily(family, item) then
-                local used = math.min(needed, slots)
-                available[family], needed = slots - used, needed - used
-            end
-        end
-        local used = math.min(available[0] or 0, needed)
-        available[0] = (available[0] or 0) - used
-        missing = missing + needed - used
+        needed = needed + neededSlots(item, partial, replacing)
     end
-    return missing
+    return math.max(0, needed - available)
 end
 
 local function fits(item, partial, free, replacing)
@@ -141,7 +116,7 @@ end
 local function makesRoom(item, partial, free, replacing)
     if not item.items then return fits(item, partial, free, replacing) end
     if not partial then partial, free = bagCapacity() end
-    return shortage(item.items, partial, free, replacing) < shortage(item.items, partial, free)
+    return item.requiredFree ~= nil or shortage(item.items, partial, free, replacing) < shortage(item.items, partial, free)
 end
 
 local function blockedLoot()
@@ -208,6 +183,11 @@ local function blockedQuest()
     if not questBlocked or not questOpen then return end
     local item = questReward(questAttempt or QuestInfoFrame and QuestInfoFrame.itemChoice)
     if #item.items > 0 and not fits(item) then return item end
+    local _, free = bagCapacity()
+    if free[0] < questBlocked then
+        item.requiredFree = questBlocked
+        return item
+    end
 end
 
 local function blockedRoll()
@@ -418,6 +398,7 @@ function inventory.RefreshCleanup()
             return value(a) < value(b)
         end)
     end
+    chooseButton:SetEnabled(origin ~= "preview" and not InCombatLockdown())
     emptyLabel:SetText(showProtected and "No protected items" or "No eligible items")
     emptyLabel:SetShown(#items == 0)
     inventory.GeneralFont(emptyLabel, -1, nil, "Inventory:Cleanup", size)
@@ -433,8 +414,9 @@ function inventory.RefreshCleanup()
         local replace = origin == "loot" or origin == "preview"
         row.vendor:SetText(showProtected and "" or ("Vendor  " .. money(value(item)) .. (replace
             and ((delta >= 0 and "  |cff83cf83+" or "  |cffff795e-") .. money(math.abs(delta)) .. "|r") or "")))
-        row.action:SetText(showProtected and "Unprotect" or replace and "Replace" or "Delete")
-        row.action:SetEnabled(origin ~= "preview")
+        local combat = InCombatLockdown() and not showProtected
+        row.action:SetText(showProtected and "Unprotect" or combat and "In combat" or replace and "Replace" or "Delete")
+        row.action:SetEnabled(origin ~= "preview" and (showProtected or not InCombatLockdown()))
         row.icon:GetParent():EnableMouse(origin ~= "preview")
         row:Show()
     end
@@ -480,6 +462,8 @@ function inventory.OpenCleanup(source)
     frame:SetFrameStrata(source == "loot" and "DIALOG" or "FULLSCREEN_DIALOG")
     frame:Show()
     frame:Raise()
+    if source ~= "preview" then inventory.ShowFirstUseGuide(frame, "hideCleanupGuide",
+        "Click a loot item to choose what to keep. Replace or Delete frees a regular bag slot. Use Choose item to pick from your bags.") end
     inventory.RefreshCleanup()
     scrollbar:SetValue(scroll:GetVerticalScrollRange())
     inventory.RefreshLoot()
@@ -515,6 +499,8 @@ end
 
 if GetQuestReward then
     hooksecurefunc("GetQuestReward", function(choice)
+        local id = GetQuestID()
+        if not questOpen and read(id) and type(id) == "number" and id > 0 then questOpen = id end
         if questOpen and read(choice) then questAttempt = choice end
     end)
 end
@@ -528,9 +514,9 @@ if RollOnLoot then
 end
 
 for _, event in ipairs({"LOOT_OPENED", "LOOT_CLOSED", "LOOT_SLOT_CHANGED", "LOOT_SLOT_CLEARED",
-    "BAG_UPDATE_DELAYED", "GET_ITEM_INFO_RECEIVED", "QUEST_LOG_UPDATE", "UI_ERROR_MESSAGE",
-    "QUEST_COMPLETE", "QUEST_FINISHED", "QUEST_TURNED_IN", "START_LOOT_ROLL", "CANCEL_LOOT_ROLL",
-    "CANCEL_ALL_LOOT_ROLLS"}) do
+    "BAG_UPDATE_DELAYED", "BAG_OVERFLOW_WITH_FULL_INVENTORY", "GET_ITEM_INFO_RECEIVED", "QUEST_LOG_UPDATE", "UI_ERROR_MESSAGE",
+    "QUEST_COMPLETE", "QUEST_PROGRESS", "QUEST_FINISHED", "QUEST_TURNED_IN", "START_LOOT_ROLL", "CANCEL_LOOT_ROLL",
+    "CANCEL_ALL_LOOT_ROLLS", "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED"}) do
     pcall(events.RegisterEvent, events, event)
 end
 events:SetScript("OnEvent", function(_, event, id, value)
@@ -539,8 +525,9 @@ events:SetScript("OnEvent", function(_, event, id, value)
     elseif event == "LOOT_CLOSED" then
         lootOpen, pendingLoot, selectedLoot = nil, nil, nil
         if origin == "loot" then closeCleanup() end
-    elseif event == "QUEST_COMPLETE" then
-        questOpen, questAttempt, questBlocked = GetQuestID() or true, nil, nil
+    elseif event == "QUEST_COMPLETE" or event == "QUEST_PROGRESS" then
+        local id = GetQuestID()
+        questOpen, questAttempt, questBlocked = read(id) and id or true, nil, nil
     elseif event == "QUEST_FINISHED" or event == "QUEST_TURNED_IN" and id == questOpen then
         questOpen, questAttempt, questBlocked = nil, nil, nil
     elseif event == "START_LOOT_ROLL" then
@@ -551,9 +538,12 @@ events:SetScript("OnEvent", function(_, event, id, value)
         if read(id) and id then rolls[id] = nil end
     elseif event == "CANCEL_ALL_LOOT_ROLLS" then
         wipe(rolls)
-    elseif event == "UI_ERROR_MESSAGE" then
-        if not read(value) or value ~= ERR_INV_FULL then return end
-        if questOpen and (not lootOpen or questAttempt ~= nil) then questBlocked = true end
+    elseif event == "UI_ERROR_MESSAGE" or event == "BAG_OVERFLOW_WITH_FULL_INVENTORY" then
+        if event == "UI_ERROR_MESSAGE" and (not read(value) or value ~= ERR_INV_FULL) then return end
+        if questOpen and (not lootOpen or questAttempt ~= nil) then
+            local _, free = bagCapacity()
+            questBlocked = free[0] + 1
+        end
     end
     queueCleanupRefresh()
 end)

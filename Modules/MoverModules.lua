@@ -1,7 +1,23 @@
 local A, M = BaziUI, BaziUI.Movers
+local pages = {
+    Dashboard = "Dashboard", ["Smart Alerts"] = "Smart Alerts", Minimap = "Minimap", ["Minimap mail"] = "Minimap",
+    ["World map"] = "Map", ["Quest tracker"] = "Quest", ["Quest timers"] = "Quest",
+    ["Damage meter"] = "Combat", ["Damage meter 2"] = "Combat", Chat = "Chat",
+    ["Friend notifications"] = "Chat", ["Whisper notification"] = "Chat",
+    ["NPC dialogue"] = "Dialogue", ["Dialogue reader"] = "Dialogue",
+    ["Bags / bank"] = "Inventory", ["Loot, Cleanup & Rolls"] = "Inventory",
+    ["Tooltip anchor"] = "Tooltip", ["Enemy nameplate"] = "Nameplates",
+    ["Friendly marker"] = "Nameplates", ["NPC nameplate text"] = "Nameplates",
+    Player = "UnitFrames", Target = "UnitFrames", Focus = "UnitFrames",
+    ["Pet frame"] = "UnitFrames", ["Target of target"] = "UnitFrames",
+    ["Experience bar"] = "ActionBars", ["Reputation bar"] = "ActionBars",
+}
 local function spec(label, frame, settings, apply, fields, options)
     options = options or {}
     options.label = label
+    local group = label:match("^(%S+)")
+    local grouped = group == "Party" or group == "Raid" or group == "Boss"
+    options.optionsPage = options.optionsPage or pages[label] or (grouped and "UnitFrames" or "HUD")
     options.frame = type(frame) == "function" and frame or function() return _G[frame] end
     options.settings, options.apply, options.fields = settings, apply, fields
     M.Register(options)
@@ -56,7 +72,7 @@ for index, def in ipairs(bars.bars) do
         fields = {scale, {def.key == "pet" and "petButtonSize" or "nativeButtonSize", "Button size", 0, 100},
             {"rows", "Rows", 0, 12}, {"nativeSpacing", "Spacing", 0, 30}}
     end
-    spec(def.title, frame, settings, applyBars, fields)
+    spec(def.title, frame, settings, applyBars, fields, {optionsPage = "ActionBars"})
 end
 for _, reputation in ipairs({false, true}) do
     spec(reputation and "Reputation bar" or "Experience bar", function() return bars.GetExperienceMoverFrame(reputation) end,

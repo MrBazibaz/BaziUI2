@@ -825,14 +825,18 @@ local function addMapProgress(list, rows)
     local config = addon.QuestTracker.Settings()
     local trackerFrame = _G.BaziUIQuestTracker or UIParent
     local thickness = config.progressThickness * trackerFrame:GetEffectiveScale() / list:GetEffectiveScale()
-    local rowsWithBars, objectiveRows, objectivesByQuest, active = {}, {}, {}, {}
+    local rowsWithBars, objectiveRows, objectivesByQuest, active, metrics, changedRows = {}, {}, {}, {}, {}, {}
     local changed = false
     for objective in pool:EnumerateActive() do
         local id = objective.questID
         local row = id and rows[id]
         local label = objective.Text
         local bar = objectiveBars[objective]
-        if row and label and objective:IsShown() then objectiveRows[objective] = row end
+        if row and label and objective:IsShown() then
+            objectiveRows[objective] = row
+            metrics[row] = metrics[row] or {}
+            metrics[row][#metrics[row] + 1] = tostring(label:GetText()) .. ":" .. math.ceil(label:GetStringHeight())
+        end
         if row and label and objective:IsShown() and config.progressBars then
             local objectives = objectivesByQuest[id]
             if not objectives then
@@ -863,7 +867,10 @@ local function addMapProgress(list, rows)
 
                 local extra = thickness + 4
                 local height = math.ceil(label:GetStringHeight()) + extra
-                if objective:GetHeight() ~= height then objective:SetHeight(height); changed = true end
+                if objective:GetHeight() ~= height then
+                    objective:SetHeight(height)
+                    changed, changedRows[row] = true, true
+                end
                 rowsWithBars[row] = true
             end
         end
@@ -889,10 +896,20 @@ local function addMapProgress(list, rows)
             local height = row:GetHeight()
             display.nativeHeight = display.nativeHeight or height
             local top, bottom = row:GetTop(), bottomByRow[row]
-            local target = top and bottom and math.max(30, top - bottom + 4) or display.nativeHeight
+            local parts = metrics[row] or {}
+            table.sort(parts)
+            local signature = tostring(row.questID or row.QuestID) .. ":" .. math.floor(row:GetWidth() + 0.5)
+                .. ":" .. tostring(thickness) .. ":" .. table.concat(parts, "\n")
+            if top and bottom and (signature ~= display.heightSignature or changedRows[row]) then
+                display.heightSignature = signature
+                display.stableHeight = math.max(30, math.floor(top - bottom + 4.5))
+            elseif not bottom then
+                display.heightSignature, display.stableHeight = nil, nil
+            end
+            local target = display.stableHeight or display.nativeHeight
             if math.abs(target - height) > 0.01 then row:SetHeight(target); changed = true end
         else
-            display.nativeHeight = nil
+            display.nativeHeight, display.heightSignature, display.stableHeight = nil, nil, nil
         end
     end
     return changed

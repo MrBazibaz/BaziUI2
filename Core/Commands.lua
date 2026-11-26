@@ -663,6 +663,7 @@ local function StyleExitPopup(which)
     for index = 1, STATICPOPUP_NUMDIALOGS or 4 do
         local frame = _G["StaticPopup" .. index]
         if frame and frame.which == which and frame:IsShown() and not frame.baziExitActive then
+            if addon.ActivityStats then addon.ActivityStats.ShowExit(frame) end
             local center = frame.NineSlice and frame.NineSlice.Center
             local centerAlpha = center and center:GetAlpha()
             StyleDialogBackground(frame)
@@ -748,7 +749,62 @@ local function StyleExitPopup(which)
     end
 end
 
+local buttonPanels = {"ClassTrainerFrame", "QuestFrame", "GossipFrame", "MerchantFrame", "CharacterFrame",
+    "SpellBookFrame", "PlayerSpellsFrame", "TradeSkillFrame", "ProfessionsFrame", "TradeFrame", "MailFrame",
+    "InspectFrame", "BankFrame", "DressUpFrame", "FriendsFrame", "AuctionFrame", "AuctionHouseFrame"}
+local styledPanels = setmetatable({}, {__mode = "k"})
+local function stylePanel(frame)
+    if InCombatLockdown() or frame:IsForbidden() then return end
+    for _, child in ipairs({frame:GetChildren()}) do
+        if not child:IsForbidden() then
+            local name = child:GetName() or ""
+            if child:IsObjectType("Button") and not child:IsProtected() and child:GetText()
+                and (child.Left and child.Middle and child.Right or name == "ClassTrainerTrainButton"
+                    or name == "ClassTrainerCancelButton" or name == "ClassTrainerFrameCancelButton") then
+                addon.Commands:StyleDialogButton(child, true)
+            elseif child:IsObjectType("Frame") and not child:IsObjectType("Button") and not child:IsProtected() then
+                stylePanel(child)
+            end
+        end
+    end
+end
+
+local function discoverPanels()
+    for _, name in ipairs(buttonPanels) do
+        local panel = _G[name]
+        if panel and not styledPanels[panel] then
+            styledPanels[panel] = true
+            panel:HookScript("OnShow", function(self) C_Timer.After(0, function() stylePanel(self) end) end)
+        end
+        if panel and panel:IsShown() then stylePanel(panel) end
+    end
+end
+
+local function openEnchantTarget()
+    if InCombatLockdown() or not CharacterFrame or CharacterFrame:IsShown()
+        or not SpellCanTargetItem or not SpellCanTargetItem() or not ItemLocation
+        or not (C_Item and C_Item.DoesItemMatchTargetEnchantingSpell) then return end
+    for slot = 1, 18 do
+        if GetInventoryItemID("player", slot) then
+            local target = ItemLocation:CreateFromEquipmentSlot(slot)
+            if C_Item.DoesItemMatchTargetEnchantingSpell(target) then
+                ToggleCharacter("PaperDollFrame")
+                return
+            end
+        end
+    end
+end
+
 function addon.Commands:Initialize()
+    local ui = CreateFrame("Frame")
+    for _, event in ipairs({"ADDON_LOADED", "PLAYER_REGEN_ENABLED", "TRAINER_SHOW", "CURSOR_CHANGED", "CURRENT_SPELL_CAST_CHANGED"}) do
+        pcall(ui.RegisterEvent, ui, event)
+    end
+    ui:SetScript("OnEvent", function(_, event)
+        if event == "CURSOR_CHANGED" or event == "CURRENT_SPELL_CAST_CHANGED" then C_Timer.After(0, openEnchantTarget)
+        else C_Timer.After(0, discoverPanels) end
+    end)
+    discoverPanels()
     if hooksecurefunc and StaticPopup_Show then hooksecurefunc("StaticPopup_Show", StyleExitPopup) end
     HookQuickKeybindStyle()
     if not _G.QuickKeybindFrame then

@@ -10,7 +10,7 @@ S.categories = {Equipment = "Shield", Class = "Dagger", Quests = "Quest", Profes
 S.rules = {
     {"durability", "Low or broken equipment", "Equipment"}, {"empty", "Empty core armor and weapon slots", "Equipment", false},
     {"upgrade", "Looted equipment upgrades", "Equipment"},
-    {"fishing", "Fishing pole in combat", "Equipment"}, {"poison", "Expired temporary weapon enhancement", "Class"},
+    {"fishing", "Fishing pole in combat", "Equipment"}, {"poison", "Missing or expired weapon enhancement", "Class"}, {"selfBuff", "Missing or expired self buff", "Class"},
     {"ammo", "Low or depleted ammunition", "Class"}, {"pet", "Hunter pet dead or unhappy", "Class"},
     {"supplies", "Low tracked supplies", "Inventory"}, {"bags", "Low or full inventory", "Inventory"},
     {"loot", "Rare or valuable loot", "Inventory"}, {"quest", "Quest ready to turn in", "Quests"},
@@ -232,10 +232,41 @@ local function alertSkillGain(name, skill)
     end
 end
 
+local watchedBuffs = {
+    HUNTER = {13165, 13163, 5118, 13161, 20043, 13159, 34074, 61846},
+    MAGE = {168, 7302, 6117, 30482},
+    PRIEST = {588},
+    WARLOCK = {687, 706, 28176},
+}
+local function spellName(spell)
+    return call(C_Spell and C_Spell.GetSpellName or GetSpellInfo, spell)
+end
+
+local function knowsSpell(spell)
+    return call(IsPlayerSpell, spell) == true or call(IsSpellKnown, spell) == true
+end
+
+local function scanSelfBuff(token)
+    local variants = watchedBuffs[token]
+    if not variants then return end
+    local active, expected
+    for _, spell in ipairs(variants) do
+        local name = spellName(spell)
+        if name then
+            if not expected and knowsSpell(spell) then expected = name end
+            local found = call(AuraUtil and AuraUtil.FindAuraByName, name, "player", "HELPFUL|PLAYER")
+                or call(C_UnitAuras and C_UnitAuras.GetAuraDataBySpellName, "player", name, "HELPFUL|PLAYER")
+            if found then active = true end
+        end
+    end
+    persistent("selfBuff", "selfBuff", "Class", "warning", not active and expected and (expected .. " is missing") or nil,
+        not active and expected and "Reapply your self buff" or nil)
+end
+
 local function scanClass(snapshot)
     local meta = snapshot.identity
     if not meta then return end
-    local cfg = settings()
+    scanSelfBuff(meta.token)
     if meta.token == "HUNTER" then
         S.RefreshAmmo(snapshot)
         local exists = call(UnitExists, "pet")
@@ -256,8 +287,14 @@ local function scanClass(snapshot)
             end
             if not piece or piece.id ~= expiredEnhancement[slot] then expiredEnhancement[slot] = nil end
             local name = A.SlotNames[slot]
+            local expected = piece and (index == 1 or piece.kind ~= "SHIELD" and piece.class == 2)
+                and (meta.token == "SHAMAN" and knowsSpell(8017)
+                    or meta.token == "ROGUE" and (knowsSpell(8681) or knowsSpell(3408) or knowsSpell(2823)))
+            local missing = expected and not applied
             persistent("enhancement:" .. slot, "poison", "Class", "warning",
-                expiredEnhancement[slot] and (name .. " temporary enhancement expired") or nil)
+                expiredEnhancement[slot] and (name .. " temporary enhancement expired")
+                    or missing and (name .. " weapon enhancement is missing") or nil,
+                missing and (meta.token == "ROGUE" and "Apply a poison" or "Apply a weapon imbue") or nil)
         end
     end
 end

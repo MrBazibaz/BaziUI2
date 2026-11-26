@@ -13,6 +13,7 @@ local defaults = {
     enabled = false, columns = 10, bankColumns = 12, guildColumns = 14,
     size = 32, fontSize = 12, opacity = 85, x = 280, y = -150,
     hideEmptyCategory = true, capacityFontSize = 10,
+    showAmmoCapacity = true, showReagentCapacity = true,
     rollX = 265, rollY = 120, openRoll = true, rolls = true, cleanup = true,
     rollGlow = true, rollTips = true, rollAnimations = true,
     maxDeleteQuality = 2,
@@ -348,12 +349,14 @@ function inventory.BagKind(bag, family)
 end
 
 function inventory.Capacity()
-    local capacity = {}
+    local capacity, cfg = {}, inventory.Settings()
     for _, bag in ipairs(inventory.BagIDs(true)) do
         local free, family = C_Container.GetContainerNumFreeSlots(bag)
         local total = C_Container.GetContainerNumSlots(bag)
         local kind = inventory.BagKind(bag, family)
-        if kind and canRead(total) and type(total) == "number" and total > 0
+        local visible = kind == "general" or kind == "ammo" and cfg.showAmmoCapacity ~= false
+            or kind == "reagent" and cfg.showReagentCapacity ~= false
+        if visible and canRead(total) and type(total) == "number" and total > 0
             and canRead(free) and type(free) == "number" then
             local row = capacity[kind] or {total = 0, free = 0}
             row.total, row.free = row.total + total, row.free + free
@@ -361,6 +364,48 @@ function inventory.Capacity()
         end
     end
     return capacity
+end
+
+local dismissedGuides = {}
+function inventory.ShowFirstUseGuide(parent, key, instructions)
+    local db = inventory.Settings()
+    if db[key] or dismissedGuides[key] then return end
+    parent.baziFirstUseGuides = parent.baziFirstUseGuides or {}
+    local tip = parent.baziFirstUseGuides[key]
+    if not tip then
+        tip = CreateFrame("Frame", nil, parent)
+        tip:SetFrameStrata("TOOLTIP")
+        tip:SetSize(246, 105)
+        tip:SetClampedToScreen(true)
+        local background = addon.Theme:RoundedCard(tip)
+        background:SetAllPoints()
+        local guide = inventory.Label(tip)
+        guide:SetPoint("TOPLEFT", 10, -10)
+        guide:SetPoint("TOPRIGHT", -10, -10)
+        guide:SetJustifyH("LEFT")
+        guide:SetText(instructions)
+        local dismiss = addon.Theme:CreateCheckbox(tip)
+        dismiss:SetSize(20, 20)
+        dismiss:SetPoint("BOTTOMLEFT", 7, 4)
+        dismiss:SetScript("OnClick", function()
+            inventory.Settings()[key] = true
+            tip:Hide()
+        end)
+        local hint = inventory.Label(tip)
+        hint:SetPoint("LEFT", dismiss, "RIGHT", 3, 0)
+        hint:SetText("Don't show again")
+        local close = inventory.Button(tip, "×", 22, function() dismissedGuides[key] = true; tip:Hide() end)
+        close:SetPoint("BOTTOMRIGHT", -5, 4)
+        parent:HookScript("OnHide", function() tip:Hide() end)
+        parent.baziFirstUseGuides[key] = tip
+    end
+    tip:ClearAllPoints()
+    if parent:GetRight() and UIParent:GetRight() - parent:GetRight() < 255 then
+        tip:SetPoint("TOPRIGHT", parent, "TOPLEFT", -6, 0)
+    else
+        tip:SetPoint("TOPLEFT", parent, "TOPRIGHT", 6, 0)
+    end
+    tip:Show()
 end
 
 function inventory.QuestStarter(bag, slot)

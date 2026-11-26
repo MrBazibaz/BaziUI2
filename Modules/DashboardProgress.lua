@@ -48,7 +48,8 @@ local function smartQuests(options)
             if cfg.showQuestItems then
                 local index = entry.index or call(q.GetLogIndexForQuestID, id)
                 local link, icon
-                if index then link, icon = call(GetQuestLogSpecialItemInfo, index) end
+                if tracker.QuestUseItem then link, icon = call(tracker.QuestUseItem, id, index)
+                elseif index then link, icon = call(GetQuestLogSpecialItemInfo, index) end
                 if type(link) == "string" and read(icon) and icon then
                     local itemID = link:match("|Hitem:(%d+)")
                     if itemID and not seenItems[itemID] then

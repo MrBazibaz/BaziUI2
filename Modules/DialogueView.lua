@@ -386,6 +386,11 @@ local function rowButton(view, index, left, y, width, item, height, optionSize)
         control.icon = control:CreateTexture(nil, "ARTWORK")
         control.icon:SetSize(34, 34)
         control.icon:SetPoint("LEFT", 4, 0)
+        control.upgrade = control:CreateTexture(nil, "OVERLAY")
+        control.upgrade:SetTexture("Interface\\AddOns\\BaziUI\\Assets\\Icons\\Bazi\\ChevronUp.tga")
+        control.upgrade:SetVertexColor(0.36, 1, 0.43)
+        control.upgrade:SetSize(15, 15)
+        control.upgrade:SetPoint("TOPRIGHT", control.icon, "TOPRIGHT", 1, 0)
         control.label = text(control, 14)
         control.label:SetWordWrap(false)
         control:SetScript("OnClick", function(self) if self.item.action then self.item.action() end end)
@@ -411,6 +416,7 @@ local function rowButton(view, index, left, y, width, item, height, optionSize)
     control:GetHighlightTexture():SetShown(item.action ~= nil)
     control:EnableMouse(item.action ~= nil or item.link ~= nil)
     control.icon:SetTexture(item.icon)
+    control.upgrade:SetShown(item.upgrade == true)
     control.icon:SetShown(item.icon ~= nil)
     control.label:SetText(item.label)
     local typography = addon.Typography
@@ -508,6 +514,10 @@ local function itemList(page, label, kind, count, markValue)
             if total > bestValue then mostValuable, bestValue = entry, total end
         end
         if kind == "choice" and page.phase == "reward" then
+            local upgrades, adventure = BaziUI.LootUpgrades, BaziUI.Adventure
+            local result = upgrades and adventure and adventure.current and entry.link
+                and upgrades.Compare(entry.link, adventure.current)
+            entry.upgrade = result ~= nil
             entry.action = function()
                 page.reward = index
                 for pick, item in ipairs(items) do item.selected = pick == index end

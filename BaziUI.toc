@@ -3,7 +3,7 @@
 ## Notes: A clean, modular World of Warcraft UI.
 ## IconTexture: Interface\AddOns\BaziUI\Assets\Icons\BaziUI_Emblem_64.png
 ## Author: Bazi
-## Version: 1.15
+## Version: 1.16
 ## SavedVariables: BaziUIDB, BaziUIBugLog
 
 Core\Bootstrap.lua
@@ -113,6 +113,7 @@ Modules\DashboardActivity.lua
 Modules\DashboardNotices.lua
 Modules\DashboardPreview.lua
 Modules\AdventureData.lua
+Modules\ActivityStats.lua
 Modules\AltManager.lua
 Modules\Journey.lua
 Modules\SmartAlerts.lua

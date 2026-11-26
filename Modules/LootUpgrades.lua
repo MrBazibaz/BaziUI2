@@ -329,10 +329,18 @@ local function refresh()
             pending[link] = nil
         elseif result then
             local alertID = "upgrade:" .. bagLink
-            S.Set(alertID, "upgrade", "Equipment", "progress", "Equipment upgrade · " .. result.item.name,
+            local title = "Equipment upgrade · " .. result.item.name
+            local options = D.WidgetSettings("smartAlerts")
+            local alerts = S.Settings()
+            local dashboard = D.Settings().enabled and options.enabled and options.mode ~= "hidden"
+            local combat = InCombatLockdown()
+            local notify = dashboard and not alerts.dnd and not alerts.critical
+                and (combat and alerts.combat or not combat and alerts.peace)
+            if notify then D.Notify("upgrade", title) end
+            S.Set(alertID, "upgrade", "Equipment", "progress", title,
                 "Click to show in bags", false, function()
                     reveal(bagLink)
-                end)
+                end, notify and {sound = true, chatWarning = true} or nil)
             shown[bagLink], pending[link] = alertID, nil
             if not newest or untilTime > newest.time or untilTime == newest.time and bagLink < newest.link then
                 newest = {link = bagLink, time = untilTime}

@@ -631,7 +631,12 @@ D.Settings().growUp = true
 D.WidgetSettings("supplies").pinned = true
 D.Render()
 local _, _, _, _, questOffset = questCard:GetPoint(1)
-assert(questOffset == 0, "Local objectives stay above pinned widgets when Dashboard grows upward")
+assert(questOffset < 0, "A recent level-up stays above the local objectives")
+advance(120)
+D.Invalidate("session")
+D.Render()
+local _, _, _, _, expiredOffset = questCard:GetPoint(1)
+assert(expiredOffset == 0, "Local objectives return to the top when the level-up expires")
 D.WidgetSettings("quests").showHeader = false
 D.Render()
 assert(not questTitle:IsShown() and questButton:IsShown())

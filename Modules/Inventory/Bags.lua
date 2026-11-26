@@ -297,6 +297,11 @@ local function showItemTooltip(button)
     GameTooltip:SetOwner(button, "ANCHOR_RIGHT")
     if item.tab then GameTooltip:SetGuildBankItem(item.tab, item.slot)
     else GameTooltip:SetBagItem(item.bag, item.slot) end
+    if mode == "bags" then
+        local _, family = container.GetContainerNumFreeSlots(item.bag)
+        local kind = inventory.BagKind(item.bag, family)
+        if kind then GameTooltip:AddLine(inventory.capacityLabels[kind] .. " · " .. ((container.GetBagName or GetBagName or function() end)(item.bag) or "Backpack"), 0.76, 0.69, 0.59) end
+    end
     local quest = mode == "bags" and inventory.RequiredByQuest(item)
     if quest then GameTooltip:AddLine("Quest objective: " .. quest, 1, 0.82, 0.32, true) end
     BaziUI.ItemLevel.AddItemTooltipLine(GameTooltip, item.hyperlink or item.itemID)
@@ -637,7 +642,12 @@ function inventory.RefreshBags(rebuildMerchantLayout, prepareHidden)
     bagStrip:SetShown(not not showBagStrip)
     if showBagStrip then
         for _, button in ipairs(bagStrip.buttons) do
-            button.icon:SetTexture(GetInventoryItemTexture("player", button.slot) or emptyIcon)
+            button.icon:SetTexture(button.slot and GetInventoryItemTexture("player", button.slot) or emptyIcon)
+            local _, family = container.GetContainerNumFreeSlots(button.bag)
+            local kind = inventory.BagKind(button.bag, family)
+            button.kind = kind
+            button.badge:SetTexture(capacityIcons[kind])
+            button.badge:SetShown(kind == "ammo" or kind == "reagent")
         end
     end
     guildTabs:SetShown(mode == "guild")
@@ -935,38 +945,51 @@ local function createBag()
     bagStrip:Hide()
     for _, bag in ipairs(inventory.BagIDs(true)) do
         local slot = bag > 0 and container.ContainerIDToInventoryID and container.ContainerIDToInventoryID(bag)
-        if slot and slot > 0 then
+        if bag == 0 or slot and slot > 0 then
             local button = CreateFrame("Button", nil, bagStrip)
             button:SetSize(26, 26)
             button:SetPoint("TOP", 0, -#bagStrip.buttons * 30)
-            button.slot = slot
-            button.bag = bag
+            button.slot, button.bag = slot, bag
             button:RegisterForDrag("LeftButton")
+            button:RegisterForClicks("LeftButtonUp", "RightButtonUp")
             button.icon = button:CreateTexture(nil, "ARTWORK")
             button.icon:SetPoint("TOPLEFT", 1, -1)
             button.icon:SetPoint("BOTTOMRIGHT", -1, 1)
             local border = button:CreateTexture(nil, "OVERLAY")
             border:SetAllPoints()
             border:SetAtlas(slotAtlas)
+            button.badge = button:CreateTexture(nil, "OVERLAY")
+            button.badge:SetSize(9, 9)
+            button.badge:SetPoint("BOTTOMRIGHT", -2, 2)
             local function equip()
                 if not CursorHasItem() or InCombatLockdown() then return end
                 draggingItem = nil
-                PutItemInBag(slot)
+                if slot then PutItemInBag(slot) else PutItemInBackpack() end
                 inventory.RefreshBags()
             end
             button:SetScript("OnReceiveDrag", equip)
-            button:SetScript("OnClick", function()
+            button:SetScript("OnClick", function(_, mouse)
                 if CursorHasItem() then equip()
-                elseif not InCombatLockdown() then PickupBagFromSlot(slot) end
+                elseif slot and not InCombatLockdown() then
+                    PickupBagFromSlot(slot)
+                    if mouse == "RightButton" and CursorHasItem() then
+                        PutItemInBackpack()
+                        if CursorHasItem() then ClearCursor() end
+                    end
+                end
             end)
             button:SetScript("OnDragStart", function()
-                if not InCombatLockdown() then PickupBagFromSlot(slot) end
+                if slot and not InCombatLockdown() then PickupBagFromSlot(slot) end
             end)
             button:SetScript("OnEnter", function(self)
                 setHoveredBag(self.bag)
                 GameTooltip:SetOwner(self, "ANCHOR_TOP")
-                if GetInventoryItemTexture("player", slot) then GameTooltip:SetInventoryItem("player", slot)
+                if not slot then GameTooltip:SetText(BACKPACK_TOOLTIP or "Backpack")
+                elseif GetInventoryItemTexture("player", slot) then GameTooltip:SetInventoryItem("player", slot)
                 else GameTooltip:SetText("Empty bag slot") end
+                local kind = self.kind
+                if kind then GameTooltip:AddLine(inventory.capacityLabels[kind], 0.76, 0.69, 0.59) end
+                GameTooltip:AddLine("Drop an item here to move it into this bag.", 1, 1, 1, true)
                 GameTooltip:Show()
             end)
             button:SetScript("OnLeave", function()
@@ -976,6 +999,7 @@ local function createBag()
             bagStrip.buttons[#bagStrip.buttons + 1] = button
         end
     end
+    bagStrip:SetHeight(math.max(26, #bagStrip.buttons * 30 - 4))
     search = CreateFrame("EditBox", nil, frame, "InputBoxTemplate")
     search:SetAutoFocus(false)
     search:SetPoint("TOPLEFT", 13, -35)
@@ -1159,6 +1183,8 @@ function inventory.OpenBags(requested)
     frame:Show()
     frame:Raise()
     inventory.RefreshBags(true)
+    if mode == "bags" and not (BaziUI.Movers and BaziUI.Movers.IsActive()) then inventory.ShowFirstUseGuide(frame, "hideBagsGuide",
+        "Use Search to find an item. Open the bag strip to move items into a specific bag or right-click an empty bag to remove it.") end
 end
 
 function inventory.RevealUpgrade(link)

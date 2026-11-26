@@ -109,19 +109,23 @@ local function xpNotice(amount)
     D.Notify("dashboardXP", "Experience +" .. amount)
 end
 
-local function killNotice(message)
-    if grouped() then return end
+function D.IsKillMessage(message)
+    if not D.Read(message) or type(message) ~= "string" then return false end
     for _, key in ipairs(killFormats) do
-        if matchFormat(message, _G[key]) then
-            local total, best = accumulate("kills", 1)
-            local tier = 0
-            for index, milestone in ipairs(milestones) do if total >= milestone.at then tier = index end end
-            local milestone = milestones[tier]
-            notices.kills = {label = milestone and milestone.title or "Kill streak", icon = 132338,
-                value = tostring(total), tooltip = ("Personal best: %d kills"):format(best),
-                labelColor = milestone and milestone.color, streakTier = tier, streakCount = total}
-            return
-        end
+        if matchFormat(message, _G[key]) then return true end
+    end
+    return false
+end
+
+local function killNotice(message)
+    if not grouped() and D.IsKillMessage(message) then
+        local total, best = accumulate("kills", 1)
+        local tier = 0
+        for index, milestone in ipairs(milestones) do if total >= milestone.at then tier = index end end
+        local milestone = milestones[tier]
+        notices.kills = {label = milestone and milestone.title or "Kill streak", icon = 132338,
+            value = tostring(total), tooltip = ("Personal best: %d kills"):format(best),
+            labelColor = milestone and milestone.color, streakTier = tier, streakCount = total}
     end
 end
 

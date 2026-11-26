@@ -76,6 +76,11 @@ end
 
 -- Per character, by window ID: the player's choice where it differs from the
 -- default.
+local function IsWhisperTab(frame)
+    local title = GetChatWindowInfo(frame:GetID())
+    return title == L.newTabWhispers or title == "Whisper" or title == "Whispers"
+end
+
 local function GetSettings()
 	local key = ns.CharacterKey()
 	ns.db.alerts = ns.db.alerts or {}
@@ -1192,6 +1197,7 @@ local function OnAddMessage(chatFrame, message, r, g, b, _, _, _, event, eventAr
 	-- Whispers always light up, as Blizzard's own flash (whose light along
 	-- the tab is replaced by the dot) did, even in a tab with alerts off.
 	local whisper = event == "CHAT_MSG_WHISPER" or event == "CHAT_MSG_BN_WHISPER"
+	if whisper and IsWhisperTab(chatFrame) then return end
 	if not Alerts.IsEnabled(chatFrame) and not mentioned and not whisper then
 		return
 	end
@@ -1311,8 +1317,37 @@ local function AddMenuEntries(owner, rootDescription)
 	end
 end
 
+local awaitingReply, whisperMarks = {}, {}
+local function UpdateWhisperDots()
+    for _, name in ipairs(CHAT_FRAMES) do
+        local frame = _G[name]
+        local tab = frame and TabOf(frame)
+        if tab then
+            local dedicated = IsWhisperTab(frame)
+            local mark = whisperMarks[tab]
+            if dedicated and next(awaitingReply) then
+                if not mark then
+                    mark = Alerts.CreateMark(tab)
+                    mark.dot:SetPoint("TOPRIGHT", tab, "TOPRIGHT", -3, -3)
+                    whisperMarks[tab] = mark
+                end
+                mark:Light(Theme.GOLD)
+            elseif mark then mark:Clear() end
+        end
+    end
+end
+
 function Alerts.Init()
-	SetupAllChatFrames()
+    SetupAllChatFrames()
+    local whispers = CreateFrame("Frame")
+    for event in pairs(WHISPER_GROUPS) do whispers:RegisterEvent(event) end
+    whispers:SetScript("OnEvent", function(_, event, _, person)
+        if not ns.active or not (type(person) == "string" and canaccessvalue(person)) then return end
+        local key = WHISPER_GROUPS[event] .. ":" .. person:lower():gsub("%s+", "")
+        awaitingReply[key] = not event:find("_INFORM", 1, true) or nil
+        UpdateWhisperDots()
+    end)
+    hooksecurefunc("FCF_OpenNewWindow", UpdateWhisperDots)
 	hooksecurefunc("FCF_OpenNewWindow", SetupAllChatFrames)
 	hooksecurefunc("FCF_OpenTemporaryWindow", SetupAllChatFrames)
 	-- A closed window's ID may come back as another window.

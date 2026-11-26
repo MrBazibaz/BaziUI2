@@ -44,6 +44,7 @@ end
 function D.ResetSession()
     if addon.Journey and addon.db then addon.Journey.Save() end
     session = nil
+    if addon.ActivityStats then addon.ActivityStats.ResetSession() end
     local tracking = D.Tracking()
     if tracking then tracking.session = nil end
     wipe(reputation)
@@ -54,9 +55,9 @@ function D.ResetSession()
 end
 
 function D.GetSessionMetrics()
-    local state = ensureSession()
-    return {xp = state.xp, quest = state.quest, deaths = state.deaths, earned = state.earned, spent = state.spent,
-        looted = state.looted, materials = state.materials}
+    local state = addon.ActivityStats and addon.ActivityStats.Get("session") or ensureSession()
+    return {xp = state.xp or 0, quest = state.quest or 0, deaths = state.deaths or 0, earned = state.earned or 0, spent = state.spent or 0,
+        looted = state.looted or 0, materials = state.materials or 0}
 end
 
 local function sessionEvent(event, ...)
@@ -66,6 +67,13 @@ end
 
 function D.RecordSessionEvent(event, ...)
     local state = ensureSession()
+    if addon.ActivityStats then
+        if event == "PLAYER_LEVEL_UP" then state.levelUp = GetTime() end
+        if event == "PLAYER_XP_UPDATE" or event == "PLAYER_LEVEL_UP" then
+            state.level, state.currentXP, state.levelCap = xp()
+        end
+        return
+    end
     if event == "PLAYER_LOGOUT" then
         local tracking = D.Tracking()
         if tracking then
@@ -308,7 +316,11 @@ local function supplies(options)
     end
     bagRows(function(label, free, kind)
         if kind == "general" then add(label, free, cfg.slots or 3)
-        else rows[#rows + 1] = {label = label, value = tostring(free), warning = free == 0} end
+        else
+            local warning = kind == "ammo" and free == 0
+            low = low or warning
+            rows[#rows + 1] = {label = label, value = tostring(free), warning = warning}
+        end
     end)
     local wear, wornItem = durability()
     local wearRow = add("Durability", wear, cfg.durability or 20, "%")
@@ -369,26 +381,32 @@ local function sessionRows(options)
     local delta = math.max(0, math.min(5, time - state.last))
     if not D.Settings().afk or not call(UnitIsAFK, "player") then state.time = state.time + delta end
     state.last = time
+    local totals = addon.ActivityStats and addon.ActivityStats.Get("session") or state
+    local played = totals.time or 0
+    local experience = totals.xp or 0
+    local earned, spent = totals.earned or 0, totals.spent or 0
     local rows = {
-        {label = "Duration", value = elapsed(time - state.since)},
-        {label = "XP gained", value = tostring(state.xp)},
-        {label = "Money gained", value = addon.Inventory.Money(state.earned)},
-        {label = "Money spent", value = addon.Inventory.Money(state.spent)},
-        {label = "Net money", value = (state.earned < state.spent and "-" or "+") .. addon.Inventory.Money(math.abs(state.earned - state.spent))},
-        {label = "Quests turned in", value = tostring(state.quest)},
-        {label = "Deaths", value = tostring(state.deaths)},
-        {label = "Items looted", value = tostring(state.looted)},
-        {label = "Materials looted", value = tostring(state.materials)},
+        {label = "Duration", value = elapsed(played)},
+        {label = "XP gained", value = tostring(experience)},
+        {label = "Money gained", value = addon.Inventory.Money(earned)},
+        {label = "Money spent", value = addon.Inventory.Money(spent)},
+        {label = "Net money", value = (earned < spent and "-" or "+") .. addon.Inventory.Money(math.abs(earned - spent))},
+        {label = "Quests turned in", value = tostring(totals.quest or 0)},
+        {label = "Deaths", value = tostring(totals.deaths or 0)},
+        {label = "Items looted", value = tostring(totals.looted or 0)},
+        {label = "Materials looted", value = tostring(totals.materials or 0)},
     }
-    if state.time >= 120 and state.xp > 0 then
-        rows[#rows + 1] = {label = "XP per hour (est.)", value = ("%d"):format(math.floor(state.xp * 3600 / state.time))}
+    if played >= 120 and experience > 0 then
+        rows[#rows + 1] = {label = "XP per hour (est.)", value = ("%d"):format(math.floor(experience * 3600 / played))}
         if state.levelCap > state.currentXP then
-            rows[#rows + 1] = {label = "Next level (est.)", value = elapsed((state.levelCap - state.currentXP) * state.time / state.xp)}
+            rows[#rows + 1] = {label = "Next level (est.)", value = elapsed((state.levelCap - state.currentXP) * played / experience)}
         end
     end
     local levelUp = state.levelUp and time - state.levelUp < options.duration
     if levelUp then table.insert(rows, 1, {label = "Level reached", value = tostring(state.level), highlight = true}) end
-    return rowsResult(rows, levelUp, levelUp)
+    local result = rowsResult(rows, levelUp, levelUp)
+    result.levelUp = levelUp
+    return result
 end
 D.Register({id = "session", label = "Session", priority = 50, read = sessionRows, tick = true, event = sessionEvent,
     events = {"PLAYER_MONEY", "PLAYER_XP_UPDATE", "PLAYER_LEVEL_UP", "QUEST_TURNED_IN", "PLAYER_DEAD", "CHAT_MSG_LOOT", "PLAYER_LOGOUT"}})
