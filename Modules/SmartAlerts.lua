@@ -618,25 +618,27 @@ local function classReminders(token, gear)
     end
     for _, family in ipairs(families or {}) do
         local active, expected, spells, knownCount = false, nil, {}, 0
+        local knownNames = {}
         local familyID = family[1]
+        local preferredName = preferredBuffs[familyID] and spellName(preferredBuffs[familyID])
         for _, spell in ipairs(family) do
             local name = spellName(spell)
             if name then
                 local known = knowsSpell(spell)
                 if known and call(C_Spell and C_Spell.IsSpellPassive, spell) ~= true then
-                    knownCount = knownCount + 1
-                    if not expected or preferredBuffs[familyID] == spell then expected = spell end
+                    if not knownNames[name] then knownNames[name], knownCount = true, knownCount + 1 end
+                    if not expected or name == preferredName then expected = spell end
                     if spellEnabled(spell) then spells[name] = true end
                 end
                 if names and (names[name] or names[spell]) then
                     active = true
-                    if known then preferredBuffs[familyID] = spell end
+                    if known and call(C_Spell and C_Spell.IsSpellPassive, spell) ~= true then preferredBuffs[familyID] = spell end
                 end
             end
         end
         if names and expected and not active then
             local name = spellName(expected)
-            local preferred = preferredBuffs[familyID] == expected
+            local preferred = preferredName == name
             local generic = ({[13165]="Activate an Aspect", [324]="Activate a Shield", [168]="Activate an Armor", [687]="Activate an Armor", [465]="Activate an Aura", [19740]="Apply a Blessing"})[familyID]
             local title = not preferred and knownCount > 1 and (generic or "Activate a class buff") or name .. " is missing"
             if preferred then spells = spellEnabled(expected) and {[name] = true} or {} end
