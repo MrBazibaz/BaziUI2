@@ -11,7 +11,7 @@ S.rules = {
     {"durability", "Low or broken equipment", "Equipment"}, {"empty", "Empty core armor and weapon slots", "Equipment", false},
     {"upgrade", "Looted equipment upgrades", "Equipment"},
     {"fishing", "Fishing pole in combat", "Equipment"}, {"poison", "Missing or expired weapon enhancement", "Class"}, {"selfBuff", "Missing or expired self buff", "Class"},
-    {"ammo", "Low or depleted ammunition", "Class"}, {"pet", "Hunter pet dead or unhappy", "Class"},
+    {"ammo", "Low or depleted ammunition", "Class"}, {"pet", "Hunter pet missing, dead or unhappy", "Class"},
     {"supplies", "Low tracked supplies", "Inventory"}, {"bags", "Low or full inventory", "Inventory"},
     {"loot", "Rare or valuable loot", "Inventory"}, {"quest", "Quest ready to turn in", "Quests"},
     {"questLog", "Full quest log", "Quests"}, {"questTimer", "Timed quest ending", "Quests"},
@@ -805,6 +805,22 @@ local function collectPoisonSpells()
     return found
 end
 
+local function hunterPetReminder()
+    local _, token = call(UnitClass, "player")
+    if token ~= "HUNTER" or call(UnitIsDeadOrGhost, "player") == true
+        or call(UnitOnTaxi, "player") == true or call(IsMounted) == true then return end
+    local exists = call(UnitExists, "pet")
+    if exists == true then
+        if call(UnitIsDeadOrGhost, "pet") == true then
+            return "Hunter pet is dead", "critical", knowsSpell(982) and 982 or nil
+        elseif call(GetPetHappiness) == 1 then
+            return "Hunter pet is unhappy", "warning"
+        end
+    elseif exists == false or exists == nil then
+        if knowsSpell(883) then return "Hunter pet is missing", "warning", 883 end
+    end
+end
+
 local function glowReminders(reminders)
     local bars = addon.ActionBars
     if not (bars and bars.SetClassReminderActions) then return end
@@ -821,6 +837,11 @@ local function glowReminders(reminders)
                 end
             end
         end
+    end
+    if S.IsEnabled("pet", "Class") then
+        local _, _, spell = hunterPetReminder()
+        local name = spell and spellName(spell)
+        if name then wanted[name] = true end
     end
     bars:SetClassReminderActions(wanted)
 end
@@ -848,10 +869,8 @@ local function scanClass(snapshot)
     end
     if meta.token == "HUNTER" then
         S.RefreshAmmo(snapshot)
-        local exists = call(UnitExists, "pet")
-        local dead = exists and call(UnitIsDeadOrGhost, "pet")
-        local unhappy = exists and call(GetPetHappiness) == 1
-        persistent("pet", "pet", "Class", dead and "critical" or "warning", dead and "Hunter pet is dead" or unhappy and "Hunter pet is unhappy" or nil)
+        local title, severity = hunterPetReminder()
+        persistent("pet", "pet", "Class", severity or "warning", title)
     end
 end
 
