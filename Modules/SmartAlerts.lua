@@ -677,7 +677,8 @@ local function classReminders(token, gear)
                 notices[#notices + 1] = {id = "enhancement:" .. slot, key = preferred and ("poison:" .. preferred) or "poison",
                     label = preferred or "Weapon poisons (any)", rule = "poison",
                     title = (preferred and (preferred .. " is missing") or "Apply poison to your weapon") .. " · " .. name,
-                    detail = preferred and ("Reapply " .. preferred .. ".") or "Apply a poison to this weapon."}
+                    detail = preferred and ("Reapply " .. preferred .. ".") or "Apply a poison to this weapon.",
+                    poisonGlow = preferred or true}
             end
         end
     end
@@ -689,6 +690,32 @@ local function classReminders(token, gear)
     return applyBuffOptions(token, notices)
 end
 
+-- Resolve application spells from actual bag items rather than assuming spell IDs.
+local function addPoisonGlow(wanted, preference)
+    local container = C_Container
+    local getItemSpell = C_Item and C_Item.GetItemSpell or GetItemSpell
+    if not container or not getItemSpell then return end
+    local families = {"Instant Poison", "Deadly Poison", "Crippling Poison", "Mind-numbing Poison", "Wound Poison"}
+    for bag = 0, (NUM_BAG_SLOTS or 4) do
+        local count = call(container.GetContainerNumSlots, bag) or 0
+        for slot = 1, count do
+            local item = call(container.GetContainerItemID, bag, slot)
+            if item then
+                local name, spell = call(getItemSpell, item)
+                if type(name) == "string" and type(spell) == "number" and read(name) and read(spell) then
+                    for _, family in ipairs(families) do
+                        if (preference == true or preference == family) and
+                            (name == family or name:sub(1, #family + 1) == family .. " ") then
+                            wanted[spell] = true
+                            break
+                        end
+                    end
+                end
+            end
+        end
+    end
+end
+
 local function glowReminders(reminders)
     local bars = addon.ActionBars
     if not (bars and bars.SetClassReminderActions) then return end
@@ -697,6 +724,7 @@ local function glowReminders(reminders)
         if inDashboard or S.IsEnabled(reminder.rule, "Class") then
             for name in pairs(reminder.spells or {}) do wanted[name] = true end
             for spell in pairs(reminder.itemSpells or {}) do wanted[spell] = true end
+            if reminder.poisonGlow then addPoisonGlow(wanted, reminder.poisonGlow) end
         end
     end
     bars:SetClassReminderActions(wanted)
