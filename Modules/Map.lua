@@ -1057,13 +1057,9 @@ local function hideQuestPanelArt(list, quest)
 end
 
 local function placeWindowControls(maximized)
-    local parent = maximized and fullscreenControls or header
     for _, button in ipairs({closeControl, displayControl}) do
-        if button:GetParent() ~= parent then button:SetParent(parent) end
-        button:SetFrameStrata(parent:GetFrameStrata())
-        button:SetFrameLevel(parent:GetFrameLevel() + 3)
+        button:SetFrameLevel(header:GetFrameLevel() + 3)
     end
-    fullscreenControls:SetShown(maximized and world:IsVisible())
 end
 
 local function applyChrome()
@@ -1117,17 +1113,6 @@ local function applyChrome()
     if world.NavBar then world.NavBar:Hide() end
     local oldCount = _G.QuestLogCount
     if oldCount then oldCount:SetAlpha(0) end
-    local nativeDisplay = native.MaximizeMinimizeFrame
-    if native.CloseButton then
-        native.CloseButton:SetAlpha(0)
-    -- Native mouse behavior preserved for taint test.
-    end
-    if nativeDisplay then
-        nativeDisplay:SetAlpha(0)
-    -- Native mouse behavior preserved for taint test.
-    end
-    displayControl:SetShown(maximized or (nativeDisplay ~= nil and nativeDisplay:IsShown()))
-    flatControl(displayControl, maximized and "ChevronDown" or "ChevronUp")
     local list = QuestScrollFrame or (QuestMapFrame and QuestMapFrame.QuestsFrame)
     local quest = world.QuestLog or QuestMapFrame
     local questWidth = quest and quest:IsShown() and (world.questLogWidth or 333) or 0
@@ -1266,28 +1251,12 @@ local function install()
         divider:SetPoint("RIGHT", button, "LEFT", -4, 0)
         divider:SetColorTexture(0.82, 0.65, 0.47, 0.48)
     end
-    -- Keep the fullscreen hit targets outside the map's panel and canvas.
-    fullscreenControls = CreateFrame("Frame", nil, UIParent)
-    fullscreenControls:SetAllPoints(header)
-    fullscreenControls:SetFrameStrata("TOOLTIP")
-    fullscreenControls:EnableMouse(false)
-    fullscreenControls:Hide()
-    closeControl = CreateFrame("Button", nil, header)
-    closeControl:SetSize(20, 20)
+    closeControl = world.BorderFrame.CloseButton
+    displayControl = world.BorderFrame.MaximizeMinimizeFrame
+    closeControl:ClearAllPoints()
     closeControl:SetPoint("RIGHT", header, "RIGHT", -5, 0)
-    closeControl:EnableMouse(true)
-    closeControl:RegisterForClicks("LeftButtonUp")
-    closeControl:SetScript("OnClick", function() HideUIPanel(world) end)
-    flatControl(closeControl, "Cross")
-    displayControl = CreateFrame("Button", nil, header)
-    displayControl:SetSize(20, 20)
+    displayControl:ClearAllPoints()
     displayControl:SetPoint("RIGHT", closeControl, "LEFT", -3, 0)
-    displayControl:EnableMouse(true)
-    displayControl:RegisterForClicks("LeftButtonUp")
-    displayControl:SetScript("OnClick", function()
-        if world:IsMaximized() then world:HandleUserActionMinimizeSelf()
-        else world:HandleUserActionMaximizeSelf() end
-    end)
     world:SetMovable(true)
     world:SetClampedToScreen(true)
     header:SetScript("OnDragStart", function() if canMove() then world:StartMoving() end end)
@@ -1365,7 +1334,6 @@ local function install()
     world:HookScript("OnUpdate", update)
     world:HookScript("OnShow", show)
     world:HookScript("OnHide", function()
-        fullscreenControls:Hide()
         sidebarWidth = nil
         drag, opacity = nil, 1
         initialViewport = nil
@@ -1397,10 +1365,7 @@ local function install()
     end
     if world.SynchronizeDisplayState then hooksecurefunc(world, "SynchronizeDisplayState", queueLayout) end
     if world.SetDisplayState then hooksecurefunc(world, "SetDisplayState", queueLayout) end
-    world:RegisterEvent("PLAYER_REGEN_ENABLED")
-    world:HookScript("OnEvent", function(_, event)
-        if event == "PLAYER_REGEN_ENABLED" and world:IsShown() then syncLayout() end
-    end)
+    hooksecurefunc(world, "OnFrameSizeChanged", queueLayout)
     if world:IsShown() then show() else applyChrome() end
 end
 
@@ -1414,6 +1379,8 @@ events:SetScript("OnEvent", function(_, event, name)
     if event == "QUEST_LOG_UPDATE" then
         if border and addon.db and map.GetOption("availableQuests") then map.Refresh()
         elseif border and world:IsShown() and world:GetMapID() then refreshHeader(world:GetMapID()) end
+    elseif event == "PLAYER_REGEN_ENABLED" and border then
+        if world:IsShown() then map.Refresh() end
     elseif event == "MAP_EXPLORATION_UPDATED" then
         map.Refresh()
     elseif event ~= "ADDON_LOADED" or name == "Blizzard_WorldMap" then
