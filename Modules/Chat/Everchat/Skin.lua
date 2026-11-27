@@ -1750,7 +1750,18 @@ function Skin.Init()
 	end)
 	hooksecurefunc("FCFDock_SelectWindow", ApplyDockBackground)
 	ApplyDockBackground()
-	EventUtil.ContinueOnAddOnLoaded("Blizzard_CombatLog", StyleCombatLogFilters)
+	if C_AddOns.IsAddOnLoaded("Blizzard_CombatLog") then
+		StyleCombatLogFilters()
+	else
+		-- Use our own event frame so registering this listener stays out of Blizzard's shared callback counter.
+		local loader = CreateFrame("Frame")
+		loader:RegisterEvent("ADDON_LOADED")
+		loader:SetScript("OnEvent", function(self, event, name)
+			if name ~= "Blizzard_CombatLog" then return end
+			self:UnregisterEvent(event)
+			StyleCombatLogFilters()
+		end)
+	end
 	-- A new theme: its lines, hairlines and header color everywhere.
 	Theme.OnChanged(function()
 		for _, trim in ipairs(themedTrims) do

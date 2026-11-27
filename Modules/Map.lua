@@ -30,17 +30,15 @@ for _, option in ipairs(map.pointOptions) do defaults[option[1]] = true end
 local world, header, border, grip, readout, drag
 local questCount, continentButton, zoneButton
 local closeControl, displayControl, fullscreenControls
-local initialFit = true
-local initialViewport
 local opacity, tick = 1, 0
 local overlayTiles, outlines, markers = {}, {}, {}
 local hiddenPins = setmetatable({}, {__mode = "k"})
 local queued, explorationPin = false, nil
-local skinQuestList
+local skinQuestList, queueLayout, layingOutQuestList
 local skinQuestPins
-local sidebarWidth, sidebarMaximized
-local viewportNeedsLayout, previousMapStrata
+local previousMapStrata
 local applyingChrome
+local observedMap, installQueued
 local iconPath = "Interface\\AddOns\\BaziUI\\Assets\\Icons\\Bazi\\"
 local questArt = iconPath .. "Quest.tga"
 
@@ -70,7 +68,7 @@ local function headerColor()
 end
 
 local function canMove()
-    return not InCombatLockdown() and not world:IsMaximized()
+    return world and not InCombatLockdown() and not world:IsMaximized()
 end
 
 local function artSize(size)
@@ -299,7 +297,7 @@ local function drawPoints(mapID, config)
 end
 
 local function sizeMarkers()
-    if not markers[1] or not world:IsShown() then return end
+    if InCombatLockdown() or not markers[1] or not world:IsShown() then return end
     local scale = world.GetCanvasScale and world:GetCanvasScale() or 1
     if not scale or scale <= 0 then return end
     local canvas = world:GetCanvas()
@@ -316,20 +314,14 @@ local function sizeMarkers()
     end
 end
 
-local function fitViewport(mapID)
-    if InCombatLockdown() or world:IsMaximized() then return end
-    local layers = C_Map.GetMapArtLayers(mapID)
-    local art = layers and layers[1]
-    if not art or not art.layerWidth or not art.layerHeight or art.layerHeight <= 0 then return end
-    local viewportWidth, viewportHeight = world.ScrollContainer:GetSize()
-    if viewportWidth <= 0 or viewportHeight <= 0 then return end
-    local width = viewportHeight * art.layerWidth / art.layerHeight
-    if math.abs(width - viewportWidth) > 1 then
-        world:SetWidth(world:GetWidth() + width - viewportWidth)
-        if world.OnFrameSizeChanged then world:OnFrameSizeChanged() end
-        return true
-    end
-    return false
+local markerSizeQueued
+local function queueMarkerSize()
+    if markerSizeQueued or InCombatLockdown() or not markers[1] then return end
+    markerSizeQueued = true
+    C_Timer.After(0, function()
+        markerSizeQueued = nil
+        sizeMarkers()
+    end)
 end
 
 local function continentOf(mapID)
@@ -342,7 +334,7 @@ local function continentOf(mapID)
 end
 
 function map.RefreshHeaderStyle()
-    if not header then return end
+    if not header or InCombatLockdown() then return end
     header.fill:SetColorTexture(addon.Headers.Fill("map", headerColor()))
     local r, g, b = addon.Headers.Text("map", 1, 0.82, 0.49)
     for _, button in ipairs({continentButton, zoneButton}) do button:GetFontString():SetTextColor(r, g, b) end
@@ -399,7 +391,7 @@ local function addZoneHover()
     for provider in pairs(world.dataProviders or {}) do
         if provider.Label and provider.Label.SetLabel and provider.Label.EvaluateLabels then
             provider.Label:HookScript("OnUpdate", function(label)
-                if not world:IsCanvasMouseFocus() then return end
+                if InCombatLockdown() or not world:IsCanvasMouseFocus() then return end
                 local levels, fishing = map.GetOption("levels"), map.GetOption("fishing")
                 if not levels and not fishing then return end
                 local mapID = world:GetMapID()
@@ -428,18 +420,13 @@ local function addZoneHover()
 end
 
 function map.Refresh()
-    if queued or not border or not world:IsShown() then return end
+    if queued or InCombatLockdown() or not border or not world:IsShown() then return end
     queued = true
     C_Timer.After(0, function()
         queued = false
-        if not world:IsShown() then return end
+        if InCombatLockdown() or not world:IsShown() then return end
         local mapID = world:GetMapID()
         if not mapID then return end
-        local resized = fitViewport(mapID)
-        if viewportNeedsLayout and not InCombatLockdown() then
-            viewportNeedsLayout = nil
-            if not resized and world.OnFrameSizeChanged then world:OnFrameSizeChanged() end
-        end
         local config = {}
         for _, option in ipairs(map.options) do config[option[1]] = map.GetOption(option[1]) end
         drawExploration(mapID, config)
@@ -452,24 +439,8 @@ function map.Refresh()
     end)
 end
 
-local function settleInitialViewport()
-    if not initialFit or InCombatLockdown() then return end
-    local mapID = world:GetMapID()
-    if not mapID then return end
-    local changed = fitViewport(mapID)
-    if changed == nil then return end
-    local width, height = world.ScrollContainer:GetSize()
-    local previous = initialViewport
-    initialViewport = {mapID, width, height}
-    if changed or not previous or previous[1] ~= mapID or previous[2] ~= width or previous[3] ~= height
-        or world.AreDetailLayersLoaded and not world:AreDetailLayersLoaded() then return end
-    initialFit, initialViewport = false, nil
-    world:ResetZoom()
-    map.Refresh()
-end
-
 local function update(_, elapsed)
-    settleInitialViewport()
+    if InCombatLockdown() then drag = nil; return end
     local speed = GetUnitSpeed("player")
     local moving = type(speed) == "number" and (not issecretvalue or not issecretvalue(speed))
         and (not canaccessvalue or canaccessvalue(speed)) and speed > 0
@@ -501,11 +472,14 @@ end
 local function restorePosition()
     if not canMove() then return end
     local config = settings()
-    if config.scale then world:SetScale(config.scale) end
+    if config.scale and world:GetScale() ~= config.scale then world:SetScale(config.scale) end
     if config.position then
         local point, relativePoint, x, y = unpack(config.position)
-        world:ClearAllPoints()
-        world:SetPoint(point, UIParent, relativePoint, x, y)
+        local currentPoint, relative, currentRelativePoint, currentX, currentY = world:GetPoint(1)
+        if currentPoint ~= point or relative ~= UIParent or currentRelativePoint ~= relativePoint or currentX ~= x or currentY ~= y then
+            world:ClearAllPoints()
+            world:SetPoint(point, UIParent, relativePoint, x, y)
+        end
     end
 end
 
@@ -595,6 +569,7 @@ local function paintMapPlayerControl(button, icon)
 end
 
 local function updateMapCheck(box)
+    if InCombatLockdown() then return end
     silenceMapButtonArt(box)
     local checked
     if box.CheckMark then checked = box.CheckMark:IsShown()
@@ -605,15 +580,25 @@ local function updateMapCheck(box)
     box.baziMapIcon:SetShown(checked)
 end
 
+local questSkinQueued
+local function queueQuestSkin()
+    if questSkinQueued or layingOutQuestList or InCombatLockdown() or not world:IsShown() then return end
+    questSkinQueued = true
+    C_Timer.After(0, function()
+        questSkinQueued = nil
+        skinQuestList()
+    end)
+end
+
 local function paintMapTrackingButton(box)
     if not box or not (box.CheckMark or box.GetChecked) then return end
     paintMapPlayerControl(box, "Check")
     updateMapCheck(box)
     if not box.baziMapTrackingHook then
         if box.CheckMark then
-            hooksecurefunc(box.CheckMark, "SetShown", function() updateMapCheck(box) end)
+            hooksecurefunc(box.CheckMark, "SetShown", queueQuestSkin)
         elseif box.SetChecked then
-            hooksecurefunc(box, "SetChecked", updateMapCheck)
+            hooksecurefunc(box, "SetChecked", queueQuestSkin)
         end
         box:HookScript("OnLeave", updateMapCheck)
         box.baziMapTrackingHook = true
@@ -731,8 +716,13 @@ local function paintQuestBadge(button, questID)
         button.baziQuestBadge = badge
         if button.UpdateButtonAlpha then
             hooksecurefunc(button, "UpdateButtonAlpha", function()
-                if not badge:IsShown() or questMarkerID(button) ~= badge.questID then return end
-                for region in pairs(badge.originalAlpha) do region:SetAlpha(0) end
+                if InCombatLockdown() or badge.refreshQueued then return end
+                badge.refreshQueued = true
+                C_Timer.After(0, function()
+                    badge.refreshQueued = nil
+                    if InCombatLockdown() or not badge:IsVisible() or questMarkerID(button) ~= badge.questID then return end
+                    for region in pairs(badge.originalAlpha) do region:SetAlpha(0) end
+                end)
             end)
         end
     end
@@ -777,7 +767,6 @@ local function alignQuestCard(card, row, list, inset)
 end
 
 local questListRows = setmetatable({}, {__mode = "k"})
-local layingOutQuestList
 local function decorateQuestRow(row, list, activeRows, playbackParents)
     if not row:IsShown() then return end
     local questID = row.questID or row.QuestID
@@ -1105,16 +1094,6 @@ local function applyChrome()
     for _, cvar in ipairs({"worldMapShowPlayerCoords", "worldMapShowCursorCoords"}) do
         if GetCVar(cvar) == "1" then SetCVar(cvar, "0") end
     end
-    if world.TitleCanvasSpacerFrame then
-        local spacer = world.TitleCanvasSpacerFrame
-        for index = 1, spacer:GetNumPoints() do
-            local point, relative, relativePoint, x = spacer:GetPoint(index)
-            if point == "BOTTOMRIGHT" then
-                spacer:SetPoint(point, relative, relativePoint, x, -30)
-                break
-            end
-        end
-    end
     if world.NavBar then world.NavBar:Hide() end
     local oldCount = _G.QuestLogCount
     if oldCount then oldCount:SetAlpha(0) end
@@ -1149,13 +1128,6 @@ local function applyChrome()
             list:SetFrameLevel(mapLevel + 6)
         end
     end
-    canvas:ClearAllPoints()
-    canvas:SetPoint("TOPLEFT", header, "BOTTOMLEFT", 0, 0)
-    canvas:SetPoint("BOTTOMRIGHT", world, "BOTTOMRIGHT", -questWidth - 3, 22)
-    if sidebarWidth ~= questWidth or sidebarMaximized ~= maximized then
-        sidebarWidth, sidebarMaximized = questWidth, maximized
-        viewportNeedsLayout = true
-    end
     if list and questWidth > 0 then
         if not list.baziQuestBackdrop then
             local panel = addon.Theme:RoundedCard(list:GetParent())
@@ -1184,10 +1156,10 @@ local function applyChrome()
             scrollBar:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", -5, 8)
         end
         if not scroll.baziQuestSkinHook then
-            if scroll.ForEachFrame and type(scroll.Update) == "function" then hooksecurefunc(scroll, "Update", skinQuestList)
+            if scroll.ForEachFrame and type(scroll.Update) == "function" then hooksecurefunc(scroll, "Update", queueQuestSkin)
             elseif scroll.GetScrollChild then
-                scroll:HookScript("OnVerticalScroll", skinQuestList)
-                scroll:HookScript("OnScrollRangeChanged", skinQuestList)
+                scroll:HookScript("OnVerticalScroll", queueQuestSkin)
+                scroll:HookScript("OnScrollRangeChanged", queueQuestSkin)
             end
             scroll.baziQuestSkinHook = true
         end
@@ -1231,7 +1203,8 @@ local function applyChrome()
 end
 
 local function install()
-    if border or not WorldMapFrame or not addon.db or InCombatLockdown() then return end
+    if border or not addon.db or InCombatLockdown() or not WorldMapFrame
+        or not WorldMapFrame:IsShown() or settings().stockDebug then return end
     world = WorldMapFrame
     if not world.BorderFrame or not world.ScrollContainer then return end
     -- Bazi's chrome and quest list need the same render order as the map canvas.
@@ -1248,6 +1221,8 @@ local function install()
     header:SetHeight(26)
     header:SetFrameStrata("HIGH")
     header:SetFrameLevel(world.BorderFrame:GetFrameLevel() + 2)
+    -- Keep the native canvas anchors and resize lifecycle. OnFrameSizeChanged
+    -- also rebuilds the quest provider's grid, which Blizzard reuses in combat.
     header:EnableMouse(true)
     header:RegisterForDrag("LeftButton")
     header.fill = header:CreateTexture(nil, "BACKGROUND")
@@ -1277,7 +1252,7 @@ local function install()
     closeControl:SetPoint("RIGHT", header, "RIGHT", -5, 0)
     closeControl:EnableMouse(true)
     closeControl:RegisterForClicks("LeftButtonUp")
-    closeControl:SetScript("OnClick", function() HideUIPanel(world) end)
+    closeControl:SetScript("OnClick", function() if not InCombatLockdown() then HideUIPanel(world) end end)
     flatControl(closeControl, "Cross")
     displayControl = CreateFrame("Button", nil, header)
     displayControl:SetSize(20, 20)
@@ -1285,6 +1260,7 @@ local function install()
     displayControl:EnableMouse(true)
     displayControl:RegisterForClicks("LeftButtonUp")
     displayControl:SetScript("OnClick", function()
+        if InCombatLockdown() then return end
         if world:IsMaximized() then world:HandleUserActionMinimizeSelf()
         else world:HandleUserActionMaximizeSelf() end
     end)
@@ -1336,40 +1312,40 @@ local function install()
     readout:SetShadowColor(0, 0, 0, 1)
     readout:SetShadowOffset(1, -1)
 
-    local chromeQueued
+    local chromeQueued, opening
     local function syncLayout()
         chromeQueued = nil
         if not world:IsShown() or InCombatLockdown() then return end
+        if opening then
+            opening = nil
+            if GetCVar("mapFade") == "1" then SetCVar("mapFade", "0") end
+        end
         if world:IsMaximized() then
-            world:SetScale(1)
+            if world:GetScale() ~= 1 then world:SetScale(1) end
         else
-            if sidebarMaximized then initialFit, initialViewport = false, nil end
             restorePosition()
         end
         applyChrome()
-        if viewportNeedsLayout then
-            local mapID = world:GetMapID()
-            if mapID and fitViewport(mapID) then viewportNeedsLayout = nil end
-        end
         map.Refresh()
     end
-    local function queueLayout()
-        if chromeQueued or applyingChrome then return end
+    queueLayout = function()
+        if chromeQueued or applyingChrome or InCombatLockdown() then return end
         chromeQueued = true
         C_Timer.After(0, function() if chromeQueued then syncLayout() end end)
     end
     local function show()
-        if GetCVar("mapFade") == "1" then SetCVar("mapFade", "0") end
+        opening = true
         queueLayout()
     end
     world:HookScript("OnUpdate", update)
     world:HookScript("OnShow", show)
     world:HookScript("OnHide", function()
-        fullscreenControls:Hide()
-        sidebarWidth = nil
-        drag, opacity = nil, 1
-        initialViewport = nil
-        world:SetAlpha(1)
+        opening, drag = nil, nil
+        C_Timer.After(0, function()
+            if world:IsShown() then return end
+            fullscreenControls:Hide()
+            if not InCombatLockdown() then world:SetAlpha(1); opacity = 1 end
+        end)
     end)
     hooksecurefunc(world, "OnMapChanged", queueLayout)
     if BaseMapPoiPinMixin and BaseMapPoiPinMixin.OnAcquired then
@@ -1378,15 +1354,13 @@ local function install()
         end)
     end
     if type(QuestLogQuests_Update) == "function" then
-        hooksecurefunc("QuestLogQuests_Update", function()
-            if world:IsShown() then skinQuestList() end
-        end)
+        hooksecurefunc("QuestLogQuests_Update", queueQuestSkin)
     end
     addZoneHover()
     hooksecurefunc(world, "OnCanvasSizeChanged", map.Refresh)
     world.ScrollContainer:HookScript("OnSizeChanged", map.Refresh)
-    world:HookScript("OnSizeChanged", sizeMarkers)
-    if world.OnCanvasScaleChanged then hooksecurefunc(world, "OnCanvasScaleChanged", sizeMarkers) end
+    world:HookScript("OnSizeChanged", queueMarkerSize)
+    if world.OnCanvasScaleChanged then hooksecurefunc(world, "OnCanvasScaleChanged", queueMarkerSize) end
     if world.UpdateSpacerFrameAnchoring then
         hooksecurefunc(world, "UpdateSpacerFrameAnchoring", queueLayout)
     end
@@ -1396,12 +1370,39 @@ local function install()
         quest:HookScript("OnHide", queueLayout)
     end
     if world.SynchronizeDisplayState then hooksecurefunc(world, "SynchronizeDisplayState", queueLayout) end
-    if world.SetDisplayState then hooksecurefunc(world, "SetDisplayState", syncLayout) end
-    world:RegisterEvent("PLAYER_REGEN_ENABLED")
-    world:HookScript("OnEvent", function(_, event)
-        if event == "PLAYER_REGEN_ENABLED" and world:IsShown() then syncLayout() end
+    if world.SetDisplayState then hooksecurefunc(world, "SetDisplayState", queueLayout) end
+    show()
+end
+
+local function queueInstall()
+    if border or installQueued or InCombatLockdown() or not observedMap:IsShown() then return end
+    -- Let Blizzard finish its OnShow and first pin refresh before applying the skin.
+    installQueued = true
+    C_Timer.After(0, function()
+        installQueued = nil
+        install()
     end)
-    if world:IsShown() then show() else applyChrome() end
+end
+
+local function observeMap()
+    if not addon.db or not WorldMapFrame or settings().stockDebug then return end
+    if observedMap ~= WorldMapFrame then
+        observedMap = WorldMapFrame
+        observedMap:HookScript("OnShow", queueInstall)
+    end
+    queueInstall()
+end
+
+SLASH_BAZIMAPSTOCK1 = "/bazimapstock"
+SlashCmdList.BAZIMAPSTOCK = function(value)
+    if not addon.db then return end
+    if value ~= "on" and value ~= "off" then
+        addon:Print("Use /bazimapstock on or /bazimapstock off, then /reload.")
+        return
+    end
+    settings().stockDebug = value == "on" or nil
+    addon:Print(value == "on" and "Blizzard world map selected. Use /reload to apply."
+        or "Bazi world map selected. Use /reload to apply.")
 end
 
 local events = CreateFrame("Frame")
@@ -1411,13 +1412,17 @@ events:RegisterEvent("PLAYER_REGEN_ENABLED")
 events:RegisterEvent("MAP_EXPLORATION_UPDATED")
 events:RegisterEvent("QUEST_LOG_UPDATE")
 events:SetScript("OnEvent", function(_, event, name)
-    if event == "QUEST_LOG_UPDATE" then
-        if border and addon.db and map.GetOption("availableQuests") then map.Refresh()
-        elseif border and world:IsShown() and world:GetMapID() then refreshHeader(world:GetMapID()) end
+    if event == "PLAYER_REGEN_ENABLED" then
+        if border then queueLayout() else observeMap() end
+    elseif event == "QUEST_LOG_UPDATE" then
+        if border and not InCombatLockdown() then
+            if addon.db and map.GetOption("availableQuests") then map.Refresh()
+            elseif world:IsShown() and world:GetMapID() then refreshHeader(world:GetMapID()) end
+        end
     elseif event == "MAP_EXPLORATION_UPDATED" then
         map.Refresh()
     elseif event ~= "ADDON_LOADED" or name == "Blizzard_WorldMap" then
-        install()
+        observeMap()
     end
 end)
 

@@ -633,8 +633,13 @@ for _, event in ipairs({"PLAYER_REGEN_ENABLED", "PLAYER_ENTERING_WORLD", "EDIT_M
     "UPDATE_EDIT_MODE_LAYOUTS", "UI_SCALE_CHANGED", "DISPLAY_SIZE_CHANGED"}) do
     pcall(positionEvents.RegisterEvent, positionEvents, event)
 end
-positionEvents:SetScript("OnEvent", function(_, event)
-    if event == "PLAYER_REGEN_ENABLED" then
+positionEvents:SetScript("OnEvent", function(self, event, name)
+    if event == "ADDON_LOADED" then
+        if name == "Blizzard_TimeManager" then
+            self:UnregisterEvent(event)
+            queueLayout()
+        end
+    elseif event == "PLAYER_REGEN_ENABLED" then
         if positionPending then refreshPosition() end
         applyMail()
     else
@@ -664,8 +669,10 @@ function MM:Initialize()
     watchScanOffsets()
     if square then
         layout()
-        if EventUtil and EventUtil.ContinueOnAddOnLoaded then
-            EventUtil.ContinueOnAddOnLoaded("Blizzard_TimeManager", queueLayout)
+        if C_AddOns.IsAddOnLoaded("Blizzard_TimeManager") then
+            queueLayout()
+        else
+            positionEvents:RegisterEvent("ADDON_LOADED")
         end
         if cluster and hooksecurefunc then
             hooksecurefunc(cluster, "SetSize", queueLayout)
