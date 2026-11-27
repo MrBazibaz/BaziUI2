@@ -1148,9 +1148,7 @@ local function applyChrome()
             list:SetFrameLevel(mapLevel + 6)
         end
     end
-    canvas:ClearAllPoints()
-    canvas:SetPoint("TOPLEFT", header, "BOTTOMLEFT", 0, 0)
-    canvas:SetPoint("BOTTOMRIGHT", world, "BOTTOMRIGHT", -questWidth - 3, 22)
+    -- Preserve Blizzard canvas anchors while isolating map taint.
     if sidebarWidth ~= questWidth or sidebarMaximized ~= maximized then
         sidebarWidth, sidebarMaximized = questWidth, maximized
         viewportNeedsLayout = true
