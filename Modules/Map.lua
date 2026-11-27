@@ -1114,9 +1114,14 @@ local function applyChrome()
     local canvas = world.ScrollContainer
     -- Compact only the native title spacer; preserve canvas anchors and native resize lifecycle.
     local spacer = world.TitleCanvasSpacerFrame
-    if spacer and not maximized and not world:IsProtected() then
-        local height = spacer:GetHeight()
-        if height and height > 30 then spacer:SetHeight(30) end
+    if spacer and not maximized and not world:IsProtected() and not spacer:IsProtected() then
+        for i = 1, spacer:GetNumPoints() do
+            local point, relative, relativePoint, x, y = spacer:GetPoint(i)
+            if point == "BOTTOMRIGHT" and relative == world and relativePoint == "TOPRIGHT" and y < -29 then
+                spacer:SetPoint(point, relative, relativePoint, x, -29)
+                break
+            end
+        end
     end
     local mapLevel = math.max(world:GetFrameLevel(), canvas:GetFrameLevel())
     local chromeStrata = header:GetFrameStrata()
