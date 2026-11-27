@@ -16,6 +16,7 @@ map.options = {
 }
 
 local defaults = {
+    enabled = true,
     reveal = true, points = true, levels = true, coordinates = true,
     hideTowns = false, dungeons = true, discovery = false, fishing = true, pointSize = 24,
 }
@@ -58,7 +59,7 @@ end
 
 function map.SetOption(key, enabled)
     settings()[key] = enabled
-    map.Refresh()
+    if key ~= "enabled" then map.Refresh() end
 end
 
 local function headerColor()
@@ -1232,6 +1233,7 @@ end
 
 local function install()
     if border or not WorldMapFrame or not addon.db or InCombatLockdown() then return end
+    if map.GetOption("enabled") == false then return end
     world = WorldMapFrame
     if not world.BorderFrame or not world.ScrollContainer then return end
     -- Bazi's chrome and quest list need the same render order as the map canvas.
