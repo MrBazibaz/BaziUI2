@@ -6154,9 +6154,9 @@ function addon.Options:CreateBuffRemindersPage()
     local function preference() return D.NotificationSettings("classBuffReminder") end
     local sounds = {{"none", "Silent"}}
     for _, sound in ipairs(smart.SoundChoices()) do sounds[#sounds + 1] = sound end
-    label("Notification sound", -47)
-    dropdown(alerts, -41, sounds, function() return preference().sound end, function(key)
-        preference().sound = key
+    label("Default class sound", -47)
+    dropdown(alerts, -41, sounds, function() return smart.ClassBuffSound() end, function(key)
+        smart.SetClassBuffSound(key)
         if key ~= "none" then smart.PlaySound(key) end
     end)
     toggle(alerts, -78, "Show this event in chat", function() return preference().chat == true end,
@@ -6184,7 +6184,17 @@ function addon.Options:CreateBuffRemindersPage()
     end
     local syncEnabled = buffToggle(-222, "Enable this reminder", "enabled")
     local syncChat = buffToggle(-249, "Show this spell in chat", "chat")
-    local syncSound = buffToggle(-276, "Play sound for this spell", "sound")
+    local individualSounds = {{"default", "Class default"}, {"none", "Disabled"}}
+    for _, sound in ipairs(smart.SoundChoices()) do individualSounds[#individualSounds + 1] = sound end
+    label("Reminder sound", -282)
+    local syncSound = dropdown(alerts, -276, individualSounds, function()
+        return smart.BuffReminderSound(currentBuff())
+    end, function(key)
+        if not currentBuff() then return end
+        smart.SetBuffReminderSound(currentBuff(), key, buffLabel)
+        local preview = key == "default" and smart.ClassBuffSound() or key
+        if preview and preview ~= "none" then smart.PlaySound(preview) end
+    end)
     local syncBuff = dropdown(alerts, -186, filteredChoices, currentBuff, function(key)
         selectedBuff, buffLabel = key, nil
         for _, entry in ipairs(filteredChoices()) do if entry[1] == key then buffLabel = entry[2]; break end end
