@@ -6378,10 +6378,10 @@ function addon.Options:Create()
 
     local navigationGroups = {
         {"General", {"General", "Profiles", "Quality of Life", "UnitFrames", "Nameplates"}},
-        {"Gameplay", {"ActionBars", "Chat", "Quest", "Dialogue", "Gathering", "Dashboard", "HUD", "Inventory"}},
+        {"Gameplay", {"ActionBars", "Chat", "Quest", "Dialogue", "Gathering", "HUD", "Inventory"}},
         {"Interface", {"Map", "Minimap", "Tooltip", "Combat", "BugTab"}},
     }
-    navigationGroups[#navigationGroups + 1] = {"Progression", {"Smart Alerts", "Journey", "Alt Manager"}}
+    navigationGroups[#navigationGroups + 1] = {"Progression", {"Dashboard", "Smart Alerts", "Journey", "Alt Manager"}}
     for _, group in ipairs(navigationGroups) do
         group.heading = CreateLabel(scrollChild, group[1]:upper(), "GameFontNormalSmall")
         group.heading:SetTextColor(unpack(addon.Theme.colors.headerText))
