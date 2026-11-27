@@ -446,8 +446,10 @@ function map.Refresh()
         sizeMarkers()
         refreshHeader(mapID)
         refreshReadout(mapID)
-        skinQuestPins()
-        skinQuestList()
+        if not InCombatLockdown() then
+            skinQuestPins()
+            skinQuestList()
+        end
     end)
 end
 
@@ -1065,149 +1067,26 @@ end
 local function applyChrome()
     if applyingChrome or InCombatLockdown() then return end
     applyingChrome = true
-    local native = world.BorderFrame
-    local maximized = world:IsMaximized()
-    if maximized then
-        local strata = world:GetFrameStrata()
-        if strata ~= "FULLSCREEN_DIALOG" then
-            previousMapStrata = strata
-            world:SetFrameStrata("FULLSCREEN_DIALOG")
-        end
-        header:SetFrameStrata("FULLSCREEN_DIALOG")
-        border:SetFrameStrata("FULLSCREEN_DIALOG")
-        native:SetFrameStrata("FULLSCREEN_DIALOG")
-    else
-        if previousMapStrata then
-            world:SetFrameStrata(previousMapStrata)
-            previousMapStrata = nil
-        end
-        header:SetFrameStrata("HIGH")
-        border:SetFrameStrata("HIGH")
-        native:SetFrameStrata("HIGH")
-    end
-    -- The native border has its own mouse surface across the whole map.
-    -- Native mouse behavior preserved for taint test.
-    -- Native mouse behavior preserved for taint test.
-    for _, region in ipairs({native:GetRegions()}) do region:SetAlpha(0) end
-    for _, region in pairs({native.NineSlice, native.PortraitContainer, native.TitleContainer, native.Bg, native.Tutorial}) do
-        region:SetAlpha(0)
-    end
-    -- Native mouse behavior preserved for taint test.
-    if world.BlackoutFrame then
-    -- Native mouse behavior preserved for taint test.
-        world.BlackoutFrame:Hide()
-    end
-    for _, cvar in ipairs({"worldMapShowPlayerCoords", "worldMapShowCursorCoords"}) do
-        if GetCVar(cvar) == "1" then SetCVar(cvar, "0") end
-    end
-    if world.TitleCanvasSpacerFrame then
-        local spacer = world.TitleCanvasSpacerFrame
-        for index = 1, spacer:GetNumPoints() do
-            local point, relative, relativePoint, x = spacer:GetPoint(index)
-            if point == "BOTTOMRIGHT" then
-                spacer:SetPoint(point, relative, relativePoint, x, -30)
-                break
-            end
-        end
-    end
-    if world.NavBar then world.NavBar:Hide() end
-    local oldCount = _G.QuestLogCount
-    if oldCount then oldCount:SetAlpha(0) end
-    local list = QuestScrollFrame or (QuestMapFrame and QuestMapFrame.QuestsFrame)
+    local native, canvas = world.BorderFrame, world.ScrollContainer
     local quest = world.QuestLog or QuestMapFrame
     local questWidth = quest and quest:IsShown() and (world.questLogWidth or 333) or 0
-    local canvas = world.ScrollContainer
-    local mapLevel = math.max(world:GetFrameLevel(), canvas:GetFrameLevel())
-    local chromeStrata = header:GetFrameStrata()
-    header:SetFrameLevel(math.max(mapLevel, native:GetFrameLevel(), border:GetFrameLevel()) + 12)
-    placeWindowControls(maximized)
-    if quest then
-        quest:SetFrameStrata(chromeStrata)
-        quest:SetFrameLevel(mapLevel + 4)
-        quest:SetAlpha(1)
+    header:ClearAllPoints()
+    header:SetPoint("BOTTOMLEFT", canvas, "TOPLEFT", 0, 0)
+    header:SetPoint("BOTTOMRIGHT", canvas, "TOPRIGHT", questWidth, 0)
+    header:SetHeight(26)
+    header:SetFrameLevel(math.min(world:GetFrameLevel() + 2000, 9000))
+    for _, region in ipairs({native:GetRegions()}) do region:SetAlpha(0) end
+    if native.Bg then native.Bg:SetAlpha(0) end
+    if world.NavBar then world.NavBar:SetAlpha(0) end
+    if closeControl then
+        closeControl:ClearAllPoints()
+        closeControl:SetPoint("RIGHT", header, "RIGHT", -5, 0)
+        closeControl:SetFrameLevel(header:GetFrameLevel() + 3)
     end
-    if list then
-        list:SetAlpha(1)
-        if list ~= quest then
-            list:SetFrameStrata(chromeStrata)
-            list:SetFrameLevel(mapLevel + 6)
-        end
-    end
-    canvas:ClearAllPoints()
-    canvas:SetPoint("TOPLEFT", header, "BOTTOMLEFT", 0, 0)
-    canvas:SetPoint("BOTTOMRIGHT", world, "BOTTOMRIGHT", -questWidth - 3, 22)
-    if sidebarWidth ~= questWidth or sidebarMaximized ~= maximized then
-        sidebarWidth, sidebarMaximized = questWidth, maximized
-        viewportNeedsLayout = true
-    end
-    if list and questWidth > 0 then
-        if not list.baziQuestBackdrop then
-            local panel = addon.Theme:RoundedCard(list:GetParent())
-            panel:SetFrameLevel(math.max(0, list:GetFrameLevel() - 1))
-            panel:SetPoint("TOPLEFT", canvas, "TOPRIGHT", 2, 0)
-            panel:SetPoint("BOTTOMRIGHT", world, "BOTTOMRIGHT", -4, 22)
-            panel:SetBackdropColor(0.038, 0.031, 0.030, 1)
-            addon.Theme:PaintWindowEdge(panel)
-            addon.Backgrounds.Track("map", panel.fillTexture or panel, 1)
-            list.baziQuestBackdrop = panel
-        end
-        list.baziQuestBackdrop:SetFrameStrata(chromeStrata)
-        list.baziQuestBackdrop:SetFrameLevel(list:GetFrameLevel() - 1)
-        list.baziQuestBackdrop:Show()
-        hideQuestPanelArt(list, quest)
-        local panel = list.baziQuestBackdrop
-        list:ClearAllPoints()
-        list:SetPoint("TOPLEFT", panel, "TOPRIGHT", 9 - questWidth, -5)
-        list:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", -18, 5)
-        local scroll = list.ScrollFrame or list.ScrollBox or list
-        local scrollBar = mapQuestScrollbar(list, scroll)
-        if scrollBar then
-            scrollBar:ClearAllPoints()
-            scrollBar:SetWidth(8)
-            scrollBar:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -5, -8)
-            scrollBar:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", -5, 8)
-        end
-        if not scroll.baziQuestSkinHook then
-            if scroll.ForEachFrame and type(scroll.Update) == "function" then hooksecurefunc(scroll, "Update", skinQuestList)
-            elseif scroll.GetScrollChild then
-                scroll:HookScript("OnVerticalScroll", skinQuestList)
-                scroll:HookScript("OnScrollRangeChanged", skinQuestList)
-            end
-            scroll.baziQuestSkinHook = true
-        end
-    elseif list and list.baziQuestBackdrop then
-        list.baziQuestBackdrop:Hide()
-    end
-    local search, options = list and list.SearchBox, list and list.SettingsDropdown
-    if search and options then
-        options:ClearAllPoints()
-        options:SetPoint("RIGHT", displayControl:IsShown() and displayControl or closeControl, "LEFT", -5, 0)
-        options:SetSize(20, 20)
-        options:SetFrameLevel(header:GetFrameLevel() + 3)
-        flatControl(options, "Settings")
-        search:ClearAllPoints()
-        search:SetPoint("LEFT", world.ScrollContainer, "TOPRIGHT", 7, 15)
-        search:SetPoint("RIGHT", options, "LEFT", -7, 0)
-        search:SetHeight(17)
-        search:SetFrameLevel(header:GetFrameLevel() + 2)
-    end
-    local filter = world.WorldMapTrackingOptionsButton
-    if filter then
-        filter:ClearAllPoints()
-        filter:SetPoint("TOPRIGHT", world.ScrollContainer, "TOPRIGHT", -5, -5)
-        flatControl(filter, "ChevronDown")
-    end
-    local toggle = world.SidePanelToggle
-    if not toggle then
-        for _, frame in ipairs(world.overlayFrames or {}) do
-            if frame.OpenButton and frame.CloseButton then toggle = frame; break end
-        end
-    end
-    if toggle then
-        toggle:ClearAllPoints()
-        toggle:SetPoint("BOTTOMRIGHT", canvas, "BOTTOMRIGHT", -5, 4)
-        flatControl(toggle.OpenButton, "Quest", 16)
-        flatControl(toggle.CloseButton, "Quest", 16)
+    if displayControl and closeControl then
+        displayControl:ClearAllPoints()
+        displayControl:SetPoint("RIGHT", closeControl, "LEFT", -3, 0)
+        displayControl:SetFrameLevel(header:GetFrameLevel() + 4)
     end
     if continentButton then map.RefreshHeaderStyle() end
     grip:SetShown(canMove())
@@ -1350,7 +1229,7 @@ local function install()
             if world:IsShown() then skinQuestList() end
         end)
     end
-    addZoneHover()
+    -- Native zone hover retained to avoid calling Blizzard label methods.
     hooksecurefunc(world, "OnCanvasSizeChanged", map.Refresh)
     world.ScrollContainer:HookScript("OnSizeChanged", map.Refresh)
     world:HookScript("OnSizeChanged", sizeMarkers)
