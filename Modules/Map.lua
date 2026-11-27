@@ -429,6 +429,8 @@ local function addZoneHover()
 end
 
 function map.Refresh()
+    -- Diagnostic: isolate canvas refresh from installed window chrome.
+    if true then return end
     if queued or not border or not world:IsShown() then return end
     queued = true
     C_Timer.After(0, function()
