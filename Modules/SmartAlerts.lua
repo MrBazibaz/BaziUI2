@@ -270,6 +270,15 @@ end
 local lastCast, lastReadableBuffs
 local weaponSlots = {{"MainHand", "MainHand"}, {"SecondaryHand", "OffHand"}, {"Ranged", "Ranged"}}
 local shamanImbues = {8017, 8024, 8033, 8232}
+-- Standard enchant IDs; unknown Forever variants retain a generic reminder.
+local poisonEnchants = {
+    [323]="Instant Poison", [324]="Instant Poison", [325]="Instant Poison",
+    [623]="Instant Poison", [624]="Instant Poison", [625]="Instant Poison",
+    [7]="Deadly Poison", [8]="Deadly Poison", [626]="Deadly Poison", [627]="Deadly Poison", [2630]="Deadly Poison",
+    [22]="Crippling Poison", [603]="Crippling Poison",
+    [35]="Mind-numbing Poison", [23]="Mind-numbing Poison", [643]="Mind-numbing Poison",
+    [703]="Wound Poison", [704]="Wound Poison", [705]="Wound Poison", [706]="Wound Poison",
+}
 local gatheringTrackers = {{2580, "Find Minerals"}, {2383, "Find Herbs"}}
 local lastGatheringTracker
 
@@ -329,7 +338,16 @@ function S.BuffReminderChoices(category)
     if token == "SHAMAN" then
         add("imbue", "Weapon imbues (any)", "weapon")
         for _, spell in ipairs(shamanImbues) do if knowsSpell(spell) then add(spellKey(spell), spellName(spell), "weapon") end end
-    elseif token == "ROGUE" then add("poison", "Weapon poisons (any)", "weapon") end
+    elseif token == "ROGUE" then
+        add("poison", "Weapon poisons (any)", "weapon")
+        for _, name in pairs(preferences()) do
+            if type(name) == "string" then
+                for _, poisonName in pairs(poisonEnchants) do
+                    if name == poisonName then add("poison:" .. name, name, "weapon"); break end
+                end
+            end
+        end
+    end
     add("temporary", "Other temporary weapon enhancements", "temporary")
     for key, entry in pairs(buffOptions(token) or {}) do
         if not entry.learned and not registered[key] then add(key, entry.label, "temporary") end
@@ -603,6 +621,17 @@ local function classReminders(token, gear)
             local missingEffects = missingWeaponEffects(slot, weaponIdentity(slot, link), effect)
             local imbueSpell
             local prefKey = "imbue:" .. hand
+            local poisonKey = "poison:" .. hand
+            if token == "ROGUE" and effect.imbue and effect.temporary and hand ~= "Ranged" then
+                local identified
+                for _, enchant in pairs(effect.temporary) do
+                    if enchant.enchantType == Enum.ItemEnchantType.Imbue and read(enchant.enchantID) then
+                        identified = poisonEnchants[enchant.enchantID]
+                        if identified then break end
+                    end
+                end
+                preferredBuffs[poisonKey] = identified
+            end
             if shaman and effect.imbue and effect.temporary then
                 for _, enchant in pairs(effect.temporary) do
                     if enchant.enchantType == Enum.ItemEnchantType.Imbue then
@@ -644,8 +673,11 @@ local function classReminders(token, gear)
                 missing[key] = group
                 group.hands[#group.hands + 1] = name
             elseif poison and hand ~= "Ranged" and info.sub ~= 20 and not effect.imbue then
-                notices[#notices + 1] = {id = "enhancement:" .. slot, key = "poison", label = "Weapon poisons (any)", rule = "poison",
-                    title = "Poison missing · " .. name, detail = "Apply a poison to this weapon."}
+                local preferred = preferredBuffs[poisonKey]
+                notices[#notices + 1] = {id = "enhancement:" .. slot, key = preferred and ("poison:" .. preferred) or "poison",
+                    label = preferred or "Weapon poisons (any)", rule = "poison",
+                    title = (preferred and (preferred .. " is missing") or "Apply poison to your weapon") .. " · " .. name,
+                    detail = preferred and ("Reapply " .. preferred .. ".") or "Apply a poison to this weapon."}
             end
         end
     end
