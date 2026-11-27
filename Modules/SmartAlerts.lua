@@ -427,13 +427,42 @@ function S.SetBuffReminderOption(key, field, value, label)
     A.Emit("buffReminderSettings")
 end
 
+function S.ClassBuffSound()
+    local _, token = call(UnitClass, "player")
+    local cfg = settings()
+    return token and cfg.classBuffSounds and cfg.classBuffSounds[token] or D.NotificationSettings("classBuffReminder").sound
+end
+
+function S.SetClassBuffSound(value)
+    local _, token = call(UnitClass, "player")
+    if not token then return end
+    local cfg = settings()
+    cfg.classBuffSounds = cfg.classBuffSounds or {}
+    cfg.classBuffSounds[token] = value
+end
+
+function S.BuffReminderSound(key)
+    local _, token = call(UnitClass, "player")
+    local options = token and buffOptions(token)
+    local entry = options and key and options[key]
+    return entry and (entry.soundKey or (entry.sound == false and "none")) or "default"
+end
+
+function S.SetBuffReminderSound(key, value, label)
+    if not key then return end
+    S.SetBuffReminderOption(key, "soundKey", value, label)
+    S.SetBuffReminderOption(key, "sound", value ~= "none", label)
+end
+
 local function applyBuffOptions(token, reminders)
     local options, visible = buffOptions(token) or {}, {}
     for _, reminder in ipairs(reminders) do
         local key = reminder.key
         local pref = options[key]
         if not pref or pref.enabled ~= false then
-            reminder.channels = pref
+            local sound = S.BuffReminderSound(key)
+            reminder.channels = {chat = not pref or pref.chat ~= false,
+                soundKey = sound == "default" and S.ClassBuffSound() or sound}
             reminder.mute = function() S.SetBuffReminderOption(key, "enabled", false, reminder.label) end
             visible[#visible + 1] = reminder
         end
