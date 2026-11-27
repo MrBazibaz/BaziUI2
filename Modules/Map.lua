@@ -1374,7 +1374,8 @@ local function install()
     end
     -- Diagnostic: isolate OnUpdate from OnShow and OnHide.
     -- world:HookScript("OnUpdate", update)
-    world:HookScript("OnShow", show)
+    -- Diagnostic: isolate OnHide without OnShow or OnUpdate.
+    -- world:HookScript("OnShow", show)
     world:HookScript("OnHide", function()
         fullscreenControls:Hide()
         sidebarWidth = nil
