@@ -1372,9 +1372,6 @@ local function install()
         if GetCVar("mapFade") == "1" then SetCVar("mapFade", "0") end
         queueLayout()
     end
-    -- Diagnostic stage: initial chrome only, no native layout hooks.
-    applyChrome()
-    if true then return end
     world:HookScript("OnUpdate", update)
     world:HookScript("OnShow", show)
     world:HookScript("OnHide", function()
@@ -1384,6 +1381,9 @@ local function install()
         initialViewport = nil
         world:SetAlpha(1)
     end)
+    -- Diagnostic: basic show/hide/update hooks only.
+    applyChrome()
+    if true then return end
     hooksecurefunc(world, "OnMapChanged", queueLayout)
     if BaseMapPoiPinMixin and BaseMapPoiPinMixin.OnAcquired then
         hooksecurefunc(BaseMapPoiPinMixin, "OnAcquired", function(pin)
