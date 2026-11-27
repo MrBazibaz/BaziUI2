@@ -1401,7 +1401,7 @@ local function install()
         quest:HookScript("OnHide", queueLayout)
     end
     if world.SynchronizeDisplayState then hooksecurefunc(world, "SynchronizeDisplayState", queueLayout) end
-    if world.SetDisplayState then hooksecurefunc(world, "SetDisplayState", syncLayout) end
+    if world.SetDisplayState then hooksecurefunc(world, "SetDisplayState", queueLayout) end
     world:RegisterEvent("PLAYER_REGEN_ENABLED")
     world:HookScript("OnEvent", function(_, event)
         if event == "PLAYER_REGEN_ENABLED" and world:IsShown() then syncLayout() end
