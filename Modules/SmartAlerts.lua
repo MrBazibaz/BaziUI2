@@ -597,14 +597,21 @@ local function classReminders(token, gear)
         if not link then temporaryWeapons[slot] = nil end
         if effect then
             local name = A.SlotNames[slot] or slot
-            local needsImbue = next(imbues) ~= nil and hand ~= "Ranged" and not effect.imbue
+            local needsImbue = next(imbues) ~= nil and hand ~= "Ranged" and info.sub ~= 20 and not effect.imbue
             local missingEffects = missingWeaponEffects(slot, weaponIdentity(slot, link), effect)
             local hadEnhancement, imbueSpell
             local prefKey = "imbue:" .. hand
             if shaman and effect.imbue and effect.temporary then
                 for _, enchant in pairs(effect.temporary) do
                     if enchant.enchantType == Enum.ItemEnchantType.Imbue then
-                        local mapped = read(enchant.enchantID) and ({[6]=8017,[5]=8024})[enchant.enchantID]
+                        local enchantID = read(enchant.enchantID) and enchant.enchantID
+                        local mapKey = enchantID and ("imbueEnchant:" .. tostring(enchantID))
+                        local mapped = mapKey and (preferredBuffs[mapKey] or ({[6]=8017,[5]=8024})[enchantID])
+                        local castName = lastCast and GetTime() - lastCast.time <= 0.6 and spellName(lastCast.spell)
+                        if castName and imbues[castName] and mapKey and not mapped then
+                            mapped = imbues[castName]
+                            preferredBuffs[mapKey] = mapped
+                        end
                         if mapped and knowsSpell(mapped) then preferredBuffs[prefKey] = mapped end
                     end
                 end
@@ -635,7 +642,7 @@ local function classReminders(token, gear)
                 local group = missing[key] or {label = imbueSpell and spellName(imbueSpell) or "Weapon imbues (any)", hands = {}}
                 missing[key] = group
                 group.hands[#group.hands + 1] = name
-            elseif not hadEnhancement and poison and hand ~= "Ranged" and not effect.active then
+            elseif not hadEnhancement and poison and hand ~= "Ranged" and info.sub ~= 20 and not effect.active then
                 notices[#notices + 1] = {id = "enhancement:" .. slot, key = "poison", label = "Weapon poisons (any)", rule = "poison",
                     title = "Poison missing · " .. name, detail = "Apply a poison to this weapon."}
             end
