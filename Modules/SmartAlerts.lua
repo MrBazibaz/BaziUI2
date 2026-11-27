@@ -11,7 +11,7 @@ S.rules = {
     {"durability", "Low or broken equipment", "Equipment"}, {"empty", "Empty core armor and weapon slots", "Equipment", false},
     {"upgrade", "Looted equipment upgrades", "Equipment"},
     {"fishing", "Fishing pole in combat", "Equipment"}, {"poison", "Missing or expired weapon enhancement", "Class"}, {"selfBuff", "Missing or expired self buff", "Class"},
-    {"ammo", "Low or depleted ammunition", "Class"}, {"pet", "Hunter pet missing, dead or unhappy", "Class"},
+    {"ammo", "Low or depleted ammunition", "Class"}, {"pet", "Hunter pet or Warlock demon missing, dead or unhappy", "Class"},
     {"supplies", "Low tracked supplies", "Inventory"}, {"bags", "Low or full inventory", "Inventory"},
     {"loot", "Rare or valuable loot", "Inventory"}, {"quest", "Quest ready to turn in", "Quests"},
     {"questLog", "Full quest log", "Quests"}, {"questTimer", "Timed quest ending", "Quests"},
@@ -267,6 +267,7 @@ local function preferences()
     store.buffPreferences[key] = store.buffPreferences[key] or {}
     return store.buffPreferences[key]
 end
+local demonSummons = {688, 697, 712, 691, 30146}
 local lastCast, lastReadableBuffs
 local weaponSlots = {{"MainHand", "MainHand"}, {"SecondaryHand", "OffHand"}, {"Ranged", "Ranged"}}
 local shamanImbues = {8017, 8024, 8033, 8232, 8018, 8019, 10399, 16314, 16315, 16316, 8027, 8030, 16339, 16341, 16342, 8038, 10456, 16355, 16356, 8235, 10486, 16362}
@@ -473,6 +474,13 @@ end
 A.On("playerSpellCast", function(spell)
     if not (dashboardBuffsEnabled and dashboardBuffsEnabled()) and not settings().enabled then return end
     lastCast = {spell = spell, time = GetTime()}
+    local _, token = call(UnitClass, "player")
+    if token == "WARLOCK" and read(spell) then
+        for _, summon in ipairs(demonSummons) do
+            if spell == summon then preferences().demonSummon = summon; break end
+        end
+        A.Queue("class")
+    end
     if dashboardBuffsEnabled() then D.Invalidate("classBuffs") end
 end)
 
@@ -821,6 +829,23 @@ local function hunterPetReminder()
     end
 end
 
+local function warlockPetReminder()
+    local _, token = call(UnitClass, "player")
+    if token ~= "WARLOCK" or call(UnitIsDeadOrGhost, "player") == true
+        or call(UnitOnTaxi, "player") == true or call(IsMounted) == true then return end
+    local known = {}
+    for _, spell in ipairs(demonSummons) do
+        if knowsSpell(spell) then known[#known + 1] = spell end
+    end
+    if #known == 0 then return end
+    local exists = call(UnitExists, "pet")
+    if exists == true and call(UnitIsDeadOrGhost, "pet") ~= true then return end
+    local pref = preferences().demonSummon
+    local chosen = pref and knowsSpell(pref) and pref or (#known == 1 and known[1] or nil)
+    local name = chosen and spellName(chosen)
+    return name and (name .. " is needed") or "Summon a demon", "warning", chosen and {chosen} or known
+end
+
 local function glowReminders(reminders)
     local bars = addon.ActionBars
     if not (bars and bars.SetClassReminderActions) then return end
@@ -842,6 +867,11 @@ local function glowReminders(reminders)
         local _, _, spell = hunterPetReminder()
         local name = spell and spellName(spell)
         if name then wanted[name] = true end
+        local _, _, summons = warlockPetReminder()
+        for _, summon in ipairs(summons or {}) do
+            local summonName = spellName(summon)
+            if summonName then wanted[summonName] = true end
+        end
     end
     bars:SetClassReminderActions(wanted)
 end
@@ -870,6 +900,9 @@ local function scanClass(snapshot)
     if meta.token == "HUNTER" then
         S.RefreshAmmo(snapshot)
         local title, severity = hunterPetReminder()
+        persistent("pet", "pet", "Class", severity or "warning", title)
+    elseif meta.token == "WARLOCK" then
+        local title, severity = warlockPetReminder()
         persistent("pet", "pet", "Class", severity or "warning", title)
     end
 end
