@@ -16,7 +16,7 @@ local ASSET = "Interface\\AddOns\\BaziUI\\Assets\\"
 local NAV_ICONS = {
     General = 0, Profiles = 3, ["Quality of Life"] = 1, UnitFrames = 2,
     Nameplates = 3, ActionBars = 4, Chat = 5, Quest = 6, Gathering = 7,
-    Dialogue = 5, Dashboard = 2, ["Smart Alerts"] = 1, Journey = 6, ["Alt Manager"] = 4, HUD = 2, Inventory = 6, Minimap = 8, Tooltip = 9, Combat = 10, BugTab = 11,
+    Dialogue = 5, Dashboard = 2, ["Smart Alerts"] = 1, ["Buff Reminders"] = 1, Journey = 6, ["Alt Manager"] = 4, HUD = 2, Inventory = 6, Minimap = 8, Tooltip = 9, Combat = 10, BugTab = 11,
 }
 local MAP_ICON = ASSET .. "Settings\\Map.png"
 
@@ -6045,11 +6045,11 @@ function addon.Options:CreateDashboardPage()
     end
 
     local alerts = sections.Alerts
-    alerts:SetHeight(366)
+    alerts:SetHeight(192)
     local smart = addon.SmartAlerts
     local selectedEvent = "upgrade"
     local events = {{"dashboardXP", "Experience gained"}, {"dashboardLoot", "Items looted"},
-        {"dashboardMoney", "Money looted"}, {"dashboardCraft", "Items crafted"}, {"classBuffReminder", "Class buff or weapon reminder"}}
+        {"dashboardMoney", "Money looted"}, {"dashboardCraft", "Items crafted"}}
     for _, rule in ipairs(smart.rules) do events[#events + 1] = {rule[1], rule[2]} end
     local sounds = {{"none", "Silent"}}
     for _, sound in ipairs(smart.SoundChoices()) do sounds[#sounds + 1] = sound end
@@ -6073,8 +6073,96 @@ function addon.Options:CreateDashboardPage()
     local hint = CreateLabel(alerts, "These settings apply to Dashboard activity and embedded Smart Alerts.", "GameFontHighlightSmall")
     hint:SetPoint("TOPLEFT", 25, -156)
 
-    CreateSection(alerts, "Class Buff and Weapon Reminders", -192)
-    label("Spell or effect", -234)
+    selectTab("General")
+end
+
+function addon.Options:CreateBuffRemindersPage()
+    local D, smart = addon.Dashboard, addon.SmartAlerts
+    local page = CreateFrame("Frame", nil, contentFrame)
+    page:SetAllPoints(contentFrame)
+    pages["Buff Reminders"] = page
+    local content = addon.Inventory.Scroll(page, 0, 4)
+    content:SetHeight(330)
+    local alerts = CreatePanel(content, -8, 310)
+    CreateSection(alerts, "Buff Reminders", -13)
+    local help = {
+        ["Enable Dashboard"] = "Shows the Dashboard in game. Configure which information it can display under Widgets.",
+        ["Grow upward"] = "Keeps the bottom edge in place as cards are added and places the title below the cards.",
+        ["Lock position"] = "Prevents dragging the Dashboard header during normal play. Use Movers to reposition it while locked.",
+        ["Automatic context detection"] = "Uses recent activity, nearby quest objectives and low supplies to choose when supported widgets appear.",
+        ["Enabled"] = "Allows the selected widget to appear when its visibility conditions are met.",
+        ["Pin widget"] = "Keeps the widget eligible when idle and sorts it ahead of unpinned widgets. Quests still require a confirmed objective area.",
+        ["Hide completed goals"] = "Hides finished entries in widgets that track a target quantity or crafting goal.",
+        ["Keep completed quest objectives"] = "Keeps finished objectives visible while you remain in the quest's objective area.",
+        ["Show border"] = "Controls the outer Dashboard window border. The cards keep their own outlines.",
+        ["Show Dashboard title and close button"] = "Shows the entire window header. Turn this off for a shorter panel with only the widget cards.",
+        ["Show widget headers"] = "Shows the name above each widget's rows, such as Professions or Reputation.",
+        ["Show this widget's header"] = "Shows the selected card's title when widget headers are enabled under Appearance.",
+        ["Automatically hide inactive widgets"] = "Hides widgets that report no relevant activity when their visibility is set to Automatic.",
+        ["Hide maxed combat skills"] = "Hides combat skills that have reached their current cap. Pinned or recently changed skills can still appear.",
+        ["Fade in when the dashboard opens"] = "Plays a short fade when Dashboard becomes visible.",
+        ["Hide XP and loot in Everything"] = "Moves experience, your looted items and looted money out of the main chat while Recent activity is enabled and a Loot tab is open. You can still read those messages in Loot.",
+        ["Show clickable quest items"] = "Shows usable quest items beside Local objectives or above Dashboard while you are inside their objective area.",
+        ["Show this event in chat"] = "Prints a chat message when this event occurs. It does not replay old notices.",
+        ["Enable this reminder"] = "Shows the reminder and allows its action-bar glow, chat message and sound. Right-click a reminder in game to turn it off.",
+        ["Show this spell in chat"] = "Prints a message when this reminder appears if chat is enabled for the notification settings above.",
+        ["Play sound for this spell"] = "Plays the sound selected for Class buff or weapon reminder above. Choose Silent there to mute all class reminder sounds.",
+        ["X POSITION"] = "Sets the horizontal offset from the center of the screen. Positive values move the left edge right.",
+        ["Y POSITION"] = "Sets the vertical offset from the center of the screen. Positive values move the anchored edge up.",
+        ["MAXIMUM VISIBLE WIDGETS"] = "Caps the number of displayed cards. Pinned widgets appear first, followed by higher priority.",
+        ["COMPLETED OBJECTIVE TIME (SECONDS)"] = "Sets how long a newly completed objective stays highlighted in its quest area.",
+    }
+    local function update() D.Refresh() end
+    local function toggle(panel, y, label, read, write)
+        local check = addon.Theme:CreateCheckbox(panel)
+        check:SetSize(22, 22)
+        check:SetPoint("TOPLEFT", 25, y)
+        local text = CreateLabel(panel, label, "GameFontHighlight")
+        text:SetPoint("LEFT", check, "RIGHT", 7, 0)
+        addon.Theme:SettingsHelp(check, label, help[label], text)
+        check:SetChecked(read())
+        check:SetScript("OnClick", function(self) write(self:GetChecked() == true); update() end)
+        return function() check:SetChecked(read()) end
+    end
+    local function dropdown(panel, y, choices, read, write)
+        local control = addon.Theme:CreateSettingsDropdown(panel)
+        control:SetSize(205, 25)
+        control:SetPoint("TOPRIGHT", -24, y)
+        local function entries() return type(choices) == "function" and choices() or choices end
+        local function sync()
+            local value = read()
+            for _, entry in ipairs(entries()) do if value == entry[1] then control:SetText(entry[2]); return end end
+            control:SetText("Select")
+        end
+        control:SetupMenu(function(_, root)
+            local menu = entries()
+            if #menu > 10 and root.SetScrollMode then root:SetScrollMode(250) end
+            for _, entry in ipairs(menu) do
+                root:CreateRadio(entry[2], function() return read() == entry[1] end, function()
+                    write(entry[1])
+                    sync()
+                end)
+            end
+        end)
+        sync()
+        return sync
+    end
+
+    local function label(text, y)
+        CreateLabel(alerts, text, "GameFontNormal"):SetPoint("TOPLEFT", 25, y)
+    end
+    local function preference() return D.NotificationSettings("classBuffReminder") end
+    local sounds = {{"none", "Silent"}}
+    for _, sound in ipairs(smart.SoundChoices()) do sounds[#sounds + 1] = sound end
+    label("Notification sound", -47)
+    dropdown(alerts, -41, sounds, function() return preference().sound end, function(key)
+        preference().sound = key
+        if key ~= "none" then smart.PlaySound(key) end
+    end)
+    toggle(alerts, -78, "Show this event in chat", function() return preference().chat == true end,
+        function(value) preference().chat = value end)
+    CreateSection(alerts, "Class Buff and Weapon Reminders", -115)
+    label("Spell or effect", -157)
     local selectedBuff, buffLabel
     local function currentBuff()
         local choices = smart.BuffReminderChoices()
@@ -6087,10 +6175,10 @@ function addon.Options:CreateDashboardPage()
         return toggle(alerts, y, title, function() return smart.BuffReminderOption(currentBuff(), field) end,
             function(value) smart.SetBuffReminderOption(currentBuff(), field, value, buffLabel) end)
     end
-    local syncEnabled = buffToggle(-263, "Enable this reminder", "enabled")
-    local syncChat = buffToggle(-290, "Show this spell in chat", "chat")
-    local syncSound = buffToggle(-317, "Play sound for this spell", "sound")
-    local syncBuff = dropdown(alerts, -227, smart.BuffReminderChoices, currentBuff, function(key)
+    local syncEnabled = buffToggle(-186, "Enable this reminder", "enabled")
+    local syncChat = buffToggle(-213, "Show this spell in chat", "chat")
+    local syncSound = buffToggle(-240, "Play sound for this spell", "sound")
+    local syncBuff = dropdown(alerts, -150, smart.BuffReminderChoices, currentBuff, function(key)
         selectedBuff, buffLabel = key, nil
         for _, entry in ipairs(smart.BuffReminderChoices()) do if entry[1] == key then buffLabel = entry[2]; break end end
         syncEnabled(); syncChat(); syncSound()
@@ -6100,7 +6188,6 @@ function addon.Options:CreateDashboardPage()
     end
     alerts:HookScript("OnShow", syncBuffOptions)
     addon.Adventure.On("buffReminderSettings", function() if alerts:IsVisible() then syncBuffOptions() end end)
-    selectTab("General")
 end
 
 function addon.Options:Create()
@@ -6381,7 +6468,7 @@ function addon.Options:Create()
         {"Gameplay", {"ActionBars", "Chat", "Quest", "Dialogue", "Gathering", "HUD", "Inventory"}},
         {"Interface", {"Map", "Minimap", "Tooltip", "Combat", "BugTab"}},
     }
-    navigationGroups[#navigationGroups + 1] = {"Progression", {"Dashboard", "Smart Alerts", "Journey", "Alt Manager"}}
+    navigationGroups[#navigationGroups + 1] = {"Progression", {"Dashboard", "Smart Alerts", "Buff Reminders", "Journey", "Alt Manager"}}
     for _, group in ipairs(navigationGroups) do
         group.heading = CreateLabel(scrollChild, group[1]:upper(), "GameFontNormalSmall")
         group.heading:SetTextColor(unpack(addon.Theme.colors.headerText))
@@ -6424,7 +6511,7 @@ function addon.Options:Create()
     index("General", "Guides and activity", "Fonts", "today session exit statistics first-use guides tutorial tooltips")
     index("Profiles", "Character profiles", nil, "create copy switch default new character save settings")
     index("Dashboard", "Smart widgets", nil, "quest professions gathering skills crafting supplies reputation dungeon raid pvp")
-    index("Dashboard", "Class buff reminders", "Alerts", "lightning shield weapon imbue poison mute chat sound spell")
+    index("Buff Reminders", "Class buff reminders", nil, "lightning shield weapon imbue poison mute chat sound spell")
     index("Smart Alerts", "Smart Alerts", nil, "notifications thresholds durability ammo history")
     index("Journey", "Journey", nil, "journal timeline sessions milestones records")
     index("Alt Manager", "Alt Manager", nil, "account inventory bank gold professions")
@@ -6566,6 +6653,7 @@ function addon.Options:Create()
     pageFactories.BugTab = CreateBugTabPage
     pageFactories.Inventory = CreateInventoryPage
     pageFactories.Dashboard = function() self:CreateDashboardPage() end
+    pageFactories["Buff Reminders"] = function() self:CreateBuffRemindersPage() end
     for title, kind in pairs({["Smart Alerts"] = "alerts", Journey = "journey", ["Alt Manager"] = "alts"}) do
         local name, module = title, kind
         pageFactories[name] = function()
