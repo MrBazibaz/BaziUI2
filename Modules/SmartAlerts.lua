@@ -601,7 +601,7 @@ local function classReminders(token, gear)
             local name = A.SlotNames[slot] or slot
             local needsImbue = next(imbues) ~= nil and hand ~= "Ranged" and info.sub ~= 20 and not effect.imbue
             local missingEffects = missingWeaponEffects(slot, weaponIdentity(slot, link), effect)
-            local hadEnhancement, imbueSpell
+            local imbueSpell
             local prefKey = "imbue:" .. hand
             if shaman and effect.imbue and effect.temporary then
                 for _, enchant in pairs(effect.temporary) do
@@ -620,10 +620,9 @@ local function classReminders(token, gear)
             end
             for id, previous in pairs(missingEffects) do
                 local source = previous.spell and spellName(previous.spell)
-                if previous.kind == Enum.ItemEnchantType.Imbue and shaman then
+                if previous.kind == Enum.ItemEnchantType.Imbue and (shaman or token == "ROGUE") then
                     if needsImbue then imbueSpell = source and imbues[source] or imbueSpell end
                 else
-                    hadEnhancement = true
                     local key = source and spellKey(previous.spell) or "temporary"
                     if source and not options[key] then
                         options = buffOptions(token, true)
@@ -644,7 +643,7 @@ local function classReminders(token, gear)
                 local group = missing[key] or {label = imbueSpell and spellName(imbueSpell) or "Weapon imbues (any)", hands = {}}
                 missing[key] = group
                 group.hands[#group.hands + 1] = name
-            elseif not hadEnhancement and poison and hand ~= "Ranged" and info.sub ~= 20 and not effect.active then
+            elseif poison and hand ~= "Ranged" and info.sub ~= 20 and not effect.imbue then
                 notices[#notices + 1] = {id = "enhancement:" .. slot, key = "poison", label = "Weapon poisons (any)", rule = "poison",
                     title = "Poison missing · " .. name, detail = "Apply a poison to this weapon."}
             end
