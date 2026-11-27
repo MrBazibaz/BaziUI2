@@ -1372,7 +1372,8 @@ local function install()
         if GetCVar("mapFade") == "1" then SetCVar("mapFade", "0") end
         queueLayout()
     end
-    world:HookScript("OnUpdate", update)
+    -- Diagnostic: isolate OnUpdate from OnShow and OnHide.
+    -- world:HookScript("OnUpdate", update)
     world:HookScript("OnShow", show)
     world:HookScript("OnHide", function()
         fullscreenControls:Hide()
