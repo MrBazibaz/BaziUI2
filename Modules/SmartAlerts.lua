@@ -322,12 +322,53 @@ local function buffOptions(token, create)
 end
 
 local function spellKey(spell)
-    return "spell:" .. spell
+    -- Use the lowest registered ID with the same spell name, so ranks share settings.
+    local name = spellName(spell)
+    local canonical = spell
+    if type(name) == "string" then
+        local _, token = call(UnitClass, "player")
+        for _, family in ipairs(watchedBuffs[token] or {}) do
+            for _, id in ipairs(family) do
+                if id < canonical and spellName(id) == name then canonical = id end
+            end
+        end
+        if token == "SHAMAN" then
+            for _, id in ipairs(shamanImbues) do
+                if id < canonical and spellName(id) == name then canonical = id end
+            end
+        end
+    end
+    return "spell:" .. canonical
+end
+
+local function migrateRankOptions(token)
+    local options = buffOptions(token)
+    if not options then return end
+    local moves = {}
+    for key, entry in pairs(options) do
+        local id = type(key) == "string" and tonumber(key:match("^spell:(%d+)$"))
+        if id and not entry.learned then
+            local canonical = spellKey(id)
+            if canonical ~= key then moves[#moves + 1] = {key, canonical, entry} end
+        end
+    end
+    table.sort(moves, function(a,b) return a[1] < b[1] end)
+    for _, move in ipairs(moves) do
+        local target = options[move[2]]
+        if not target then options[move[2]] = move[3]
+        else
+            for field, value in pairs(move[3]) do
+                if target[field] == nil then target[field] = value end
+            end
+        end
+        options[move[1]] = nil
+    end
 end
 
 function S.BuffReminderChoices(category)
     local _, token = call(UnitClass, "player")
     if not token then return {} end
+    migrateRankOptions(token)
     local list, seen, registered = {}, {}, {}
     local function add(key, name, group)
         if group ~= "temporary" then registered[key] = true end
@@ -549,6 +590,7 @@ end
 local function classReminders(token, gear)
     local notices = {}
     if not token or call(UnitIsDeadOrGhost, "player") == true then return notices end
+    migrateRankOptions(token)
     local families = watchedBuffs[token]
     local preferredBuffs = preferences()
     local names = playerBuffNames(token)
