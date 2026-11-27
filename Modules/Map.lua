@@ -448,7 +448,8 @@ function map.Refresh()
         sizeMarkers()
         refreshHeader(mapID)
         refreshReadout(mapID)
-        skinQuestPins()
+        -- Diagnostic isolation: leave Blizzard canvas quest pins untouched.
+        -- Keep quest sidebar styling active to isolate the combat taint.
         skinQuestList()
     end)
 end
