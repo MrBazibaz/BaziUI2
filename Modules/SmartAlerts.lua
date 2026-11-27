@@ -77,7 +77,9 @@ function S.SoundChoices()
     local choices = {{"raidWarning", "Raid warning"}}
     for _, entry in ipairs(popupSounds) do choices[#choices + 1] = entry end
     local audio = addon.Chat and addon.Chat.Alerts
-    for _, entry in ipairs(audio and audio.SOUNDS or {}) do choices[#choices + 1] = {entry.key, entry.label} end
+    for _, entry in ipairs(audio and audio.SOUNDS or {}) do
+        if not soundFiles[entry.key] then choices[#choices + 1] = {entry.key, entry.label} end
+    end
     return choices
 end
 
