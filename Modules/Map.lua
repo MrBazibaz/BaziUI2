@@ -1174,7 +1174,7 @@ local function applyChrome()
         options:SetFrameLevel(header:GetFrameLevel() + 3)
         flatControl(options, "Settings")
         search:ClearAllPoints()
-        search:SetPoint("LEFT", header, "LEFT", math.max(header:GetWidth() - questWidth + 7, 420), 0)
+        search:SetPoint("LEFT", world.ScrollContainer, "TOPRIGHT", 7, 15)
         search:SetPoint("RIGHT", options, "LEFT", -7, 0)
         search:SetHeight(17)
         search:SetFrameLevel(header:GetFrameLevel() + 2)
@@ -1193,7 +1193,7 @@ local function applyChrome()
     end
     if toggle then
         toggle:ClearAllPoints()
-        toggle:SetPoint("BOTTOMRIGHT", canvas, "BOTTOMRIGHT", -5, 26)
+        toggle:SetPoint("BOTTOMRIGHT", canvas, "BOTTOMRIGHT", -5, 4)
         flatControl(toggle.OpenButton, "Quest", 16)
         flatControl(toggle.CloseButton, "Quest", 16)
     end
