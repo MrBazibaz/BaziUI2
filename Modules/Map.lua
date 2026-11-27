@@ -1242,8 +1242,7 @@ local function install()
     world = WorldMapFrame
     if not world.BorderFrame or not world.ScrollContainer then return end
     if world.SetIsFrameBuffer then world:SetIsFrameBuffer(false) end
-    -- Diagnostic stage: framebuffer only.
-    if true then return end
+    if header then return end
     -- Bazi's chrome and quest list need the same render order as the map canvas.
     -- Diagnostic: retain Blizzard's native framebuffer configuration.
 
@@ -1345,6 +1344,9 @@ local function install()
     readout:SetJustifyH("LEFT")
     readout:SetShadowColor(0, 0, 0, 1)
     readout:SetShadowOffset(1, -1)
+
+    -- Diagnostic stage: construct chrome without installing layout hooks.
+    if true then return end
 
     local chromeQueued
     local function syncLayout()
