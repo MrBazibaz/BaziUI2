@@ -414,7 +414,16 @@ end
 local function setFactionBadge(f, faction)
     local valid = readable(faction) and (faction == "Alliance" or faction == "Horde")
     f.faction:SetShown(valid)
-    if valid then f.faction:SetTexture("Interface\\TargetingFrame\\UI-PVP-" .. faction) end
+    if valid then
+        local atlas = "UI-Character-Info-Honor-Icon-" .. faction
+        local info = C_Texture and C_Texture.GetAtlasInfo or GetAtlasInfo
+        if info and info(atlas) then
+            f.faction:SetAtlas(atlas, false)
+        else
+            f.faction:SetTexture("Interface\\TargetingFrame\\UI-PVP-" .. faction)
+            f.faction:SetTexCoord(0, 1, 0, 1)
+        end
+    end
 end
 
 local markerStyles = {star = 1, skull = 8, moon = 5}
