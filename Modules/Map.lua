@@ -29,7 +29,7 @@ map.pointOptions = {
 }
 for _, option in ipairs(map.pointOptions) do defaults[option[1]] = true end
 -- Rebuilt presentation layer. Blizzard owns map navigation, pins and layout.
-local world, shell, title, coords, heading, top, bottom
+local world, shell, title, coords, heading, top
 local function settings()
     local profile = addon.db.profile
     profile.worldMap = profile.worldMap or {}
@@ -59,7 +59,7 @@ function map.RefreshHeaderStyle()
 end
 function map.Refresh()
     if not shell then return end
-    coords:SetShown(map.GetOption("coordinates") == true)
+    title:SetShown(map.GetOption("coordinates") == true)
     map.RefreshHeaderStyle()
 end
 local function install()
@@ -74,9 +74,10 @@ local function install()
     addon.Theme:CreateFrameBorder(shell, shell, shell)
     -- Decorative strips are independent of Blizzard's interactive controls.
     top = CreateFrame("Frame", nil, shell, "BackdropTemplate")
-    top:SetPoint("BOTTOMLEFT", world, "TOPLEFT", 0, 2)
-    top:SetPoint("BOTTOMRIGHT", world, "TOPRIGHT", 0, 2)
-    top:SetHeight(26)
+    top:SetPoint("TOPLEFT", world, "TOPLEFT", 65, -5)
+    top:SetPoint("TOPRIGHT", world, "TOPRIGHT", -70, -5)
+    top:SetHeight(23)
+    top:SetFrameLevel(world:GetFrameLevel() + 15)
     top:SetBackdrop({bgFile="Interface\\Buttons\\WHITE8X8"})
     top:EnableMouse(false)
     addon.Theme:CreateFrameBorder(top, top, top)
@@ -85,20 +86,43 @@ local function install()
     heading:SetTextColor(1, 0.82, 0.42)
     heading:SetText("World Map")
     title = CreateFrame("Frame", nil, shell, "BackdropTemplate")
-    title:SetPoint("TOPLEFT", world, "BOTTOMLEFT", 0, -2)
-    title:SetPoint("TOPRIGHT", world, "BOTTOMRIGHT", 0, -2)
-    title:SetHeight(22)
+    title:SetPoint("BOTTOMLEFT", world.ScrollContainer, "BOTTOMLEFT", 6, 3)
+    title:SetSize(185, 20)
+    title:SetFrameLevel(world.ScrollContainer:GetFrameLevel() + 15)
     title:SetBackdrop({bgFile="Interface\\Buttons\\WHITE8X8"})
     title:EnableMouse(false)
     addon.Theme:CreateFrameBorder(title, title, title)
     coords = title:CreateFontString(nil,"OVERLAY","GameFontNormalSmall")
     coords:SetPoint("CENTER")
     coords:SetTextColor(1, 0.82, 0.42)
+    -- Cover native button artwork with mouse-transparent decorative children.
+    local function decorate(button, iconName)
+        if not button then return end
+        local face = CreateFrame("Frame", nil, shell)
+        face:SetAllPoints(button)
+        face:SetFrameLevel(button:GetFrameLevel() + 10)
+        face:EnableMouse(false)
+        addon.Theme:Surface(face, "Button", 10, "BACKGROUND", 1)
+        local icon = face:CreateTexture(nil, "OVERLAY")
+        icon:SetPoint("CENTER")
+        icon:SetSize(13, 13)
+        icon:SetTexture("Interface\\AddOns\\BaziUI\\Assets\\Icons\\Bazi\\" .. iconName .. ".tga")
+        icon:SetVertexColor(1, 0.83, 0.56)
+        return face
+    end
+    local native = world.BorderFrame
+    local closeFace = native and decorate(native.CloseButton, "Cross")
+    local display = native and native.MaximizeMinimizeFrame
+    local maxFace = display and decorate(display.MaximizeButton, "ChevronUp")
+    local minFace = display and decorate(display.MinimizeButton, "ChevronDown")
     local elapsed = 0
     shell:SetScript("OnUpdate", function(_, dt)
         elapsed = elapsed + dt
         if elapsed < 0.2 then return end
         elapsed = 0
+        if closeFace then closeFace:SetShown(native.CloseButton:IsVisible()) end
+        if maxFace then maxFace:SetShown(display.MaximizeButton:IsVisible()) end
+        if minFace then minFace:SetShown(display.MinimizeButton:IsVisible()) end
         local mapID = world:GetMapID()
         local info = mapID and C_Map.GetMapInfo(mapID)
         heading:SetText(info and info.name or "World Map")
