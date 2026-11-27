@@ -1242,7 +1242,7 @@ local function install()
     world = WorldMapFrame
     if not world.BorderFrame or not world.ScrollContainer then return end
     -- Bazi's chrome and quest list need the same render order as the map canvas.
-    if world.SetIsFrameBuffer then world:SetIsFrameBuffer(false) end
+    -- Diagnostic: retain Blizzard's native framebuffer configuration.
 
     local backing = world:CreateTexture(nil, "BACKGROUND", nil, -7)
     backing:SetPoint("TOPLEFT", 3, -3)
