@@ -309,28 +309,30 @@ local function spellKey(spell)
     return "spell:" .. spell
 end
 
-function S.BuffReminderChoices()
+function S.BuffReminderChoices(category)
     local _, token = call(UnitClass, "player")
     if not token then return {} end
-    local list, seen = {}, {}
-    local function add(key, name)
+    local list, seen, registered = {}, {}, {}
+    local function add(key, name, group)
+        if group ~= "temporary" then registered[key] = true end
+        if category and category ~= "all" and category ~= group then return end
         if name and not seen[name] then list[#list + 1], seen[name] = {key, name}, true end
     end
     for _, family in ipairs(watchedBuffs[token] or {}) do
-        for _, spell in ipairs(family) do if knowsSpell(spell) then add(spellKey(spell), spellName(spell)) end end
+        for _, spell in ipairs(family) do if knowsSpell(spell) then add(spellKey(spell), spellName(spell), "class") end end
     end
     local trackers = gatheringTracking() or {}
     for _, entry in ipairs(gatheringTrackers) do
         local spell = entry[1]
-        if trackers[spell] then add(spellKey(spell), trackers[spell].name or entry[2]) end
+        if trackers[spell] then add(spellKey(spell), trackers[spell].name or entry[2], "gathering") end
     end
     if token == "SHAMAN" then
-        add("imbue", "Weapon imbues (any)")
-        for _, spell in ipairs(shamanImbues) do if knowsSpell(spell) then add(spellKey(spell), spellName(spell)) end end
-    elseif token == "ROGUE" then add("poison", "Weapon poisons (any)") end
-    add("temporary", "Other temporary weapon enhancements")
+        add("imbue", "Weapon imbues (any)", "weapon")
+        for _, spell in ipairs(shamanImbues) do if knowsSpell(spell) then add(spellKey(spell), spellName(spell), "weapon") end end
+    elseif token == "ROGUE" then add("poison", "Weapon poisons (any)", "weapon") end
+    add("temporary", "Other temporary weapon enhancements", "temporary")
     for key, entry in pairs(buffOptions(token) or {}) do
-        if not entry.learned then add(key, entry.label) end
+        if not entry.learned and not registered[key] then add(key, entry.label, "temporary") end
     end
     table.sort(list, function(a, b) return a[2] == b[2] and a[1] < b[1] or a[2] < b[2] end)
     return list
