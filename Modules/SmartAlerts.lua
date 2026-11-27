@@ -560,13 +560,14 @@ local function missingWeaponEffects(slot, weapon, effects)
         record = {weapon = weapon, effects = {}}
         temporaryWeapons[slot] = record
     end
-    local now, activeTypes, missing = GetTime(), {}, {}
+    local now, activeTypes, missing, newlyApplied = GetTime(), {}, {}, {}
     for id, enchant in pairs(effects.temporary) do
         local old = record.effects[id]
         local duration = read(enchant.timeLeft) and enchant.timeLeft
         local expires = type(duration) == "number" and duration > 0 and now + duration / 1000 or nil
         local applied = not old or old.missing or expires and old.expires and expires - old.expires > 2
         local seen = applied and now or old.seen
+        if applied then newlyApplied[id] = true end
         -- Cast success and the enchant update can arrive in either order.
         local cast = applied and lastCast and math.abs(lastCast.time - seen) <= 0.6
             and now - lastCast.time <= 0.6 and lastCast.spell
@@ -584,7 +585,7 @@ local function missingWeaponEffects(slot, weapon, effects)
             end
         end
     end
-    return missing
+    return missing, newlyApplied
 end
 
 local function classReminders(token, gear)
@@ -669,7 +670,8 @@ local function classReminders(token, gear)
         if effect then
             local name = A.SlotNames[slot] or slot
             local needsImbue = next(imbues) ~= nil and hand ~= "Ranged" and info.sub ~= 20 and not effect.imbue
-            local missingEffects = missingWeaponEffects(slot, weaponIdentity(slot, link), effect)
+            local missingEffects, newlyApplied = missingWeaponEffects(slot, weaponIdentity(slot, link), effect)
+            newlyApplied = newlyApplied or {}
             local imbueSpell
             local prefKey = "imbue:" .. hand
             local poisonKey = "poison:" .. hand
@@ -684,13 +686,13 @@ local function classReminders(token, gear)
                 preferredBuffs[poisonKey] = identified
             end
             if shaman and effect.imbue and effect.temporary then
-                for _, enchant in pairs(effect.temporary) do
+                for effectID, enchant in pairs(effect.temporary) do
                     if enchant.enchantType == Enum.ItemEnchantType.Imbue then
                         local enchantID = read(enchant.enchantID) and enchant.enchantID
                         local mapKey = enchantID and ("imbueEnchant:" .. tostring(enchantID))
                         local mapped = mapKey and (preferredBuffs[mapKey] or ({[6]=8017,[5]=8024})[enchantID])
                         local castName = lastCast and GetTime() - lastCast.time <= 0.6 and spellName(lastCast.spell)
-                        if castName and imbues[castName] and mapKey and not mapped then
+                        if newlyApplied[effectID] and castName and imbues[castName] and mapKey and not mapped then
                             mapped = imbues[castName]
                             preferredBuffs[mapKey] = mapped
                         end
