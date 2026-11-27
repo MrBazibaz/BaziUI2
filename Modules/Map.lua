@@ -1345,8 +1345,6 @@ local function install()
     readout:SetShadowColor(0, 0, 0, 1)
     readout:SetShadowOffset(1, -1)
 
-    -- Diagnostic stage: construct chrome without installing layout hooks.
-    if true then return end
 
     local chromeQueued
     local function syncLayout()
@@ -1374,6 +1372,9 @@ local function install()
         if GetCVar("mapFade") == "1" then SetCVar("mapFade", "0") end
         queueLayout()
     end
+    -- Diagnostic stage: initial chrome only, no native layout hooks.
+    applyChrome()
+    if true then return end
     world:HookScript("OnUpdate", update)
     world:HookScript("OnShow", show)
     world:HookScript("OnHide", function()
