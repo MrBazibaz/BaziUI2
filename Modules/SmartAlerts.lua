@@ -427,6 +427,61 @@ local function weaponEffects(hand)
     if read(active) and type(active) == "boolean" then return {active = active, imbue = active} end
 end
 
+-- Diagnostic only: does not modify reminder state or saved settings.
+SLASH_BAZIBUFFDEBUG1 = "/bazibuffdebug"
+SlashCmdList.BAZIBUFFDEBUG = function()
+    local function safe(value)
+        if not read(value) then return "<restricted>" end
+        if value == nil then return "<nil>" end
+        if type(value) == "string" or type(value) == "number" or type(value) == "boolean" then return tostring(value) end
+        return "<" .. type(value) .. ">"
+    end
+    local function out(...)
+        local parts = {}
+        for i = 1, select("#", ...) do parts[i] = safe(select(i, ...)) end
+        print("Bazi Buff: " .. table.concat(parts, " "))
+    end
+    local _, token = call(UnitClass, "player")
+    out("Class:", token)
+    for _, family in ipairs(watchedBuffs[token] or {}) do
+        for _, spell in ipairs(family) do
+            if knowsSpell(spell) then out("Known:", spell, spellName(spell)) end
+        end
+    end
+    if token == "SHAMAN" then
+        for _, spell in ipairs(shamanImbues) do
+            if knowsSpell(spell) then out("Known imbue:", spell, spellName(spell)) end
+        end
+    end
+    local getAura = C_UnitAuras and C_UnitAuras.GetAuraDataByIndex
+    if getAura and call(C_Secrets and C_Secrets.ShouldAurasBeSecret) ~= true then
+        for i = 1, 80 do
+            local ok, aura = pcall(getAura, "player", i, "HELPFUL")
+            if not ok or not read(aura) then out("Aura data unavailable"); break end
+            if not aura then break end
+            out("Aura:", aura.name, "ID:", aura.spellId, "duration:", aura.duration, "expires:", aura.expirationTime)
+        end
+    else out("Aura API unavailable or restricted") end
+    for _, slot in ipairs(weaponSlots) do
+        local hand = slot[2]
+        local slots = Enum and Enum.WeaponSlot
+        local api = C_Item and C_Item.GetWeaponEnchantInfo
+        local entries = slots and slots[hand] ~= nil and call(api, slots[hand])
+        out("Weapon:", hand)
+        if read(entries) and type(entries) == "table" then
+            for i, enchant in ipairs(entries) do
+                if read(enchant) and type(enchant) == "table" then
+                    out("Entry:", i, "active:", enchant.hasEnchant, "type:", enchant.enchantType, "ID:", enchant.enchantID, "timeLeft:", enchant.timeLeft)
+                end
+            end
+        else
+            local effects = weaponEffects(hand)
+            out("Fallback active:", effects and effects.active, "imbue:", effects and effects.imbue)
+        end
+    end
+    out("End diagnostic")
+end
+
 local function weaponIdentity(slot, fallback)
     local inventorySlot = A.SlotID(slot)
     if inventorySlot and ItemLocation and ItemLocation.CreateFromEquipmentSlot then
