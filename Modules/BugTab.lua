@@ -93,7 +93,7 @@ local function sourceOf(value)
     return value:gsub("\\", "/"):match("[Aa]dd[Oo]ns/([^/\n]+)")
 end
 
-local function capture(message, stack, eventSource)
+local function capture(message, stack, eventSource, context)
     if type(message) ~= "string" or (issecretvalue and issecretvalue(message)) then return end
     if type(stack) ~= "string" or (issecretvalue and issecretvalue(stack)) then stack = "" end
     local source = eventSource or sourceOf(message) or sourceOf(stack) or "WoW / Unknown"
@@ -110,7 +110,8 @@ local function capture(message, stack, eventSource)
     local isNew = not entry
     entry = entry or {key = key, source = source, message = message, count = 0}
     entry.count = entry.count + 1
-    entry.time = time()
+    entry.time = context and context.time or time()
+    entry.context = context
     entry.stack = stack
     table.insert(logs, 1, entry)
     if #logs > 100 then table.remove(logs) end
@@ -182,8 +183,15 @@ events:SetScript("OnEvent", function(_, event, name, action)
         if issecretvalue and (issecretvalue(name) or issecretvalue(action)) then return end
         local source = type(name) == "string" and name ~= "" and name or "WoW / Unknown"
         local operation = type(action) == "string" and action ~= "" and action or "Unknown action"
+        -- Capture the event context before leaving the blocked call's stack.
+        local stack = debugstack(2)
+        local character = UnitName("player")
+        local version = C_AddOns and C_AddOns.GetAddOnMetadata and C_AddOns.GetAddOnMetadata(addon.name, "Version")
+        local context = {time = time(), combat = InCombatLockdown() and true or false,
+            character = type(character) == "string" and not (issecretvalue and issecretvalue(character)) and character or "Unknown",
+            version = type(version) == "string" and version or "Unknown"}
         C_Timer.After(0, function()
-            capture(event .. ": " .. operation .. " (" .. source .. ")", "", source)
+            capture(event .. ": " .. operation .. " (" .. source .. ")", stack, source, context)
         end)
         return
     end
@@ -211,6 +219,9 @@ connectGrabber()
 install()
 
 function bugs.Report(entry)
-    return ("Addon: %s\nMessage: %s\nTime: %s\nCount: %d\nStack:\n%s"):format(
-        entry.source, entry.message, date("%Y-%m-%d %H:%M:%S", entry.time), entry.count, entry.stack)
+    local context = entry.context
+    local details = context and ("\nCharacter: %s\nCombat: %s\nVersion: %s"):format(
+        context.character or "Unknown", context.combat and "Yes" or "No", context.version or "Unknown") or ""
+    return ("Addon: %s\nMessage: %s\nTime: %s\nCount: %d%s\nStack:\n%s"):format(
+        entry.source, entry.message, date("%Y-%m-%d %H:%M:%S", entry.time), entry.count, details, entry.stack)
 end
