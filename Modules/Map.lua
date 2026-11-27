@@ -29,7 +29,7 @@ map.pointOptions = {
 }
 for _, option in ipairs(map.pointOptions) do defaults[option[1]] = true end
 -- Rebuilt presentation layer. Blizzard owns map navigation, pins and layout.
-local world, shell, title, coords
+local world, shell, title, coords, heading, top, bottom
 local function settings()
     local profile = addon.db.profile
     profile.worldMap = profile.worldMap or {}
@@ -55,6 +55,7 @@ function map.RefreshHeaderStyle()
         r,g,b,a = chat.Skin.DockHeaderColor()
     end
     title:SetBackdropColor(r,g,b,a)
+    if top then top:SetBackdropColor(r,g,b,a) end
 end
 function map.Refresh()
     if not shell then return end
@@ -71,19 +72,36 @@ local function install()
     shell:SetFrameLevel(world:GetFrameLevel())
     shell:EnableMouse(false)
     addon.Theme:CreateFrameBorder(shell, shell, shell)
+    -- Decorative strips are independent of Blizzard's interactive controls.
+    top = CreateFrame("Frame", nil, shell, "BackdropTemplate")
+    top:SetPoint("BOTTOMLEFT", world, "TOPLEFT", 0, 2)
+    top:SetPoint("BOTTOMRIGHT", world, "TOPRIGHT", 0, 2)
+    top:SetHeight(26)
+    top:SetBackdrop({bgFile="Interface\\Buttons\\WHITE8X8"})
+    top:EnableMouse(false)
+    addon.Theme:CreateFrameBorder(top, top, top)
+    heading = top:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    heading:SetPoint("CENTER")
+    heading:SetTextColor(1, 0.82, 0.42)
+    heading:SetText("World Map")
     title = CreateFrame("Frame", nil, shell, "BackdropTemplate")
     title:SetPoint("TOPLEFT", world, "BOTTOMLEFT", 0, -2)
     title:SetPoint("TOPRIGHT", world, "BOTTOMRIGHT", 0, -2)
     title:SetHeight(22)
     title:SetBackdrop({bgFile="Interface\\Buttons\\WHITE8X8"})
     title:EnableMouse(false)
+    addon.Theme:CreateFrameBorder(title, title, title)
     coords = title:CreateFontString(nil,"OVERLAY","GameFontNormalSmall")
     coords:SetPoint("CENTER")
+    coords:SetTextColor(1, 0.82, 0.42)
     local elapsed = 0
     shell:SetScript("OnUpdate", function(_, dt)
         elapsed = elapsed + dt
         if elapsed < 0.2 then return end
         elapsed = 0
+        local mapID = world:GetMapID()
+        local info = mapID and C_Map.GetMapInfo(mapID)
+        heading:SetText(info and info.name or "World Map")
         if not map.GetOption("coordinates") then return end
         local id = C_Map.GetBestMapForUnit("player")
         local pos = id and C_Map.GetPlayerMapPosition(id,"player")
