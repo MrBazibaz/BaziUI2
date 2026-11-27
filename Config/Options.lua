@@ -6082,8 +6082,8 @@ function addon.Options:CreateBuffRemindersPage()
     page:SetAllPoints(contentFrame)
     pages["Buff Reminders"] = page
     local content = addon.Inventory.Scroll(page, 0, 4)
-    content:SetHeight(330)
-    local alerts = CreatePanel(content, -8, 310)
+    content:SetHeight(365)
+    local alerts = CreatePanel(content, -8, 345)
     CreateSection(alerts, "Buff Reminders", -13)
     local help = {
         ["Enable Dashboard"] = "Shows the Dashboard in game. Configure which information it can display under Widgets.",
@@ -6162,30 +6162,41 @@ function addon.Options:CreateBuffRemindersPage()
     toggle(alerts, -78, "Show this event in chat", function() return preference().chat == true end,
         function(value) preference().chat = value end)
     CreateSection(alerts, "Class Buff and Weapon Reminders", -115)
-    label("Spell or effect", -157)
+    label("Category", -157)
+    label("Spell or effect", -193)
+    local category = "all"
+    local categories = {{"all", "All reminders"}, {"class", "Class Buffs"}, {"weapon", "Weapon Imbues & Poisons"},
+        {"temporary", "Temporary Weapon Enhancements"}, {"gathering", "Gathering & Fishing Enhancements"}}
+    local function filteredChoices()
+        return smart.BuffReminderChoices(category)
+    end
     local selectedBuff, buffLabel
     local function currentBuff()
-        local choices = smart.BuffReminderChoices()
+        local choices = filteredChoices()
         for _, entry in ipairs(choices) do if entry[1] == selectedBuff then return selectedBuff end end
         selectedBuff, buffLabel = nil, nil
         if choices[1] then selectedBuff, buffLabel = choices[1][1], choices[1][2] end
         return selectedBuff
     end
     local function buffToggle(y, title, field)
-        return toggle(alerts, y, title, function() return smart.BuffReminderOption(currentBuff(), field) end,
+        return toggle(alerts, y, title, function() local key = currentBuff(); return key ~= nil and smart.BuffReminderOption(key, field) end,
             function(value) smart.SetBuffReminderOption(currentBuff(), field, value, buffLabel) end)
     end
-    local syncEnabled = buffToggle(-186, "Enable this reminder", "enabled")
-    local syncChat = buffToggle(-213, "Show this spell in chat", "chat")
-    local syncSound = buffToggle(-240, "Play sound for this spell", "sound")
-    local syncBuff = dropdown(alerts, -150, smart.BuffReminderChoices, currentBuff, function(key)
+    local syncEnabled = buffToggle(-222, "Enable this reminder", "enabled")
+    local syncChat = buffToggle(-249, "Show this spell in chat", "chat")
+    local syncSound = buffToggle(-276, "Play sound for this spell", "sound")
+    local syncBuff = dropdown(alerts, -186, filteredChoices, currentBuff, function(key)
         selectedBuff, buffLabel = key, nil
-        for _, entry in ipairs(smart.BuffReminderChoices()) do if entry[1] == key then buffLabel = entry[2]; break end end
+        for _, entry in ipairs(filteredChoices()) do if entry[1] == key then buffLabel = entry[2]; break end end
         syncEnabled(); syncChat(); syncSound()
     end)
     local function syncBuffOptions()
         syncBuff(); syncEnabled(); syncChat(); syncSound()
     end
+    dropdown(alerts, -150, categories, function() return category end, function(key)
+        category, selectedBuff, buffLabel = key, nil, nil
+        syncBuffOptions()
+    end)
     alerts:HookScript("OnShow", syncBuffOptions)
     addon.Adventure.On("buffReminderSettings", function() if alerts:IsVisible() then syncBuffOptions() end end)
 end
