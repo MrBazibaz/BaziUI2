@@ -321,8 +321,10 @@ local function buffOptions(token, create)
     return cfg.buffReminders and cfg.buffReminders[token]
 end
 
+local rankKeyCache = {}
 local function spellKey(spell)
     -- Use the lowest registered ID with the same spell name, so ranks share settings.
+    if rankKeyCache[spell] then return rankKeyCache[spell] end
     local name = spellName(spell)
     local canonical = spell
     if type(name) == "string" then
@@ -338,7 +340,9 @@ local function spellKey(spell)
             end
         end
     end
-    return "spell:" .. canonical
+    local key = "spell:" .. canonical
+    if type(name) == "string" then rankKeyCache[spell] = key end
+    return key
 end
 
 local function migrateRankOptions(token)
@@ -744,40 +748,42 @@ local function classReminders(token, gear)
 end
 
 -- Resolve application spells from actual bag items rather than assuming spell IDs.
-local function addPoisonGlow(wanted, preference)
+local function collectPoisonSpells()
+    local found = {}
     local container = C_Container
     local getItemSpell = C_Item and C_Item.GetItemSpell or GetItemSpell
-    if not container or not getItemSpell then return end
-    local families = poisonFamilies
+    if not container or not getItemSpell then return found end
     for bag = 0, (NUM_BAG_SLOTS or 4) do
         local count = call(container.GetContainerNumSlots, bag) or 0
         for slot = 1, count do
             local item = call(container.GetContainerItemID, bag, slot)
             if item then
                 local name, spell = call(getItemSpell, item)
-                if type(name) == "string" and type(spell) == "number" and read(name) and read(spell) then
-                    for _, family in ipairs(families) do
-                        if (preference == true or preference == family) and
-                            (name == family or name:sub(1, #family + 1) == family .. " ") then
-                            wanted[spell] = true
-                            break
-                        end
-                    end
+                if read(name) and read(spell) and type(name) == "string" and type(spell) == "number" then
+                    local family = poisonFamily(name)
+                    if family then found[spell] = family end
                 end
             end
         end
     end
+    return found
 end
 
 local function glowReminders(reminders)
     local bars = addon.ActionBars
     if not (bars and bars.SetClassReminderActions) then return end
     local wanted, inDashboard = {}, dashboardBuffsEnabled and dashboardBuffsEnabled()
+    local poisonSpells
     for _, reminder in ipairs(reminders) do
         if inDashboard or S.IsEnabled(reminder.rule, "Class") then
             for name in pairs(reminder.spells or {}) do wanted[name] = true end
             for spell in pairs(reminder.itemSpells or {}) do wanted[spell] = true end
-            if reminder.poisonGlow then addPoisonGlow(wanted, reminder.poisonGlow) end
+            if reminder.poisonGlow then
+                poisonSpells = poisonSpells or collectPoisonSpells()
+                for spell, family in pairs(poisonSpells) do
+                    if reminder.poisonGlow == true or reminder.poisonGlow == family then wanted[spell] = true end
+                end
+            end
         end
     end
     bars:SetClassReminderActions(wanted)
