@@ -154,7 +154,11 @@ local function makeMenu()
     end
     menu:SetSize(width+16,rows*22+16)
     menu:Hide()
-    table.insert(UISpecialFrames,"BaziUIMinimapMicroMenu")
+    -- Do not register this protected menu in UISpecialFrames: Blizzard's
+    -- CloseSpecialWindows can otherwise acquire addon taint.
+    hooksecurefunc("CloseSpecialWindows", function()
+        if menu:IsShown() and not InCombatLockdown() then menu:Hide() end
+    end)
     menu:RegisterEvent("PLAYER_REGEN_DISABLED")
     menu:SetScript("OnShow",function(self) self:RegisterEvent("GLOBAL_MOUSE_DOWN") end)
     menu:SetScript("OnHide",function(self) self:UnregisterEvent("GLOBAL_MOUSE_DOWN") end)
