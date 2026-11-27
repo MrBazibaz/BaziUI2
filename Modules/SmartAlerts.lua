@@ -258,7 +258,7 @@ local function knowsSpell(spell)
         or call(IsPlayerSpell, spell) == true or call(IsSpellKnown, spell) == true
 end
 
-local temporaryWeapons, pendingBuffs = {}, {}
+local temporaryWeapons = {}
 local function preferences()
     local store, key = A.Data(), A.Key()
     if not store or not key then return {} end
@@ -328,7 +328,9 @@ function S.BuffReminderChoices()
         for _, spell in ipairs(shamanImbues) do if knowsSpell(spell) then add(spellKey(spell), spellName(spell)) end end
     elseif token == "ROGUE" then add("poison", "Weapon poisons (any)") end
     add("temporary", "Other temporary weapon enhancements")
-    for key, entry in pairs(buffOptions(token) or {}) do add(key, entry.label) end
+    for key, entry in pairs(buffOptions(token) or {}) do
+        if not entry.learned then add(key, entry.label) end
+    end
     table.sort(list, function(a, b) return a[2] == b[2] and a[1] < b[1] or a[2] < b[2] end)
     return list
 end
@@ -367,12 +369,7 @@ end
 
 A.On("playerSpellCast", function(spell)
     if not (dashboardBuffsEnabled and dashboardBuffsEnabled()) and not settings().enabled then return end
-    local now, name = GetTime(), spellName(spell)
-    lastCast = {spell = spell, time = now}
-    for key, cast in pairs(pendingBuffs) do if now - cast.time > 2 then pendingBuffs[key] = nil end end
-    if name and knowsSpell(spell) and call(C_Spell and C_Spell.IsSpellPassive, spell) ~= true then
-        pendingBuffs[name] = lastCast
-    end
+    lastCast = {spell = spell, time = GetTime()}
     if dashboardBuffsEnabled() then D.Invalidate("classBuffs") end
 end)
 
@@ -388,18 +385,6 @@ local function playerBuffNames(token)
         if not read(aura.name) then return end
         if aura.name then
             names[aura.name] = true
-            local cast = pendingBuffs[aura.name]
-            if cast and GetTime() - cast.time <= 2 and read(aura.sourceUnit) and aura.sourceUnit == "player"
-                and read(aura.duration) and type(aura.duration) == "number" and aura.duration > 0 then
-                local options = buffOptions(token, true)
-                local key = spellKey(cast.spell)
-                for savedKey, entry in pairs(options) do
-                    if entry.learned and entry.label == aura.name then key = savedKey; break end
-                end
-                options[key] = options[key] or {}
-                options[key].label, options[key].learned = aura.name, cast.spell
-                pendingBuffs[aura.name] = nil
-            end
         end
         if read(aura.spellId) and type(aura.spellId) == "number" then names[aura.spellId] = true end
     end
@@ -538,7 +523,7 @@ local function classReminders(token, gear)
     if not token or call(UnitIsDeadOrGhost, "player") == true then return notices end
     local families = watchedBuffs[token]
     local preferredBuffs = preferences()
-    local names, covered = playerBuffNames(token), {}
+    local names = playerBuffNames(token)
     local options = buffOptions(token) or {}
     local function spellEnabled(spell)
         local pref = options[spellKey(spell)]
@@ -550,7 +535,6 @@ local function classReminders(token, gear)
     for _, entry in ipairs(gatheringTrackers) do
         local spell, label = entry[1], entry[2]
         local tracker = trackers[spell]
-        covered[spellName(spell) or label] = true
         if tracker then
             if tracker.active then lastGatheringTracker, trackingActive = spell, true end
             if not selected or spell == lastGatheringTracker then selected = spell end
@@ -568,7 +552,6 @@ local function classReminders(token, gear)
         for _, spell in ipairs(family) do
             local name = spellName(spell)
             if name then
-                covered[name] = true
                 local known = knowsSpell(spell)
                 if known then
                     knownCount = knownCount + 1
@@ -591,22 +574,6 @@ local function classReminders(token, gear)
                 title = title, detail = "Reapply this buff to yourself.", spells = spells}
         end
     end
-    if names then
-        local missingBuffs = {}
-        for key, entry in pairs(options) do
-            local spell, name = entry.learned, entry.label
-            if spell and name and not covered[name] and not names[name] and knowsSpell(spell) then
-                missingBuffs[#missingBuffs + 1] = {key = key, name = name}
-            end
-        end
-        table.sort(missingBuffs, function(a, b) return a.name < b.name end)
-        for _, buff in ipairs(missingBuffs) do
-            local name = buff.name
-            notices[#notices + 1] = {id = "learnedBuff:" .. buff.key, key = buff.key, label = name, rule = "selfBuff", title = name .. " is missing",
-                detail = "Reapply this buff to yourself.", spells = {[name] = true}}
-        end
-    end
-
     local shaman = token == "SHAMAN"
     local imbues, usableImbues, missing = {}, {}, {}
     if shaman then
