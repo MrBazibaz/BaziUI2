@@ -682,9 +682,13 @@ local function classReminders(token, gear)
             local poisonKey = "poison:" .. hand
             if token == "ROGUE" and effect.imbue and effect.temporary and hand ~= "Ranged" then
                 local identified
-                for _, enchant in pairs(effect.temporary) do
+                for effectID, enchant in pairs(effect.temporary) do
                     if enchant.enchantType == Enum.ItemEnchantType.Imbue and read(enchant.enchantID) then
-                        identified = poisonEnchants[enchant.enchantID] or preferredBuffs["poisonEnchant:" .. tostring(enchant.enchantID)]
+                        local mapKey = "poisonEnchant:" .. tostring(enchant.enchantID)
+                        local observed = temporaryWeapons[slot] and temporaryWeapons[slot].effects[effectID]
+                        local castFamily = observed and observed.spell and poisonFamily(spellName(observed.spell))
+                        identified = castFamily or preferredBuffs[mapKey] or poisonEnchants[enchant.enchantID]
+                        if castFamily then preferredBuffs[mapKey] = castFamily end
                         if identified then break end
                     end
                 end
