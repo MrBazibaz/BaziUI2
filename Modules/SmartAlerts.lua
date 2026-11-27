@@ -258,7 +258,14 @@ local function knowsSpell(spell)
         or call(IsPlayerSpell, spell) == true or call(IsSpellKnown, spell) == true
 end
 
-local temporaryWeapons, pendingBuffs, preferredBuffs = {}, {}, {}
+local temporaryWeapons, pendingBuffs = {}, {}
+local function preferences()
+    local store, key = A.Data(), A.Key()
+    if not store or not key then return {} end
+    store.buffPreferences = store.buffPreferences or {}
+    store.buffPreferences[key] = store.buffPreferences[key] or {}
+    return store.buffPreferences[key]
+end
 local lastCast, lastReadableBuffs
 local weaponSlots = {{"MainHand", "MainHand"}, {"SecondaryHand", "OffHand"}, {"Ranged", "Ranged"}}
 local shamanImbues = {8017, 8024, 8033, 8232}
@@ -445,12 +452,12 @@ SlashCmdList.BAZIBUFFDEBUG = function()
     out("Class:", token)
     for _, family in ipairs(watchedBuffs[token] or {}) do
         for _, spell in ipairs(family) do
-            if knowsSpell(spell) then out("Known:", spell, spellName(spell)) end
+            if knowsSpell(spell) then out("Known:", spell, (spellName(spell))) end
         end
     end
     if token == "SHAMAN" then
         for _, spell in ipairs(shamanImbues) do
-            if knowsSpell(spell) then out("Known imbue:", spell, spellName(spell)) end
+            if knowsSpell(spell) then out("Known imbue:", spell, (spellName(spell))) end
         end
     end
     local getAura = C_UnitAuras and C_UnitAuras.GetAuraDataByIndex
@@ -530,6 +537,7 @@ local function classReminders(token, gear)
     local notices = {}
     if not token or call(UnitIsDeadOrGhost, "player") == true then return notices end
     local families = watchedBuffs[token]
+    local preferredBuffs = preferences()
     local names, covered = playerBuffNames(token), {}
     local options = buffOptions(token) or {}
     local function spellEnabled(spell)
@@ -555,7 +563,7 @@ local function classReminders(token, gear)
             icon = "Search", spells = {[name] = true}}
     end
     for _, family in ipairs(families or {}) do
-        local active, expected, spells = false, nil, {}
+        local active, expected, spells, knownCount = false, nil, {}, 0
         local familyID = family[1]
         for _, spell in ipairs(family) do
             local name = spellName(spell)
@@ -563,6 +571,7 @@ local function classReminders(token, gear)
                 covered[name] = true
                 local known = knowsSpell(spell)
                 if known then
+                    knownCount = knownCount + 1
                     if not expected or preferredBuffs[familyID] == spell then expected = spell end
                     if spellEnabled(spell) then spells[name] = true end
                 end
@@ -574,8 +583,12 @@ local function classReminders(token, gear)
         end
         if names and expected and not active then
             local name = spellName(expected)
+            local preferred = preferredBuffs[familyID] == expected
+            local generic = ({[13165]="Activate an Aspect", [324]="Activate a Shield", [168]="Activate an Armor", [687]="Activate an Armor", [465]="Activate an Aura", [19740]="Apply a Blessing"})[familyID]
+            local title = not preferred and knownCount > 1 and (generic or "Activate a class buff") or name .. " is missing"
+            if preferred then spells = spellEnabled(expected) and {[name] = true} or {} end
             notices[#notices + 1] = {id = "selfBuff:" .. familyID, key = spellKey(expected), label = name, rule = "selfBuff",
-                title = name .. " is missing", detail = "Reapply this buff to yourself.", spells = spells}
+                title = title, detail = "Reapply this buff to yourself.", spells = spells}
         end
     end
     if names then
@@ -619,6 +632,15 @@ local function classReminders(token, gear)
             local needsImbue = next(imbues) ~= nil and hand ~= "Ranged" and not effect.imbue
             local missingEffects = missingWeaponEffects(slot, weaponIdentity(slot, link), effect)
             local hadEnhancement, imbueSpell
+            local prefKey = "imbue:" .. hand
+            if shaman and effect.imbue and effect.temporary then
+                for _, enchant in pairs(effect.temporary) do
+                    if enchant.enchantType == Enum.ItemEnchantType.Imbue then
+                        local mapped = read(enchant.enchantID) and ({[6]=8017,[5]=8024})[enchant.enchantID]
+                        if mapped and knowsSpell(mapped) then preferredBuffs[prefKey] = mapped end
+                    end
+                end
+            end
             for id, previous in pairs(missingEffects) do
                 local source = previous.spell and spellName(previous.spell)
                 if previous.kind == Enum.ItemEnchantType.Imbue and needsImbue then
@@ -639,6 +661,8 @@ local function classReminders(token, gear)
                 end
             end
             if needsImbue then
+                imbueSpell = imbueSpell or preferredBuffs[prefKey]
+                if imbueSpell and not knowsSpell(imbueSpell) then imbueSpell = nil end
                 local key = imbueSpell and spellKey(imbueSpell) or "imbue"
                 local group = missing[key] or {label = imbueSpell and spellName(imbueSpell) or "Weapon imbues (any)", hands = {}}
                 missing[key] = group
@@ -650,9 +674,9 @@ local function classReminders(token, gear)
         end
     end
     for key, group in pairs(missing) do
-        notices[#notices + 1] = {id = "enhancement:imbue:" .. key, key = key, label = group.label, rule = "poison", title = "Imbue your weapon",
+        notices[#notices + 1] = {id = "enhancement:imbue:" .. key, key = key, label = group.label, rule = "poison", title = key == "imbue" and "Imbue your weapon" or group.label .. " is missing",
             detail = (key == "imbue" and "Apply any known weapon imbue" or ("Reapply " .. group.label)) .. " · " .. table.concat(group.hands, ", "),
-            spells = usableImbues}
+            spells = key == "imbue" and usableImbues or (usableImbues[group.label] and {[group.label] = true} or {})}
     end
     return applyBuffOptions(token, notices)
 end
