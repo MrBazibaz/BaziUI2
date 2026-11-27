@@ -239,7 +239,8 @@ end
 
 local watchedBuffs = {
     DRUID = {{1126, 21849}, {467}},
-    HUNTER = {{13165, 13163, 5118, 13161, 20043, 13159, 34074, 61846}},
+    HUNTER = {{13165, 13163, 5118, 13161, 20043, 13159, 34074, 61846},
+        {1299346, 1299348, 19506, 20905, 20906}},
     MAGE = {{168, 7302, 6117, 30482}, {1459, 23028}},
     PRIEST = {{588}, {1243, 21562}, {14752, 27681}, {976, 27683}},
     SHAMAN = {{324, 52127, 974}},
@@ -553,7 +554,7 @@ local function classReminders(token, gear)
             local name = spellName(spell)
             if name then
                 local known = knowsSpell(spell)
-                if known then
+                if known and call(C_Spell and C_Spell.IsSpellPassive, spell) ~= true then
                     knownCount = knownCount + 1
                     if not expected or preferredBuffs[familyID] == spell then expected = spell end
                     if spellEnabled(spell) then spells[name] = true end
