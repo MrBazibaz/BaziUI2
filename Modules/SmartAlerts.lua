@@ -271,6 +271,13 @@ local lastCast, lastReadableBuffs
 local weaponSlots = {{"MainHand", "MainHand"}, {"SecondaryHand", "OffHand"}, {"Ranged", "Ranged"}}
 local shamanImbues = {8017, 8024, 8033, 8232}
 -- Standard enchant IDs; unknown Forever variants retain a generic reminder.
+local poisonFamilies = {"Instant Poison", "Deadly Poison", "Crippling Poison", "Mind-numbing Poison", "Wound Poison", "Occult Poison", "Atrophic Poison", "Numbing Poison", "Sebacious Poison"}
+local function poisonFamily(name)
+    if type(name) ~= "string" then return end
+    for _, family in ipairs(poisonFamilies) do
+        if name == family or name:sub(1, #family + 1) == family .. " " then return family end
+    end
+end
 local poisonEnchants = {
     [323]="Instant Poison", [324]="Instant Poison", [325]="Instant Poison",
     [623]="Instant Poison", [624]="Instant Poison", [625]="Instant Poison",
@@ -342,7 +349,7 @@ function S.BuffReminderChoices(category)
         add("poison", "Weapon poisons (any)", "weapon")
         for _, name in pairs(preferences()) do
             if type(name) == "string" then
-                for _, poisonName in pairs(poisonEnchants) do
+                for _, poisonName in ipairs(poisonFamilies) do
                     if name == poisonName then add("poison:" .. name, name, "weapon"); break end
                 end
             end
@@ -626,7 +633,7 @@ local function classReminders(token, gear)
                 local identified
                 for _, enchant in pairs(effect.temporary) do
                     if enchant.enchantType == Enum.ItemEnchantType.Imbue and read(enchant.enchantID) then
-                        identified = poisonEnchants[enchant.enchantID]
+                        identified = poisonEnchants[enchant.enchantID] or preferredBuffs["poisonEnchant:" .. tostring(enchant.enchantID)]
                         if identified then break end
                     end
                 end
@@ -695,7 +702,7 @@ local function addPoisonGlow(wanted, preference)
     local container = C_Container
     local getItemSpell = C_Item and C_Item.GetItemSpell or GetItemSpell
     if not container or not getItemSpell then return end
-    local families = {"Instant Poison", "Deadly Poison", "Crippling Poison", "Mind-numbing Poison", "Wound Poison"}
+    local families = poisonFamilies
     for bag = 0, (NUM_BAG_SLOTS or 4) do
         local count = call(container.GetContainerNumSlots, bag) or 0
         for slot = 1, count do
