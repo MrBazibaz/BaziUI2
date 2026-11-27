@@ -500,7 +500,7 @@ local function missingWeaponEffects(slot, weapon, effects)
         local applied = not old or old.missing or expires and old.expires and expires - old.expires > 2
         local seen = applied and now or old.seen
         -- Cast success and the enchant update can arrive in either order.
-        local cast = (applied or not old.spell) and lastCast and math.abs(lastCast.time - seen) <= 0.6
+        local cast = applied and lastCast and math.abs(lastCast.time - seen) <= 0.6
             and now - lastCast.time <= 0.6 and lastCast.spell
         record.effects[id] = {expires = expires, kind = enchant.enchantType, seen = seen,
             spell = cast or old and old.spell}
@@ -594,7 +594,7 @@ local function classReminders(token, gear)
         local link = piece and (piece.link or piece.id) or inventorySlot and call(GetInventoryItemLink, "player", inventorySlot)
         local info = link and A.ItemDetails(link)
         local effect = info and info.class == 2 and weaponEffects(hand)
-        if not link then temporaryWeapons[slot] = nil end
+        if not link or (info and info.class ~= 2) then temporaryWeapons[slot] = nil end
         if effect then
             local name = A.SlotNames[slot] or slot
             local needsImbue = next(imbues) ~= nil and hand ~= "Ranged" and info.sub ~= 20 and not effect.imbue
@@ -618,8 +618,8 @@ local function classReminders(token, gear)
             end
             for id, previous in pairs(missingEffects) do
                 local source = previous.spell and spellName(previous.spell)
-                if previous.kind == Enum.ItemEnchantType.Imbue and needsImbue then
-                    imbueSpell = source and imbues[source] or imbueSpell
+                if previous.kind == Enum.ItemEnchantType.Imbue and shaman then
+                    if needsImbue then imbueSpell = source and imbues[source] or imbueSpell end
                 else
                     hadEnhancement = true
                     local key = source and spellKey(previous.spell) or "temporary"
