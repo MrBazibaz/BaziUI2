@@ -95,9 +95,10 @@ function D.Notify(key, message, delivered, channels)
     local alerts = addon.SmartAlerts
     local group = (key == "upgrade" or key == "classBuffReminder") and key or "other"
     local previous = lastSoundByGroup[group]
-    if alerts and cfg.sound and cfg.sound ~= "none" and (not channels or channels.sound ~= false) and not (delivered and delivered.sound)
+    local sound = channels and channels.soundKey or cfg.sound
+    if alerts and sound and sound ~= "none" and (not channels or channels.sound ~= false) and not (delivered and delivered.sound)
         and (not previous or now - previous >= 1.5) then
-        alerts.PlaySound(cfg.sound)
+        alerts.PlaySound(sound)
         lastSoundByGroup[group] = now
     end
     if cfg.chat and (not channels or channels.chat ~= false) and not (delivered and delivered.chatWarning) then addon:Print(message) end
