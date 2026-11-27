@@ -569,7 +569,7 @@ local function missingWeaponEffects(slot, weapon, effects)
         local seen = applied and now or old.seen
         if applied then newlyApplied[id] = true end
         -- Cast success and the enchant update can arrive in either order.
-        local cast = applied and lastCast and math.abs(lastCast.time - seen) <= 0.6
+        local cast = (applied or (old and not old.spell)) and lastCast and math.abs(lastCast.time - seen) <= 0.6
             and now - lastCast.time <= 0.6 and lastCast.spell
         record.effects[id] = {expires = expires, kind = enchant.enchantType, seen = seen,
             spell = cast or old and old.spell}
@@ -712,7 +712,7 @@ local function classReminders(token, gear)
                     end
                     notices[#notices + 1] = {id = "temporaryWeapon:" .. slot .. ":" .. id, key = key,
                         label = source or "Other temporary weapon enhancements", rule = "poison",
-                        title = "Temporary weapon enhancement missing · " .. name,
+                        title = (source and (source .. " is missing") or "Temporary weapon enhancement missing") .. " · " .. name,
                         detail = source and ("Reapply " .. source .. " if available.") or "Reapply the temporary enhancement if available.",
                         itemSpells = previous.spell and {[previous.spell] = true},
                         spells = source and knowsSpell(previous.spell) and {[source] = true}}
