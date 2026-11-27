@@ -1,6 +1,6 @@
 local addon = BaziUI
 local inventory = addon.Inventory
-local frame, content, historyButton, guide, guideFrame, emptyLabel, closeBar
+local frame, content, historyButton, emptyLabel, closeBar
 function inventory.GetRollMoverFrame() return frame end
 local active, demo, history, rows = {}, {}, {}, {}
 local historyMode, demoMode
@@ -164,27 +164,6 @@ local function build()
         inventory.RefreshRolls()
     end)
     historyButton:SetPoint("RIGHT", -4, 0)
-    guideFrame = CreateFrame("Frame", nil, frame)
-    guideFrame:SetPoint("TOPLEFT", frame, "TOPRIGHT", 6, 0)
-    guideFrame:SetSize(246, 116)
-    guideFrame.card = addon.Theme:RoundedCard(guideFrame)
-    guideFrame.card:SetAllPoints()
-    guideFrame.card:SetFrameLevel(guideFrame:GetFrameLevel())
-    guide = inventory.Label(guideFrame)
-    guide:SetPoint("TOPLEFT", 10, -10)
-    guide:SetPoint("TOPRIGHT", -10, -10)
-    guide:SetJustifyH("LEFT")
-    guide:SetText("|A:" .. rollAtlases[1] .. ":14:14|a Need · Main spec upgrade.\n|A:" .. rollAtlases[2] .. ":14:14|a Greed · Off-spec or something you might use.\n|A:" .. rollAtlases[0] .. ":14:14|a Pass · Let someone else have it. Need beats Greed.")
-    local dismiss = addon.Theme:CreateCheckbox(guideFrame)
-    dismiss:SetSize(20, 20)
-    dismiss:SetScript("OnClick", function(self)
-        inventory.Settings().hideRollGuide = not not self:GetChecked()
-        inventory.RefreshRolls()
-    end)
-    dismiss:SetPoint("BOTTOMLEFT", 7, 4)
-    local hint = inventory.Label(guideFrame)
-    hint:SetPoint("LEFT", dismiss, "RIGHT", 3, 0)
-    hint:SetText("Don't show again")
     closeBar = CreateFrame("StatusBar", nil, frame)
     closeBar:SetStatusBarTexture("Interface\\Buttons\\WHITE8X8")
     closeBar:SetStatusBarColor(0.90, 0.60, 0.22)
@@ -243,11 +222,10 @@ function inventory.RefreshRolls()
     local db = inventory.Settings()
     if not demoMode and (not db.enabled or not db.rolls) then frame:Hide(); return end
     frame:ApplyStyle()
-    guideFrame:SetShown(not db.hideRollGuide)
-    addon.Theme:PaintWindowEdge(guideFrame.card)
-    guideFrame.card:SetBackdropColor(0.045, 0.026, 0.012, (db.rollGuideOpacity or db.rollOpacity or db.opacity) / 100)
-    inventory.GeneralFont(guide, -2)
-    guideFrame:SetHeight(math.max(84, math.ceil(guide:GetStringHeight()) + 38))
+    inventory.ShowFirstUseGuide(frame, "hideRollGuide", nil,
+        "|A:" .. rollAtlases[1] .. ":14:14|a Need · Main spec upgrade.\n|A:" .. rollAtlases[2]
+        .. ":14:14|a Greed · Off-spec or something you might use.\n|A:" .. rollAtlases[0]
+        .. ":14:14|a Pass · Let someone else have it. Need beats Greed.")
     local inset = 34
     closeBar:SetStatusBarColor(addon.Theme:Accent())
     historyButton:SetText(historyMode and "Active" or "History")

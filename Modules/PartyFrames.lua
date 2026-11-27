@@ -1439,36 +1439,64 @@ end
 local nativePartyNames = {"PartyFrame", "CompactPartyFrame"}
 local nativePartyState = {}
 
-local function syncNativeParty(hide)
+local function syncNativeParty(hide, combat)
     for _, name in ipairs(nativePartyNames) do
         local frame = _G[name]
-        if frame then
+        if frame and (not frame.IsForbidden or not frame:IsForbidden()) then
             local state = nativePartyState[frame]
+            if not state then
+                state = {}
+                nativePartyState[frame] = state
+                frame:HookScript("OnShow", function(self)
+                    if state.hidden then self:SetAlpha(0) end
+                end)
+            end
             if hide then
-                if not state then
-                    state = {alpha = frame:GetAlpha(), mouse = frame:IsMouseEnabled()}
-                    nativePartyState[frame] = state
-                end
+                if not state.hidden then state.alpha = frame:GetAlpha() end
+                state.hidden = true
                 frame:SetAlpha(0)
-                frame:EnableMouse(false)
-            elseif state then
-                frame:SetAlpha(state.alpha)
-                frame:EnableMouse(state.mouse)
-                nativePartyState[frame] = nil
+                if not combat and state.mouse == nil then
+                    state.mouse = frame:IsMouseEnabled()
+                    frame:EnableMouse(false)
+                end
+            else
+                if state.hidden then frame:SetAlpha(state.alpha or 1) end
+                state.hidden, state.alpha = nil, nil
+                if not combat and state.mouse ~= nil then
+                    frame:EnableMouse(state.mouse)
+                    state.mouse = nil
+                end
             end
         end
     end
 end
 
+local function partyVisibility(frame, unit, enabled, arranging, showSolo)
+    if not RegisterStateDriver then
+        frame:SetShown(arranging or enabled and (UnitExists(unit) or showSolo and not IsInGroup()))
+        return
+    end
+    local live = "[@" .. unit .. ",exists,group:party] show; "
+    local driver = arranging and (enabled and live or "") .. "[combat] hide; show"
+        or enabled and live .. (showSolo and "[combat] hide; [group] hide; show" or "hide")
+        or "hide"
+    if frame.baziPartyDriver ~= driver then
+        RegisterStateDriver(frame, "visibility", driver)
+        frame.baziPartyDriver = driver
+    end
+end
+
 local pendingCombatRefresh = false
 function M:Refresh()
-    if InCombatLockdown and InCombatLockdown() then
+    local settings=cfg()
+    if not settings then return end
+    local combat = InCombatLockdown and InCombatLockdown()
+    syncNativeParty(settings.enabled and not IsInRaid(), combat)
+    if combat then
         pendingCombatRefresh = true
         return
     end
     pendingCombatRefresh = false
-    local settings=cfg()
-    if not settings then return end
     local arranging = addon.Movers and addon.Movers.IsActive()
     for i=1,4 do
         local key="party"..i
@@ -1500,19 +1528,10 @@ function M:Refresh()
                 end
             end
             applyPosition(f,settings,key)
-            local layoutOnly = arranging and not (settings.enabled and (exists or (settings.showSolo and not IsInGroup())))
-            if layoutOnly and not f.moversVisibility and RegisterStateDriver then
-                RegisterStateDriver(f, "visibility", "[combat] hide; show")
-                f.moversVisibility = true
-            elseif not layoutOnly and f.moversVisibility then
-                UnregisterStateDriver(f, "visibility")
-                f.moversVisibility = nil
-            end
-            f:SetShown(arranging or settings.enabled and (exists or preview))
+            partyVisibility(f, key, settings.enabled, arranging, settings.showSolo)
             f:SetScale(1.15 * (settings.scale or 1))
         end
     end
-    syncNativeParty(settings.enabled and IsInGroup() and not IsInRaid())
     refreshGroupMover()
 end
 function M:Initialize()

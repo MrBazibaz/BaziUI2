@@ -366,25 +366,36 @@ function inventory.Capacity()
     return capacity
 end
 
+local guides = setmetatable({}, {__mode = "k"})
 local dismissedGuides = {}
-function inventory.ShowFirstUseGuide(parent, key, instructions)
+local guideKeys = {
+    hideRollGuide = true, hideCleanupGuideV3 = true, hideBagsGuideV2 = true, hideDashboardGuideV2 = true,
+    hideSmartAlertsGuide = true, hideQuestTrackerGuide = true, hideChatGuide = true, hideChatTabScrollGuide = true,
+    hideDamageMeterGuide = true, hideExitActivityGuide = true,
+}
+
+local function refreshGuide(guide)
+    local parent, key = guide.parent, guide.key
     local db = inventory.Settings()
-    if db[key] or dismissedGuides[key] then return end
-    parent.baziFirstUseGuides = parent.baziFirstUseGuides or {}
-    local tip = parent.baziFirstUseGuides[key]
+    if not guide.requested or addon.db.profile.firstUseGuides == false or db[key] or dismissedGuides[key] or not parent:IsVisible() then
+        if guide.tip then guide.tip:Hide() end
+        return
+    end
+    local tip = guide.tip
     if not tip then
         tip = CreateFrame("Frame", nil, parent)
+        guide.tip = tip
         tip:SetFrameStrata("TOOLTIP")
-        tip:SetSize(246, 105)
+        tip:SetSize(246, 90)
         tip:SetClampedToScreen(true)
-        local background = addon.Theme:RoundedCard(tip)
-        background:SetAllPoints()
-        local guide = inventory.Label(tip)
-        guide:SetPoint("TOPLEFT", 10, -10)
-        guide:SetPoint("TOPRIGHT", -10, -10)
-        guide:SetJustifyH("LEFT")
-        guide:SetText(instructions)
+        tip.card = addon.Theme:HelpPanel(tip)
+        tip.body = inventory.Label(tip)
+        tip.body:SetPoint("TOPLEFT", 10, -10)
+        tip.body:SetPoint("TOPRIGHT", -10, -10)
+        tip.body:SetJustifyH("LEFT")
+        tip.body:SetWordWrap(true)
         local dismiss = addon.Theme:CreateCheckbox(tip)
+        tip.dismiss = dismiss
         dismiss:SetSize(20, 20)
         dismiss:SetPoint("BOTTOMLEFT", 7, 4)
         dismiss:SetScript("OnClick", function()
@@ -397,15 +408,61 @@ function inventory.ShowFirstUseGuide(parent, key, instructions)
         local close = inventory.Button(tip, "×", 22, function() dismissedGuides[key] = true; tip:Hide() end)
         close:SetPoint("BOTTOMRIGHT", -5, 4)
         parent:HookScript("OnHide", function() tip:Hide() end)
-        parent.baziFirstUseGuides[key] = tip
+        parent:HookScript("OnShow", function() refreshGuide(guide) end)
     end
+    tip.dismiss:SetChecked(false)
+    addon.Theme:PaintWindowEdge(tip.card)
+    tip.card:SetBackdropColor(0.045, 0.026, 0.012, (db.rollGuideOpacity or db.rollOpacity or db.opacity) / 100)
+    inventory.GeneralFont(tip.body, -2)
+    tip.body:SetText(guide.title and ("|cffffd18a" .. guide.title .. "|r\n" .. guide.text) or guide.text)
     tip:ClearAllPoints()
-    if parent:GetRight() and UIParent:GetRight() - parent:GetRight() < 255 then
+    if guide.position == "center" then
+        tip:SetPoint("CENTER", parent, "CENTER", 0, 0)
+    elseif guide.position == "top" then
+        tip:SetPoint("BOTTOM", parent, "TOP", 0, 6)
+    elseif parent:GetRight() and UIParent:GetRight() - parent:GetRight() < tip:GetWidth() + 9 then
         tip:SetPoint("TOPRIGHT", parent, "TOPLEFT", -6, 0)
     else
         tip:SetPoint("TOPLEFT", parent, "TOPRIGHT", 6, 0)
     end
     tip:Show()
+    tip:SetHeight(math.max(84, math.ceil(tip.body:GetStringHeight()) + 38))
+end
+
+function inventory.ShowFirstUseGuide(parent, key, title, instructions, position)
+    guideKeys[key] = true
+    local entries = guides[parent]
+    if not entries then entries = {}; guides[parent] = entries end
+    local guide = entries[key]
+    if not guide then
+        guide = {parent = parent, key = key}
+        entries[key] = guide
+    end
+    guide.title, guide.text, guide.position, guide.requested = title, instructions, position, true
+    refreshGuide(guide)
+end
+
+function inventory.HideFirstUseGuide(parent, key)
+    local guide = guides[parent] and guides[parent][key]
+    if not guide then return end
+    guide.requested = false
+    if guide.tip then guide.tip:Hide() end
+end
+
+function inventory.RefreshFirstUseGuides()
+    for _, entries in pairs(guides) do
+        for _, guide in pairs(entries) do refreshGuide(guide) end
+    end
+end
+
+function inventory.SetFirstUseGuidesEnabled(enabled)
+    addon.db.profile.firstUseGuides = enabled
+    if enabled then
+        local db = inventory.Settings()
+        for key in pairs(guideKeys) do db[key] = false end
+        wipe(dismissedGuides)
+    end
+    inventory.RefreshFirstUseGuides()
 end
 
 function inventory.QuestStarter(bag, slot)

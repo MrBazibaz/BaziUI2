@@ -454,7 +454,7 @@ local followTimers = setmetatable({}, {__mode = "k"})
 local function scheduleTail(chatFrame, reset)
 	local existing = followTimers[chatFrame]
 	local offset = chatFrame:GetScrollOffset()
-	if not Readable(offset) then return end
+	if type(offset) ~= "number" or (issecretvalue and issecretvalue(offset)) or (canaccessvalue and not canaccessvalue(offset)) then return end
 	if existing and (reset or offset == 0) then
 		existing:Cancel()
 		followTimers[chatFrame] = nil
@@ -482,15 +482,17 @@ local function Setup(chatFrame)
 		chatFrame:SetSpacing(states[chatFrame] + Spacing().lines)
 	end
 	chatFrame:AddOnDisplayRefreshedCallback(ns.Guard("Timestamps.OnDisplayRefreshed", function(window)
-		OnDisplayRefreshed(window)
 		scheduleTail(window, false)
+		OnDisplayRefreshed(window)
 	end))
-	for _, method in ipairs({"ScrollUp", "ScrollDown", "PageUp", "PageDown", "ScrollToTop"}) do
-		if chatFrame[method] then hooksecurefunc(chatFrame, method, function(window) scheduleTail(window, true) end) end
+	if chatFrame.SetScrollOffset then
+		hooksecurefunc(chatFrame, "SetScrollOffset", function() scheduleTail(chatFrame, true) end)
+	else
+		for _, method in ipairs({"ScrollUp", "ScrollDown", "PageUp", "PageDown", "ScrollToTop", "ScrollToBottom"}) do
+			if chatFrame[method] then hooksecurefunc(chatFrame, method, function() scheduleTail(chatFrame, true) end) end
+		end
+		chatFrame:HookScript("OnMouseWheel", function() scheduleTail(chatFrame, true) end)
 	end
-	chatFrame:HookScript("OnMouseWheel", function(window) scheduleTail(window, true) end)
-	local scrollBar = chatFrame.ScrollBar
-	if scrollBar then scrollBar:HookScript("OnMouseUp", function() scheduleTail(chatFrame, true) end) end
 	chatFrame:MarkLayoutDirty()
 end
 

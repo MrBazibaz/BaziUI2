@@ -664,33 +664,7 @@ local function StyleExitPopup(which)
         local frame = _G["StaticPopup" .. index]
         if frame and frame.which == which and frame:IsShown() and not frame.baziExitActive then
             if addon.ActivityStats then addon.ActivityStats.ShowExit(frame) end
-            local center = frame.NineSlice and frame.NineSlice.Center
-            local centerAlpha = center and center:GetAlpha()
-            StyleDialogBackground(frame)
-            frame.baziDialogBackground:Show()
-            frame.baziDialogArt:Show()
-            if center then center:SetAlpha(0) end
             local restore = {}
-            for _, region in pairs({frame.NineSlice, frame.BG or frame.Bg or frame.BgTexture}) do
-                local alpha = region:GetAlpha()
-                region:SetAlpha(0)
-                restore[#restore + 1] = function() region:SetAlpha(alpha) end
-            end
-            if not frame.baziExitBorder then
-                local menu = _G.GameMenuFrame
-                local backdrop = menu and menu.GetBackdrop and menu:GetBackdrop()
-                local border = CreateFrame("Frame", nil, frame, "BackdropTemplate")
-                border:SetAllPoints(frame)
-                border:SetBackdrop({
-                    edgeFile = backdrop and backdrop.edgeFile or "Interface\\DialogFrame\\UI-DialogBox-Border",
-                    edgeSize = backdrop and backdrop.edgeSize or 24,
-                })
-                if backdrop and menu.GetBackdropBorderColor then
-                    border:SetBackdropBorderColor(menu:GetBackdropBorderColor())
-                end
-                frame.baziExitBorder = border
-            end
-            frame.baziExitBorder:Show()
             frame.baziExitTextures = frame.baziExitTextures or {}
             for slot = 1, 4 do
                 local button = (frame.GetButton and frame:GetButton(slot))
@@ -733,10 +707,6 @@ local function StyleExitPopup(which)
                 end
             end
             frame.baziExitActive = function()
-                frame.baziExitBorder:Hide()
-                frame.baziDialogBackground:Hide()
-                frame.baziDialogArt:Hide()
-                if center then center:SetAlpha(centerAlpha) end
                 for _, undo in ipairs(restore) do undo() end
             end
             if not frame.baziExitHooked then
@@ -749,18 +719,27 @@ local function StyleExitPopup(which)
     end
 end
 
-local buttonPanels = {"ClassTrainerFrame", "QuestFrame", "GossipFrame", "MerchantFrame", "CharacterFrame",
+local buttonPanels = {"ClassTrainerFrame", "QuestFrame", "GossipFrame", "MerchantFrame",
+    "ClassTrainerFrameFrame", "QuestFrameDetailPanel", "QuestFrameProgressPanel", "QuestFrameRewardPanel",
     "SpellBookFrame", "PlayerSpellsFrame", "TradeSkillFrame", "ProfessionsFrame", "TradeFrame", "MailFrame",
     "InspectFrame", "BankFrame", "DressUpFrame", "FriendsFrame", "AuctionFrame", "AuctionHouseFrame"}
+local standardLabels = {"TRAIN", "CANCEL", "CLOSE", "ACCEPT", "DECLINE", "OKAY", "DONE", "CONTINUE",
+    "COMPLETE_QUEST", "LEARN", "UNLEARN", "BUY", "REPAIR_ALL", "SEND_MONEY", "BACK"}
+local function labeledButton(child)
+    local value = child:GetText()
+    if (canaccessvalue and not canaccessvalue(value)) or type(value) ~= "string" or value == "" then return false end
+    for _, key in ipairs(standardLabels) do if value == _G[key] then return true end end
+    return value == "Train" or value == "Cancel"
+end
 local styledPanels = setmetatable({}, {__mode = "k"})
 local function stylePanel(frame)
-    if InCombatLockdown() or frame:IsForbidden() then return end
+    if InCombatLockdown() or frame:IsForbidden() or frame == CharacterFrame then return end
     for _, child in ipairs({frame:GetChildren()}) do
         if not child:IsForbidden() then
             local name = child:GetName() or ""
             if child:IsObjectType("Button") and not child:IsProtected() and child:GetText()
-                and (child.Left and child.Middle and child.Right or name == "ClassTrainerTrainButton"
-                    or name == "ClassTrainerCancelButton" or name == "ClassTrainerFrameCancelButton") then
+                and (child.Left and child.Middle and child.Right or name:match("^ClassTrainer.*[Tt]rainButton$")
+                    or labeledButton(child)) then
                 addon.Commands:StyleDialogButton(child, true)
             elseif child:IsObjectType("Frame") and not child:IsObjectType("Button") and not child:IsProtected() then
                 stylePanel(child)
@@ -780,30 +759,12 @@ local function discoverPanels()
     end
 end
 
-local function openEnchantTarget()
-    if InCombatLockdown() or not CharacterFrame or CharacterFrame:IsShown()
-        or not SpellCanTargetItem or not SpellCanTargetItem() or not ItemLocation
-        or not (C_Item and C_Item.DoesItemMatchTargetEnchantingSpell) then return end
-    for slot = 1, 18 do
-        if GetInventoryItemID("player", slot) then
-            local target = ItemLocation:CreateFromEquipmentSlot(slot)
-            if C_Item.DoesItemMatchTargetEnchantingSpell(target) then
-                ToggleCharacter("PaperDollFrame")
-                return
-            end
-        end
-    end
-end
-
 function addon.Commands:Initialize()
     local ui = CreateFrame("Frame")
-    for _, event in ipairs({"ADDON_LOADED", "PLAYER_REGEN_ENABLED", "TRAINER_SHOW", "CURSOR_CHANGED", "CURRENT_SPELL_CAST_CHANGED"}) do
+    for _, event in ipairs({"ADDON_LOADED", "PLAYER_REGEN_ENABLED", "TRAINER_SHOW"}) do
         pcall(ui.RegisterEvent, ui, event)
     end
-    ui:SetScript("OnEvent", function(_, event)
-        if event == "CURSOR_CHANGED" or event == "CURRENT_SPELL_CAST_CHANGED" then C_Timer.After(0, openEnchantTarget)
-        else C_Timer.After(0, discoverPanels) end
-    end)
+    ui:SetScript("OnEvent", function() C_Timer.After(0, discoverPanels) end)
     discoverPanels()
     if hooksecurefunc and StaticPopup_Show then hooksecurefunc("StaticPopup_Show", StyleExitPopup) end
     HookQuickKeybindStyle()

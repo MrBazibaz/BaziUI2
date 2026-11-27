@@ -732,8 +732,37 @@ local function CreateGeneralPage()
         refreshStyle()
     end)
     CreateLabel(appearancePanel, "Class-colored header text", "GameFontHighlight"):SetPoint("LEFT", classText, "RIGHT", 6, 0)
-    local top = -449
-    local buttons = CreatePanel(content, -400, 39)
+    local guidance = CreatePanel(content, -400, 108)
+    CreateSection(guidance, "Guides and activity", -12)
+    local guides = addon.Theme:CreateCheckbox(guidance)
+    guides:SetSize(24, 24)
+    guides:SetPoint("TOPLEFT", 24, -36)
+    guides:SetChecked(db.firstUseGuides ~= false)
+    CreateLabel(guidance, "Show first-use guides", "GameFontHighlight"):SetPoint("LEFT", guides, "RIGHT", 6, 0)
+    addon.Theme:SettingsHelp(guides, "Show first-use guides", "Turn this off to hide all guides. Turn it back on to show every guide again, including ones you dismissed.")
+    guides:SetScript("OnClick", function(self)
+        addon.Inventory.SetFirstUseGuidesEnabled(not not self:GetChecked())
+    end)
+    local exitScope = addon.Theme:CreateSettingsDropdown(guidance)
+    exitScope:SetSize(174, 26)
+    exitScope:SetPoint("TOPLEFT", 142, -69)
+    CreateLabel(guidance, "Logout activity", "GameFontNormal"):SetPoint("TOPLEFT", 29, -74)
+    local scopes = {{"today", "Today"}, {"session", "Current session"}, {"off", "Off"}}
+    exitScope:SetupMenu(function(_, root)
+        for _, entry in ipairs(scopes) do
+            local key, label = unpack(entry)
+            root:CreateRadio(label, function() return addon.ActivityStats.ExitScope() == key end, function()
+                addon.ActivityStats.SetExitScope(key)
+                exitScope:SetText(label)
+            end)
+        end
+    end)
+    for _, entry in ipairs(scopes) do
+        if addon.ActivityStats.ExitScope() == entry[1] then exitScope:SetText(entry[2]); break end
+    end
+    addon.Theme:SettingsHelp(exitScope, "Logout activity", "Chooses which activity report appears when you log out or exit the game.")
+    local top = -567
+    local buttons = CreatePanel(content, -518, 39)
     local fontsButton = addon.Theme:CreateButton(buttons, "Fonts", 125, 27)
     fontsButton:SetPoint("LEFT", 14, 0)
     local backgroundsButton = addon.Theme:CreateButton(buttons, "Backgrounds", 125, 27)
@@ -5757,6 +5786,7 @@ function addon.Options:CreateDashboardPage()
         content:SetHeight(sections[name]:GetHeight() + 54)
         scrollBar:SetValue(0)
     end
+    function page:SelectSubpage(name) if sections[name] then selectTab(name) end end
     local names = {"General", "Widgets", "Appearance", "Fonts", "Behaviour", "Tracking", "Session", "Alerts"}
     for index, name in ipairs(names) do
         local button = addon.Theme:CreateButton(content, name, 68, 25)
@@ -5785,6 +5815,9 @@ function addon.Options:CreateDashboardPage()
         ["Hide XP and loot in Everything"] = "Moves experience, your looted items and looted money out of the main chat while Recent activity is enabled and a Loot tab is open. You can still read those messages in Loot.",
         ["Show clickable quest items"] = "Shows usable quest items beside Local objectives or above Dashboard while you are inside their objective area.",
         ["Show this event in chat"] = "Prints a chat message when this event occurs. It does not replay old notices.",
+        ["Enable this reminder"] = "Shows the reminder and allows its action-bar glow, chat message and sound. Right-click a reminder in game to turn it off.",
+        ["Show this spell in chat"] = "Prints a message when this reminder appears if chat is enabled for Class buff or weapon reminder above.",
+        ["Play sound for this spell"] = "Plays the sound selected for Class buff or weapon reminder above. Choose Silent there to mute all class reminder sounds.",
         ["X POSITION"] = "Sets the horizontal offset from the center of the screen. Positive values move the left edge right.",
         ["Y POSITION"] = "Sets the vertical offset from the center of the screen. Positive values move the anchored edge up.",
         ["MAXIMUM VISIBLE WIDGETS"] = "Caps the number of displayed cards. Pinned widgets appear first, followed by higher priority.",
@@ -5816,14 +5849,16 @@ function addon.Options:CreateDashboardPage()
         local control = addon.Theme:CreateSettingsDropdown(panel)
         control:SetSize(205, 25)
         control:SetPoint("TOPRIGHT", -24, y)
+        local function entries() return type(choices) == "function" and choices() or choices end
         local function sync()
             local value = read()
-            for _, entry in ipairs(choices) do if value == entry[1] then control:SetText(entry[2]); return end end
+            for _, entry in ipairs(entries()) do if value == entry[1] then control:SetText(entry[2]); return end end
             control:SetText("Select")
         end
         control:SetupMenu(function(_, root)
-            if #choices > 10 and root.SetScrollMode then root:SetScrollMode(250) end
-            for _, entry in ipairs(choices) do
+            local menu = entries()
+            if #menu > 10 and root.SetScrollMode then root:SetScrollMode(250) end
+            for _, entry in ipairs(menu) do
                 root:CreateRadio(entry[2], function() return read() == entry[1] end, function()
                     write(entry[1])
                     sync()
@@ -6010,11 +6045,11 @@ function addon.Options:CreateDashboardPage()
     end
 
     local alerts = sections.Alerts
-    alerts:SetHeight(195)
+    alerts:SetHeight(366)
     local smart = addon.SmartAlerts
     local selectedEvent = "upgrade"
     local events = {{"dashboardXP", "Experience gained"}, {"dashboardLoot", "Items looted"},
-        {"dashboardMoney", "Money looted"}, {"dashboardCraft", "Items crafted"}}
+        {"dashboardMoney", "Money looted"}, {"dashboardCraft", "Items crafted"}, {"classBuffReminder", "Class buff or weapon reminder"}}
     for _, rule in ipairs(smart.rules) do events[#events + 1] = {rule[1], rule[2]} end
     local sounds = {{"none", "Silent"}}
     for _, sound in ipairs(smart.SoundChoices()) do sounds[#sounds + 1] = sound end
@@ -6037,6 +6072,34 @@ function addon.Options:CreateDashboardPage()
     end)
     local hint = CreateLabel(alerts, "These settings apply to Dashboard activity and embedded Smart Alerts.", "GameFontHighlightSmall")
     hint:SetPoint("TOPLEFT", 25, -156)
+
+    CreateSection(alerts, "Class Buff and Weapon Reminders", -192)
+    label("Spell or effect", -234)
+    local selectedBuff, buffLabel
+    local function currentBuff()
+        local choices = smart.BuffReminderChoices()
+        for _, entry in ipairs(choices) do if entry[1] == selectedBuff then return selectedBuff end end
+        selectedBuff, buffLabel = nil, nil
+        if choices[1] then selectedBuff, buffLabel = choices[1][1], choices[1][2] end
+        return selectedBuff
+    end
+    local function buffToggle(y, title, field)
+        return toggle(alerts, y, title, function() return smart.BuffReminderOption(currentBuff(), field) end,
+            function(value) smart.SetBuffReminderOption(currentBuff(), field, value, buffLabel) end)
+    end
+    local syncEnabled = buffToggle(-263, "Enable this reminder", "enabled")
+    local syncChat = buffToggle(-290, "Show this spell in chat", "chat")
+    local syncSound = buffToggle(-317, "Play sound for this spell", "sound")
+    local syncBuff = dropdown(alerts, -227, smart.BuffReminderChoices, currentBuff, function(key)
+        selectedBuff, buffLabel = key, nil
+        for _, entry in ipairs(smart.BuffReminderChoices()) do if entry[1] == key then buffLabel = entry[2]; break end end
+        syncEnabled(); syncChat(); syncSound()
+    end)
+    local function syncBuffOptions()
+        syncBuff(); syncEnabled(); syncChat(); syncSound()
+    end
+    alerts:HookScript("OnShow", syncBuffOptions)
+    addon.Adventure.On("buffReminderSettings", function() if alerts:IsVisible() then syncBuffOptions() end end)
     selectTab("General")
 end
 
@@ -6358,8 +6421,10 @@ function addon.Options:Create()
     index("General", "Fonts", "Fonts", "typeface font family size outline shadow")
     index("General", "Backgrounds", "Backgrounds", "window opacity transparency")
     index("General", "Headers", "Headers", "header title opacity color text")
+    index("General", "Guides and activity", "Fonts", "today session exit statistics first-use guides tutorial tooltips")
     index("Profiles", "Character profiles", nil, "create copy switch default new character save settings")
     index("Dashboard", "Smart widgets", nil, "quest professions gathering skills crafting supplies reputation dungeon raid pvp")
+    index("Dashboard", "Class buff reminders", "Alerts", "lightning shield weapon imbue poison mute chat sound spell")
     index("Smart Alerts", "Smart Alerts", nil, "notifications thresholds durability ammo history")
     index("Journey", "Journey", nil, "journal timeline sessions milestones records")
     index("Alt Manager", "Alt Manager", nil, "account inventory bank gold professions")

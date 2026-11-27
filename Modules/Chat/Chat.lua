@@ -278,6 +278,10 @@ local function start(events)
     ns.active = true
     ns.TabCopy.Init()
     ns.ApplyChannelColors()
+    if DEFAULT_CHAT_FRAME and BaziUI.Inventory and BaziUI.Inventory.ShowFirstUseGuide then
+        BaziUI.Inventory.ShowFirstUseGuide(DEFAULT_CHAT_FRAME, "hideChatGuide", "Using chat",
+            "Use the tabs to switch between conversations and loot history. The Whisper dot stays until you reply. Scroll up to review messages. Right-click a tab for its filters and notifications. Open Bazi UI > Chat to customize it.", "top")
+    end
     events:RegisterEvent("CHANNEL_UI_UPDATE")
 end
 

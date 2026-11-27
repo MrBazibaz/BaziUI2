@@ -26,6 +26,7 @@ local weight = {critical = 4, warning = 3, progress = 2, success = 1}
 local frame, cards, expiry, ticker, sample, layoutMode
 cards = {}
 local function settings() return A.Settings("alerts") end
+local guideText = "Red alerts need immediate attention. Gold alerts are reminders. Purple shows progress and green shows success. Hover for details, or click an equipment upgrade to reveal it in your bags."
 
 function S.IsEnabled(rule, category)
     local cfg = settings()
@@ -91,7 +92,8 @@ function S.PlaySound(key)
     end
 end
 
-function S.Set(id, rule, category, severity, title, detail, persistent, action, deliveredByWatcher)
+local dashboardBuffsEnabled
+function S.Set(id, rule, category, severity, title, detail, persistent, action, deliveredByWatcher, reminder)
     local cfg, old = settings(), S.active[id]
     if not title or not S.IsEnabled(rule, category) then
         if old then
@@ -106,6 +108,7 @@ function S.Set(id, rule, category, severity, title, detail, persistent, action, 
     if not old and (S.cooldowns[id] or 0) > now then return end
     local alert = old or {id = id, created = A.Now(), entered = now}
     alert.rule, alert.category, alert.severity, alert.title, alert.detail, alert.action = rule, category, severity, title, detail, action
+    alert.mute = reminder and reminder.mute
     alert.expires = not persistent and now + cfg.duration or nil
     S.active[id] = alert
     if not old then
@@ -116,9 +119,12 @@ function S.Set(id, rule, category, severity, title, detail, persistent, action, 
         end
         S.cooldowns[id] = now + (persistent and 0 or math.max(15, cfg.duration))
         local combat = InCombatLockdown()
-        if not cfg.dnd and (not cfg.critical or severity == "critical") and (combat and cfg.combat or not combat and cfg.peace) then
+        local dashboardReminder = (rule == "selfBuff" or rule == "poison") and dashboardBuffsEnabled and dashboardBuffsEnabled()
+        if not dashboardReminder and not cfg.dnd and (not cfg.critical or severity == "critical") and (combat and cfg.combat or not combat and cfg.peace) then
             local embedded = cfg.dashboard and D.Settings().enabled and D.WidgetSettings("smartAlerts")
-            if embedded and embedded.enabled and embedded.mode ~= "hidden" then
+            if reminder then
+                D.Notify("classBuffReminder", title, nil, reminder.channels)
+            elseif embedded and embedded.enabled and embedded.mode ~= "hidden" then
                 D.Notify(rule, title, deliveredByWatcher)
             else
                 if cfg.sound and not (deliveredByWatcher and deliveredByWatcher.sound)
@@ -184,7 +190,6 @@ local function scanGear(snapshot)
         InCombatLockdown() and item and item.class == weapon and item.sub == fishing and "Fishing pole equipped in combat" or nil)
 end
 
-local hadEnhancement, expiredEnhancement = {}, {}
 function S.RefreshAmmo(snapshot)
     local watcher = addon.HUDAmmo
     local watch = watcher and addon.HUD.Settings("ammo")
@@ -233,40 +238,404 @@ local function alertSkillGain(name, skill)
 end
 
 local watchedBuffs = {
-    HUNTER = {13165, 13163, 5118, 13161, 20043, 13159, 34074, 61846},
-    MAGE = {168, 7302, 6117, 30482},
-    PRIEST = {588},
-    WARLOCK = {687, 706, 28176},
+    DRUID = {{1126, 21849}, {467}},
+    HUNTER = {{13165, 13163, 5118, 13161, 20043, 13159, 34074, 61846}},
+    MAGE = {{168, 7302, 6117, 30482}, {1459, 23028}},
+    PRIEST = {{588}, {1243, 21562}, {14752, 27681}, {976, 27683}},
+    SHAMAN = {{324, 52127, 974}},
+    WARLOCK = {{687, 706, 28176}},
+    PALADIN = {{465, 7294, 19746, 19876, 19888, 19891, 20218},
+        {19740, 19742, 20217, 19977, 20911, 25782, 25894, 25895, 25898, 25899}},
+    WARRIOR = {{6673, 469}},
 }
+
 local function spellName(spell)
     return call(C_Spell and C_Spell.GetSpellName or GetSpellInfo, spell)
 end
 
 local function knowsSpell(spell)
-    return call(IsPlayerSpell, spell) == true or call(IsSpellKnown, spell) == true
+    return call(C_SpellBook and C_SpellBook.IsSpellKnown, spell) == true
+        or call(IsPlayerSpell, spell) == true or call(IsSpellKnown, spell) == true
 end
 
-local function scanSelfBuff(token)
-    local variants = watchedBuffs[token]
-    if not variants then return end
-    local active, expected
-    for _, spell in ipairs(variants) do
-        local name = spellName(spell)
-        if name then
-            if not expected and knowsSpell(spell) then expected = name end
-            local found = call(AuraUtil and AuraUtil.FindAuraByName, name, "player", "HELPFUL|PLAYER")
-                or call(C_UnitAuras and C_UnitAuras.GetAuraDataBySpellName, "player", name, "HELPFUL|PLAYER")
-            if found then active = true end
+local temporaryWeapons, pendingBuffs, preferredBuffs = {}, {}, {}
+local lastCast, lastReadableBuffs
+local weaponSlots = {{"MainHand", "MainHand"}, {"SecondaryHand", "OffHand"}, {"Ranged", "Ranged"}}
+local shamanImbues = {8017, 8024, 8033, 8232}
+local gatheringTrackers = {{2580, "Find Minerals"}, {2383, "Find Herbs"}}
+local lastGatheringTracker
+
+local function gatheringTracking()
+    local api = C_Minimap
+    local count = call(api and api.GetNumTrackingTypes)
+    if type(count) ~= "number" then return end
+    local trackers, localized = {}, {}
+    for _, entry in ipairs(gatheringTrackers) do
+        local spell = entry[1]
+        localized[spellName(spell) or entry[2]] = spell
+    end
+    for index = 1, count do
+        local info = call(api.GetTrackingInfo, index)
+        if type(info) == "table" then
+            local name = read(info.name) and info.name
+            local spell = read(info.spellID) and info.spellID or name and localized[name]
+            if spell == 2580 or spell == 2383 then
+                if not read(info.active) or type(info.active) ~= "boolean" then return end
+                trackers[spell] = {name = name or spellName(spell), active = info.active}
+            end
         end
     end
-    persistent("selfBuff", "selfBuff", "Class", "warning", not active and expected and (expected .. " is missing") or nil,
-        not active and expected and "Reapply your self buff" or nil)
+    return trackers
+end
+
+local function buffOptions(token, create)
+    local cfg = settings()
+    if create then
+        cfg.buffReminders = cfg.buffReminders or {}
+        cfg.buffReminders[token] = cfg.buffReminders[token] or {}
+    end
+    return cfg.buffReminders and cfg.buffReminders[token]
+end
+
+local function spellKey(spell)
+    return "spell:" .. spell
+end
+
+function S.BuffReminderChoices()
+    local _, token = call(UnitClass, "player")
+    if not token then return {} end
+    local list, seen = {}, {}
+    local function add(key, name)
+        if name and not seen[name] then list[#list + 1], seen[name] = {key, name}, true end
+    end
+    for _, family in ipairs(watchedBuffs[token] or {}) do
+        for _, spell in ipairs(family) do if knowsSpell(spell) then add(spellKey(spell), spellName(spell)) end end
+    end
+    local trackers = gatheringTracking() or {}
+    for _, entry in ipairs(gatheringTrackers) do
+        local spell = entry[1]
+        if trackers[spell] then add(spellKey(spell), trackers[spell].name or entry[2]) end
+    end
+    if token == "SHAMAN" then
+        add("imbue", "Weapon imbues (any)")
+        for _, spell in ipairs(shamanImbues) do if knowsSpell(spell) then add(spellKey(spell), spellName(spell)) end end
+    elseif token == "ROGUE" then add("poison", "Weapon poisons (any)") end
+    add("temporary", "Other temporary weapon enhancements")
+    for key, entry in pairs(buffOptions(token) or {}) do add(key, entry.label) end
+    table.sort(list, function(a, b) return a[2] == b[2] and a[1] < b[1] or a[2] < b[2] end)
+    return list
+end
+
+function S.BuffReminderOption(key, field)
+    local _, token = call(UnitClass, "player")
+    local options = token and buffOptions(token)
+    return not options or not options[key] or options[key][field] ~= false
+end
+
+function S.SetBuffReminderOption(key, field, value, label)
+    local _, token = call(UnitClass, "player")
+    if not token or not key then return end
+    local options = buffOptions(token, true)
+    options[key] = options[key] or {}
+    local entry = options[key]
+    entry[field], entry.label = value, label or entry.label
+    D.Invalidate("classBuffs")
+    if settings().enabled then A.Queue("class") end
+    A.Emit("buffReminderSettings")
+end
+
+local function applyBuffOptions(token, reminders)
+    local options, visible = buffOptions(token) or {}, {}
+    for _, reminder in ipairs(reminders) do
+        local key = reminder.key
+        local pref = options[key]
+        if not pref or pref.enabled ~= false then
+            reminder.channels = pref
+            reminder.mute = function() S.SetBuffReminderOption(key, "enabled", false, reminder.label) end
+            visible[#visible + 1] = reminder
+        end
+    end
+    return visible
+end
+
+A.On("playerSpellCast", function(spell)
+    if not (dashboardBuffsEnabled and dashboardBuffsEnabled()) and not settings().enabled then return end
+    local now, name = GetTime(), spellName(spell)
+    lastCast = {spell = spell, time = now}
+    for key, cast in pairs(pendingBuffs) do if now - cast.time > 2 then pendingBuffs[key] = nil end end
+    if name and knowsSpell(spell) and call(C_Spell and C_Spell.IsSpellPassive, spell) ~= true then
+        pendingBuffs[name] = lastCast
+    end
+    if dashboardBuffsEnabled() then D.Invalidate("classBuffs") end
+end)
+
+local function playerBuffNames(token)
+    local getAura = C_UnitAuras and C_UnitAuras.GetAuraDataByIndex
+    if not getAura then return end
+    if call(C_Secrets and C_Secrets.ShouldAurasBeSecret) == true then return end
+    local names = {}
+    for index = 1, 80 do
+        local ok, aura = pcall(getAura, "player", index, "HELPFUL")
+        if not ok or not read(aura) then return end
+        if not aura then return names end
+        if not read(aura.name) then return end
+        if aura.name then
+            names[aura.name] = true
+            local cast = pendingBuffs[aura.name]
+            if cast and GetTime() - cast.time <= 2 and read(aura.sourceUnit) and aura.sourceUnit == "player"
+                and read(aura.duration) and type(aura.duration) == "number" and aura.duration > 0 then
+                local options = buffOptions(token, true)
+                local key = spellKey(cast.spell)
+                for savedKey, entry in pairs(options) do
+                    if entry.learned and entry.label == aura.name then key = savedKey; break end
+                end
+                options[key] = options[key] or {}
+                options[key].label, options[key].learned = aura.name, cast.spell
+                pendingBuffs[aura.name] = nil
+            end
+        end
+        if read(aura.spellId) and type(aura.spellId) == "number" then names[aura.spellId] = true end
+    end
+    return names
+end
+
+local function weaponEffects(hand)
+    local api, types = C_Item, Enum and Enum.ItemEnchantType
+    local slots = Enum and Enum.WeaponSlot
+    if api and api.GetWeaponEnchantInfo and types and slots then
+        if slots[hand] == nil then return end
+        local items = call(api.GetWeaponEnchantInfo, slots[hand])
+        if type(items) ~= "table" then return end
+        local effects = {active = false, imbue = false, temporary = {}}
+        for index, enchant in ipairs(items) do
+            if not read(enchant.hasEnchant) or not read(enchant.enchantType) then return end
+            if enchant.hasEnchant then
+                if enchant.enchantType == types.Imbue then effects.active, effects.imbue = true, true end
+                if enchant.enchantType == types.Temporary or enchant.enchantType == types.Imbue then
+                    effects.active = true
+                    local id = read(enchant.enchantID) and enchant.enchantID or index
+                    effects.temporary[enchant.enchantType .. ":" .. id] = enchant
+                end
+            end
+        end
+        return effects
+    end
+    if hand == "Ranged" then return end
+    local main, _, _, _, off = call(GetWeaponEnchantInfo)
+    local active = main
+    if hand == "OffHand" then active = off end
+    if read(active) and type(active) == "boolean" then return {active = active, imbue = active} end
+end
+
+local function weaponIdentity(slot, fallback)
+    local inventorySlot = A.SlotID(slot)
+    if inventorySlot and ItemLocation and ItemLocation.CreateFromEquipmentSlot then
+        local location = ItemLocation:CreateFromEquipmentSlot(inventorySlot)
+        local guid = location and call(C_Item and C_Item.GetItemGUID, location)
+        if guid then return guid end
+    end
+    return fallback
+end
+
+local function missingWeaponEffects(slot, weapon, effects)
+    if not effects.temporary then return {} end
+    local record = temporaryWeapons[slot]
+    if not record or record.weapon ~= weapon then
+        record = {weapon = weapon, effects = {}}
+        temporaryWeapons[slot] = record
+    end
+    local now, activeTypes, missing = GetTime(), {}, {}
+    for id, enchant in pairs(effects.temporary) do
+        local old = record.effects[id]
+        local duration = read(enchant.timeLeft) and enchant.timeLeft
+        local expires = type(duration) == "number" and duration > 0 and now + duration / 1000 or nil
+        local applied = not old or old.missing or expires and old.expires and expires - old.expires > 2
+        local seen = applied and now or old.seen
+        -- Cast success and the enchant update can arrive in either order.
+        local cast = (applied or not old.spell) and lastCast and math.abs(lastCast.time - seen) <= 0.6
+            and now - lastCast.time <= 0.6 and lastCast.spell
+        record.effects[id] = {expires = expires, kind = enchant.enchantType, seen = seen,
+            spell = cast or old and old.spell}
+        activeTypes[enchant.enchantType] = true
+    end
+    for id, old in pairs(record.effects) do
+        if not effects.temporary[id] then
+            if activeTypes[old.kind] then
+                record.effects[id] = nil
+            else
+                old.missing = true
+                missing[id] = old
+            end
+        end
+    end
+    return missing
+end
+
+local function classReminders(token, gear)
+    local notices = {}
+    if not token or call(UnitIsDeadOrGhost, "player") == true then return notices end
+    local families = watchedBuffs[token]
+    local names, covered = playerBuffNames(token), {}
+    local options = buffOptions(token) or {}
+    local function spellEnabled(spell)
+        local pref = options[spellKey(spell)]
+        return not pref or pref.enabled ~= false
+    end
+    if names then lastReadableBuffs = names
+    elseif InCombatLockdown() then names = lastReadableBuffs end
+    local trackers, selected, trackingActive = gatheringTracking() or {}, nil, false
+    for _, entry in ipairs(gatheringTrackers) do
+        local spell, label = entry[1], entry[2]
+        local tracker = trackers[spell]
+        covered[spellName(spell) or label] = true
+        if tracker then
+            if tracker.active then lastGatheringTracker, trackingActive = spell, true end
+            if not selected or spell == lastGatheringTracker then selected = spell end
+        end
+    end
+    if selected and not trackingActive then
+        local name = trackers[selected].name or (selected == 2580 and "Find Minerals" or "Find Herbs")
+        notices[#notices + 1] = {id = "gatheringTracking", key = spellKey(selected), label = name, rule = "selfBuff",
+            title = name .. " is off", detail = "Turn this tracking back on from your action bar or the minimap tracking menu.",
+            icon = "Search", spells = {[name] = true}}
+    end
+    for _, family in ipairs(families or {}) do
+        local active, expected, spells = false, nil, {}
+        local familyID = family[1]
+        for _, spell in ipairs(family) do
+            local name = spellName(spell)
+            if name then
+                covered[name] = true
+                local known = knowsSpell(spell)
+                if known then
+                    if not expected or preferredBuffs[familyID] == spell then expected = spell end
+                    if spellEnabled(spell) then spells[name] = true end
+                end
+                if names and (names[name] or names[spell]) then
+                    active = true
+                    if known then preferredBuffs[familyID] = spell end
+                end
+            end
+        end
+        if names and expected and not active then
+            local name = spellName(expected)
+            notices[#notices + 1] = {id = "selfBuff:" .. familyID, key = spellKey(expected), label = name, rule = "selfBuff",
+                title = name .. " is missing", detail = "Reapply this buff to yourself.", spells = spells}
+        end
+    end
+    if names then
+        local missingBuffs = {}
+        for key, entry in pairs(options) do
+            local spell, name = entry.learned, entry.label
+            if spell and name and not covered[name] and not names[name] and knowsSpell(spell) then
+                missingBuffs[#missingBuffs + 1] = {key = key, name = name}
+            end
+        end
+        table.sort(missingBuffs, function(a, b) return a.name < b.name end)
+        for _, buff in ipairs(missingBuffs) do
+            local name = buff.name
+            notices[#notices + 1] = {id = "learnedBuff:" .. buff.key, key = buff.key, label = name, rule = "selfBuff", title = name .. " is missing",
+                detail = "Reapply this buff to yourself.", spells = {[name] = true}}
+        end
+    end
+
+    local shaman = token == "SHAMAN"
+    local imbues, usableImbues, missing = {}, {}, {}
+    if shaman then
+        for _, id in ipairs(shamanImbues) do
+            local name = knowsSpell(id) and spellName(id)
+            if name then
+                imbues[name] = id
+                if spellEnabled(id) then usableImbues[name] = true end
+            end
+        end
+    end
+    local poison = token == "ROGUE" and (knowsSpell(8681) or knowsSpell(3408) or knowsSpell(2835) or (D.Count(6947) or 0) > 0)
+    for _, weapon in ipairs(weaponSlots) do
+        local slot, hand = weapon[1], weapon[2]
+        local piece = gear and gear[slot]
+        local inventorySlot = A.SlotID(slot)
+        local link = piece and (piece.link or piece.id) or inventorySlot and call(GetInventoryItemLink, "player", inventorySlot)
+        local info = link and A.ItemDetails(link)
+        local effect = info and info.class == 2 and weaponEffects(hand)
+        if not link then temporaryWeapons[slot] = nil end
+        if effect then
+            local name = A.SlotNames[slot] or slot
+            local needsImbue = next(imbues) ~= nil and hand ~= "Ranged" and not effect.imbue
+            local missingEffects = missingWeaponEffects(slot, weaponIdentity(slot, link), effect)
+            local hadEnhancement, imbueSpell
+            for id, previous in pairs(missingEffects) do
+                local source = previous.spell and spellName(previous.spell)
+                if previous.kind == Enum.ItemEnchantType.Imbue and needsImbue then
+                    imbueSpell = source and imbues[source] or imbueSpell
+                else
+                    hadEnhancement = true
+                    local key = source and spellKey(previous.spell) or "temporary"
+                    if source and not options[key] then
+                        options = buffOptions(token, true)
+                        options[key] = {label = source}
+                    end
+                    notices[#notices + 1] = {id = "temporaryWeapon:" .. slot .. ":" .. id, key = key,
+                        label = source or "Other temporary weapon enhancements", rule = "poison",
+                        title = "Temporary weapon enhancement missing · " .. name,
+                        detail = source and ("Reapply " .. source .. " if available.") or "Reapply the temporary enhancement if available.",
+                        itemSpells = previous.spell and {[previous.spell] = true},
+                        spells = source and knowsSpell(previous.spell) and {[source] = true}}
+                end
+            end
+            if needsImbue then
+                local key = imbueSpell and spellKey(imbueSpell) or "imbue"
+                local group = missing[key] or {label = imbueSpell and spellName(imbueSpell) or "Weapon imbues (any)", hands = {}}
+                missing[key] = group
+                group.hands[#group.hands + 1] = name
+            elseif not hadEnhancement and poison and hand ~= "Ranged" and not effect.active then
+                notices[#notices + 1] = {id = "enhancement:" .. slot, key = "poison", label = "Weapon poisons (any)", rule = "poison",
+                    title = "Poison missing · " .. name, detail = "Apply a poison to this weapon."}
+            end
+        end
+    end
+    for key, group in pairs(missing) do
+        notices[#notices + 1] = {id = "enhancement:imbue:" .. key, key = key, label = group.label, rule = "poison", title = "Imbue your weapon",
+            detail = (key == "imbue" and "Apply any known weapon imbue" or ("Reapply " .. group.label)) .. " · " .. table.concat(group.hands, ", "),
+            spells = usableImbues}
+    end
+    return applyBuffOptions(token, notices)
+end
+
+local function glowReminders(reminders)
+    local bars = addon.ActionBars
+    if not (bars and bars.SetClassReminderActions) then return end
+    local wanted, inDashboard = {}, dashboardBuffsEnabled and dashboardBuffsEnabled()
+    for _, reminder in ipairs(reminders) do
+        if inDashboard or S.IsEnabled(reminder.rule, "Class") then
+            for name in pairs(reminder.spells or {}) do wanted[name] = true end
+            for spell in pairs(reminder.itemSpells or {}) do wanted[spell] = true end
+        end
+    end
+    bars:SetClassReminderActions(wanted)
+end
+
+dashboardBuffsEnabled = function()
+    if not D.byID.classBuffs or not D.Settings().enabled then return false end
+    local widget = D.WidgetSettings("classBuffs")
+    return widget.enabled and widget.mode ~= "hidden"
 end
 
 local function scanClass(snapshot)
     local meta = snapshot.identity
     if not meta then return end
-    scanSelfBuff(meta.token)
+    local present = {}
+    local reminders = classReminders(meta.token, snapshot.gear)
+    glowReminders(reminders)
+    for _, reminder in ipairs(reminders) do
+        present[reminder.id] = true
+        S.Set(reminder.id, reminder.rule, "Class", "warning", reminder.title, reminder.detail, true, nil, nil, reminder)
+    end
+    for id, alert in pairs(S.active) do
+        if (alert.rule == "selfBuff" or alert.rule == "poison") and not present[id] then
+            persistent(id, alert.rule, "Class", "warning")
+        end
+    end
     if meta.token == "HUNTER" then
         S.RefreshAmmo(snapshot)
         local exists = call(UnitExists, "pet")
@@ -274,30 +643,40 @@ local function scanClass(snapshot)
         local unhappy = exists and call(GetPetHappiness) == 1
         persistent("pet", "pet", "Class", dead and "critical" or "warning", dead and "Hunter pet is dead" or unhappy and "Hunter pet is unhappy" or nil)
     end
-    if meta.token == "ROGUE" or meta.token == "SHAMAN" then
-        local main, _, _, _, off = call(GetWeaponEnchantInfo)
-        if type(main) ~= "boolean" then return end
-        for index, slot in ipairs({"MainHand", "SecondaryHand"}) do
-            local piece = snapshot.gear and snapshot.gear[slot]
-            local applied = index == 1 and main or index == 2 and read(off) and off
-            if applied then expiredEnhancement[slot], hadEnhancement[slot] = nil, piece and piece.id
-            elseif hadEnhancement[slot] then
-                expiredEnhancement[slot] = piece and piece.id == hadEnhancement[slot] and piece.id or nil
-                hadEnhancement[slot] = nil
-            end
-            if not piece or piece.id ~= expiredEnhancement[slot] then expiredEnhancement[slot] = nil end
-            local name = A.SlotNames[slot]
-            local expected = piece and (index == 1 or piece.kind ~= "SHIELD" and piece.class == 2)
-                and (meta.token == "SHAMAN" and knowsSpell(8017)
-                    or meta.token == "ROGUE" and (knowsSpell(8681) or knowsSpell(3408) or knowsSpell(2823)))
-            local missing = expected and not applied
-            persistent("enhancement:" .. slot, "poison", "Class", "warning",
-                expiredEnhancement[slot] and (name .. " temporary enhancement expired")
-                    or missing and (name .. " weapon enhancement is missing") or nil,
-                missing and (meta.token == "ROGUE" and "Apply a poison" or "Apply a weapon imbue") or nil)
-        end
-    end
 end
+
+local lastDashboardReminders = {}
+D.Register({id = "classBuffs", label = "Class buffs", priority = 94, tick = true,
+    events = {"UNIT_AURA", "UNIT_INVENTORY_CHANGED", "WEAPON_ENCHANT_CHANGED", "PLAYER_EQUIPMENT_CHANGED", "BAG_UPDATE_DELAYED",
+        "SPELLS_CHANGED", "MINIMAP_UPDATE_TRACKING", "PLAYER_DEAD", "PLAYER_ALIVE", "PLAYER_UNGHOST"},
+    eventFilter = function(event, unit)
+        return (event ~= "UNIT_AURA" and event ~= "UNIT_INVENTORY_CHANGED") or unit == "player"
+    end,
+    read = function()
+        local _, token = call(UnitClass, "player")
+        local gear
+        if token == "SHAMAN" or token == "ROGUE" then
+            gear = {}
+            for _, slot in ipairs({"MainHand", "SecondaryHand"}) do
+                local id = A.SlotID(slot)
+                if id then gear[slot] = {link = call(GetInventoryItemLink, "player", id),
+                    id = call(GetInventoryItemID, "player", id)} end
+            end
+        end
+        local reminders, rows, current = classReminders(token, gear), {}, {}
+        glowReminders(reminders)
+        for _, reminder in ipairs(reminders) do
+            current[reminder.id] = reminder.key
+            if lastDashboardReminders[reminder.id] ~= reminder.key and dashboardBuffsEnabled() then
+                D.Notify("classBuffReminder", reminder.title, nil, reminder.channels)
+            end
+            rows[#rows + 1] = {label = reminder.title, labelColor = S.colors.warning,
+                icon = art .. (reminder.icon or (reminder.rule == "poison" and "Dagger" or "Shield")) .. ".tga",
+                tooltip = reminder.detail, mute = reminder.mute}
+        end
+        lastDashboardReminders = current
+        return D.Rows(rows, #rows > 0, #rows > 0)
+    end})
 
 local factionRanks
 A.On("snapshot", function(snapshot, dirty)
@@ -533,6 +912,7 @@ end
 
 local function makeCard(parent)
     local row = CreateFrame("Button", nil, parent)
+    row:RegisterForClicks("LeftButtonUp", "RightButtonUp")
     row.tile = addon.Theme:RoundedCard(row)
     row.tile:SetAllPoints()
     row.tile:SetFrameLevel(row:GetFrameLevel())
@@ -554,9 +934,21 @@ local function makeCard(parent)
     alpha:SetFromAlpha(0)
     alpha:SetToAlpha(1)
     row.enter = alpha
-    row:SetScript("OnClick", function(self)
-        if self.action and not InCombatLockdown() then self.action() end
+    row:SetScript("OnClick", function(self, button)
+        if button == "RightButton" and self.mute then
+            self.mute()
+            if GameTooltip:IsOwned(self) then GameTooltip:Hide() end
+        elseif button == "LeftButton" and self.action and not InCombatLockdown() then self.action() end
     end)
+    row:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_TOP")
+        GameTooltip:SetText(self.title:GetText())
+        if self.alertDetail then GameTooltip:AddLine(self.alertDetail, 1, 1, 1, true) end
+        if self.mute then GameTooltip:AddLine("Right-click to mute this reminder. Re-enable it in Dashboard > Alerts.", 0.68, 0.63, 0.57, true) end
+        GameTooltip:AddLine("Red: urgent · Gold: reminder · Purple: progress · Green: success", 0.85, 0.73, 0.55, true)
+        GameTooltip:Show()
+    end)
+    row:SetScript("OnLeave", function(self) if GameTooltip:IsOwned(self) then GameTooltip:Hide() end end)
     return row
 end
 
@@ -596,6 +988,7 @@ function S.Render()
         return
     end
     local parent, h = frame or makeFrame(), 0
+    local opening = not parent:IsShown()
     for i = 1, math.min(#rows, sample == "all" and #examples or maximum) do
         local alert = rows[i]
         local row = cards[i] or makeCard(parent)
@@ -621,7 +1014,9 @@ function S.Render()
         end
         h = h + row:GetHeight() + 4
         row.action = not layoutMode and alert.action or nil
-        row:EnableMouse(row.action ~= nil)
+        row.mute = not sample and not layoutMode and alert.mute or nil
+        row.alertDetail = alert.detail
+        row:EnableMouse(not layoutMode)
         row:Show()
         if row.marker ~= alert.id and cfg.animation > 0 then
             row.enter:SetDuration(cfg.animation / 100)
@@ -641,12 +1036,17 @@ function S.Render()
         parent:SetPoint(node, UIParent, "CENTER", cfg.x * ratio, cfg.y * ratio)
     end
     parent:Show()
+    if opening and not sample and not layoutMode and addon.Inventory.ShowFirstUseGuide then
+        addon.Inventory.ShowFirstUseGuide(parent, "hideSmartAlertsGuide", "Reading Smart Alerts",
+            guideText)
+    end
 end
 
 A.On("settings", function()
     refreshTalentAlert()
     if _G.TalentMicroButtonAlert then replaceNativeTalentAlert(_G.TalentMicroButtonAlert) end
     if ticker then ticker:Cancel(); ticker = nil end
+    if not settings().enabled and not dashboardBuffsEnabled() then glowReminders({}) end
     if settings().enabled then
         ticker = C_Timer.NewTicker(10, function()
             A.Queue("class")
@@ -674,8 +1074,9 @@ D.Register({id = "smartAlerts", label = "Alerts", priority = 95, read = function
             if upgrades and alert.severity ~= "critical" then appendUpgrades() end
             if #rows >= cfg.maximum then break end
             -- Where both destinations are enabled, standalone carries the first visible alert.
-            if alert.rule ~= "upgrade" and (not cfg.standalone or i > 1) then
-                rows[#rows + 1] = {label = alert.title, labelColor = S.colors[alert.severity], tooltip = alert.detail, click = alert.action,
+            local duplicated = (alert.rule == "selfBuff" or alert.rule == "poison") and dashboardBuffsEnabled()
+            if not duplicated and alert.rule ~= "upgrade" and (not cfg.standalone or i > 1) then
+                rows[#rows + 1] = {label = alert.title, labelColor = S.colors[alert.severity], tooltip = alert.detail and (alert.detail .. "\n\n" .. guideText) or guideText, click = alert.action, mute = alert.mute,
                     icon = art .. (S.categories[alert.category] or "Bell") .. ".tga", highlight = alert.severity == "critical"}
             end
         end

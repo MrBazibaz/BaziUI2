@@ -502,8 +502,9 @@ local function itemList(page, label, kind, count, markValue)
     if not count or count < 1 then return end
     local items = addSection(page, label, 2)
     local mostValuable, bestValue = nil, 0
+    local rewardGear = kind == "choice" and addon.Adventure and addon.Adventure.EquipmentSnapshot()
     for index = 1, count do
-        local name, icon, amount = GetQuestItemInfo(kind, index)
+        local name, icon, amount, _, _, itemID = GetQuestItemInfo(kind, index)
         local ok, link = pcall(GetQuestItemLink, kind, index)
         local entry = {label = (name or "…") .. (amount and amount > 1 and " ×" .. amount or ""), icon = icon,
             link = ok and link or nil}
@@ -514,9 +515,9 @@ local function itemList(page, label, kind, count, markValue)
             if total > bestValue then mostValuable, bestValue = entry, total end
         end
         if kind == "choice" and page.phase == "reward" then
-            local upgrades, adventure = BaziUI.LootUpgrades, BaziUI.Adventure
-            local result = upgrades and adventure and adventure.current and entry.link
-                and upgrades.Compare(entry.link, adventure.current)
+            local upgrades = addon.LootUpgrades
+            local candidate = entry.link or itemID
+            local result = upgrades and candidate and upgrades.Compare(candidate, rewardGear)
             entry.upgrade = result ~= nil
             entry.action = function()
                 page.reward = index
@@ -604,14 +605,22 @@ local function capture()
         itemList(page, QUEST_REWARDS or "Rewards", "reward", GetNumQuestRewards(), choices == 0)
         itemList(page, QUEST_CHOOSE_REWARD or "Choose a reward", "choice", choices, true)
         page.primary = ACCEPT or "Accept"
-        page.action = function() clickNative("QuestFrameAcceptButton", AcceptQuest) end
+        page.action = function()
+            if addon.Inventory.NoteQuestTurnIn then addon.Inventory.NoteQuestTurnIn(page.questID, 0, true) end
+            clickNative("QuestFrameAcceptButton", AcceptQuest)
+        end
     elseif phase == "progress" then
         page.text = GetProgressText() or ""
         itemList(page, "Requirements", "required", GetNumQuestItems())
         objectives(page)
         local complete = IsQuestCompletable()
         page.primary = complete and (CONTINUE or "Continue") or "Incomplete"
-        if complete then page.action = function() clickNative("QuestFrameCompleteButton", CompleteQuest) end end
+        if complete then
+            page.action = function()
+                if addon.Inventory.NoteQuestTurnIn then addon.Inventory.NoteQuestTurnIn(page.questID, 0) end
+                clickNative("QuestFrameCompleteButton", CompleteQuest)
+            end
+        end
     elseif phase == "reward" then
         page.text = GetRewardText() or ""
         local choices = GetNumQuestChoices()
@@ -621,7 +630,11 @@ local function capture()
         page.action = function(self)
             if choices > 1 and not self.reward then
                 UIErrorsFrame:AddMessage("Choose a quest reward first.", 1, 0.3, 0.2)
-            else GetQuestReward(self.reward or choices) end
+            else
+                local choice = self.reward or choices
+                if addon.Inventory.NoteQuestTurnIn then addon.Inventory.NoteQuestTurnIn(page.questID, choice) end
+                GetQuestReward(choice)
+            end
         end
     else
         page.byline = "Conversation"

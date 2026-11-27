@@ -283,6 +283,14 @@ function addon.Theme:RoundedCard(parent)
     return card
 end
 
+function addon.Theme:HelpPanel(frame)
+    local card = self:RoundedCard(frame)
+    card:SetAllPoints(frame)
+    card:SetFrameLevel(frame:GetFrameLevel())
+    self:PaintQuestCard(card, 1, true)
+    return card
+end
+
 local windowBorders = setmetatable({}, {__mode = "k"})
 local textureBorders = setmetatable({}, {__mode = "k"})
 local portraitRims = setmetatable({}, {__mode = "k"})

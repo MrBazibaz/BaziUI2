@@ -71,27 +71,36 @@ function D.Settings()
     return cfg
 end
 
-local lastNotificationSound, lastUpgradeSound
+local lastSoundByGroup = {}
 function D.NotificationSettings(key)
     local cfg = D.Settings()
     cfg.notifications = cfg.notifications or {}
     if not cfg.notifications[key] then
-        cfg.notifications[key] = {sound = key == "upgrade" and "alertRetroBonk" or "none", chat = false}
+        local buff = key == "classBuffReminder"
+        cfg.notifications[key] = {sound = (buff or key == "upgrade") and "alertRetroBonk" or "none", chat = buff}
     end
-    return cfg.notifications[key]
+    local notification = cfg.notifications[key]
+    if key == "classBuffReminder" and not notification.perSpellDefaults then
+        if notification.sound == "none" and notification.chat == false then
+            notification.sound, notification.chat = "alertRetroBonk", true
+        end
+        notification.perSpellDefaults = true
+    end
+    return notification
 end
 
-function D.Notify(key, message, delivered)
+function D.Notify(key, message, delivered, channels)
     local cfg = D.NotificationSettings(key)
     local now = GetTime()
     local alerts = addon.SmartAlerts
-    local previous = key == "upgrade" and lastUpgradeSound or key ~= "upgrade" and lastNotificationSound
-    if alerts and cfg.sound and cfg.sound ~= "none" and not (delivered and delivered.sound)
+    local group = (key == "upgrade" or key == "classBuffReminder") and key or "other"
+    local previous = lastSoundByGroup[group]
+    if alerts and cfg.sound and cfg.sound ~= "none" and (not channels or channels.sound ~= false) and not (delivered and delivered.sound)
         and (not previous or now - previous >= 1.5) then
         alerts.PlaySound(cfg.sound)
-        if key == "upgrade" then lastUpgradeSound = now else lastNotificationSound = now end
+        lastSoundByGroup[group] = now
     end
-    if cfg.chat and not (delivered and delivered.chatWarning) then addon:Print(message) end
+    if cfg.chat and (not channels or channels.chat ~= false) and not (delivered and delivered.chatWarning) then addon:Print(message) end
 end
 
 function D.Tracking()
@@ -145,7 +154,10 @@ end
 local function rowClick(self, button)
     local row = self.data
     if not row or preview or layoutMode then return end
-    if button == "RightButton" and row.pin then
+    if button == "RightButton" and row.mute then
+        row.mute()
+        if GameTooltip:IsOwned(self) then GameTooltip:Hide() end
+    elseif button == "RightButton" and row.pin then
         if not InCombatLockdown() then row.pin(); D.Invalidate(self.widget) end
     elseif row.click and not InCombatLockdown() then
         row.click()
@@ -158,6 +170,7 @@ local function rowTooltip(self)
     GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
     if row.link and not preview then GameTooltip:SetHyperlink(row.link) else GameTooltip:SetText(row.label) end
     if row.tooltip then GameTooltip:AddLine(row.tooltip, 0.9, 0.85, 0.74, true) end
+    if row.mute and not preview then GameTooltip:AddLine("Right-click to mute this reminder. Re-enable it in Dashboard > Alerts.", 0.68, 0.63, 0.57, true) end
     if row.pin and not preview then GameTooltip:AddLine("Right-click to toggle tracking", 0.68, 0.63, 0.57) end
     GameTooltip:Show()
 end
@@ -388,7 +401,7 @@ local function sortedWidgets()
         if data and (#data.rows > 0 or data.questItems) and (preview or options.enabled and mode ~= "hidden") then
             if not preview and mode == "mouseover" then mouseover = true end
             local contextual = data.active or not cfg.context or not cfg.autoHide
-            local matches = preview or options.pinned or mode == "always"
+            local matches = preview or data.levelUp or options.pinned or mode == "always"
                 or mode == "automatic" and contextual or mode == "activity" and data.activity
                 or mode == "combat" and motionInCombat or mode == "peace" and not motionInCombat
                 or mode == "instance" and (zoneType == "party" or zoneType == "raid")
@@ -441,11 +454,12 @@ function D.Render(animate)
     local style = table.concat({tostring(font), labelSize, valueSize, cfg.fontSize, cfg.iconSize, cfg.barHeight,
         r, g, b, width, addon.Typography.revision or 0}, "\31")
     local y = 0
-    local questCard, questItems
-    local used = {}
+    local questCard, questItems, levelUp
+    local used, shownCallbacks = {}, {}
     for i, entry in ipairs(widgets) do
         if i > cfg.maxWidgets then break end
         local widget, options, data = entry.widget, entry.options, entry.data
+        if data.levelUp then levelUp = data.levelUp end
         local card = cards[widget.id] or makeCard(widget.id)
         if widget.id == "quests" and cfg.showQuestItems then questCard, questItems = card, data.questItems end
         used[widget.id] = true
@@ -501,6 +515,7 @@ function D.Render(animate)
                 end
             end
             row:Show()
+            if not preview and not layoutMode and value.onShown then shownCallbacks[#shownCallbacks + 1] = value.onShown end
             offset = offset + row:GetHeight() + cfg.rowSpacing
         end
         for index = #data.rows + 1, #card.rows do card.rows[index]:Hide() end
@@ -551,10 +566,16 @@ function D.Render(animate)
     if opening and animate then setHeight(math.min(height, topInset + bottomInset + 2)) end
     resizeHeight(height, animate and (opening or not layoutChanged))
     if needsScrollLayout then viewport:UpdateScrollChildRect(); scrollbar:SyncRange() end
+    if levelUp and window.baziLevelUp ~= levelUp and viewport.SetVerticalScroll then
+        viewport:SetVerticalScroll(0)
+        scrollbar:SyncRange()
+    end
+    window.baziLevelUp = levelUp
     window:Show()
+    for _, callback in ipairs(shownCallbacks) do callback() end
     if opening and not preview and not layoutMode and addon.Inventory.ShowFirstUseGuide then
-        addon.Inventory.ShowFirstUseGuide(window, "hideDashboardGuide",
-            "The Dashboard shows nearby objectives and recent activity. Use /today for daily totals or /session for your current session.")
+        addon.Inventory.ShowFirstUseGuide(window, "hideDashboardGuideV2", "Reading the Dashboard",
+            "Nearby quests, rewards and recent activity appear as you play. The accent bar shows when recent activity resets. Click a green upgrade alert to find it in your bags. Right-click a missing buff to mute it. Under Dashboard > Alerts, you can restore each reminder or turn its chat and sound on or off. Use /today or /session for activity totals.", "top")
     end
     if D.ShowQuestItems then D.ShowQuestItems(window, viewport, questCard, questItems, preview or layoutMode) end
     if opening and cfg.fade and not layoutMode then window.baziFade:Play() end
@@ -655,11 +676,13 @@ events:SetScript("OnEvent", function(_, event, ...)
     elseif event == "ZONE_CHANGED_NEW_AREA" or event == "PLAYER_ENTERING_WORLD" then D.Invalidate() end
     local dispatched = {}
     for _, widget in ipairs(eventOwners[event] or {}) do
-        if widget.event and not dispatched[widget.event] then
-            dispatched[widget.event] = true
-            local ok, errorText = pcall(widget.event, event, ...)
-            if not ok and not widget.error then addon:Print(widget.label .. ": " .. tostring(errorText)); widget.error = true end
+        if not widget.eventFilter or widget.eventFilter(event, ...) then
+            if widget.event and not dispatched[widget.event] then
+                dispatched[widget.event] = true
+                local ok, errorText = pcall(widget.event, event, ...)
+                if not ok and not widget.error then addon:Print(widget.label .. ": " .. tostring(errorText)); widget.error = true end
+            end
+            D.Invalidate(widget.id)
         end
-        D.Invalidate(widget.id)
     end
 end)

@@ -73,6 +73,104 @@ local frameStates, buttonStates, capsStates = {}, {}, {}
 local accessoryArt, accessoryHooks = {}, {}
 local hiddenParent, events, pendingLayout, statusTicker, statusIndex
 local activeButtons = {}
+local reminderActions, reminderGlows = {}, {}
+local reminderRefreshQueued
+
+local function matchesReminder(kind, id)
+    if kind == "macro" then
+        if GetMacroSpell then
+            local ok, spell = pcall(GetMacroSpell, id)
+            local match = ok and readable(spell) and type(spell) == "number" and matchesReminder("spell", spell)
+            if match then return match end
+        end
+        if not GetMacroItem then return end
+        local ok, _, link = pcall(GetMacroItem, id)
+        if not ok or not readable(link) or type(link) ~= "string" then return end
+        kind, id = "item", link
+    end
+    if kind == "item" then
+        local getItemSpell = C_Item and C_Item.GetItemSpell or GetItemSpell
+        if not getItemSpell then return end
+        local ok, _, spell = pcall(getItemSpell, id)
+        return ok and readable(spell) and spell and reminderActions[spell] and spell
+    end
+    if kind == "spell" then
+        local getSpellName = C_Spell and C_Spell.GetSpellName or GetSpellInfo
+        if not getSpellName then return end
+        local ok, name = pcall(getSpellName, id)
+        return ok and readable(name) and name and reminderActions[name] and name
+    end
+end
+
+local function refreshReminderGlows()
+    local visited, matched, inCombat = {}, {}, locked()
+    local hasReminders = next(reminderActions) ~= nil and GetActionInfo
+    local function update(button)
+        if not button or visited[button] then return end
+        visited[button] = true
+        local glow = reminderGlows[button]
+        if not glow then
+            if inCombat then return end
+            local texture = button:CreateTexture(nil, "OVERLAY", nil, 7)
+            texture:SetPoint("TOPLEFT", -2, 2)
+            texture:SetPoint("BOTTOMRIGHT", 2, -2)
+            texture:SetTexture("Interface\\Buttons\\UI-ActionButton-Border")
+            texture:SetTexCoord(0.17, 0.83, 0.17, 0.83)
+            texture:SetBlendMode("ADD")
+            texture:SetVertexColor(1, 0.75, 0.24)
+            local animation = texture:CreateAnimationGroup()
+            local pulse = animation:CreateAnimation("Alpha")
+            pulse:SetFromAlpha(0.40)
+            pulse:SetToAlpha(0.95)
+            pulse:SetDuration(0.7)
+            pulse:SetSmoothing("IN_OUT")
+            animation:SetLooping("BOUNCE")
+            glow = {texture = texture, animation = animation}
+            reminderGlows[button] = glow
+            texture:Hide()
+        end
+        if not hasReminders or not button:IsVisible() then return end
+        local slot = button.action
+        local match
+        if readable(slot) and type(slot) == "number" and slot > 0 then
+            local ok, kind, id = pcall(GetActionInfo, slot)
+            if ok and readable(kind) and readable(id) then
+                if id then match = matchesReminder(kind, id) end
+            elseif inCombat and glow.slot == slot and reminderActions[glow.key] then
+                match = glow.key
+            end
+        end
+        if not match then return end
+        glow.key, glow.slot = match, slot
+        matched[button] = true
+        glow.texture:Show()
+        if not glow.animation:IsPlaying() then glow.animation:Play() end
+    end
+    for _, button in ipairs(activeButtons) do update(button) end
+    for _, definition in ipairs(M.bars) do
+        if definition.key:match("^bar%d") then
+            for index = 1, definition.count do update(_G[definition.prefix .. index]) end
+        end
+    end
+    for button, glow in pairs(reminderGlows) do
+        if not matched[button] then
+            glow.key, glow.slot = nil, nil
+            glow.animation:Stop()
+            glow.texture:Hide()
+        end
+    end
+end
+
+function M:SetClassReminderActions(actions)
+    local changed
+    for key in pairs(actions) do if not reminderActions[key] then changed = true; break end end
+    if not changed then
+        for key in pairs(reminderActions) do if not actions[key] then changed = true; break end end
+    end
+    if not changed then return end
+    reminderActions = actions
+    refreshReminderGlows()
+end
 local fonts = {friz="Fonts\\FRIZQT__.TTF", arial="Fonts\\ARIALN.TTF"}
 local statusColors = {
     range={1, 0.25, 0.25}, mana={0.55, 0.65, 1}, unusable={0.72, 0.72, 0.72}, cooldown={1, 1, 1},
@@ -1082,6 +1180,7 @@ function M:Apply()
         end
         applyGryphons(true)
         updateStatusTicker()
+        refreshReminderGlows()
         return
     end
     self:HideOwnedNativeSideBars()
@@ -1120,6 +1219,7 @@ function M:Apply()
     end
     applyGryphons(db.gryphons)
     updateStatusTicker()
+    refreshReminderGlows()
 end
 
 local learned = {}
@@ -1347,7 +1447,8 @@ function M:Initialize()
     end
     for _, event in ipairs({"PLAYER_ENTERING_WORLD", "PLAYER_REGEN_ENABLED", "PLAYER_REGEN_DISABLED", "UNIT_PET", "UPDATE_EDIT_MODE_LAYOUTS", "EDIT_MODE_LAYOUTS_UPDATED",
         "CURSOR_CHANGED", "LEARNED_SPELL_IN_SKILL_LINE", "SETTINGS_LOADED", "UPDATE_BINDINGS",
-        "CURRENT_SPELL_CAST_CHANGED", "ACTIONBAR_UPDATE_STATE", "UPDATE_SHAPESHIFT_FORM"}) do
+        "CURRENT_SPELL_CAST_CHANGED", "ACTIONBAR_UPDATE_STATE", "UPDATE_SHAPESHIFT_FORM",
+        "ACTIONBAR_SLOT_CHANGED", "ACTIONBAR_PAGE_CHANGED", "UPDATE_BONUS_ACTIONBAR", "UPDATE_MACROS"}) do
         pcall(events.RegisterEvent, events, event)
     end
     events:SetScript("OnEvent", function(_, event, arg)
@@ -1384,6 +1485,7 @@ function M:Initialize()
             end
             if pendingLayout then self:Apply() end
             self:RefreshOwnedBindings()
+            refreshReminderGlows()
             if next(learned) then applyRanks() end
         elseif event == "UPDATE_EDIT_MODE_LAYOUTS" or event == "EDIT_MODE_LAYOUTS_UPDATED" then
             if self:Settings().enabled then
@@ -1392,6 +1494,14 @@ function M:Initialize()
             end
         elseif event == "PLAYER_ENTERING_WORLD" or event == "SETTINGS_LOADED" or event == "UNIT_PET" and arg == "player" then
             self:Apply()
+        elseif event == "ACTIONBAR_SLOT_CHANGED" or event == "ACTIONBAR_PAGE_CHANGED" or event == "UPDATE_BONUS_ACTIONBAR" or event == "UPDATE_MACROS" then
+            if not reminderRefreshQueued and next(reminderActions) then
+                reminderRefreshQueued = true
+                C_Timer.After(0, function()
+                    reminderRefreshQueued = nil
+                    refreshReminderGlows()
+                end)
+            end
         end
     end)
     if hooksecurefunc and ActionButton_ShowOverlayGlow then

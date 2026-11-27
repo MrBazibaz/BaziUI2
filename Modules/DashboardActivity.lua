@@ -68,7 +68,10 @@ end
 function D.RecordSessionEvent(event, ...)
     local state = ensureSession()
     if addon.ActivityStats then
-        if event == "PLAYER_LEVEL_UP" then state.levelUp = GetTime() end
+        if event == "PLAYER_LEVEL_UP" then
+            state.levelUp = GetTime()
+            D.Invalidate("session")
+        end
         if event == "PLAYER_XP_UPDATE" or event == "PLAYER_LEVEL_UP" then
             state.level, state.currentXP, state.levelCap = xp()
         end
@@ -405,7 +408,7 @@ local function sessionRows(options)
     local levelUp = state.levelUp and time - state.levelUp < options.duration
     if levelUp then table.insert(rows, 1, {label = "Level reached", value = tostring(state.level), highlight = true}) end
     local result = rowsResult(rows, levelUp, levelUp)
-    result.levelUp = levelUp
+    result.levelUp = levelUp and state.levelUp or nil
     return result
 end
 D.Register({id = "session", label = "Session", priority = 50, read = sessionRows, tick = true, event = sessionEvent,

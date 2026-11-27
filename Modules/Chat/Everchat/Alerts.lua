@@ -78,7 +78,13 @@ end
 -- default.
 local function IsWhisperTab(frame)
     local title = GetChatWindowInfo(frame:GetID())
-    return title == L.newTabWhispers or title == "Whisper" or title == "Whispers"
+    if title == L.newTabWhispers or title == "Whisper" or title == "Whispers" then return true end
+    local groups = GetChatWindowMessages and {GetChatWindowMessages(frame:GetID())} or {}
+    if #groups == 0 then return false end
+    for _, group in ipairs(groups) do
+        if group ~= "WHISPER" and group ~= "BN_WHISPER" then return false end
+    end
+    return true
 end
 
 local function GetSettings()
@@ -115,6 +121,13 @@ local MENTION_SOUND = SOUNDKIT and SOUNDKIT.TELL_MESSAGE
 -- order, its class shown before its name), then the instruments the user
 -- liked in the rounds.
 local SOUNDS = {
+    { key = "harborDrop", file = "HarborDrop", label = "Harbor Drop", group = "chat" },
+    { key = "hearthKnock", file = "HearthKnock", label = "Hearth Knock", group = "chat" },
+    { key = "campCall", file = "CampCall", label = "Camp Call", group = "chat" },
+    { key = "quietReply", file = "QuietReply", label = "Quiet Reply", group = "chat" },
+    { key = "watchHorn", file = "WatchHorn", label = "Watch Horn", group = "warning" },
+    { key = "marchDrums", file = "MarchDrums", label = "March Drums", group = "warning" },
+    { key = "rallySignal", file = "RallySignal", label = "Rally Signal", group = "warning" },
 	{ key = "softDrop", file = "SoftDrop", label = "Soft Drop", group = "bazi" },
 	{ key = "doubleDrop", file = "DoubleDrop", label = "Double Drop", group = "bazi" },
 	{ key = "warmChime", file = "WarmChime", label = "Warm Chime", group = "bazi" },
@@ -125,7 +138,8 @@ local SOUNDS = {
 	{ key = "urgent", file = "Urgent", label = "Urgent", group = "bazi" },
 }
 Alerts.SOUNDS = SOUNDS
-Alerts.SOUND_GROUPS = {{key = "bazi", label = "Bazi UI"}}
+Alerts.SOUND_GROUPS = {{key = "chat", label = "Chat tones"}, {key = "warning", label = "Horns & drums"},
+    {key = "bazi", label = "Bazi UI"}}
 local SOUND_PATH = "Interface\\AddOns\\BaziUI\\Assets\\Sounds\\"
 local SOUND_FILES = {}
 for _, sound in ipairs(SOUNDS) do
@@ -1328,11 +1342,15 @@ local function UpdateWhisperDots()
             if dedicated and next(awaitingReply) then
                 if not mark then
                     mark = Alerts.CreateMark(tab)
-                    mark.dot:SetPoint("TOPRIGHT", tab, "TOPRIGHT", -3, -3)
+                    mark.dot:SetPoint("LEFT", tab:GetFontString(), "RIGHT", DOT_GAP, 0)
                     whisperMarks[tab] = mark
                 end
-                mark:Light(Theme.GOLD)
-            elseif mark then mark:Clear() end
+                if not mark:IsLit() then mark:Light(Theme.GOLD) end
+                ns.Tabs.SetLabelShift(tab, LabelShift(tab))
+            elseif mark and mark:IsLit() then
+                mark:Clear()
+                ns.Tabs.SetLabelShift(tab, litColors[tab] and LabelShift(tab) or 0)
+            end
         end
     end
 end
@@ -1343,8 +1361,27 @@ function Alerts.Init()
     for event in pairs(WHISPER_GROUPS) do whispers:RegisterEvent(event) end
     whispers:SetScript("OnEvent", function(_, event, _, person)
         if not ns.active or not (type(person) == "string" and canaccessvalue(person)) then return end
-        local key = WHISPER_GROUPS[event] .. ":" .. person:lower():gsub("%s+", "")
-        awaitingReply[key] = not event:find("_INFORM", 1, true) or nil
+        local group = WHISPER_GROUPS[event]
+        local name = person:lower():gsub("%s+", "")
+        local pending = awaitingReply[group] or {}
+        if event:find("_INFORM", 1, true) then
+            if pending[name] then pending[name] = nil
+            elseif group == "WHISPER" then
+                local short = name:match("^[^-]+")
+                local only
+                for candidate in pairs(pending) do
+                    if (not candidate:find("-", 1, true) or not name:find("-", 1, true))
+                        and candidate:match("^[^-]+") == short then
+                        if only then only = nil; break end
+                        only = candidate
+                    end
+                end
+                if only then pending[only] = nil end
+            end
+        else
+            pending[name] = true
+        end
+        awaitingReply[group] = next(pending) and pending or nil
         UpdateWhisperDots()
     end)
     hooksecurefunc("FCF_OpenNewWindow", UpdateWhisperDots)

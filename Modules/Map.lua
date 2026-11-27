@@ -825,7 +825,7 @@ local function addMapProgress(list, rows)
     local config = addon.QuestTracker.Settings()
     local trackerFrame = _G.BaziUIQuestTracker or UIParent
     local thickness = config.progressThickness * trackerFrame:GetEffectiveScale() / list:GetEffectiveScale()
-    local rowsWithBars, objectiveRows, objectivesByQuest, active, metrics, changedRows = {}, {}, {}, {}, {}, {}
+    local objectivesByQuest, active, metrics = {}, {}, {}
     local changed = false
     for objective in pool:EnumerateActive() do
         local id = objective.questID
@@ -833,17 +833,19 @@ local function addMapProgress(list, rows)
         local label = objective.Text
         local bar = objectiveBars[objective]
         if row and label and objective:IsShown() then
-            objectiveRows[objective] = row
-            metrics[row] = metrics[row] or {}
-            metrics[row][#metrics[row] + 1] = tostring(label:GetText()) .. ":" .. math.ceil(label:GetStringHeight())
-        end
-        if row and label and objective:IsShown() and config.progressBars then
-            local objectives = objectivesByQuest[id]
-            if not objectives then
-                objectives = getMapObjectives(id)
-                objectivesByQuest[id] = objectives
+            local textHeight = label:GetStringHeight()
+            local metric = metrics[row] or {height = 1, bars = 0}
+            metrics[row] = metric
+            metric.height = metric.height + textHeight + 2
+            local progress
+            if config.progressBars then
+                local objectives = objectivesByQuest[id]
+                if not objectives then
+                    objectives = getMapObjectives(id)
+                    objectivesByQuest[id] = objectives
+                end
+                progress = objectiveProgress(mapObjectiveText(label:GetText()), objectives)
             end
-            local progress = objectiveProgress(mapObjectiveText(label:GetText()), objectives)
             if progress then
                 active[objective] = true
                 if not bar then
@@ -854,10 +856,9 @@ local function addMapProgress(list, rows)
                     local track = bar:CreateTexture(nil, "BACKGROUND")
                     track:SetAllPoints()
                     track:SetColorTexture(0.43, 0.41, 0.40, 0.47)
+                    bar:SetPoint("TOPLEFT", label, "BOTTOMLEFT", 0, -2)
                     objectiveBars[objective] = bar
                 end
-                bar:ClearAllPoints()
-                bar:SetPoint("TOPLEFT", label, "BOTTOMLEFT", 0, -2)
                 local left, right = label:GetLeft(), questListRows[row].back:GetRight()
                 bar:SetWidth(left and right and math.max(1, right - left - 6) or label:GetWidth())
                 bar:SetHeight(thickness)
@@ -866,12 +867,12 @@ local function addMapProgress(list, rows)
                 bar:Show()
 
                 local extra = thickness + 4
-                local height = math.ceil(label:GetStringHeight()) + extra
-                if objective:GetHeight() ~= height then
-                    objective:SetHeight(height)
-                    changed, changedRows[row] = true, true
+                metric.height = metric.height + extra
+                metric.bars = metric.bars + 1
+                if math.abs(objective:GetHeight() - textHeight - extra) > 0.01 then
+                    objective:SetHeight(textHeight + extra)
+                    changed = true
                 end
-                rowsWithBars[row] = true
             end
         end
     end
@@ -884,33 +885,15 @@ local function addMapProgress(list, rows)
             end
         end
     end
-    local bottomByRow = {}
-    for objective, row in pairs(objectiveRows) do
-        local bottom = objective:GetBottom()
-        if bottom and rowsWithBars[row] then
-            bottomByRow[row] = math.min(bottomByRow[row] or bottom, bottom)
-        end
-    end
     for row, display in pairs(questListRows) do
-        if rows[row] then
-            local height = row:GetHeight()
-            display.nativeHeight = display.nativeHeight or height
-            local top, bottom = row:GetTop(), bottomByRow[row]
-            local parts = metrics[row] or {}
-            table.sort(parts)
-            local signature = tostring(row.questID or row.QuestID) .. ":" .. math.floor(row:GetWidth() + 0.5)
-                .. ":" .. tostring(thickness) .. ":" .. table.concat(parts, "\n")
-            if top and bottom and (signature ~= display.heightSignature or changedRows[row]) then
-                display.heightSignature = signature
-                display.stableHeight = math.max(30, math.floor(top - bottom + 4.5))
-            elseif not bottom then
-                display.heightSignature, display.stableHeight = nil, nil
-            end
-            local target = display.stableHeight or display.nativeHeight
-            if math.abs(target - height) > 0.01 then row:SetHeight(target); changed = true end
-        else
-            display.nativeHeight, display.heightSignature, display.stableHeight = nil, nil, nil
+        local metric = metrics[row]
+        local hasBars = metric and metric.bars > 0
+        if rows[row] and row.Text and metric and (hasBars or display.hasBars) then
+            -- Native title padding and objective spacing are measured without scroll-relative positions.
+            local target = 14 + row.Text:GetHeight() + metric.height
+            if math.abs(target - row:GetHeight()) > 0.01 then row:SetHeight(target); changed = true end
         end
+        display.hasBars = hasBars
     end
     return changed
 end
@@ -1396,10 +1379,7 @@ local function install()
     end
     if type(QuestLogQuests_Update) == "function" then
         hooksecurefunc("QuestLogQuests_Update", function()
-            for _, display in pairs(questListRows) do
-                display.nativeHeight = nil
-            end
-            if world:IsShown() then C_Timer.After(0, skinQuestList) end
+            if world:IsShown() then skinQuestList() end
         end)
     end
     addZoneHover()

@@ -253,11 +253,54 @@ local function compare(link, snapshot, profile, key)
     return best
 end
 function U.Compare(link, snapshot)
+    snapshot = snapshot or A.EquipmentSnapshot()
     local profile, key = weights(snapshot and snapshot.identity and snapshot.identity.token)
     return compare(link, snapshot, profile, key)
 end
 
+local nativeRewardsHooked
+local function updateNativeRewards()
+    if not (QuestFrameRewardPanel and QuestFrameRewardPanel:IsVisible() and QuestInfoFrame) then return end
+    local snapshot = A.EquipmentSnapshot()
+    local function paint(parent, depth)
+        if not parent or depth > 5 then return end
+        local upgrade = parent.baziQuestUpgrade
+        if parent.type == "choice" and parent.GetID and parent:IsShown() then
+            local id = parent:GetID()
+            local link = D.Call(GetQuestItemLink, "choice", id) or select(6, D.Call(GetQuestItemInfo, "choice", id))
+            local result = link and U.Compare(link, snapshot)
+            if result and not upgrade then
+                upgrade = parent:CreateTexture(nil, "OVERLAY", nil, 4)
+                upgrade:SetTexture("Interface\\AddOns\\BaziUI\\Assets\\Icons\\Bazi\\ChevronUp.tga")
+                upgrade:SetSize(15, 15)
+                upgrade:SetVertexColor(0.36, 1, 0.43)
+                upgrade:SetPoint("TOPRIGHT", parent.Icon or parent, "TOPRIGHT", 0, 0)
+                parent.baziQuestUpgrade = upgrade
+            end
+            if upgrade then upgrade:SetShown(result ~= nil and result ~= false) end
+        elseif upgrade then upgrade:Hide() end
+        for _, child in ipairs({parent:GetChildren()}) do paint(child, depth + 1) end
+    end
+    paint(QuestInfoFrame.rewardsFrame or QuestFrameRewardPanel, 0)
+end
+
+local function hookNativeRewards()
+    if not nativeRewardsHooked and QuestInfo_Display then
+        hooksecurefunc("QuestInfo_Display", function() C_Timer.After(0, updateNativeRewards) end)
+        nativeRewardsHooked = true
+    end
+end
+A.On("ready", hookNativeRewards)
+A.On("PLAYER_LOGIN", hookNativeRewards)
+A.On("QUEST_COMPLETE", function()
+    hookNativeRewards()
+    C_Timer.After(0, updateNativeRewards)
+end)
+A.On("GET_ITEM_INFO_RECEIVED", updateNativeRewards)
+
 local pending, shown, marks = {}, {}, {}
+local knownBagItems
+local dashboardPending = {}
 local dashboardLink, dashboardUpgrades = nil, {}
 local function enabled() return S.IsEnabled("upgrade", "Equipment") end
 
@@ -279,20 +322,29 @@ local function reveal(link)
     if inventory.RevealUpgrade then inventory.RevealUpgrade(link) end
 end
 
+local function announceDashboardUpgrade(link, name)
+    local expires = dashboardPending[link]
+    if not expires then return end
+    dashboardPending[link] = nil
+    if expires >= GetTime() then D.Notify("upgrade", "Equipment upgrade · " .. name) end
+end
+
 function U.DashboardUpgrades()
     local rows = {}
     for _, entry in ipairs(dashboardUpgrades) do
         local link = entry.link
         rows[#rows + 1] = {label = "Equip " .. entry.name, labelColor = S.colors.success,
             tooltip = "Click to show this upgrade in your bags.", click = function() reveal(link) end,
+            onShown = dashboardPending[link] and function() announceDashboardUpgrade(link, entry.name) end or nil,
             icon = "Interface\\AddOns\\BaziUI\\Assets\\Icons\\Bazi\\ChevronUp.tga"}
     end
     return rows
 end
 
-local function refresh()
+local function refresh(allowNewBagUpgrades)
     if not addon.db then return end
-    local current, changed, found, byID = {}, false, {}, {}
+    local current, changed, found, byID, bagItems = {}, false, {}, {}, {}
+    local now, newest = GetTime()
     local snapshot = A.current
     if enabled() and snapshot and snapshot.identity and C_Container then
         local profile, key = weights(snapshot.identity.token)
@@ -302,6 +354,10 @@ local function refresh()
                 local link = call(C_Container.GetContainerItemLink, bag, slot)
                 local id = A.ID(link)
                 if id then
+                    bagItems[link] = true
+                    if allowNewBagUpgrades == true and knownBagItems and not knownBagItems[link] and not pending[link] then
+                        pending[link] = now + 12
+                    end
                     if byID[id] == nil then byID[id] = link
                     elseif byID[id] ~= link then byID[id] = false end
                 end
@@ -321,26 +377,30 @@ local function refresh()
         if not found[link] then S.Set(id, "upgrade", "Equipment", "progress"); shown[link] = nil
         elseif not S.active[id] then shown[link] = nil end
     end
-    local now, newest = GetTime()
+    knownBagItems = enabled() and snapshot and snapshot.identity and snapshot.gear and bagItems or nil
+    local processed = {}
+    for link, expires in pairs(dashboardPending) do
+        if not found[link] or expires < now then dashboardPending[link] = nil end
+    end
     for link, untilTime in pairs(pending) do
         local bagLink = found[link] and link or byID[A.ID(link)]
         local result = bagLink and found[bagLink]
         if now > untilTime or not enabled() then
             pending[link] = nil
+        elseif result and processed[bagLink] then
+            pending[link] = nil
         elseif result then
+            processed[bagLink] = true
             local alertID = "upgrade:" .. bagLink
             local title = "Equipment upgrade · " .. result.item.name
             local options = D.WidgetSettings("smartAlerts")
             local alerts = S.Settings()
-            local dashboard = D.Settings().enabled and options.enabled and options.mode ~= "hidden"
-            local combat = InCombatLockdown()
-            local notify = dashboard and not alerts.dnd and not alerts.critical
-                and (combat and alerts.combat or not combat and alerts.peace)
-            if notify then D.Notify("upgrade", title) end
+            local dashboard = alerts.dashboard and D.Settings().enabled and options.enabled and options.mode ~= "hidden"
+            if dashboard then dashboardPending[bagLink] = math.max(untilTime, now + 3) end
             S.Set(alertID, "upgrade", "Equipment", "progress", title,
                 "Click to show in bags", false, function()
                     reveal(bagLink)
-                end, notify and {sound = true, chatWarning = true} or nil)
+                end, dashboard and {sound = true, chatWarning = true} or nil)
             shown[bagLink], pending[link] = alertID, nil
             if not newest or untilTime > newest.time or untilTime == newest.time and bagLink < newest.link then
                 newest = {link = bagLink, time = untilTime}
@@ -364,18 +424,20 @@ local function refresh()
         end
     end
     dashboardUpgrades = upgrades
-    if changedUpgrades then D.Invalidate("smartAlerts") end
+    if changedUpgrades or newest then D.Invalidate("smartAlerts") end
 end
 
 A.On("snapshot", function(_, dirty)
-    if dirty.bags or dirty.gear or dirty.identity then refresh() end
+    if dirty.bags or dirty.gear or dirty.identity then refresh(dirty.bags) end
 end)
 for _, event in ipairs({"PLAYER_SPECIALIZATION_CHANGED", "PLAYER_TALENT_UPDATE", "CHARACTER_POINTS_CHANGED",
     "ACTIVE_TALENT_GROUP_CHANGED", "TRAIT_CONFIG_UPDATED", "GET_ITEM_INFO_RECEIVED", "settings"}) do
     A.On(event, refresh)
 end
-A.On("lootDetails", function(_, _, link, item)
-    if not enabled() or not link or item.class ~= 2 and item.class ~= 4 then return end
+A.On("loot", function(_, _, link)
+    if not enabled() or not link then return end
+    local class = select(6, D.Call(C_Item and C_Item.GetItemInfoInstant or GetItemInfoInstant, link))
+    if read(class) and type(class) == "number" and class ~= 2 and class ~= 4 then return end
     if not D.HasRoom(pending) then wipe(pending) end
     pending[link] = GetTime() + 10
     refresh()

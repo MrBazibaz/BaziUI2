@@ -4,7 +4,7 @@ local frame, content, emptyLabel, scroll, scrollbar, protectedButton, chooseButt
 function inventory.GetCleanupMoverFrame() return frame end
 local origin, pendingLoot, target, choosing
 local lootOpen, selectedLoot, queued, queueCleanupRefresh
-local questOpen, questAttempt, questBlocked
+local questOpen, questAttempt, questBlocked, lastTurnIn
 local rolls = {}
 local protected = {[7005] = true, [2901] = true, [5956] = true, [6219] = true,
     [6256] = true, [6218] = true, [6339] = true, [11130] = true, [11145] = true, [16207] = true,
@@ -181,13 +181,14 @@ end
 
 local function blockedQuest()
     if not questBlocked or not questOpen then return end
-    local item = questReward(questAttempt or QuestInfoFrame and QuestInfoFrame.itemChoice)
+    local item = lastTurnIn and lastTurnIn.reward or questReward(questAttempt or QuestInfoFrame and QuestInfoFrame.itemChoice)
     if #item.items > 0 and not fits(item) then return item end
     local _, free = bagCapacity()
     if free[0] < questBlocked then
         item.requiredFree = questBlocked
         return item
     end
+    questBlocked = nil
 end
 
 local function blockedRoll()
@@ -219,7 +220,7 @@ local function lootAfterDeletion()
 end
 
 local function deleteItem(request)
-    if GetCursorInfo() or InCombatLockdown() or origin ~= request.origin then return end
+    if GetCursorInfo() or origin ~= request.origin then return end
     local snapshot = request.item
     local best
     if origin == "loot" then best = blockedLoot()
@@ -236,8 +237,13 @@ local function deleteItem(request)
     container.PickupContainerItem(current.bag, current.slot)
     local kind, itemID = GetCursorInfo()
     if kind ~= "item" or itemID ~= current.itemID then ClearCursor(); return end
-    DeleteCursorItem()
-    if GetCursorInfo() then ClearCursor(); return end
+    local attempted = pcall(DeleteCursorItem)
+    if not attempted or GetCursorInfo() then
+        ClearCursor()
+        BaziUI:Print("The client blocked item deletion. Try again after combat if you are still fighting.")
+        return
+    end
+    if BaziUI.ActivityStats then BaziUI.ActivityStats.RecordCleanupDiscard(current.stackCount) end
     if origin ~= "loot" then queueCleanupRefresh(); return end
     pendingLoot = best
     C_Timer.After(1, function()
@@ -414,9 +420,8 @@ function inventory.RefreshCleanup()
         local replace = origin == "loot" or origin == "preview"
         row.vendor:SetText(showProtected and "" or ("Vendor  " .. money(value(item)) .. (replace
             and ((delta >= 0 and "  |cff83cf83+" or "  |cffff795e-") .. money(math.abs(delta)) .. "|r") or "")))
-        local combat = InCombatLockdown() and not showProtected
-        row.action:SetText(showProtected and "Unprotect" or combat and "In combat" or replace and "Replace" or "Delete")
-        row.action:SetEnabled(origin ~= "preview" and (showProtected or not InCombatLockdown()))
+        row.action:SetText(showProtected and "Unprotect" or replace and "Replace" or "Delete")
+        row.action:SetEnabled(origin ~= "preview")
         row.icon:GetParent():EnableMouse(origin ~= "preview")
         row:Show()
     end
@@ -462,8 +467,8 @@ function inventory.OpenCleanup(source)
     frame:SetFrameStrata(source == "loot" and "DIALOG" or "FULLSCREEN_DIALOG")
     frame:Show()
     frame:Raise()
-    if source ~= "preview" then inventory.ShowFirstUseGuide(frame, "hideCleanupGuide",
-        "Click a loot item to choose what to keep. Replace or Delete frees a regular bag slot. Use Choose item to pick from your bags.") end
+    inventory.ShowFirstUseGuide(frame, "hideCleanupGuideV3", "Inventory Cleanup",
+        "When your bags are full, Cleanup selects quest loot first, then the item with the highest vendor value. Click any item in the loot window to choose it instead.\n\nClick Replace beside the bag item to trade it for your selection, or use Choose item to pick from your bags. Delete frees space for a quest reward or loot roll.", "top")
     inventory.RefreshCleanup()
     scrollbar:SetValue(scroll:GetVerticalScrollRange())
     inventory.RefreshLoot()
@@ -497,11 +502,37 @@ queueCleanupRefresh = function()
     C_Timer.After(0, refreshLootCleanup)
 end
 
+function inventory.NoteQuestTurnIn(id, choice, afterTurnIn)
+    if not read(id) or type(id) ~= "number" or id <= 0 then return end
+    questOpen = id
+    if read(choice) then questAttempt = choice end
+    lastTurnIn = {id = id, choice = choice, at = GetTime(), reward = not afterTurnIn and questReward(questAttempt or 0) or nil}
+    C_Timer.After(2, function()
+        if lastTurnIn and GetTime() - lastTurnIn.at >= 2 and not questBlocked then lastTurnIn = nil end
+    end)
+end
+
+if AcceptQuest then
+    hooksecurefunc("AcceptQuest", function()
+        local id = GetQuestID()
+        if read(id) and type(id) == "number" and id > 0 then inventory.NoteQuestTurnIn(id, 0, true) end
+    end)
+end
+
+if CompleteQuest then
+    hooksecurefunc("CompleteQuest", function()
+        local id = GetQuestID()
+        if read(id) and type(id) == "number" and id > 0 then inventory.NoteQuestTurnIn(id, 0) end
+    end)
+end
+
 if GetQuestReward then
     hooksecurefunc("GetQuestReward", function(choice)
         local id = GetQuestID()
         if not questOpen and read(id) and type(id) == "number" and id > 0 then questOpen = id end
-        if questOpen and read(choice) then questAttempt = choice end
+        if questOpen and (not lastTurnIn or lastTurnIn.id ~= questOpen or lastTurnIn.choice ~= choice) then
+            inventory.NoteQuestTurnIn(questOpen, choice)
+        end
     end)
 end
 if RollOnLoot then
@@ -515,7 +546,7 @@ end
 
 for _, event in ipairs({"LOOT_OPENED", "LOOT_CLOSED", "LOOT_SLOT_CHANGED", "LOOT_SLOT_CLEARED",
     "BAG_UPDATE_DELAYED", "BAG_OVERFLOW_WITH_FULL_INVENTORY", "GET_ITEM_INFO_RECEIVED", "QUEST_LOG_UPDATE", "UI_ERROR_MESSAGE",
-    "QUEST_COMPLETE", "QUEST_PROGRESS", "QUEST_FINISHED", "QUEST_TURNED_IN", "START_LOOT_ROLL", "CANCEL_LOOT_ROLL",
+    "QUEST_COMPLETE", "QUEST_PROGRESS", "QUEST_DETAIL", "QUEST_FINISHED", "QUEST_TURNED_IN", "START_LOOT_ROLL", "CANCEL_LOOT_ROLL",
     "CANCEL_ALL_LOOT_ROLLS", "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED"}) do
     pcall(events.RegisterEvent, events, event)
 end
@@ -525,11 +556,15 @@ events:SetScript("OnEvent", function(_, event, id, value)
     elseif event == "LOOT_CLOSED" then
         lootOpen, pendingLoot, selectedLoot = nil, nil, nil
         if origin == "loot" then closeCleanup() end
-    elseif event == "QUEST_COMPLETE" or event == "QUEST_PROGRESS" then
+    elseif event == "QUEST_COMPLETE" or event == "QUEST_PROGRESS" or event == "QUEST_DETAIL" then
         local id = GetQuestID()
         questOpen, questAttempt, questBlocked = read(id) and id or true, nil, nil
-    elseif event == "QUEST_FINISHED" or event == "QUEST_TURNED_IN" and id == questOpen then
-        questOpen, questAttempt, questBlocked = nil, nil, nil
+    elseif event == "QUEST_TURNED_IN" then
+        if read(id) and (not lastTurnIn or lastTurnIn.id ~= id) then inventory.NoteQuestTurnIn(id, 0, true) end
+    elseif event == "QUEST_FINISHED" then
+        if not questBlocked and (not lastTurnIn or GetTime() - lastTurnIn.at > 2) then
+            questOpen, questAttempt, lastTurnIn = nil, nil, nil
+        end
     elseif event == "START_LOOT_ROLL" then
         if not read(id) or not read(value) or type(id) ~= "number" or type(value) ~= "number" or value <= 0 then return end
         rolls[id] = GetTime() + value / 1000
@@ -539,10 +574,14 @@ events:SetScript("OnEvent", function(_, event, id, value)
     elseif event == "CANCEL_ALL_LOOT_ROLLS" then
         wipe(rolls)
     elseif event == "UI_ERROR_MESSAGE" or event == "BAG_OVERFLOW_WITH_FULL_INVENTORY" then
-        if event == "UI_ERROR_MESSAGE" and (not read(value) or value ~= ERR_INV_FULL) then return end
-        if questOpen and (not lootOpen or questAttempt ~= nil) then
+        local isFull = event == "BAG_OVERFLOW_WITH_FULL_INVENTORY"
+            or read(value) and (value == ERR_INV_FULL or ERR_BAG_FULL and value == ERR_BAG_FULL)
+            or read(id) and Enum and Enum.UIError and id == Enum.UIError.InventoryFull
+        if not isFull then return end
+        local recent = lastTurnIn and GetTime() - lastTurnIn.at <= 2
+        if recent or questOpen and not lootOpen then
             local _, free = bagCapacity()
-            questBlocked = free[0] + 1
+            questBlocked = questBlocked or free[0] + 1
         end
     end
     queueCleanupRefresh()

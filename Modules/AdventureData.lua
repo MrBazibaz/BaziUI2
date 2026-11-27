@@ -106,6 +106,10 @@ local function identity()
         money = call(GetMoney), rested = call(GetXPExhaustion)}
 end
 
+function A.EquipmentSnapshot()
+    return {identity = identity(), gear = equipment()}
+end
+
 local function freeSlots()
     local free, known = 0, false
     for _, bag in ipairs(addon.Inventory.BagIDs()) do
@@ -229,13 +233,14 @@ local dirtyEvents = {
     ZONE_CHANGED = "identity", ZONE_CHANGED_INDOORS = "identity", ZONE_CHANGED_NEW_AREA = "identity",
     QUEST_LOG_UPDATE = "quests", QUEST_WATCH_UPDATE = "quests", UPDATE_PENDING_MAIL = "mail",
     UNIT_PET = "class", UNIT_AURA = "class", PET_UI_UPDATE = "class", UPDATE_FACTION = "reputation",
-    PLAYER_AMMO_CHANGED = "class", UNIT_INVENTORY_CHANGED = "class", SPELLS_CHANGED = "class",
+    PLAYER_AMMO_CHANGED = "class", UNIT_INVENTORY_CHANGED = "class", SPELLS_CHANGED = "class", WEAPON_ENCHANT_CHANGED = "class",
+    MINIMAP_UPDATE_TRACKING = "class", PLAYER_ALIVE = "class", PLAYER_UNGHOST = "class", PLAYER_DEAD = "class",
     PLAYER_REGEN_DISABLED = "class", PLAYER_REGEN_ENABLED = "class",
 }
-local extraEvents = {"PLAYER_LOGIN", "PLAYER_ENTERING_WORLD", "PLAYER_LOGOUT", "QUEST_TURNED_IN", "CHAT_MSG_LOOT",
+local extraEvents = {"PLAYER_LOGIN", "PLAYER_ENTERING_WORLD", "PLAYER_LOGOUT", "QUEST_TURNED_IN", "QUEST_COMPLETE", "CHAT_MSG_LOOT", "UNIT_SPELLCAST_SUCCEEDED",
     "BANKFRAME_OPENED", "BANKFRAME_CLOSED", "MAIL_SHOW", "MAIL_INBOX_UPDATE", "GET_ITEM_INFO_RECEIVED",
     "AUCTION_HOUSE_SHOW", "AUCTION_HOUSE_CLOSED", "OWNED_AUCTIONS_UPDATED", "UPDATE_INSTANCE_INFO", "NEW_RECIPE_LEARNED",
-    "ENCOUNTER_END", "LFG_COMPLETION_REWARD", "CHALLENGE_MODE_COMPLETED", "PVP_MATCH_COMPLETE", "PLAYER_DEAD", "PLAYER_XP_UPDATE", "PLAYER_TALENT_UPDATE", "CHARACTER_POINTS_CHANGED",
+    "ENCOUNTER_END", "LFG_COMPLETION_REWARD", "CHALLENGE_MODE_COMPLETED", "PVP_MATCH_COMPLETE", "PLAYER_XP_UPDATE", "PLAYER_TALENT_UPDATE", "CHARACTER_POINTS_CHANGED",
     "TRAIT_CONFIG_UPDATED", "TRAIT_CONFIG_LIST_UPDATED", "PLAYER_SPECIALIZATION_CHANGED", "ACTIVE_TALENT_GROUP_CHANGED"}
 for event in pairs(dirtyEvents) do
     if event == "UNIT_AURA" and A.events.RegisterUnitEvent then
@@ -263,6 +268,14 @@ A.events:SetScript("OnEvent", function(_, event, ...)
     if not logged then return end
     if event == "BANKFRAME_OPENED" then bankOpen = true end
     if event == "BANKFRAME_CLOSED" then bankOpen = false end
+    if event == "UNIT_SPELLCAST_SUCCEEDED" then
+        local unit, _, spell = ...
+        if unit == "player" and read(spell) and type(spell) == "number" then
+            A.Emit("playerSpellCast", spell)
+            if A.Settings("alerts").enabled then A.Queue("class") end
+        end
+        return
+    end
     if not enabled() then
         if event == "PLAYER_LOGIN" then A.Emit("ready") end
         return

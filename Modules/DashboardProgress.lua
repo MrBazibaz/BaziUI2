@@ -43,21 +43,22 @@ local function smartQuests(options)
     nextCompletion = nil
     wipe(insideAreas)
     for id, entry in pairs(questSnapshot) do
-        if insideQuestArea(id) then
-            insideAreas[id] = true
-            if cfg.showQuestItems then
-                local index = entry.index or call(q.GetLogIndexForQuestID, id)
-                local link, icon
-                if tracker.QuestUseItem then link, icon = call(tracker.QuestUseItem, id, index)
-                elseif index then link, icon = call(GetQuestLogSpecialItemInfo, index) end
-                if type(link) == "string" and read(icon) and icon then
-                    local itemID = link:match("|Hitem:(%d+)")
-                    if itemID and not seenItems[itemID] then
-                        seenItems[itemID] = true
-                        items[#items + 1] = {id = itemID, link = link, icon = icon}
-                    end
+        local nearby = insideQuestArea(id)
+        if cfg.showQuestItems then
+            local index = entry.index or call(q.GetLogIndexForQuestID, id)
+            local link, icon, special
+            if tracker.QuestUseItem then link, icon, special = call(tracker.QuestUseItem, id, index)
+            elseif index then link, icon = call(GetQuestLogSpecialItemInfo, index) end
+            if (nearby or special) and type(link) == "string" and read(icon) and icon then
+                local itemID = link:match("|Hitem:(%d+)") or link:match("^item:(%d+)")
+                if itemID and not seenItems[itemID] then
+                    seenItems[itemID] = true
+                    items[#items + 1] = {id = itemID, link = link, icon = icon}
                 end
             end
+        end
+        if nearby then
+            insideAreas[id] = true
             entry.dashboardObjectives = entry.dashboardObjectives or call(q.GetQuestObjectives, id) or {}
             for index, objective in ipairs(entry.dashboardObjectives) do
                 local key = id .. ":" .. index

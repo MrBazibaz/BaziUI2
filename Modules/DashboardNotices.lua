@@ -13,10 +13,14 @@ local routeHistory
 local function grouped()
     return IsInGroup and (IsInGroup() or LE_PARTY_CATEGORY_INSTANCE and IsInGroup(LE_PARTY_CATEGORY_INSTANCE))
 end
-local killFormats = {"COMBATLOG_XPGAIN_FIRSTPERSON_UNNAMED", "COMBATLOG_XPGAIN_FIRSTPERSON",
+local killFormats = {"COMBATLOG_XPGAIN_FIRSTPERSON",
     "COMBATLOG_XPGAIN_FIRSTPERSON_GROUP", "COMBATLOG_XPGAIN_FIRSTPERSON_RAID",
     "COMBATLOG_XPGAIN_EXHAUSTION1", "COMBATLOG_XPGAIN_EXHAUSTION2",
-    "COMBATLOG_XPGAIN_EXHAUSTION4", "COMBATLOG_XPGAIN_EXHAUSTION5"}
+    "COMBATLOG_XPGAIN_EXHAUSTION4", "COMBATLOG_XPGAIN_EXHAUSTION5",
+    "COMBATLOG_XPGAIN_EXHAUSTION1_GROUP", "COMBATLOG_XPGAIN_EXHAUSTION1_RAID",
+    "COMBATLOG_XPGAIN_EXHAUSTION2_GROUP", "COMBATLOG_XPGAIN_EXHAUSTION2_RAID",
+    "COMBATLOG_XPGAIN_EXHAUSTION4_GROUP", "COMBATLOG_XPGAIN_EXHAUSTION4_RAID",
+    "COMBATLOG_XPGAIN_EXHAUSTION5_GROUP", "COMBATLOG_XPGAIN_EXHAUSTION5_RAID"}
 local milestones = {
     {at = 3, title = "On a roll", color = {0.73, 0.58, 0.96}},
     {at = 5, title = "Killing spree", color = {0.96, 0.69, 0.39}},
@@ -24,7 +28,7 @@ local milestones = {
     {at = 20, title = "Unstoppable", color = {1, 0.79, 0.33}},
 }
 
-local function matchFormat(message, template, partial)
+local function matchFormat(message, template, partial, argument)
     if type(template) ~= "string" then return end
     local pattern, positions, cursor = {partial and "" or "^"}, {}, 1
     while true do
@@ -40,9 +44,11 @@ local function matchFormat(message, template, partial)
     if not partial then pattern[#pattern + 1] = "$" end
     local captures = {message:match(table.concat(pattern))}
     for index, position in ipairs(positions) do
-        if position == 1 then return captures[index] end
+        if position == (argument or 1) then return captures[index] end
     end
 end
+
+D.MatchChatFormat = matchFormat
 
 local coinValues = {GOLD = 10000, SILVER = 100, COPPER = 1}
 local function readCoins(text)
@@ -53,6 +59,15 @@ local function readCoins(text)
         if amount then total = total + amount * multiplier end
     end
     return total > 0 and total or nil
+end
+
+function D.ReadLootMoney(message)
+    if not D.Read(message) or type(message) ~= "string" then return end
+    for _, key in ipairs(moneyFormats) do
+        local amount = matchFormat(message, _G[key])
+        local copper = amount and readCoins(amount)
+        if copper then return copper end
+    end
 end
 
 local function classify(event, message)
@@ -66,11 +81,8 @@ local function classify(event, message)
         local id, count, link = D.ReadSelfLoot(message)
         if id then return "item", id, count, link end
     elseif event == "CHAT_MSG_MONEY" then
-        for _, key in ipairs(moneyFormats) do
-            local amount = matchFormat(message, _G[key])
-            local copper = amount and readCoins(amount)
-            if copper then return "money", copper end
-        end
+        local copper = D.ReadLootMoney(message)
+        if copper then return "money", copper end
     end
 end
 
@@ -112,7 +124,9 @@ end
 function D.IsKillMessage(message)
     if not D.Read(message) or type(message) ~= "string" then return false end
     for _, key in ipairs(killFormats) do
-        if matchFormat(message, _G[key]) then return true end
+        local amount = matchFormat(message, _G[key], false, 2)
+        local xp = tonumber(amount)
+        if xp and xp > 0 then return true end
     end
     return false
 end

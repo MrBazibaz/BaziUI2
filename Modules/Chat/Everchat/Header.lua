@@ -590,56 +590,26 @@ local function UpdatePulse()
 end
 Header.UpdatePulse = UpdatePulse
 
--- The first time the tabs don't fit, a one-time tip above the header says
--- they scroll (the wheel was found only by chance; the tab tooltip's green
--- line needs a hover). It looks like the game's own help tips: Blizzard's
--- GlowBoxTemplate and GlowBoxArrowTemplate, visual templates with no scripts,
--- on a frame of our own (Blizzard's HelpTip system keeps shared tables, which
--- addon calls would taint). Gone for good once the wheel is used or it's
--- closed (EverchatDB.tipScrollShown).
-local TIP_WIDTH = 250
-local TIP_PADDING = 15
-local TIP_ARROW_GAP = 22
-local scrollTip
-
 local function DismissScrollTip()
-	ns.db.tipScrollShown = true
-	if scrollTip then
-		scrollTip:Hide()
-	end
-end
-
-local function CreateScrollTip()
-	scrollTip = CreateFrame("Frame", nil, dock, "GlowBoxTemplate")
-	scrollTip:SetFrameStrata("DIALOG")
-	scrollTip:SetWidth(TIP_WIDTH)
-	scrollTip:EnableMouse(true)
-	local text = scrollTip:CreateFontString(nil, "OVERLAY", "GameFontHighlightLeft")
-	text:SetPoint("TOPLEFT", TIP_PADDING, -TIP_PADDING)
-	text:SetWidth(TIP_WIDTH - 2 * TIP_PADDING - 10)
-	text:SetText(L.tipScroll)
-	scrollTip:SetHeight(text:GetStringHeight() + 2 * TIP_PADDING)
-	local arrow = CreateFrame("Frame", nil, scrollTip, "GlowBoxArrowTemplate")
-	arrow:SetPoint("TOP", scrollTip, "BOTTOM", 0, 3)
-	local close = CreateFrame("Button", nil, scrollTip, "UIPanelCloseButton")
-	close:SetSize(24, 24)
-	close:SetPoint("TOPRIGHT", 2, 2)
-	close:SetScript("OnClick", DismissScrollTip)
-	scrollTip:SetPoint("BOTTOM", strip, "TOP", 0, TIP_ARROW_GAP)
+    local inventory = BaziUI.Inventory
+    if inventory and not inventory.Settings().hideChatTabScrollGuide then
+        inventory.Settings().hideChatTabScrollGuide = true
+        inventory.RefreshFirstUseGuides()
+    end
 end
 
 local function UpdateScrollTip()
-	if ns.db.tipScrollShown then
-		return
-	end
-	if maxScroll > 0 then
-		if not scrollTip then
-			CreateScrollTip()
-		end
-		scrollTip:Show()
-	elseif scrollTip then
-		scrollTip:Hide()
-	end
+    local inventory = BaziUI.Inventory
+    if not inventory then return end
+    local settings = inventory.Settings()
+    if settings.hideChatTabScrollGuide == nil then
+        settings.hideChatTabScrollGuide = not not ns.db.tipScrollShown
+    end
+    if maxScroll > 0 then
+        inventory.ShowFirstUseGuide(strip, "hideChatTabScrollGuide", nil, L.tipScroll)
+    else
+        inventory.HideFirstUseGuide(strip, "hideChatTabScrollGuide")
+    end
 end
 
 -- Lays the tabs out from `tabs` (with a gap where a dragged tab would land),

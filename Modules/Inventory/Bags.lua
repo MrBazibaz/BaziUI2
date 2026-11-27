@@ -165,7 +165,8 @@ local function pickup(item)
 end
 
 local function hasItemTarget()
-    return (SpellCanTargetItem and SpellCanTargetItem()) or (SpellCanTargetItemID and SpellCanTargetItemID())
+    return (SpellCanTargetItem and SpellCanTargetItem() == true)
+        or (SpellCanTargetItemID and SpellCanTargetItemID() == true)
 end
 
 local function acceptsTarget(item, feeding)
@@ -358,10 +359,13 @@ local function cell(index)
     button:SetAttribute("_onstate-bazibagcombat", [[
         if newstate == "combat" then
             self:SetAttribute("type1", nil)
-            self:SetAttribute("type2", nil)
+            local item = self:GetAttribute("combatItem")
+            self:SetAttribute("item2", item)
+            self:SetAttribute("type2", item and "item" or nil)
             self:SetAttribute("target-bag1", nil)
             self:SetAttribute("target-slot1", nil)
         else
+            self:SetAttribute("item2", self:GetAttribute("bagItem"))
             self:SetAttribute("type2", "item")
         end
     ]])
@@ -497,10 +501,13 @@ local function cell(index)
             self:SetAttribute("item1", feedFallback and ("%d %d"):format(self.item.bag, self.item.slot) or nil)
             self:SetAttribute("type1", feedFallback and "item" or nil)
         elseif mouse == "RightButton" then
-            self:SetAttribute("type2", not self.vendorClick and not self.mailClick and not self.targetClick and "item" or nil)
+            local item = self.item
+            local useItem = not self.vendorClick and not self.mailClick and not self.targetClick
+                and item and not item.isLocked and currentBagItem(item)
+            self:SetAttribute("type2", useItem and "item" or nil)
         end
     end)
-    button:HookScript("OnClick", function(self, mouse)
+    button:HookScript("PostClick", function(self, mouse)
         if InCombatLockdown() or self.targetClick or self.vendorBlocked then return end
         local item = self.item
         if mouse == "RightButton" then
@@ -616,10 +623,48 @@ function inventory.RefreshUpgradeMarks()
     end
 end
 
+local function refreshCapacityCounts()
+    if mode ~= "bags" then return end
+    for kind, slots in pairs(inventory.Capacity()) do
+        local bar = frame.capacity.bars[kind]
+        if bar and bar:IsShown() then
+            local used = slots.total - slots.free
+            bar.slots = slots
+            bar.fill:SetMinMaxValues(0, slots.total)
+            bar.fill:SetValue(used)
+            bar.count:SetFormattedText("%d / %d", used, slots.total)
+        end
+    end
+end
+
+local function refreshCombatBagCounts()
+    if mode ~= "bags" then return end
+    refreshCapacityCounts()
+    local db = inventory.Settings()
+    for _, button in ipairs(cells) do
+        local item = button.item
+        if button:IsShown() and item and not item.empty and item.class == 0 then
+            local current = currentBagItem(item)
+            local count = current and current.stackCount
+            local hasCount = readable(count) and type(count) == "number"
+            local text = hasCount and (db.hideIcons and (item.name or "") or count > 1 and count or "") or ""
+            button.text:SetText(text)
+            button.icon:SetAlpha(current and 1 or 0)
+            button.questGlow:SetAlpha(current and 1 or 0)
+            button.questStarter:SetAlpha(current and 1 or 0)
+        end
+    end
+end
+
 function inventory.RefreshBags(rebuildMerchantLayout, prepareHidden)
-    if not frame or (not frame:IsShown() and not prepareHidden) or InCombatLockdown() then return end
+    if not frame or (not frame:IsShown() and not prepareHidden) then return end
+    if InCombatLockdown() then
+        if frame:IsShown() then refreshCombatBagCounts() end
+        return
+    end
     local merchant = atMerchant()
     if merchant and merchantLayout and not rebuildMerchantLayout then
+        refreshCapacityCounts()
         for _, button in ipairs(cells) do
             if button:IsShown() then merchantSlot(button) end
         end
@@ -761,6 +806,9 @@ function inventory.RefreshBags(rebuildMerchantLayout, prepareHidden)
                 local revealed = not targeting and isRevealedUpgrade(item)
                 local dim = targeting and not matches or not targeting and revealUpgrade and not revealed
                 button:SetAttribute("item2", itemSlot)
+                button:SetAttribute("bagItem", itemSlot)
+                local combatItem = itemSlot and item.class == 0 and item.itemID and mode == "bags" and not merchant
+                button:SetAttribute("combatItem", combatItem and ("item:" .. item.itemID) or nil)
                 button:SetAlpha(dim and 0.32 or 1)
                 button:ClearAllPoints()
                 button:SetSize(size, size)
@@ -769,6 +817,8 @@ function inventory.RefreshBags(rebuildMerchantLayout, prepareHidden)
                 if scrollToUpgrade and revealed and not upgradeOffset then
                     upgradeOffset = y + 23 + math.floor((j - 1) / width) * (size + gap)
                 end
+                button.icon:SetAlpha(1)
+                button.questStarter:SetAlpha(1)
                 button.icon:SetColorTexture(0.14, 0.08, 0.04)
                 if item.iconFileID and not db.hideIcons then button.icon:SetTexture(item.iconFileID) end
                 local unusable = not revealed and db.unusable and item.hyperlink and IsUsableItem and not IsUsableItem(item.hyperlink)
@@ -1183,8 +1233,8 @@ function inventory.OpenBags(requested)
     frame:Show()
     frame:Raise()
     inventory.RefreshBags(true)
-    if mode == "bags" and not (BaziUI.Movers and BaziUI.Movers.IsActive()) then inventory.ShowFirstUseGuide(frame, "hideBagsGuide",
-        "Use Search to find an item. Open the bag strip to move items into a specific bag or right-click an empty bag to remove it.") end
+    if mode == "bags" and not (BaziUI.Movers and BaziUI.Movers.IsActive()) then inventory.ShowFirstUseGuide(frame, "hideBagsGuideV2", "Using your bags",
+        "Right-click food, potions or equipment to use them. Search by item name. Drag an item onto a category heading to assign it there. Open the bag strip to move an item to another bag or right-click an empty equipped bag to remove it.") end
 end
 
 function inventory.RevealUpgrade(link)
@@ -1316,7 +1366,7 @@ local bindings = {ToggleBackpack = "toggle", ToggleAllBags = "toggle", ToggleBag
     CloseAllBags = "close", CloseBackpack = "close"}
 
 local events = CreateFrame("Frame")
-for _, event in ipairs({"PLAYER_LOGIN", "PLAYER_ENTERING_WORLD", "UPDATE_BINDINGS", "PLAYER_MONEY", "BAG_UPDATE_DELAYED", "ITEM_LOCK_CHANGED", "GET_ITEM_INFO_RECEIVED",
+for _, event in ipairs({"PLAYER_LOGIN", "PLAYER_ENTERING_WORLD", "UPDATE_BINDINGS", "PLAYER_MONEY", "BAG_UPDATE", "BAG_UPDATE_DELAYED", "ITEM_LOCK_CHANGED", "GET_ITEM_INFO_RECEIVED",
     "MERCHANT_SHOW", "MERCHANT_CLOSED", "BANKFRAME_OPENED", "BANKFRAME_CLOSED", "AUCTION_HOUSE_SHOW",
     "GUILDBANKFRAME_OPENED", "GUILDBANKFRAME_CLOSED", "GUILDBANKBAGSLOTS_CHANGED", "CURSOR_CHANGED",
     "MODIFIER_STATE_CHANGED", "PLAYER_EQUIPMENT_CHANGED", "PLAYER_REGEN_ENABLED", "CURRENT_SPELL_CAST_CHANGED",
@@ -1324,6 +1374,12 @@ for _, event in ipairs({"PLAYER_LOGIN", "PLAYER_ENTERING_WORLD", "UPDATE_BINDING
     pcall(events.RegisterEvent, events, event)
 end
 events:SetScript("OnEvent", function(_, event)
+    if event == "BAG_UPDATE" then
+        if frame and frame:IsShown() then
+            if InCombatLockdown() then refreshCombatBagCounts() else refreshCapacityCounts() end
+        end
+        return
+    end
     if event == "UPDATE_BINDINGS" then
         syncCombatBagBindings(inventory.Settings().enabled)
         return

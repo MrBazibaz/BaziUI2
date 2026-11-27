@@ -2,7 +2,7 @@ local addon = BaziUI
 local tracker = {}
 
 -- Sapta is a granted consumable on these stages, not a quest-log special item.
-local earthSapta = {[1520] = true, [1525] = true, [9449] = true, [92467] = true, [94374] = true}
+local earthSapta = {[1517] = true, [1520] = true, [1525] = true, [9449] = true, [92467] = true, [94374] = true}
 function tracker.QuestUseItem(questID, index)
     if index and GetQuestLogSpecialItemInfo then
         local link, icon = GetQuestLogSpecialItemInfo(index)
@@ -13,7 +13,7 @@ function tracker.QuestUseItem(questID, index)
         for slot = 1, C_Container.GetContainerNumSlots(bag) do
             local item = C_Container.GetContainerItemInfo(bag, slot)
             if item and (not canaccessvalue or canaccessvalue(item.itemID)) and item.itemID == 6635 then
-                return item.hyperlink, item.iconFileID
+                return item.hyperlink or "item:6635", item.iconFileID, true
             end
         end
     end
@@ -1034,6 +1034,11 @@ function tracker.Refresh()
     trackerLayout = {count = count, expandedHeight = (db.growUp and 48 or 63) + math.min(y, db.maxHeight),
         visible = arranging or count > 0 or #watched > 0, hasItems = hasItems, modernRail = not classic}
     applyCollapsedLayout()
+    if frame:IsShown() and not frame.firstUseGuideRegistered and not arranging and addon.Inventory and addon.Inventory.ShowFirstUseGuide then
+        frame.firstUseGuideRegistered = true
+        addon.Inventory.ShowFirstUseGuide(frame, "hideQuestTrackerGuide", "Using the quest tracker",
+            "Click Quests to collapse or expand the tracker. Click a category to fold it, or a quest to see its details. Objective bars show progress and a green check means the objective is complete. Click a quest-item icon to use it.", "center")
+    end
     syncNative(db.enabled)
 end
 

@@ -668,6 +668,12 @@ local function createWindow(index)
         end
         header:SetShown(db.header)
         frame:Show()
+        if index == 1 and not frame.firstUseGuideRegistered and not arranging and not previews[index]
+            and addon.Inventory and addon.Inventory.ShowFirstUseGuide then
+            frame.firstUseGuideRegistered = true
+            addon.Inventory.ShowFirstUseGuide(frame, "hideDamageMeterGuide", "Reading the damage meter",
+                "During combat, the meter shows damage from your current fight. When combat ends, it switches back to overall damage, including the fight you just finished. That is why the bars can change when combat starts or ends.", "center")
+        end
         if switched and count > 0 then
             transitionAnimation:Stop()
             transition:SetColorTexture(headerR * 0.8 + 0.2, headerG * 0.8 + 0.2, headerB * 0.8 + 0.2, 0.30)
