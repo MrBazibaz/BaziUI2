@@ -269,7 +269,7 @@ local function preferences()
 end
 local lastCast, lastReadableBuffs
 local weaponSlots = {{"MainHand", "MainHand"}, {"SecondaryHand", "OffHand"}, {"Ranged", "Ranged"}}
-local shamanImbues = {8017, 8024, 8033, 8232}
+local shamanImbues = {8017, 8024, 8033, 8232, 8018, 8019, 10399, 16314, 16315, 16316, 8027, 8030, 16339, 16341, 16342, 8038, 10456, 16355, 16356, 8235, 10486, 16362}
 -- Standard enchant IDs; unknown Forever variants retain a generic reminder.
 local poisonFamilies = {"Instant Poison", "Deadly Poison", "Crippling Poison", "Mind-numbing Poison", "Wound Poison", "Occult Poison", "Atrophic Poison", "Numbing Poison", "Sebacious Poison"}
 local function poisonFamily(name)
@@ -705,7 +705,8 @@ local function classReminders(token, gear)
                             mapped = imbues[castName]
                             preferredBuffs[mapKey] = mapped
                         end
-                        if mapped and knowsSpell(mapped) then preferredBuffs[prefKey] = mapped end
+                        local mappedName = mapped and spellName(mapped)
+                        if mappedName and imbues[mappedName] then preferredBuffs[prefKey] = imbues[mappedName] end
                     end
                 end
             end
@@ -730,7 +731,7 @@ local function classReminders(token, gear)
             end
             if needsImbue then
                 imbueSpell = imbueSpell or preferredBuffs[prefKey]
-                if imbueSpell and not knowsSpell(imbueSpell) then imbueSpell = nil end
+                if imbueSpell then imbueSpell = imbues[spellName(imbueSpell)] end
                 local key = imbueSpell and spellKey(imbueSpell) or "imbue"
                 local group = missing[key] or {label = imbueSpell and spellName(imbueSpell) or "Weapon imbues (any)", hands = {}}
                 missing[key] = group
