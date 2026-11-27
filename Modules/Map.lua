@@ -1241,7 +1241,8 @@ local function install()
     if map.GetOption("enabled") == false then return end
     world = WorldMapFrame
     if not world.BorderFrame or not world.ScrollContainer then return end
-    -- Diagnostic baseline: no native frame mutations or hooks.
+    if world.SetIsFrameBuffer then world:SetIsFrameBuffer(false) end
+    -- Diagnostic stage: framebuffer only.
     if true then return end
     -- Bazi's chrome and quest list need the same render order as the map canvas.
     -- Diagnostic: retain Blizzard's native framebuffer configuration.
