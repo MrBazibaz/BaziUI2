@@ -1090,15 +1090,15 @@ local function applyChrome()
         native:SetFrameStrata("HIGH")
     end
     -- The native border has its own mouse surface across the whole map.
-    native:EnableMouse(false)
-    if native.EnableMouseWheel then native:EnableMouseWheel(false) end
+    -- Native mouse behavior preserved for taint test.
+    -- Native mouse behavior preserved for taint test.
     for _, region in ipairs({native:GetRegions()}) do region:SetAlpha(0) end
     for _, region in pairs({native.NineSlice, native.PortraitContainer, native.TitleContainer, native.Bg, native.Tutorial}) do
         region:SetAlpha(0)
     end
-    if native.Tutorial then native.Tutorial:EnableMouse(false) end
+    -- Native mouse behavior preserved for taint test.
     if world.BlackoutFrame then
-        world.BlackoutFrame:EnableMouse(false)
+    -- Native mouse behavior preserved for taint test.
         world.BlackoutFrame:Hide()
     end
     for _, cvar in ipairs({"worldMapShowPlayerCoords", "worldMapShowCursorCoords"}) do
@@ -1120,11 +1120,11 @@ local function applyChrome()
     local nativeDisplay = native.MaximizeMinimizeFrame
     if native.CloseButton then
         native.CloseButton:SetAlpha(0)
-        native.CloseButton:EnableMouse(false)
+    -- Native mouse behavior preserved for taint test.
     end
     if nativeDisplay then
         nativeDisplay:SetAlpha(0)
-        for _, button in ipairs({nativeDisplay:GetChildren()}) do button:EnableMouse(false) end
+    -- Native mouse behavior preserved for taint test.
     end
     displayControl:SetShown(maximized or (nativeDisplay ~= nil and nativeDisplay:IsShown()))
     flatControl(displayControl, maximized and "ChevronDown" or "ChevronUp")
@@ -1148,7 +1148,9 @@ local function applyChrome()
             list:SetFrameLevel(mapLevel + 6)
         end
     end
-    -- Preserve Blizzard canvas anchors while isolating map taint.
+    canvas:ClearAllPoints()
+    canvas:SetPoint("TOPLEFT", header, "BOTTOMLEFT", 0, 0)
+    canvas:SetPoint("BOTTOMRIGHT", world, "BOTTOMRIGHT", -questWidth - 3, 22)
     if sidebarWidth ~= questWidth or sidebarMaximized ~= maximized then
         sidebarWidth, sidebarMaximized = questWidth, maximized
         viewportNeedsLayout = true
