@@ -977,6 +977,8 @@ local function skinMapQuestScrollbar(bar, scroll)
 end
 
 skinQuestList = function()
+    -- Diagnostic only: bypass native quest row styling and its scroll hooks.
+    if true then return end
     local list = QuestScrollFrame or (QuestMapFrame and QuestMapFrame.QuestsFrame)
     if not list or not list:IsVisible() or InCombatLockdown() or layingOutQuestList then return end
     local scroll = list.ScrollFrame or list.ScrollBox or list
