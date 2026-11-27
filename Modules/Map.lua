@@ -187,12 +187,12 @@ local function openFloors(owner, point)
         if art and art[1] then floors[#floors + 1] = info end
     end
     if #floors == 1 then
-        world:SetMapID(floors[1].mapID)
+        if not InCombatLockdown() and C_Map.OpenWorldMap then C_Map.OpenWorldMap(floors[1].mapID) end
     elseif #floors > 1 and MenuUtil then
         MenuUtil.CreateContextMenu(owner, function(_, root)
             root:CreateTitle(point[4])
             for i, info in ipairs(floors) do
-                root:CreateButton(string.format("%d. %s", i, info.name), function() world:SetMapID(info.mapID) end)
+                root:CreateButton(string.format("%d. %s", i, info.name), function() if not InCombatLockdown() and C_Map.OpenWorldMap then C_Map.OpenWorldMap(info.mapID) end end)
             end
         end)
     end
@@ -257,7 +257,7 @@ local function drawPoints(mapID, config)
             button:SetScript("OnClick", function(self)
                 if InCombatLockdown() or self.point[1] == "QuestOffer" then return end
                 if self.point[5] and C_Map.GetMapInfo(self.point[5]) then
-                    world:SetMapID(self.point[5])
+                    if not InCombatLockdown() and C_Map.OpenWorldMap then C_Map.OpenWorldMap(self.point[5]) end
                 elseif map.GetOption("dungeons") then
                     openFloors(self, self.point)
                 end
@@ -327,7 +327,6 @@ local function fitViewport(mapID)
     local width = viewportHeight * art.layerWidth / art.layerHeight
     if math.abs(width - viewportWidth) > 1 then
         world:SetWidth(world:GetWidth() + width - viewportWidth)
-        if world.OnFrameSizeChanged then world:OnFrameSizeChanged() end
         return true
     end
     return false
@@ -429,8 +428,6 @@ local function addZoneHover()
 end
 
 function map.Refresh()
-    -- Diagnostic: isolate canvas refresh from installed window chrome.
-    if true then return end
     if queued or not border or not world:IsShown() then return end
     queued = true
     C_Timer.After(0, function()
@@ -441,7 +438,6 @@ function map.Refresh()
         local resized = fitViewport(mapID)
         if viewportNeedsLayout and not InCombatLockdown() then
             viewportNeedsLayout = nil
-            if not resized and world.OnFrameSizeChanged then world:OnFrameSizeChanged() end
         end
         local config = {}
         for _, option in ipairs(map.options) do config[option[1]] = map.GetOption(option[1]) end
@@ -450,8 +446,7 @@ function map.Refresh()
         sizeMarkers()
         refreshHeader(mapID)
         refreshReadout(mapID)
-        -- Diagnostic isolation: leave Blizzard canvas quest pins untouched.
-        -- Keep quest sidebar styling active to isolate the combat taint.
+        skinQuestPins()
         skinQuestList()
     end)
 end
@@ -529,7 +524,7 @@ local function createMapMenu(parent, getChoices)
         MenuUtil.CreateContextMenu(self, function(_, root)
             if root.SetScrollMode then root:SetScrollMode(320) end
             for _, info in ipairs(getChoices()) do
-                root:CreateButton(info.name, function() world:SetMapID(info.mapID) end)
+                root:CreateButton(info.name, function() if not InCombatLockdown() and C_Map.OpenWorldMap then C_Map.OpenWorldMap(info.mapID) end end)
             end
         end)
     end)
@@ -979,8 +974,6 @@ local function skinMapQuestScrollbar(bar, scroll)
 end
 
 skinQuestList = function()
-    -- Diagnostic only: bypass native quest row styling and its scroll hooks.
-    if true then return end
     local list = QuestScrollFrame or (QuestMapFrame and QuestMapFrame.QuestsFrame)
     if not list or not list:IsVisible() or InCombatLockdown() or layingOutQuestList then return end
     local scroll = list.ScrollFrame or list.ScrollBox or list
@@ -1241,10 +1234,8 @@ local function install()
     if map.GetOption("enabled") == false then return end
     world = WorldMapFrame
     if not world.BorderFrame or not world.ScrollContainer then return end
-    if world.SetIsFrameBuffer then world:SetIsFrameBuffer(false) end
-    if header then return end
     -- Bazi's chrome and quest list need the same render order as the map canvas.
-    -- Diagnostic: retain Blizzard's native framebuffer configuration.
+    if world.SetIsFrameBuffer then world:SetIsFrameBuffer(false) end
 
     local backing = world:CreateTexture(nil, "BACKGROUND", nil, -7)
     backing:SetPoint("TOPLEFT", 3, -3)
@@ -1345,7 +1336,6 @@ local function install()
     readout:SetShadowColor(0, 0, 0, 1)
     readout:SetShadowOffset(1, -1)
 
-
     local chromeQueued
     local function syncLayout()
         chromeQueued = nil
@@ -1372,15 +1362,8 @@ local function install()
         if GetCVar("mapFade") == "1" then SetCVar("mapFade", "0") end
         queueLayout()
     end
-    -- Diagnostic: isolate OnUpdate from OnShow and OnHide.
-    -- world:HookScript("OnUpdate", update)
-    -- Diagnostic: isolate OnHide without OnShow or OnUpdate.
-    local wasShown = false
-    C_Timer.NewTicker(0.2, function()
-        local shown = world:IsShown()
-        if shown and not wasShown and not InCombatLockdown() then queueLayout() end
-        wasShown = shown
-    end)
+    world:HookScript("OnUpdate", update)
+    world:HookScript("OnShow", show)
     world:HookScript("OnHide", function()
         fullscreenControls:Hide()
         sidebarWidth = nil
@@ -1388,9 +1371,6 @@ local function install()
         initialViewport = nil
         world:SetAlpha(1)
     end)
-    -- Diagnostic: basic show/hide/update hooks only.
-    applyChrome()
-    if true then return end
     hooksecurefunc(world, "OnMapChanged", queueLayout)
     if BaseMapPoiPinMixin and BaseMapPoiPinMixin.OnAcquired then
         hooksecurefunc(BaseMapPoiPinMixin, "OnAcquired", function(pin)
