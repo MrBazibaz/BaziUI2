@@ -401,8 +401,9 @@ function S.BuffReminderChoices(category)
         end
     end
     add("temporary", "Other temporary weapon enhancements", "temporary")
+    add("fishingLure", "Fishing lures", "gathering")
     for key, entry in pairs(buffOptions(token) or {}) do
-        if not entry.learned and not registered[key] then add(key, entry.label, "temporary") end
+        if not entry.learned and not registered[key] then add(key, entry.label, entry.category or "temporary") end
     end
     table.sort(list, function(a, b) return a[2] == b[2] and a[1] < b[1] or a[2] < b[2] end)
     return list
@@ -709,14 +710,15 @@ local function classReminders(token, gear)
                 if previous.kind == Enum.ItemEnchantType.Imbue and (shaman or token == "ROGUE") then
                     if needsImbue then imbueSpell = source and imbues[source] or imbueSpell end
                 else
-                    local key = source and spellKey(previous.spell) or "temporary"
+                    local fishing = info.sub == 20
+                    local key = source and spellKey(previous.spell) or (fishing and "fishingLure" or "temporary")
                     if source and not options[key] then
                         options = buffOptions(token, true)
-                        options[key] = {label = source}
+                        options[key] = {label = source, category = fishing and "gathering" or "temporary"}
                     end
                     notices[#notices + 1] = {id = "temporaryWeapon:" .. slot .. ":" .. id, key = key,
-                        label = source or "Other temporary weapon enhancements", rule = "poison",
-                        title = (source and (source .. " is missing") or "Temporary weapon enhancement missing") .. " · " .. name,
+                        label = source or (fishing and "Fishing lures" or "Other temporary weapon enhancements"), rule = "poison",
+                        title = (source and (source .. " is missing") or (fishing and "Fishing lure is missing" or "Temporary weapon enhancement missing")) .. " · " .. name,
                         detail = source and ("Reapply " .. source .. " if available.") or "Reapply the temporary enhancement if available.",
                         itemSpells = previous.spell and {[previous.spell] = true},
                         spells = source and knowsSpell(previous.spell) and {[source] = true}}
