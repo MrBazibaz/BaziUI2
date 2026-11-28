@@ -306,6 +306,17 @@ local function showItemTooltip(button)
     local quest = mode == "bags" and inventory.RequiredByQuest(item)
     if quest then GameTooltip:AddLine("Quest objective: " .. quest, 1, 0.82, 0.32, true) end
     BaziUI.ItemLevel.AddItemTooltipLine(GameTooltip, item.hyperlink or item.itemID)
+    if button.altRecommendations and #button.altRecommendations > 0 then
+        if IsShiftKeyDown() then
+            GameTooltip:AddLine("Alt Gear Upgrades", 0.3, 0.65, 1)
+            for _, entry in ipairs(button.altRecommendations) do
+                local meta = entry.identity
+                local color = RAID_CLASS_COLORS[meta.token]
+                GameTooltip:AddLine(("%s - Level %d (%s)"):format(meta.name, meta.level, entry.profile),
+                    color and color.r or 1, color and color.g or 1, color and color.b or 1)
+            end
+        else GameTooltip:AddLine("Hold Shift to show alt upgrades", 0.3, 0.65, 1) end
+    end
     GameTooltip:Show()
     if GameTooltip_ShowCompareItem and (IsModifiedClick("COMPAREITEMS") or GetCVarBool("alwaysCompareItems")) then
         GameTooltip_ShowCompareItem(GameTooltip)
@@ -410,6 +421,22 @@ local function cell(index)
         arrow:SetPoint("TOP", 0, 2 - index * 6)
     end
     button.upgrade:Hide()
+    button.altUpgrade = CreateFrame("Frame", nil, button)
+    button.altUpgrade:SetPoint("TOPRIGHT", -1, -1)
+    button.altUpgrade:SetSize(17, 19)
+    button.altUpgrade:EnableMouse(false)
+    local bg = button.altUpgrade:CreateTexture(nil, "BACKGROUND")
+    bg:SetAllPoints()
+    bg:SetColorTexture(0.025, 0.045, 0.12, 0.94)
+    for index = 1, 2 do
+        local arrow = button.altUpgrade:CreateTexture(nil, "OVERLAY")
+        arrow:SetTexture("Interface\\AddOns\\BaziUI\\Assets\\Icons\\Bazi\\ChevronUp.tga")
+        arrow:SetTexCoord(4/32, 28/32, 7/32, 24/32)
+        arrow:SetVertexColor(0.3, 0.65, 1)
+        arrow:SetSize(15, 9)
+        arrow:SetPoint("TOP", 0, 2 - index * 6)
+    end
+    button.altUpgrade:Hide()
     button.addMark = inventory.Label(button)
     button.addMark:SetPoint("CENTER")
     button.addMark:SetText("+")
@@ -609,7 +636,22 @@ end
 
 local function applyUpgradeMark(button)
     local upgrades = BaziUI.LootUpgrades
-    button.upgrade:SetShown(not not (mode == "bags" and not button.vendorVacant and upgrades and upgrades.Mark(button.item)))
+    local green = not not (mode == "bags" and not button.vendorVacant and upgrades and upgrades.Mark(button.item))
+    button.upgrade:SetShown(green)
+    button.altRecommendations = nil
+    local item = button.item
+    if mode == "bags" and not button.vendorVacant and item and not item.empty and item.hyperlink
+        and upgrades and upgrades.AltRecommendations and not InCombatLockdown() then
+        local live = currentBagItem(item)
+        if live and readable(live.isBound) and live.isBound == false and live.hyperlink == item.hyperlink then
+            local ok, result = pcall(upgrades.AltRecommendations, item.hyperlink, true)
+            if ok then button.altRecommendations = result end
+        end
+    end
+    button.altUpgrade:ClearAllPoints()
+    if green then button.altUpgrade:SetPoint("TOPRIGHT", button.upgrade, "TOPLEFT", -1, 0)
+    else button.altUpgrade:SetPoint("TOPRIGHT", -1, -1) end
+    button.altUpgrade:SetShown(button.altRecommendations and #button.altRecommendations > 0 or false)
 end
 
 function inventory.RefreshUpgradeMarks()
@@ -1389,6 +1431,9 @@ events:SetScript("OnEvent", function(_, event)
         if frame and frame:IsShown() and not InCombatLockdown() then
             local db = inventory.Settings()
             bagToggle:SetShown(mode == "bags" and (not db.bagsOnAlt or IsAltKeyDown()))
+            for _, button in ipairs(cells) do
+                if button:IsShown() and GameTooltip:IsOwned(button) then showItemTooltip(button); break end
+            end
         end
         return
     end
