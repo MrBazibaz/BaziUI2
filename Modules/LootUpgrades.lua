@@ -409,6 +409,54 @@ function U.AltRecommendations(link, unbound)
     return result
 end
 
+SLASH_BAZIALTDEBUG1 = "/bazialtdebug"
+SlashCmdList.BAZIALTDEBUG = function(message)
+    local link = message and message:match("(|c%x%x%x%x%x%x%x%x|Hitem:[^|]+|h.-|h|r)")
+        or message and message:match("(|Hitem:[^|]+|h.-|h)")
+    if not link then print("Usage: /bazialtdebug [item link]"); return end
+    local item = details(link)
+    if not item then print("Bazi Alt Gear: item data unavailable or not equipment."); return end
+    local manager = addon.AltManager
+    local player = A.current and A.current.identity
+    if not manager or not player then print("Alt Manager data unavailable."); return end
+    local _, _, _, _, _, _, _, _, _, _, _, _, _, bindType = call(inventory.GetItemInfo, link)
+    print(("Bazi Alt Gear: %s | Requires level %s | Bind type %s (assuming unbound)"):format(item.name,tostring(item.required),tostring(bindType)))
+    local recommended = {}
+    for _, entry in ipairs(U.AltRecommendations(link, true)) do recommended[entry.key] = entry end
+    for key, character in pairs(manager.Characters()) do
+        local meta = character.identity
+        if key ~= player.key and meta then
+            local profile = character.gearProfile and profiles[character.gearProfile]
+            local reason
+            if not A.Settings("alts").enabled then reason = "Alt Manager disabled"
+            elseif not manager.SameTransferGroup(meta, player) then reason = "Different transfer group"
+            elseif bindType ~= 0 and bindType ~= 2 then reason = "Not transferable or unknown binding"
+            elseif not profile or not character.gear then reason = "Missing profile or equipment"
+            elseif type(meta.level) ~= "number" or type(item.required) ~= "number" then reason = "Unknown level"
+            elseif item.required > meta.level then reason = "Level too low"
+            elseif not preferredArmor(item, meta) then reason = "Wrong armor type"
+            elseif item.class == 2 and not (character.weaponProficiencies and character.weaponProficiencies[item.sub]) then reason = "Weapon proficiency not confirmed"
+            elseif not altEligible(link, item, character) then reason = "Item restrictions or eligibility not confirmed"
+            elseif recommended[key] then reason = ("YES: %s, gain +%.2f"):format(recommended[key].slot,recommended[key].gain)
+            else reason = "No qualifying upgrade (score or slot restrictions)" end
+            print(("%s | Level %s | %s | %s"):format(meta.name or key,tostring(meta.level),character.gearProfile or "unknown",reason))
+            if profile and character.gear then
+                for _, slot in ipairs(slots[item.kind]) do
+                    local old, known = equipped(character.gear, slot)
+                    if known then
+                        local offhand = slot == "SecondaryHand"
+                        local before = old and score(old, profile, offhand) or 0
+                        local off, offKnown = equipped(character.gear, "SecondaryHand")
+                        if item.kind == "2HWEAPON" and off then before = before + score(off, profile, true) end
+                        local after = score(item, profile, offhand)
+                        print(("  %s: %s | %.2f -> %.2f (raw %+.2f)%s"):format(slot,old and old.name or "Empty",before,after,after-before,item.kind == "2HWEAPON" and not offKnown and " [offhand unknown]" or ""))
+                    else print("  " .. slot .. ": equipment data unavailable") end
+                end
+            end
+        end
+    end
+end
+
 -- Read-only diagnostic: use the same scoring and eligibility checks as recommendations.
 SLASH_BAZIGEARDEBUG1 = "/bazigeardebug"
 SlashCmdList.BAZIGEARDEBUG = function(message)
