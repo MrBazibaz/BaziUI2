@@ -334,6 +334,25 @@ function U.Compare(link, snapshot)
     return compare(link, snapshot, profile, key)
 end
 
+-- Classic weapon proficiency passives. Unknown proficiencies are not assumed.
+local weaponProficiency = {[0]=196,[1]=197,[2]=264,[3]=266,[4]=198,[5]=199,[6]=200,
+    [7]=201,[8]=202,[10]=227,[13]=15590,[15]=1180,[16]=2567,[18]=5011,[19]=5009}
+function U.CurrentWeaponProficiencies()
+    local result = {}
+    for subclass, spell in pairs(weaponProficiency) do
+        if call(IsPlayerSpell, spell) == true or call(IsSpellKnown, spell) == true then
+            result[subclass] = true
+        end
+    end
+    -- Equipped weapons are direct evidence of proficiency.
+    local snapshot = A.EquipmentSnapshot()
+    for _, piece in pairs(snapshot.gear or {}) do
+        local item = piece.link and details(piece.link)
+        if item and item.class == 2 then result[item.sub] = true end
+    end
+    return result
+end
+
 -- Offline comparisons must supply a verified eligibility predicate.
 -- Never fall back to the logged-in player's usability or talent profile.
 function U.CompareAlt(link, character, eligibility)
