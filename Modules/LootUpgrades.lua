@@ -346,6 +346,7 @@ function U.CurrentWeaponProficiencies()
             result[subclass] = true
         end
     end
+    result.shield = call(IsPlayerSpell, 9116) == true or call(IsSpellKnown, 9116) == true
     result.dualWield = call(IsPlayerSpell, 674) == true or call(IsSpellKnown, 674) == true
     if type(CanDualWield) == "function" and call(CanDualWield) == true then result.dualWield = true end
     -- Equipped weapons are direct evidence of proficiency.
@@ -357,6 +358,7 @@ function U.CurrentWeaponProficiencies()
     local off = snapshot.gear and snapshot.gear.SecondaryHand
     local offItem = off and off.link and details(off.link)
     if offItem and offItem.class == 2 then result.dualWield = true end
+    if offItem and offItem.kind == "SHIELD" then result.shield = true end
     return result
 end
 
@@ -379,9 +381,11 @@ local function altEligible(link, item, character)
         return false
     end
     if item.class == 2 then
+        if item.sub == 19 and not ({MAGE=true,PRIEST=true,WARLOCK=true})[meta.token] then return false end
         if not (character.weaponProficiencies and character.weaponProficiencies[item.sub]) then return false end
     elseif item.class == 4 then
-        if item.kind == "SHIELD" and not ({WARRIOR=true,PALADIN=true,SHAMAN=true})[meta.token] then return false end
+        if item.kind == "SHIELD" and not (({WARRIOR=true,PALADIN=true,SHAMAN=true})[meta.token]
+            and character.weaponProficiencies and character.weaponProficiencies.shield == true) then return false end
         if item.kind == "RELIC" then return false end
     else return false end
     local tooltip = itemTooltip(link)
