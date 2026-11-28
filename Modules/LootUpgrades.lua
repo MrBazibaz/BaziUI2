@@ -452,23 +452,56 @@ local function announceDashboardUpgrade(link, name)
     if expires >= GetTime() then D.Notify("upgrade", "Equipment upgrade · " .. name) end
 end
 
+local refresh
+local function ignoredItems(create)
+    local data, key = A.Data(), A.Key()
+    if not data or not key then return end
+    if create then
+        data.ignoredGear = data.ignoredGear or {}
+        data.ignoredGear[key] = data.ignoredGear[key] or {}
+    end
+    return data.ignoredGear and data.ignoredGear[key]
+end
+
+function U.IgnoredItems()
+    return ignoredItems(false) or {}
+end
+
+function U.Ignore(link)
+    local key, list = itemKey(link), ignoredItems(true)
+    if not key or not list then return end
+    list[key] = link
+    if refresh then refresh() end
+    D.Invalidate("smartAlerts")
+end
+
+function U.RestoreIgnored(key)
+    local list = ignoredItems(false)
+    if not list then return end
+    if key then list[key] = nil else wipe(list) end
+    if refresh then refresh() end
+    D.Invalidate("smartAlerts")
+end
+
 function U.DashboardUpgrades()
     local rows = {}
     for _, entry in ipairs(dashboardUpgrades) do
         local link = entry.link
         rows[#rows + 1] = {label = "Equip " .. entry.name, labelColor = S.colors.success,
-            tooltip = "Click to show this upgrade in your bags.", click = function() reveal(link) end,
+            tooltip = "Left-click to show this upgrade in your bags.\nRight-click to ignore this item for this character.", click = function() reveal(link) end,
+            mute = function() U.Ignore(link) end,
             onShown = dashboardPending[link] and function() announceDashboardUpgrade(link, entry.name) end or nil,
             icon = "Interface\\AddOns\\BaziUI\\Assets\\Icons\\Bazi\\ChevronUp.tga"}
     end
     return rows
 end
 
-local function refresh(allowNewBagUpgrades)
+refresh = function(allowNewBagUpgrades)
     if not addon.db then return end
     local current, changed, found, byID, bagItems = {}, false, {}, {}, {}
     local now, newest = GetTime()
     local snapshot = A.current
+    local ignored = U.IgnoredItems()
     if enabled() and snapshot and snapshot.identity and C_Container then
         local profile, key = weights(snapshot.identity.token)
         for _, bag in ipairs(inventory.BagIDs()) do
@@ -484,7 +517,7 @@ local function refresh(allowNewBagUpgrades)
                     if byID[id] == nil then byID[id] = link
                     elseif byID[id] ~= link then byID[id] = false end
                 end
-                local result = id and profile and compare(link, snapshot, profile, key)
+                local result = id and profile and not ignored[itemKey(link)] and compare(link, snapshot, profile, key)
                 if result then
                     current[bag .. ":" .. slot] = itemKey(link)
                     found[link] = result
