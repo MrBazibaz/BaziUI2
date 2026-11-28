@@ -153,6 +153,12 @@ local function weights(class)
     return profiles[key], key
 end
 
+-- Persist the exact scoring profile used by the current character.
+function U.CurrentProfileKey()
+    local _, key = weights(select(2, UnitClass("player")))
+    return key
+end
+
 local function itemTooltip(link)
     return call(C_TooltipInfo and C_TooltipInfo.GetHyperlink, link)
 end
