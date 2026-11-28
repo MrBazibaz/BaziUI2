@@ -215,9 +215,25 @@ function database:CopyProfile(source)
     target.settings = CopyDefaults(settings, {})
     local chat = target.settings.chat
     if chat then
-        if not chat.profileTabs and sourceCharacter and sourceCharacter.realm and chat.tabSetups then
-            chat.profileTabs = chat.tabSetups[sourceCharacter.name .. "-" .. sourceCharacter.realm]
+        -- Everchat stores layout and window preferences by full name and realm,
+        -- independently of the GUID-keyed personal profile.
+        local destination = target.name and target.realm and (target.name .. "-" .. target.realm)
+        local origin = sourceCharacter and sourceCharacter.name and sourceCharacter.realm
+            and (sourceCharacter.name .. "-" .. sourceCharacter.realm)
+        if origin and destination then
+            for _, field in ipairs({"chatLayouts", "tabSetups", "tabOrder", "fontSized",
+                "fontRaised", "alerts", "tabSounds", "tabSoundChoices"}) do
+                local store = chat[field]
+                if type(store) == "table" then
+                    local value = store[origin]
+                    store[destination] = type(value) == "table" and CopyDefaults(value, {}) or value
+                end
+            end
+            local setup = chat.tabSetups and chat.tabSetups[origin]
+            if setup then chat.profileTabs = CopyDefaults(setup, {}) end
         end
+        -- History is account-managed separately; never import legacy history.
+        chat.history, chat.whisperHistory = nil, nil
         chat.applyProfileTabs = chat.profileTabs ~= nil or nil
         chat.hideCombatLogTab = true
     end
