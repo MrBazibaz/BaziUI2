@@ -634,7 +634,9 @@ local function paintMapPlayback(parent, rows)
             if row and row.Checkbox then
                 button:ClearAllPoints()
                 button:SetPoint("RIGHT", row.Checkbox, "LEFT", -4, 0)
-                placeQuestTags(row, button)
+                -- Keep tags independent of Spoken's playback button: Spoken may
+                -- anchor that button to TagText on the next quest-log update.
+                placeQuestTags(row, row.Checkbox, button:GetWidth() + 4)
                 paintMapPlayerControl(button, mapPlaybackIcon(button.state))
                 if not button.baziMapPlaybackHook then
                     hooksecurefunc(button, "SetState", function(self, state)
