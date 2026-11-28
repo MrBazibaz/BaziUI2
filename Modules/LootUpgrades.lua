@@ -68,8 +68,75 @@ local specs = {[65]="holy", [66]="tank", [70]="strength", [71]="strength", [72]=
     [259]="rogue", [260]="rogueCombat", [261]="rogue", [262]="caster", [263]="enhancement", [264]="healer",
     [62]="caster", [63]="fire", [64]="frost", [265]="affliction", [266]="caster", [267]="fire"}
 
+local treeNames = {
+    WARRIOR={Arms="strength", Fury="fury", Protection="tank"},
+    PALADIN={Holy="holy", Protection="tank", Retribution="strength"},
+    HUNTER={["Beast Mastery"]="hunter", Marksmanship="marksman", Survival="hunterSurvival"},
+    ROGUE={Assassination="rogue", Combat="rogueCombat", Subtlety="rogue"},
+    PRIEST={Discipline="healer", Holy="healer", Shadow="caster"},
+    SHAMAN={Elemental="caster", Enhancement="enhancement", Restoration="healer"},
+    MAGE={Arcane="caster", Fire="fire", Frost="frost"},
+    WARLOCK={Affliction="affliction", Demonology="caster", Destruction="fire"},
+    DRUID={Balance="caster", Feral="feral", ["Feral Combat"]="feral", Restoration="healer"},
+}
+
+local function finite(value)
+    return read(value) and type(value) == "number" and value == value and math.abs(value) < math.huge
+end
+
+local function traitProfile(class, traits)
+    local configID = call(C_ClassTalents and C_ClassTalents.GetActiveConfigID)
+    if not finite(configID) then return end
+    local config = call(traits.GetConfigInfo, configID)
+    if type(config) ~= "table" or type(config.treeIDs) ~= "table" then return end
+    local best, selected, tied = 0, nil, false
+    for _, treeID in ipairs(config.treeIDs) do
+        local groups = call(traits.GetGroupDisplayInfoByTreeID, treeID)
+        if type(groups) ~= "table" then return end
+        local ids, byID = {}, {}
+        for _, group in ipairs(groups) do
+            ids[#ids + 1] = group.groupID
+            byID[group.groupID] = group
+        end
+        if #ids > 0 then
+            local currencies = call(traits.GetGroupCurrencyInfo, configID, ids)
+            if type(currencies) ~= "table" then return end
+            for _, entry in ipairs(currencies) do
+                local group, points = byID[entry.traitNodeGroupID], 0
+                for _, currency in ipairs(entry.currencyInfos or {}) do
+                    if not finite(currency.spent) then return end
+                    points = points + currency.spent
+                end
+                if group and points > best then
+                    best, selected, tied = points, group, false
+                elseif group and points > 0 and points == best then
+                    tied = true
+                end
+            end
+        end
+    end
+    if selected and not tied and read(selected.displayName) and type(selected.displayName) == "string" then
+        local key = treeNames[class] and treeNames[class][selected.displayName]
+        if key then return key end
+        -- Resolve localized tree names using the client's specialization names.
+        local api = C_SpecializationInfo
+        local info = api and api.GetSpecializationInfo or GetSpecializationInfo
+        for index = 1, #(trees[class] or {}) do
+            local id, name = call(info, index)
+            if read(name) and name == selected.displayName then
+                return specs[id] or trees[class][index]
+            end
+        end
+    end
+end
+
 local function weights(class)
     if not read(class) or not fallback[class] then return end
+    local traits = C_Traits
+    if traits and traits.GetGroupDisplayInfoByTreeID and traits.GetGroupCurrencyInfo then
+        local key = traitProfile(class, traits) or fallback[class]
+        return profiles[key], key
+    end
     local api = C_SpecializationInfo
     local getInfo = api and api.GetSpecializationInfo or GetSpecializationInfo
     local index, best = call(api and api.GetSpecialization or GetSpecialization or GetPrimaryTalentTree), 0
