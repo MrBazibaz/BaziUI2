@@ -339,6 +339,7 @@ function module:ConfigureOwnedBar(number, settings)
         button:SetPoint("TOPLEFT", bar, "TOPLEFT", column * pitch, -row * pitch)
         config.keyBoundTarget = button.commandName
         button:UpdateConfig(config)
+        button:SetAttribute("buttonlock", true)
         button:SetShown(index <= count)
         button.baziBindingTarget:SetShown(bindingMode and index <= count)
     end
