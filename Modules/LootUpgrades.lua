@@ -404,6 +404,18 @@ local function altEligible(link, item, character)
     return true
 end
 
+local profileLabels = {
+    WARRIOR={strength="Arms",fury="Fury",tank="Protection"},
+    ROGUE={rogueCombat="Combat"},
+    DRUID={feral="Feral",caster="Balance",healer="Restoration"},
+    SHAMAN={enhancement="Enhancement",caster="Elemental",healer="Restoration"},
+    HUNTER={hunter="Beast Mastery",marksman="Marksmanship",hunterSurvival="Survival"},
+}
+function U.AltProfileLabel(meta, key)
+    local labels = meta and profileLabels[meta.token]
+    return labels and labels[key] or (key and key:gsub("^%l", string.upper)) or "Unknown"
+end
+
 function U.AltRecommendations(link, unbound)
     local result = {}
     if unbound ~= true or not A.Settings("alts").enabled or A.Settings("alts").gearRecommendations == false then return result end
