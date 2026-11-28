@@ -296,7 +296,9 @@ local function compare(link, snapshot, profile, key, eligibility)
         local offhand = slot == "SecondaryHand"
         local twoHand = item.kind == "2HWEAPON"
         local canReplace = known and (not offhand or mainKnown and main and main.kind ~= "2HWEAPON")
-        if offhand and item.class == 2 and not (old and old.class == 2) then canReplace = false end
+        if offhand and item.class == 2 and not (old and old.class == 2) then
+            if not eligibility or not (snapshot.weaponProficiencies and snapshot.weaponProficiencies.dualWield == true) then canReplace = false end
+        end
         if twoHand and not offKnown then canReplace = false end
         if slot == "MainHand" and old and old.kind == "2HWEAPON" and not twoHand then canReplace = false end
         if player.token == "ROGUE" and key == "rogue" and slot == "MainHand" and old and old.sub == 15 and item.sub ~= 15 then
@@ -344,12 +346,17 @@ function U.CurrentWeaponProficiencies()
             result[subclass] = true
         end
     end
+    result.dualWield = call(IsPlayerSpell, 674) == true or call(IsSpellKnown, 674) == true
+    if type(CanDualWield) == "function" and call(CanDualWield) == true then result.dualWield = true end
     -- Equipped weapons are direct evidence of proficiency.
     local snapshot = A.EquipmentSnapshot()
     for _, piece in pairs(snapshot.gear or {}) do
         local item = piece.link and details(piece.link)
         if item and item.class == 2 then result[item.sub] = true end
     end
+    local off = snapshot.gear and snapshot.gear.SecondaryHand
+    local offItem = off and off.link and details(off.link)
+    if offItem and offItem.class == 2 then result.dualWield = true end
     return result
 end
 
