@@ -27,10 +27,26 @@ local function isKeyring(bag)
     return bag == (index and index.Keyring or KEYRING_CONTAINER or -2)
 end
 
+local function protectedAltUpgrade(item)
+    local advisor = BaziUI.LootUpgrades
+    if not advisor or not advisor.AltRecommendations or (item.class ~= 2 and item.class ~= 4) then return false end
+    local ok, protected = pcall(function()
+        local live = container.GetContainerItemInfo(item.bag, item.slot)
+        if not live then return true end
+        if issecretvalue and (issecretvalue(live.isBound) or issecretvalue(live.hyperlink)) then return true end
+        if live.hyperlink ~= item.hyperlink or type(live.isBound) ~= "boolean" then return true end
+        if live.isBound then return false end
+        return #advisor.AltRecommendations(item.hyperlink, true) > 0
+    end)
+    -- Never discard equipment when the protection check fails.
+    return not ok or protected
+end
+
 local function eligible(item, settings)
     if not (item and item.name and item.price and item.stackCount and item.hyperlink and not item.isLocked
         and item.quality and item.quality <= settings.maxDeleteQuality and item.class ~= 12
         and not isKeyring(item.bag) and not ignored(item, settings)) then return false end
+    if protectedAltUpgrade(item) then return false end
     local _, family = container.GetContainerNumFreeSlots(item.bag)
     if inventory.BagKind(item.bag, family) ~= "general" then return false end
     local quest = container.GetContainerItemQuestInfo and container.GetContainerItemQuestInfo(item.bag, item.slot)
