@@ -58,6 +58,7 @@ local function tooltip(row)
     GameTooltip:SetOwner(row, "ANCHOR_LEFT")
     if drop.link then GameTooltip:SetHyperlink(drop.link) else GameTooltip:SetText(drop.name) end
     if row.upgrade then GameTooltip:AddLine("Equipment upgrade for your current character", 0.2, 1, 0.3) end
+    if drop.demo and drop.altUpgrade then GameTooltip:AddLine("Equipment upgrade for an alt (preview)", 0.3, 0.65, 1) end
     if drop.players and #drop.players > 0 then
         GameTooltip:AddLine(" ")
         for _, player in ipairs(drop.players) do
@@ -96,6 +97,8 @@ local function makeRow(i)
     local background = row.upgradeBadge:CreateTexture(nil, "BACKGROUND")
     background:SetAllPoints()
     background:SetColorTexture(0.025, 0.09, 0.035, 0.94)
+    row.upgradeArrows = {}
+    row.upgradeBackground = background
     for index = 1, 2 do
         local arrow = row.upgradeBadge:CreateTexture(nil, "OVERLAY")
         arrow:SetTexture("Interface\\AddOns\\BaziUI\\Assets\\Icons\\Bazi\\ChevronUp.tga")
@@ -103,6 +106,7 @@ local function makeRow(i)
         arrow:SetVertexColor(0.41, 1, 0.30)
         arrow:SetSize(15, 9)
         arrow:SetPoint("TOP", 0, 2 - index * 6)
+        row.upgradeArrows[index] = arrow
     end
     row.upgradeBadge:Hide()
     row.title = inventory.Label(row)
@@ -250,7 +254,7 @@ function inventory.RefreshRolls()
     inventory.ShowFirstUseGuide(frame, "hideRollGuide", nil,
         "|A:" .. rollAtlases[1] .. ":14:14|a Need · Main spec upgrade.\n|A:" .. rollAtlases[2]
         .. ":14:14|a Greed · Off-spec or something you might use.\n|A:" .. rollAtlases[0]
-        .. ":14:14|a Pass · Let someone else have it. Need beats Greed.\n|cff69ff4d|TInterface\\AddOns\\BaziUI\\Assets\\Icons\\Bazi\\ChevronUp.tga:10:12|t|TInterface\\AddOns\\BaziUI\\Assets\\Icons\\Bazi\\ChevronUp.tga:10:12|t|r Equipment upgrade for your current character.")
+        .. ":14:14|a Pass · Let someone else have it. Need beats Greed.\n|cff69ff4d»|r Equipment upgrade for your current character.\n|cff4da6ff»|r Alt upgrade (preview only for now).")
     local inset = 34
     closeBar:SetStatusBarColor(addon.Theme:Accent())
     historyButton:SetText(historyMode and "Active" or "History")
@@ -289,7 +293,17 @@ function inventory.RefreshRolls()
         row.drop = drop
         row.icon:SetTexture(drop.icon)
         row.upgrade = isUpgrade(drop)
-        row.upgradeBadge:SetShown(row.upgrade)
+        local altPreview = drop.demo and drop.altUpgrade
+        row.upgradeBadge:SetShown(row.upgrade or altPreview)
+        if altPreview then
+            row.upgradeBackground:SetColorTexture(0.025, 0.045, 0.12, 0.94)
+        else
+            row.upgradeBackground:SetColorTexture(0.025, 0.09, 0.035, 0.94)
+        end
+        for _, arrow in ipairs(row.upgradeArrows) do
+            if altPreview then arrow:SetVertexColor(0.3, 0.65, 1)
+            else arrow:SetVertexColor(0.41, 1, 0.30) end
+        end
         row.title:SetText(drop.name or drop.link or "Loot")
         row.winner:SetText(drop.winner and winnerName(drop.winner) or "")
         inventory.GeneralFont(row.winner, -2)
@@ -378,7 +392,7 @@ function inventory.OpenRolls(test, automatic)
             {armor .. " Chestpiece", 132625, true}}) do
             local start = now + (i - 1) * 0.65
             demo[i] = {demo = true, visible = i == 1, start = start,
-                name = item[1], icon = item[2], upgrade = item[3], quality = i + 1, duration = 25000,
+                name = item[1], icon = item[2], upgrade = item[3] and i ~= 3, altUpgrade = i == 3, quality = i + 1, duration = 25000,
                 canNeed = true, canGreed = true, players = {
                     {playerName = "Thistle Ironbranch", playerClass = "WARRIOR", answer = "Need", result = 71, revealAt = start + 2},
                     {playerName = "Elowen Moonleaf", playerClass = "DRUID", answer = i == 3 and "Pass" or "Greed",
