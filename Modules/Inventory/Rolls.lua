@@ -58,7 +58,7 @@ local function tooltip(row)
     GameTooltip:SetOwner(row, "ANCHOR_LEFT")
     if drop.link then GameTooltip:SetHyperlink(drop.link) else GameTooltip:SetText(drop.name) end
     if row.upgrade then GameTooltip:AddLine("Equipment upgrade for your current character", 0.2, 1, 0.3) end
-    if drop.demo and drop.altUpgrade then GameTooltip:AddLine("Equipment upgrade for an alt (preview)", 0.3, 0.65, 1) end
+    if drop.demo and drop.altUpgrade then GameTooltip:AddLine("Equipment upgrade for an alt", 0.3, 0.65, 1) end
     if drop.players and #drop.players > 0 then
         GameTooltip:AddLine(" ")
         for _, player in ipairs(drop.players) do
@@ -246,6 +246,14 @@ local function build()
     end)
 end
 
+local function guideUpgradeIcon(r, g, b)
+    local texture = "Interface\\AddOns\\BaziUI\\Assets\\Icons\\Bazi\\ChevronUp.tga"
+    local function arrow(x, y)
+        return ("|T%s:8:14:%d:%d:32:32:4:28:7:24:%d:%d:%d|t"):format(texture, x, y, r, g, b)
+    end
+    return arrow(0, 3) .. arrow(-14, -3)
+end
+
 function inventory.RefreshRolls()
     if not frame or not frame:IsShown() then return end
     local db = inventory.Settings()
@@ -254,7 +262,7 @@ function inventory.RefreshRolls()
     inventory.ShowFirstUseGuide(frame, "hideRollGuide", nil,
         "|A:" .. rollAtlases[1] .. ":14:14|a Need · Main spec upgrade.\n|A:" .. rollAtlases[2]
         .. ":14:14|a Greed · Off-spec or something you might use.\n|A:" .. rollAtlases[0]
-        .. ":14:14|a Pass · Let someone else have it. Need beats Greed.\n|cff69ff4d»|r Equipment upgrade for your current character.\n|cff4da6ff»|r Alt upgrade (preview only for now).")
+        .. ":14:14|a Pass · Let someone else have it. Need beats Greed.\n " .. guideUpgradeIcon(105, 255, 77) .. " Equipment upgrade for your current character.\n" .. guideUpgradeIcon(77, 166, 255) .. " Upgrade for one or more of your alts.")
     local inset = 34
     closeBar:SetStatusBarColor(addon.Theme:Accent())
     historyButton:SetText(historyMode and "Active" or "History")
