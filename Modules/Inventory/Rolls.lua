@@ -246,13 +246,41 @@ local function build()
     end)
 end
 
-local function guideUpgradeIcon(r, g, b, offset)
-    offset = offset or 0
-    local texture = "Interface\\AddOns\\BaziUI\\Assets\\Icons\\Bazi\\ChevronUp.tga"
-    local function arrow(x, y)
-        return ("|T%s:8:14:%d:%d:32:32:4:28:7:24:%d:%d:%d|t"):format(texture, x, y, r, g, b)
+local function guideUpgradeFooter(tip, body)
+    local entries = {{"Equipment upgrade for your current character.", 0.41, 1, 0.30},
+        {"Upgrade for one or more of your alts.", 0.3, 0.65, 1}}
+    tip.upgradeGuideRows = tip.upgradeGuideRows or {}
+    local height = 0
+    for i, entry in ipairs(entries) do
+        local row = tip.upgradeGuideRows[i]
+        if not row then
+            row = CreateFrame("Frame", nil, tip)
+            row.label = inventory.Label(row)
+            row.label:SetPoint("TOPLEFT", 19, 0)
+            row.label:SetPoint("TOPRIGHT", 0, 0)
+            row.label:SetJustifyH("LEFT")
+            row.label:SetWordWrap(true)
+            for n = 1, 2 do
+                local arrow = row:CreateTexture(nil, "OVERLAY")
+                arrow:SetTexture("Interface\\AddOns\\BaziUI\\Assets\\Icons\\Bazi\\ChevronUp.tga")
+                arrow:SetTexCoord(4/32, 28/32, 7/32, 24/32)
+                arrow:SetSize(14, 8)
+                arrow:SetPoint("TOPLEFT", 0, 2 - n * 6)
+                arrow:SetVertexColor(entry[2], entry[3], entry[4])
+            end
+            tip.upgradeGuideRows[i] = row
+        end
+        row:ClearAllPoints()
+        row:SetPoint("TOPLEFT", body, "TOPLEFT", 0, -math.ceil(body:GetStringHeight()) - height)
+        row:SetPoint("TOPRIGHT", body, "TOPRIGHT", 0, -math.ceil(body:GetStringHeight()) - height)
+        inventory.GeneralFont(row.label, -2)
+        row.label:SetText(entry[1])
+        local h = math.max(16, math.ceil(row.label:GetStringHeight()))
+        row:SetHeight(h)
+        row:Show()
+        height = height + h
     end
-    return arrow(offset, 3) .. arrow(-18 + offset, -3)
+    return height
 end
 
 function inventory.RefreshRolls()
@@ -263,7 +291,7 @@ function inventory.RefreshRolls()
     inventory.ShowFirstUseGuide(frame, "hideRollGuide", nil,
         "|A:" .. rollAtlases[1] .. ":14:14|a Need · Main spec upgrade.\n|A:" .. rollAtlases[2]
         .. ":14:14|a Greed · Off-spec or something you might use.\n|A:" .. rollAtlases[0]
-        .. ":14:14|a Pass · Let someone else have it. Need beats Greed.\n " .. guideUpgradeIcon(105, 255, 77, -4) .. " Equipment upgrade for your current character.\n" .. guideUpgradeIcon(77, 166, 255) .. " Upgrade for one or more of your alts.")
+        .. ":14:14|a Pass · Let someone else have it. Need beats Greed.", nil, guideUpgradeFooter)
     local inset = 34
     closeBar:SetStatusBarColor(addon.Theme:Accent())
     historyButton:SetText(historyMode and "Active" or "History")
