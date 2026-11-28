@@ -312,7 +312,7 @@ local function showItemTooltip(button)
             for _, entry in ipairs(button.altRecommendations) do
                 local meta = entry.identity
                 local color = RAID_CLASS_COLORS[meta.token]
-                GameTooltip:AddLine(("%s - Level %d (%s)"):format(meta.name, meta.level, entry.profile),
+                GameTooltip:AddLine(("%s - Level %d (%s)"):format(meta.name, meta.level, BaziUI.LootUpgrades.AltProfileLabel(meta, entry.profile)),
                     color and color.r or 1, color and color.g or 1, color and color.b or 1)
             end
         else GameTooltip:AddLine("Hold Shift to show alt upgrades", 0.3, 0.65, 1) end
