@@ -77,7 +77,16 @@ A.On("snapshot", function(snapshot, dirty)
     char.identity, char.updated, char.free = meta, A.Now(), snapshot.free
     char.gear, char.bags, char.bank = snapshot.gear or char.gear, snapshot.bags or char.bags, snapshot.bank or char.bank
     if snapshot.skills and next(snapshot.skills) then char.skills = snapshot.skills end
+    local advisor = addon.LootUpgrades
+    if advisor and advisor.CurrentProfileKey and (dirty.identity or dirty.gear or dirty.skills or not char.gearProfile) then
+        char.gearProfile = advisor.CurrentProfileKey()
+    end
 end)
+
+for _, event in ipairs({"PLAYER_TALENT_UPDATE", "CHARACTER_POINTS_CHANGED", "TRAIT_CONFIG_UPDATED",
+    "PLAYER_SPECIALIZATION_CHANGED", "ACTIVE_TALENT_GROUP_CHANGED"}) do
+    A.On(event, function() if A.Settings("alts").enabled then A.Queue("identity") end end)
+end
 
 local function stage(fn)
     if not A.Settings("alts").enabled then return end
