@@ -172,6 +172,18 @@ local function itemContents(frame, data)
     end
     if addon.AltManager and safe(id) and type(id) == "number" then
         addon.AltManager.AddTooltip(frame, id)
+        -- Native modifier-driven tooltip rebuilds also need the bag upgrade details.
+        local owner = frame.GetOwner and frame:GetOwner()
+        local entries = owner and owner.altRecommendations
+        if entries and #entries > 0 and IsShiftKeyDown() and not findLine(frame, "Alt Gear Upgrades") then
+            frame:AddLine("Alt Gear Upgrades", 0.3, 0.65, 1)
+            for _, entry in ipairs(entries) do
+                local meta = entry.identity
+                local color = RAID_CLASS_COLORS[meta.token]
+                frame:AddLine(("%s - Level %d (%s)"):format(meta.name, meta.level, entry.profile),
+                    color and color.r or 1, color and color.g or 1, color and color.b or 1)
+            end
+        end
     end
 end
 local function spellContents(frame, data)
