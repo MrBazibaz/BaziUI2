@@ -406,14 +406,14 @@ end
 
 function U.AltRecommendations(link, unbound)
     local result = {}
-    if unbound ~= true or not A.Settings("alts").enabled then return result end
+    if unbound ~= true or not A.Settings("alts").enabled or A.Settings("alts").gearRecommendations == false then return result end
     local _, _, _, _, _, _, _, _, _, _, _, _, _, bindType = call(inventory.GetItemInfo, link)
     if bindType ~= 2 and bindType ~= 0 then return result end
     local manager = addon.AltManager
     local player = A.current and A.current.identity
     if not manager or not player then return result end
     for key, character in pairs(manager.Characters()) do
-        if key ~= player.key and character.identity and manager.SameTransferGroup(character.identity, player) then
+        if key ~= player.key and not character.excludeGear and character.identity and manager.SameTransferGroup(character.identity, player) then
             local upgrade = U.CompareAlt(link, character, altEligible)
             if upgrade then
                 result[#result+1] = {key=key, identity=character.identity, profile=character.gearProfile,
@@ -445,6 +445,8 @@ SlashCmdList.BAZIALTDEBUG = function(message)
             local profile = character.gearProfile and profiles[character.gearProfile]
             local reason
             if not A.Settings("alts").enabled then reason = "Alt Manager disabled"
+            elseif A.Settings("alts").gearRecommendations == false then reason = "Alt gear recommendations disabled"
+            elseif character.excludeGear then reason = "Excluded from gear recommendations"
             elseif not manager.SameTransferGroup(meta, player) then reason = "Different transfer group"
             elseif bindType ~= 0 and bindType ~= 2 then reason = "Not transferable or unknown binding"
             elseif not profile or not character.gear then reason = "Missing profile or equipment"
