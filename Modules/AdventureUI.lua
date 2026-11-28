@@ -588,6 +588,49 @@ function UI.Settings(kind, parent, helpers)
                 cfg.rules[key] = value
             end, alertRuleHelp[key])
         end
+        helpers.section(panel, "Ignored Items", y)
+        y = y - 32
+        local selected, sync
+        local advisor = addon.LootUpgrades
+        local function choices()
+            local result = {{false, "Choose an ignored item"}}
+            local items = {}
+            for key, link in pairs(advisor and advisor.IgnoredItems() or {}) do
+                items[#items + 1] = {key, link:match("%[(.-)%]") or link}
+            end
+            table.sort(items, function(a, b) return a[2] < b[2] end)
+            for _, item in ipairs(items) do result[#result + 1] = item end
+            return result
+        end
+        sync = dropdown(panel, 245, 20, y, choices, function() return selected or false end,
+            function(value) selected = value end)
+        button(panel, "Restore", 90, 275, y, function()
+            if advisor and selected then advisor.RestoreIgnored(selected) end
+            selected = nil
+            sync()
+        end)
+        local restoreAll
+        restoreAll = button(panel, "Restore All", 110, 375, y, function()
+            if not advisor then return end
+            if not restoreAll.confirm then
+                restoreAll.confirm = true
+                restoreAll:SetText("Confirm")
+                return
+            end
+            advisor.RestoreIgnored()
+            selected, restoreAll.confirm = nil, nil
+            restoreAll:SetText("Restore All")
+            sync()
+        end)
+        parent:HookScript("OnShow", function()
+            selected = nil
+            sync()
+        end)
+        parent:HookScript("OnHide", function()
+            restoreAll.confirm = nil
+            restoreAll:SetText("Restore All")
+        end)
+        y = y - 39
     elseif kind == "journey" then
         y = y - 35
         slider("History retention (days)", "retention", 7, 365)
