@@ -251,7 +251,7 @@ local function guideUpgradeIcon(r, g, b)
     local function arrow(x, y)
         return ("|T%s:8:14:%d:%d:32:32:4:28:7:24:%d:%d:%d|t"):format(texture, x, y, r, g, b)
     end
-    return arrow(0, 3) .. arrow(-14, -3)
+    return arrow(0, 3) .. arrow(-18, -3)
 end
 
 function inventory.RefreshRolls()
