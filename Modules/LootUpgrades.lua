@@ -278,12 +278,15 @@ local function equipped(gear, slot)
     return item, item ~= nil
 end
 
-local function compare(link, snapshot, profile, key)
+local function compare(link, snapshot, profile, key, eligibility)
     local player, gear = snapshot and snapshot.identity, snapshot and snapshot.gear
     if not player or not gear then return end
     local item = details(link)
     if not item or type(item.required) ~= "number" or type(player.level) ~= "number" or item.required > player.level
-        or not preferredArmor(item, player) or not canUse(link, item) then return end
+        or not preferredArmor(item, player) then return end
+    if eligibility then
+        if not eligibility(link, item, snapshot) then return end
+    elseif not canUse(link, item) then return end
     if not profile then return end
     local main, mainKnown = equipped(gear, "MainHand")
     local off, offKnown = equipped(gear, "SecondaryHand")
@@ -329,6 +332,16 @@ function U.Compare(link, snapshot)
     snapshot = snapshot or A.EquipmentSnapshot()
     local profile, key = weights(snapshot and snapshot.identity and snapshot.identity.token)
     return compare(link, snapshot, profile, key)
+end
+
+-- Offline comparisons must supply a verified eligibility predicate.
+-- Never fall back to the logged-in player's usability or talent profile.
+function U.CompareAlt(link, character, eligibility)
+    if type(character) ~= "table" or type(eligibility) ~= "function" then return end
+    local key = character.gearProfile
+    local profile = key and profiles[key]
+    if not profile or not character.identity or not character.gear then return end
+    return compare(link, character, profile, key, eligibility)
 end
 
 -- Read-only diagnostic: use the same scoring and eligibility checks as recommendations.
