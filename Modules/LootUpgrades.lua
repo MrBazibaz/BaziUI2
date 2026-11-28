@@ -325,6 +325,62 @@ function U.Compare(link, snapshot)
     return compare(link, snapshot, profile, key)
 end
 
+-- Read-only diagnostic: use the same scoring and eligibility checks as recommendations.
+SLASH_BAZIGEARDEBUG1 = "/bazigeardebug"
+SlashCmdList.BAZIGEARDEBUG = function(message)
+    local snapshot = A.EquipmentSnapshot()
+    local player = snapshot and snapshot.identity
+    local profile, key = weights(player and player.token)
+    if not profile then print("Bazi Gear: profile unavailable."); return end
+    print("Bazi Gear: " .. player.token .. " / " .. key)
+    local parts = {}
+    for stat, weight in pairs(profile) do parts[#parts + 1] = stat .. "=" .. weight end
+    table.sort(parts)
+    print("Weights: " .. table.concat(parts, ", ") .. " (default armor=0.015, DPS=0.5 where unspecified)")
+    local link = message and message:match("(|c%x%x%x%x%x%x%x%x|Hitem:[^|]+|h.-|h|r)")
+        or message and message:match("(|Hitem:[^|]+|h.-|h)")
+    if not link then
+        print("Usage: /bazigeardebug [item link] (Shift-click an item into chat).")
+        return
+    end
+    local item = details(link)
+    if not item then print("Item data unavailable; try again after the tooltip loads."); return end
+    local function describe(label, value, offhand)
+        if not value then print(label .. ": empty"); return end
+        local values = {}
+        for stat, amount in pairs(value.values) do
+            values[#values + 1] = stat .. "=" .. amount
+        end
+        table.sort(values)
+        print(("%s: %s | score %.2f | %s"):format(label, value.name, score(value, profile, offhand), table.concat(values, ", ")))
+    end
+    if not snapshot.gear then print("Equipment data unavailable."); return end
+    for _, slot in ipairs(slots[item.kind]) do
+        local old, known = equipped(snapshot.gear, slot)
+        local offhand = slot == "SecondaryHand"
+        print("Slot: " .. slot)
+        describe("Candidate", item, offhand)
+        if known then
+            describe("Equipped", old, offhand)
+            local before = old and score(old, profile, offhand) or 0
+            if item.kind == "2HWEAPON" then
+                local off, offKnown = equipped(snapshot.gear, "SecondaryHand")
+                if offKnown and off then
+                    describe("Displaced offhand", off, true)
+                    before = before + score(off, profile, true)
+                elseif not offKnown then print("Offhand data unavailable.") end
+            end
+            print(("Raw score gain: %+.2f"):format(score(item, profile, offhand) - before))
+        else print("Equipped item data unavailable.") end
+    end
+    local result = compare(link, snapshot, profile, key)
+    if result then
+        print(("Recommendation: YES (%s, gain %+.2f)"):format(result.slot, result.gain))
+    else
+        print("Recommendation: NO (score threshold or eligibility checks not met).")
+    end
+end
+
 local nativeRewardsHooked
 local function updateNativeRewards()
     if not (QuestFrameRewardPanel and QuestFrameRewardPanel:IsVisible() and QuestInfoFrame) then return end
