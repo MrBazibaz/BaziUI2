@@ -246,12 +246,13 @@ local function build()
     end)
 end
 
-local function guideUpgradeIcon(r, g, b)
+local function guideUpgradeIcon(r, g, b, offset)
+    offset = offset or 0
     local texture = "Interface\\AddOns\\BaziUI\\Assets\\Icons\\Bazi\\ChevronUp.tga"
     local function arrow(x, y)
         return ("|T%s:8:14:%d:%d:32:32:4:28:7:24:%d:%d:%d|t"):format(texture, x, y, r, g, b)
     end
-    return arrow(0, 3) .. arrow(-18, -3)
+    return arrow(offset, 3) .. arrow(-18 + offset, -3)
 end
 
 function inventory.RefreshRolls()
@@ -262,7 +263,7 @@ function inventory.RefreshRolls()
     inventory.ShowFirstUseGuide(frame, "hideRollGuide", nil,
         "|A:" .. rollAtlases[1] .. ":14:14|a Need · Main spec upgrade.\n|A:" .. rollAtlases[2]
         .. ":14:14|a Greed · Off-spec or something you might use.\n|A:" .. rollAtlases[0]
-        .. ":14:14|a Pass · Let someone else have it. Need beats Greed.\n " .. guideUpgradeIcon(105, 255, 77) .. " Equipment upgrade for your current character.\n" .. guideUpgradeIcon(77, 166, 255) .. " Upgrade for one or more of your alts.")
+        .. ":14:14|a Pass · Let someone else have it. Need beats Greed.\n " .. guideUpgradeIcon(105, 255, 77, -4) .. " Equipment upgrade for your current character.\n" .. guideUpgradeIcon(77, 166, 255) .. " Upgrade for one or more of your alts.")
     local inset = 34
     closeBar:SetStatusBarColor(addon.Theme:Accent())
     historyButton:SetText(historyMode and "Active" or "History")
