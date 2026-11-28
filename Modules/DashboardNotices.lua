@@ -213,7 +213,11 @@ local function rows(options)
         if notices[key] then result[#result + 1] = notices[key] end
     end
     local items = {}
-    for _, item in pairs(lootedItems) do items[#items + 1] = item end
+    for id, item in pairs(lootedItems) do
+        local count = D.Count(id)
+        item.value = "+" .. item.count .. (count ~= nil and ("(" .. count .. ")") or "")
+        items[#items + 1] = item
+    end
     table.sort(items, function(a, b) return a.label < b.label end)
     for _, item in ipairs(items) do result[#result + 1] = item end
     local data = D.Rows(result, #result > 0, #result > 0)
@@ -278,4 +282,4 @@ end
 D.Register({id = widgetID, label = "Recent activity", priority = 105, read = rows, event = event,
     tick = function() return nextExpiry and GetTime() >= nextExpiry end,
     events = {"PLAYER_ENTERING_WORLD", "PLAYER_XP_UPDATE", "PLAYER_LEVEL_UP", "PLAYER_DEAD", "GROUP_ROSTER_UPDATE", "CHAT_MSG_COMBAT_XP_GAIN",
-        "CHAT_MSG_SYSTEM", "CHAT_MSG_LOOT", "CHAT_MSG_MONEY"}})
+        "CHAT_MSG_SYSTEM", "CHAT_MSG_LOOT", "CHAT_MSG_MONEY", "BAG_UPDATE_DELAYED"}})
