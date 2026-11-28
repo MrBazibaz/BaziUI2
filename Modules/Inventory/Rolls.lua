@@ -89,16 +89,22 @@ local function makeRow(i)
     row.quality:SetAllPoints(row.icon)
     row.quality:SetTexture("Interface\\AddOns\\BaziUI\\Assets\\Bars\\BaziActionGold.tga")
     row.quality:SetDesaturated(true)
-    row.upgradeIcons = {}
-    for n = 1, 2 do
-        local arrow = row:CreateTexture(nil, "OVERLAY", nil, 7)
-        arrow:SetSize(14, 14)
+    row.upgradeBadge = CreateFrame("Frame", nil, row)
+    row.upgradeBadge:SetPoint("TOPRIGHT", row.icon, "TOPRIGHT", -1, -1)
+    row.upgradeBadge:SetSize(17, 19)
+    row.upgradeBadge:EnableMouse(false)
+    local background = row.upgradeBadge:CreateTexture(nil, "BACKGROUND")
+    background:SetAllPoints()
+    background:SetColorTexture(0.025, 0.09, 0.035, 0.94)
+    for index = 1, 2 do
+        local arrow = row.upgradeBadge:CreateTexture(nil, "OVERLAY")
         arrow:SetTexture("Interface\\AddOns\\BaziUI\\Assets\\Icons\\Bazi\\ChevronUp.tga")
-        arrow:SetVertexColor(0.2, 1, 0.3)
-        arrow:SetPoint("TOPLEFT", row.icon, "TOPLEFT", -2, 4 - (n - 1) * 7)
-        arrow:Hide()
-        row.upgradeIcons[n] = arrow
+        arrow:SetTexCoord(4/32, 28/32, 7/32, 24/32)
+        arrow:SetVertexColor(0.41, 1, 0.30)
+        arrow:SetSize(15, 9)
+        arrow:SetPoint("TOP", 0, 2 - index * 6)
     end
+    row.upgradeBadge:Hide()
     row.title = inventory.Label(row)
     row.title:SetPoint("TOPLEFT", 42, -5)
     row.title:SetPoint("RIGHT", -104, 0)
@@ -244,7 +250,7 @@ function inventory.RefreshRolls()
     inventory.ShowFirstUseGuide(frame, "hideRollGuide", nil,
         "|A:" .. rollAtlases[1] .. ":14:14|a Need · Main spec upgrade.\n|A:" .. rollAtlases[2]
         .. ":14:14|a Greed · Off-spec or something you might use.\n|A:" .. rollAtlases[0]
-        .. ":14:14|a Pass · Let someone else have it. Need beats Greed.\n|cff33ff4dGreen double arrows|r indicate an equipment upgrade for your current character.")
+        .. ":14:14|a Pass · Let someone else have it. Need beats Greed.\n|cff69ff4d|TInterface\\AddOns\\BaziUI\\Assets\\Icons\\Bazi\\ChevronUp.tga:10:12|t|TInterface\\AddOns\\BaziUI\\Assets\\Icons\\Bazi\\ChevronUp.tga:10:12|t|r Equipment upgrade for your current character.")
     local inset = 34
     closeBar:SetStatusBarColor(addon.Theme:Accent())
     historyButton:SetText(historyMode and "Active" or "History")
@@ -283,7 +289,7 @@ function inventory.RefreshRolls()
         row.drop = drop
         row.icon:SetTexture(drop.icon)
         row.upgrade = isUpgrade(drop)
-        for _, arrow in ipairs(row.upgradeIcons) do arrow:SetShown(row.upgrade) end
+        row.upgradeBadge:SetShown(row.upgrade)
         row.title:SetText(drop.name or drop.link or "Loot")
         row.winner:SetText(drop.winner and winnerName(drop.winner) or "")
         inventory.GeneralFont(row.winner, -2)
