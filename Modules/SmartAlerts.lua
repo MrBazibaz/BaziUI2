@@ -412,9 +412,15 @@ function S.BuffReminderChoices(category)
     return list
 end
 
+local function combatOnlyOption(token, key, pref)
+    if pref and pref.combatOnly ~= nil then return pref.combatOnly == true end
+    return token == "WARRIOR" and (key == spellKey(6673) or key == spellKey(469)) or false
+end
+
 function S.BuffReminderOption(key, field)
     local _, token = call(UnitClass, "player")
     local options = token and buffOptions(token)
+    if field == "combatOnly" then return combatOnlyOption(token, key, options and options[key]) end
     return not options or not options[key] or options[key][field] ~= false
 end
 
@@ -462,7 +468,7 @@ local function applyBuffOptions(token, reminders)
     for _, reminder in ipairs(reminders) do
         local key = reminder.key
         local pref = options[key]
-        if not pref or pref.enabled ~= false then
+        if (not pref or pref.enabled ~= false) and (not combatOnlyOption(token, key, pref) or InCombatLockdown()) then
             local sound = S.BuffReminderSound(key)
             reminder.channels = {chat = not pref or pref.chat ~= false,
                 soundKey = sound == "default" and S.ClassBuffSound() or sound}
@@ -912,7 +918,8 @@ end
 local lastDashboardReminders = {}
 D.Register({id = "classBuffs", label = "Class buffs", priority = 94, tick = true,
     events = {"UNIT_AURA", "UNIT_INVENTORY_CHANGED", "WEAPON_ENCHANT_CHANGED", "PLAYER_EQUIPMENT_CHANGED", "BAG_UPDATE_DELAYED",
-        "SPELLS_CHANGED", "MINIMAP_UPDATE_TRACKING", "PLAYER_DEAD", "PLAYER_ALIVE", "PLAYER_UNGHOST"},
+        "SPELLS_CHANGED", "MINIMAP_UPDATE_TRACKING", "PLAYER_DEAD", "PLAYER_ALIVE", "PLAYER_UNGHOST",
+        "PLAYER_REGEN_ENABLED", "PLAYER_REGEN_DISABLED"},
     eventFilter = function(event, unit)
         return (event ~= "UNIT_AURA" and event ~= "UNIT_INVENTORY_CHANGED") or unit == "player"
     end,
@@ -1319,8 +1326,13 @@ A.On("settings", function()
     end
     changed()
 end)
-A.On("PLAYER_REGEN_ENABLED", changed)
-A.On("PLAYER_REGEN_DISABLED", changed)
+local function combatReminderChanged()
+    changed()
+    D.Invalidate("classBuffs")
+    if settings().enabled then A.Queue("class") end
+end
+A.On("PLAYER_REGEN_ENABLED", combatReminderChanged)
+A.On("PLAYER_REGEN_DISABLED", combatReminderChanged)
 
 D.Register({id = "smartAlerts", label = "Alerts", priority = 95, read = function()
     local cfg, rows = settings(), {}
