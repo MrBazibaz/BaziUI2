@@ -53,12 +53,30 @@ local function isUpgrade(drop)
     return ok and not not result
 end
 
+local function altUpgrades(drop)
+    local advisor = addon.LootUpgrades
+    if drop.demo or drop.finished or not drop.link or not advisor or not advisor.AltRecommendations then return {} end
+    local ok, result = pcall(advisor.AltRecommendations, drop.link, true)
+    return ok and result or {}
+end
+
 local function tooltip(row)
     local drop = row.drop
     GameTooltip:SetOwner(row, "ANCHOR_LEFT")
     if drop.link then GameTooltip:SetHyperlink(drop.link) else GameTooltip:SetText(drop.name) end
     if row.upgrade then GameTooltip:AddLine("Equipment upgrade for your current character", 0.2, 1, 0.3) end
     if drop.demo and drop.altUpgrade then GameTooltip:AddLine("Equipment upgrade for an alt", 0.3, 0.65, 1) end
+    if row.altUpgrades and #row.altUpgrades > 0 then
+        if IsShiftKeyDown() then
+            GameTooltip:AddLine("Alt Gear Upgrades", 0.3, 0.65, 1)
+            for _, entry in ipairs(row.altUpgrades) do
+                local meta = entry.identity
+                local color = RAID_CLASS_COLORS[meta.token]
+                GameTooltip:AddLine(("%s - Level %d (%s)"):format(meta.name, meta.level, entry.profile),
+                    color and color.r or 1, color and color.g or 1, color and color.b or 1)
+            end
+        else GameTooltip:AddLine("Hold Shift to show alt upgrades", 0.3, 0.65, 1) end
+    end
     if drop.players and #drop.players > 0 then
         GameTooltip:AddLine(" ")
         for _, player in ipairs(drop.players) do
@@ -97,6 +115,22 @@ local function makeRow(i)
     local background = row.upgradeBadge:CreateTexture(nil, "BACKGROUND")
     background:SetAllPoints()
     background:SetColorTexture(0.025, 0.09, 0.035, 0.94)
+    row.altBadge = CreateFrame("Frame", nil, row)
+    row.altBadge:SetSize(17, 19)
+    row.altBadge:SetPoint("TOPLEFT", row.icon, "TOPLEFT", 1, -1)
+    row.altBadge:EnableMouse(false)
+    local altBackground = row.altBadge:CreateTexture(nil, "BACKGROUND")
+    altBackground:SetAllPoints()
+    altBackground:SetColorTexture(0.025, 0.045, 0.12, 0.94)
+    for index = 1, 2 do
+        local arrow = row.altBadge:CreateTexture(nil, "OVERLAY")
+        arrow:SetTexture("Interface\\AddOns\\BaziUI\\Assets\\Icons\\Bazi\\ChevronUp.tga")
+        arrow:SetTexCoord(4/32, 28/32, 7/32, 24/32)
+        arrow:SetVertexColor(0.3, 0.65, 1)
+        arrow:SetSize(15, 9)
+        arrow:SetPoint("TOP", 0, 2 - index * 6)
+    end
+    row.altBadge:Hide()
     row.upgradeArrows = {}
     row.upgradeBackground = background
     for index = 1, 2 do
@@ -133,6 +167,10 @@ local function makeRow(i)
     timerTrack:SetAllPoints()
     timerTrack:SetColorTexture(0.43, 0.41, 0.40, 0.47)
     row:SetScript("OnEnter", tooltip)
+    row:RegisterEvent("MODIFIER_STATE_CHANGED")
+    row:SetScript("OnEvent", function(self)
+        if self:IsShown() and self.drop and GameTooltip:IsOwned(self) then tooltip(self) end
+    end)
     row:SetScript("OnLeave", function() GameTooltip:Hide() end)
     row.buttons = {}
     for index, choice in ipairs({1, 2, 0}) do
@@ -330,8 +368,11 @@ function inventory.RefreshRolls()
         row.drop = drop
         row.icon:SetTexture(drop.icon)
         row.upgrade = isUpgrade(drop)
-        local altPreview = drop.demo and drop.altUpgrade
+        row.altUpgrades = altUpgrades(drop)
+        local altPreview = (drop.demo and drop.altUpgrade) or #row.altUpgrades > 0
         row.upgradeBadge:SetShown(row.upgrade or altPreview)
+        row.altBadge:SetShown(row.upgrade and altPreview)
+        if row.upgrade then altPreview = false end
         if altPreview then
             row.upgradeBackground:SetColorTexture(0.025, 0.045, 0.12, 0.94)
         else
