@@ -366,6 +366,11 @@ end
 -- Conservative offline eligibility: reject restrictions we cannot verify.
 local function altEligible(link, item, character)
     local meta = character.identity
+    -- Conservative Classic held-offhand eligibility; unlike weapons these
+    -- do not become usable simply because the secondary slot is empty.
+    if item.kind == "HOLDABLE" and not ({MAGE=true,PRIEST=true,WARLOCK=true,DRUID=true,SHAMAN=true,PALADIN=true})[meta.token] then
+        return false
+    end
     if item.class == 2 then
         if not (character.weaponProficiencies and character.weaponProficiencies[item.sub]) then return false end
     elseif item.class == 4 then
