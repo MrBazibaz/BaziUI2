@@ -45,10 +45,19 @@ local function finishDemo(drop)
     drop.finished, drop.winner, drop.winnerClass = true, name, class
 end
 
+local function isUpgrade(drop)
+    if drop.demo then return drop.upgrade == true end
+    local advisor = addon.LootUpgrades
+    if not advisor or not drop.link or drop.finished then return false end
+    local ok, result = pcall(advisor.Compare, drop.link)
+    return ok and not not result
+end
+
 local function tooltip(row)
     local drop = row.drop
     GameTooltip:SetOwner(row, "ANCHOR_LEFT")
     if drop.link then GameTooltip:SetHyperlink(drop.link) else GameTooltip:SetText(drop.name) end
+    if row.upgrade then GameTooltip:AddLine("Equipment upgrade for your current character", 0.2, 1, 0.3) end
     if drop.players and #drop.players > 0 then
         GameTooltip:AddLine(" ")
         for _, player in ipairs(drop.players) do
@@ -80,6 +89,16 @@ local function makeRow(i)
     row.quality:SetAllPoints(row.icon)
     row.quality:SetTexture("Interface\\AddOns\\BaziUI\\Assets\\Bars\\BaziActionGold.tga")
     row.quality:SetDesaturated(true)
+    row.upgradeIcons = {}
+    for n = 1, 2 do
+        local arrow = row:CreateTexture(nil, "OVERLAY", nil, 7)
+        arrow:SetSize(14, 14)
+        arrow:SetTexture("Interface\\AddOns\\BaziUI\\Assets\\Icons\\Bazi\\ChevronUp.tga")
+        arrow:SetVertexColor(0.2, 1, 0.3)
+        arrow:SetPoint("TOPLEFT", row.icon, "TOPLEFT", -2, 4 - (n - 1) * 7)
+        arrow:Hide()
+        row.upgradeIcons[n] = arrow
+    end
     row.title = inventory.Label(row)
     row.title:SetPoint("TOPLEFT", 42, -5)
     row.title:SetPoint("RIGHT", -104, 0)
@@ -225,7 +244,7 @@ function inventory.RefreshRolls()
     inventory.ShowFirstUseGuide(frame, "hideRollGuide", nil,
         "|A:" .. rollAtlases[1] .. ":14:14|a Need · Main spec upgrade.\n|A:" .. rollAtlases[2]
         .. ":14:14|a Greed · Off-spec or something you might use.\n|A:" .. rollAtlases[0]
-        .. ":14:14|a Pass · Let someone else have it. Need beats Greed.")
+        .. ":14:14|a Pass · Let someone else have it. Need beats Greed.\n|cff33ff4dGreen double arrows|r indicate an equipment upgrade for your current character.")
     local inset = 34
     closeBar:SetStatusBarColor(addon.Theme:Accent())
     historyButton:SetText(historyMode and "Active" or "History")
@@ -263,6 +282,8 @@ function inventory.RefreshRolls()
         local new = row.drop ~= drop
         row.drop = drop
         row.icon:SetTexture(drop.icon)
+        row.upgrade = isUpgrade(drop)
+        for _, arrow in ipairs(row.upgradeIcons) do arrow:SetShown(row.upgrade) end
         row.title:SetText(drop.name or drop.link or "Loot")
         row.winner:SetText(drop.winner and winnerName(drop.winner) or "")
         inventory.GeneralFont(row.winner, -2)
@@ -340,10 +361,18 @@ function inventory.OpenRolls(test, automatic)
     if test then
         demo = {}
         local now = GetTime()
-        for i, item in ipairs({{"Training Shield", 134952}, {"Training Bow", 135499}, {"Training Blade", 135328}}) do
+        local class = select(2, UnitClass("player"))
+        local armor = ({DRUID="Leather", ROGUE="Leather", HUNTER="Leather", SHAMAN="Leather",
+            WARRIOR="Mail", PALADIN="Mail", MAGE="Cloth", PRIEST="Cloth", WARLOCK="Cloth"})[class] or "Training"
+        if UnitLevel("player") >= 40 then
+            if class == "HUNTER" or class == "SHAMAN" then armor = "Mail"
+            elseif class == "WARRIOR" or class == "PALADIN" then armor = "Plate" end
+        end
+        for i, item in ipairs({{armor .. " Gloves", 132939, true}, {armor .. " Boots", 132539, false},
+            {armor .. " Chestpiece", 132625, true}}) do
             local start = now + (i - 1) * 0.65
             demo[i] = {demo = true, visible = i == 1, start = start,
-                name = item[1], icon = item[2], quality = i + 1, duration = 25000,
+                name = item[1], icon = item[2], upgrade = item[3], quality = i + 1, duration = 25000,
                 canNeed = true, canGreed = true, players = {
                     {playerName = "Thistle Ironbranch", playerClass = "WARRIOR", answer = "Need", result = 71, revealAt = start + 2},
                     {playerName = "Elowen Moonleaf", playerClass = "DRUID", answer = i == 3 and "Pass" or "Greed",
