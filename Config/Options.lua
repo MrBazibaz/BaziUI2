@@ -6092,8 +6092,8 @@ function addon.Options:CreateBuffRemindersPage()
     page:SetAllPoints(contentFrame)
     pages["Buff Reminders"] = page
     local content = addon.Inventory.Scroll(page, 0, 4)
-    content:SetHeight(365)
-    local alerts = CreatePanel(content, -8, 345)
+    content:SetHeight(392)
+    local alerts = CreatePanel(content, -8, 372)
     CreateSection(alerts, "Buff Reminders", -13)
     local help = {
         ["Enable Dashboard"] = "Shows the Dashboard in game. Configure which information it can display under Widgets.",
@@ -6194,10 +6194,11 @@ function addon.Options:CreateBuffRemindersPage()
     end
     local syncEnabled = buffToggle(-222, "Enable this reminder", "enabled")
     local syncChat = buffToggle(-249, "Show this spell in chat", "chat")
+    local syncCombat = buffToggle(-276, "Combat only", "combatOnly")
     local individualSounds = {{"default", "Class default"}, {"none", "Disabled"}}
     for _, sound in ipairs(smart.SoundChoices()) do individualSounds[#individualSounds + 1] = sound end
-    label("Reminder sound", -282)
-    local syncSound = dropdown(alerts, -276, individualSounds, function()
+    label("Reminder sound", -309)
+    local syncSound = dropdown(alerts, -303, individualSounds, function()
         return smart.BuffReminderSound(currentBuff())
     end, function(key)
         if not currentBuff() then return end
@@ -6208,10 +6209,10 @@ function addon.Options:CreateBuffRemindersPage()
     local syncBuff = dropdown(alerts, -186, filteredChoices, currentBuff, function(key)
         selectedBuff, buffLabel = key, nil
         for _, entry in ipairs(filteredChoices()) do if entry[1] == key then buffLabel = entry[2]; break end end
-        syncEnabled(); syncChat(); syncSound()
+        syncEnabled(); syncChat(); syncCombat(); syncSound()
     end)
     local function syncBuffOptions()
-        syncBuff(); syncEnabled(); syncChat(); syncSound()
+        syncBuff(); syncEnabled(); syncChat(); syncCombat(); syncSound()
     end
     dropdown(alerts, -150, categories, function() return category end, function(key)
         category, selectedBuff, buffLabel = key, nil, nil
