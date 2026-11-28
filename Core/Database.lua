@@ -217,16 +217,21 @@ function database:CopyProfile(source)
     if chat then
         -- Everchat stores layout and window preferences by full name and realm,
         -- independently of the GUID-keyed personal profile.
-        local destination = target.name and target.realm and (target.name .. "-" .. target.realm)
-        local origin = sourceCharacter and sourceCharacter.name and sourceCharacter.realm
-            and (sourceCharacter.name .. "-" .. sourceCharacter.realm)
+        local destination = target.name and (target.name .. "-" .. (target.realm or ""))
+        local origin = sourceCharacter and sourceCharacter.name
+            and (sourceCharacter.name .. "-" .. (sourceCharacter.realm or ""))
         if origin and destination then
             for _, field in ipairs({"chatLayouts", "tabSetups", "tabOrder", "fontSized",
                 "fontRaised", "alerts", "tabSounds", "tabSoundChoices"}) do
                 local store = chat[field]
                 if type(store) == "table" then
                     local value = store[origin]
-                    store[destination] = type(value) == "table" and CopyDefaults(value, {}) or value
+                    if field == "chatLayouts" and value == nil then value = chat.defaultLayout end
+                    if type(value) == "table" then
+                        store[destination] = CopyDefaults(value, {})
+                    else
+                        store[destination] = value
+                    end
                 end
             end
             local setup = chat.tabSetups and chat.tabSetups[origin]
