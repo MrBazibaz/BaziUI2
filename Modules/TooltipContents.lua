@@ -180,7 +180,7 @@ local function itemContents(frame, data)
             for _, entry in ipairs(entries) do
                 local meta = entry.identity
                 local color = RAID_CLASS_COLORS[meta.token]
-                frame:AddLine(("%s - Level %d (%s)"):format(meta.name, meta.level, entry.profile),
+                frame:AddLine(("%s - Level %d (%s)"):format(meta.name, meta.level, BaziUI.LootUpgrades.AltProfileLabel(meta, entry.profile)),
                     color and color.r or 1, color and color.g or 1, color and color.b or 1)
             end
         end
