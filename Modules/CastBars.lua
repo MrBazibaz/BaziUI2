@@ -228,6 +228,7 @@ local function tick(mirrors)
     if not addon.db then return end
     local player, target = hud.Settings("player"), hud.Settings("target")
     maskNative(_G.PlayerCastingBarFrame, player.enabled)
+    maskNative(_G.OverlayPlayerCastingBarFrame, player.enabled)
     if _G.CastingBarFrame ~= _G.PlayerCastingBarFrame then maskNative(_G.CastingBarFrame, player.enabled) end
     maskNative(_G.TargetFrameSpellBar or (_G.TargetFrame and _G.TargetFrame.spellbar), target.enabled)
     updateCast("player", player)
