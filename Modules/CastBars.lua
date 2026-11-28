@@ -229,6 +229,10 @@ local function tick(mirrors)
     local player, target = hud.Settings("player"), hud.Settings("target")
     maskNative(_G.PlayerCastingBarFrame, player.enabled)
     maskNative(_G.OverlayPlayerCastingBarFrame, player.enabled)
+    -- Native interrupt animations may drive alpha independently of SetAlpha.
+    -- Suppress the player bar itself while our replacement is enabled.
+    local stock = _G.PlayerCastingBarFrame
+    if player.enabled and stock and stock:IsShown() then stock:Hide() end
     if _G.CastingBarFrame ~= _G.PlayerCastingBarFrame then maskNative(_G.CastingBarFrame, player.enabled) end
     maskNative(_G.TargetFrameSpellBar or (_G.TargetFrame and _G.TargetFrame.spellbar), target.enabled)
     updateCast("player", player)
