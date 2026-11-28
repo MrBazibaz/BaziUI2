@@ -363,6 +363,52 @@ function U.CompareAlt(link, character, eligibility)
     return compare(link, character, profile, key, eligibility)
 end
 
+-- Conservative offline eligibility: reject restrictions we cannot verify.
+local function altEligible(link, item, character)
+    local meta = character.identity
+    if item.class == 2 then
+        if not (character.weaponProficiencies and character.weaponProficiencies[item.sub]) then return false end
+    elseif item.class == 4 then
+        if item.kind == "SHIELD" and not ({WARRIOR=true,PALADIN=true,SHAMAN=true})[meta.token] then return false end
+        if item.kind == "RELIC" then return false end
+    else return false end
+    local tooltip = itemTooltip(link)
+    if type(tooltip) ~= "table" or type(tooltip.lines) ~= "table" or #tooltip.lines == 0 then return false end
+    -- Reject class, race, profession, reputation and other explicit requirements.
+    -- The ordinary minimum level is checked by compare().
+    for _, line in ipairs(tooltip.lines) do
+        local value = line.leftText
+        if not read(value) then return false end
+        if type(value) == "string" then
+            value = value:gsub("|c%x%x%x%x%x%x%x%x",""):gsub("|r","")
+            if value:match("^Classes:") or value:match("^Races:") or
+                (value:match("^Requires ") and not value:match("^Requires Level %d+$")) then return false end
+        end
+    end
+    return true
+end
+
+function U.AltRecommendations(link, unbound)
+    local result = {}
+    if unbound ~= true or not A.Settings("alts").enabled then return result end
+    local _, _, _, _, _, _, _, _, _, _, _, _, _, bindType = call(inventory.GetItemInfo, link)
+    if bindType ~= 2 and bindType ~= 0 then return result end
+    local manager = addon.AltManager
+    local player = A.current and A.current.identity
+    if not manager or not player then return result end
+    for key, character in pairs(manager.Characters()) do
+        if key ~= player.key and character.identity and manager.SameTransferGroup(character.identity, player) then
+            local upgrade = U.CompareAlt(link, character, altEligible)
+            if upgrade then
+                result[#result+1] = {key=key, identity=character.identity, profile=character.gearProfile,
+                    gain=upgrade.gain, slot=upgrade.slot}
+            end
+        end
+    end
+    table.sort(result, function(a,b) return a.gain > b.gain end)
+    return result
+end
+
 -- Read-only diagnostic: use the same scoring and eligibility checks as recommendations.
 SLASH_BAZIGEARDEBUG1 = "/bazigeardebug"
 SlashCmdList.BAZIGEARDEBUG = function(message)
