@@ -426,10 +426,11 @@ local function refreshGuide(guide)
         tip:SetPoint("TOPLEFT", parent, "TOPRIGHT", 6, 0)
     end
     tip:Show()
-    tip:SetHeight(math.max(84, math.ceil(tip.body:GetStringHeight()) + 38))
+    local extra = guide.footer and guide.footer(tip, tip.body) or 0
+    tip:SetHeight(math.max(84, math.ceil(tip.body:GetStringHeight()) + 38 + extra))
 end
 
-function inventory.ShowFirstUseGuide(parent, key, title, instructions, position)
+function inventory.ShowFirstUseGuide(parent, key, title, instructions, position, footer)
     guideKeys[key] = true
     local entries = guides[parent]
     if not entries then entries = {}; guides[parent] = entries end
@@ -439,6 +440,7 @@ function inventory.ShowFirstUseGuide(parent, key, title, instructions, position)
         entries[key] = guide
     end
     guide.title, guide.text, guide.position, guide.requested = title, instructions, position, true
+    guide.footer = footer
     refreshGuide(guide)
 end
 
