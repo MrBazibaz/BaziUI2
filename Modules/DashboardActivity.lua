@@ -222,6 +222,7 @@ local function crafting(options)
         if expiry <= now then crafted[id] = nil
         else
             craftExpiry = math.min(craftExpiry or expiry, expiry)
+            entry.itemID = id
             recent[#recent + 1] = entry
         end
     end
@@ -230,14 +231,15 @@ local function crafting(options)
         return a.name < b.name
     end)
     for _, entry in ipairs(recent) do
-        rows[#rows + 1] = {label = entry.name, value = "×" .. entry.count, icon = entry.icon, link = entry.link,
+        local count = D.Count(entry.itemID)
+        rows[#rows + 1] = {label = entry.name, value = "+" .. entry.count .. (count ~= nil and ("(" .. count .. ")") or ""), icon = entry.icon, link = entry.link,
             done = true, tooltip = "Crafted recently"}
     end
     return rowsResult(rows, #rows > 0, #rows > 0)
 end
 D.Register({id = "crafting", label = "Crafting", priority = 60, read = crafting, event = recordCraft,
     tick = function() return craftExpiry and GetTime() >= craftExpiry end,
-    events = {"GET_ITEM_INFO_RECEIVED", "CHAT_MSG_LOOT"}})
+    events = {"GET_ITEM_INFO_RECEIVED", "CHAT_MSG_LOOT", "BAG_UPDATE_DELAYED"}})
 
 local function craftingGoals(options)
     local rows, keys = {}, {}
