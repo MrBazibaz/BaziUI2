@@ -650,11 +650,19 @@ function UI.Settings(kind, parent, helpers)
             {"Only show the current realm in tooltips", "sameRealm"}, {"Show total recorded ownership", "total"},
             {"Show character names and counts", "individual"}, {"Show bag and bank counts separately", "breakdown"},
             {"Show last recorded bank date", "lastUpdated"}, {"Show recorded recipe and goal matches", "materials"}}) do flag(unpack(row)) end
+        helpers.section(panel, "Alt Gear Recommendations", y)
+        y = y - 32
+        checkbox("Enable alt gear recommendations", function() return cfg.gearRecommendations ~= false end,
+            function(value)
+                cfg.gearRecommendations = value
+                if I.RefreshUpgradeMarks then I.RefreshUpgradeMarks() end
+                if I.RefreshRolls then I.RefreshRolls() end
+            end, "Shows blue upgrade arrows for transferable equipment that improves a recorded alt.")
         local target
         local sync = dropdown(panel, 209, 20, y, function()
             local result = {{false, "Choose an offline character"}}
             for key, char in pairs(M.Characters()) do
-                if key ~= A.Key() and char.identity then result[#result + 1] = {key, char.identity.name .. " · " .. char.identity.realm} end
+                if key ~= A.Key() and char.identity then result[#result + 1] = {key, char.identity.name .. " · " .. char.identity.realm .. (char.excludeGear and " (excluded)" or "")} end
             end
             return result
         end, function() return target or false end, function(value) target = value end)
@@ -663,12 +671,31 @@ function UI.Settings(kind, parent, helpers)
             if not target or target == A.Key() then return end
             if forget.confirm ~= target then forget.confirm = target; forget:SetText("Confirm forget snapshot"); return end
             M.Characters()[target] = nil
+            if I.RefreshUpgradeMarks then I.RefreshUpgradeMarks() end
+            if I.RefreshRolls then I.RefreshRolls() end
             forget.confirm, target = nil, nil
             forget:SetText("Forget character snapshot")
             sync()
             UI.Refresh()
         end)
         parent:HookScript("OnHide", function() forget.confirm = nil; forget:SetText("Forget character snapshot") end)
+        y = y - 39
+        button(panel, "Exclude from gear recommendations", 240, 20, y, function()
+            local char = target and M.Characters()[target]
+            if not char or target == A.Key() then return end
+            char.excludeGear = true
+            sync()
+            if I.RefreshUpgradeMarks then I.RefreshUpgradeMarks() end
+            if I.RefreshRolls then I.RefreshRolls() end
+        end)
+        button(panel, "Include again", 130, 270, y, function()
+            local char = target and M.Characters()[target]
+            if not char then return end
+            char.excludeGear = nil
+            sync()
+            if I.RefreshUpgradeMarks then I.RefreshUpgradeMarks() end
+            if I.RefreshRolls then I.RefreshRolls() end
+        end)
         y = y - 39
     end
     panel:SetHeight(-y + 14)
