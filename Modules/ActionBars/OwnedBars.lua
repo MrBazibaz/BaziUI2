@@ -92,6 +92,72 @@ function module:BindHoveredOwnedButton(frame, input)
     return true, changed
 end
 
+local specialTargets = {}
+local specialGroups = {
+    {"PetActionButton", 10, "BONUSACTIONBUTTON"},
+    {"StanceButton", 10, "SHAPESHIFTBUTTON"},
+    {"MultiCastActionButton", 12},
+    {"PossessButton", 2},
+}
+
+local function refreshSpecialTargets()
+    for _, group in ipairs(specialGroups) do
+        for index = 1, group[2] do
+            local name = group[1] .. index
+            local native = _G[name]
+            if native and native:IsVisible() then
+                local entry = specialTargets[native]
+                if not entry then
+                    entry = {commandName = group[3] and (group[3] .. index) or ("CLICK " .. name .. ":LeftButton")}
+                    local target = CreateFrame("Button", nil, UIParent)
+                    target:SetAllPoints(native)
+                    target:SetFrameStrata("DIALOG")
+                    target:SetFrameLevel(native:GetFrameLevel() + 8)
+                    target:EnableMouse(true)
+                    target:RegisterForClicks("AnyUp")
+                    target:EnableMouseWheel(true)
+                    local mark = target:CreateTexture(nil, "OVERLAY")
+                    mark:SetAllPoints()
+                    mark:SetAtlas("UI-HUD-ActionBar-IconFrame-Mouseover")
+                    mark:SetAlpha(0.5)
+                    target.mark = mark
+                    entry.baziBindingTarget = target
+                    function entry:ShowBindingTooltip()
+                        if not bindingFrame then return end
+                        local tooltip = bindingFrame.tooltip
+                        tooltip:SetOwner(target, "ANCHOR_TOP")
+                        tooltip:SetText(GetBindingName(self.commandName) or self.commandName)
+                        local key = GetBindingKey(self.commandName)
+                        tooltip:AddLine(key or NOT_BOUND or "Not bound", 1, 0.82, 0.49)
+                        tooltip:AddLine(key and (ESCAPE_TO_UNBIND or "Escape to unbind")
+                            or (PRESS_KEY_TO_BIND or "Press a key to bind"), 1, 1, 1)
+                        tooltip:Show()
+                    end
+                    target:SetScript("OnEnter", function()
+                        if bindingFrame then selectOwnedBinding(bindingFrame, entry) end
+                    end)
+                    target:SetScript("OnClick", function(_, mouseButton)
+                        if not bindingFrame then return end
+                        selectOwnedBinding(bindingFrame, entry)
+                        if mouseButton ~= "LeftButton" and mouseButton ~= "RightButton" then
+                            bindingFrame:HandleBindingInput(mouseButton)
+                        end
+                    end)
+                    target:SetScript("OnMouseWheel", function(_, delta)
+                        if not bindingFrame then return end
+                        selectOwnedBinding(bindingFrame, entry)
+                        bindingFrame:HandleBindingInput(delta > 0 and "MOUSEWHEELUP" or "MOUSEWHEELDOWN")
+                    end)
+                    specialTargets[native] = entry
+                end
+            end
+        end
+    end
+    for native, entry in pairs(specialTargets) do
+        entry.baziBindingTarget:SetShown(bindingMode and native:IsVisible())
+    end
+end
+
 function module:UpdateOwnedBindingHover(frame)
     if not bindingMode or InCombatLockdown() then return end
     local candidate, level
@@ -112,6 +178,21 @@ function module:UpdateOwnedBindingHover(frame)
                             if not level or priority > level then candidate, level = button, priority end
                         end
                     end
+                end
+            end
+        end
+    end
+    if not frame:IsMouseOver() then
+        local cursorX, cursorY = GetCursorPosition()
+        for native, entry in pairs(specialTargets) do
+            local target = entry.baziBindingTarget
+            if native:IsVisible() and target:IsShown() then
+                local scale = target:GetEffectiveScale()
+                local x, y = cursorX / scale, cursorY / scale
+                local left, bottom, width, height = target:GetRect()
+                if left and x >= left and x < left + width and y >= bottom and y < bottom + height then
+                    local priority = target:GetFrameLevel()
+                    if not level or priority > level then candidate, level = entry, priority end
                 end
             end
         end
@@ -322,6 +403,11 @@ function module:SetOwnedBindingMode(enabled, frame)
     if not enabled and bindingFrame then selectOwnedBinding(bindingFrame, nil) end
     bindingFrame = enabled and frame or nil
     bindingMode = enabled
+    if enabled then
+        refreshSpecialTargets()
+    else
+        for _, entry in pairs(specialTargets) do entry.baziBindingTarget:Hide() end
+    end
     for _, bar in pairs(bars) do
         for _, button in ipairs(bar.buttons) do
             button.baziBindingTarget:SetShown(enabled and button:IsShown())
